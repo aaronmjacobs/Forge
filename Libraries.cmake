@@ -19,3 +19,6 @@ target_link_libraries(${PROJECT_NAME} PUBLIC glm)
 # Vulkan
 find_package(Vulkan REQUIRED)
 target_link_libraries(${PROJECT_NAME} PUBLIC Vulkan::Vulkan)
+
+# Vulkan-Hpp
+target_include_directories(${PROJECT_NAME} PUBLIC "${LIB_DIR}/Vulkan-Hpp")
