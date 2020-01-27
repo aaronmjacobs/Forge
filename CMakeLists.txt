@@ -9,5 +9,7 @@ target_compile_definitions(${PROJECT_NAME} PUBLIC FORGE_PLATFORM_MACOS=$<PLATFOR
 target_compile_definitions(${PROJECT_NAME} PUBLIC FORGE_PLATFORM_LINUX=$<PLATFORM_ID:Linux>)
 
 set(SRC_DIR "${PROJECT_SOURCE_DIR}/Source")
+set(LIB_DIR "${PROJECT_SOURCE_DIR}/Libraries")
 
 include("${PROJECT_SOURCE_DIR}/Source.cmake")
+include("${PROJECT_SOURCE_DIR}/Libraries.cmake")
