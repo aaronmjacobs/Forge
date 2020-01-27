@@ -1,5 +1,9 @@
 target_sources(${PROJECT_NAME} PRIVATE
    "${SRC_DIR}/Main.cpp"
+
+   "${SRC_DIR}/Core/Assert.h"
+   "${SRC_DIR}/Core/Log.cpp"
+   "${SRC_DIR}/Core/Log.h"
 )
 
 target_include_directories(${PROJECT_NAME} PUBLIC "${SRC_DIR}")
