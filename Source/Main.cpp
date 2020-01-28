@@ -1,6 +1,7 @@
 #include "ForgeApplication.h"
 
 #include "Core/Assert.h"
+#include "Core/Log.h"
 
 #include <exception>
 
@@ -13,7 +14,12 @@ int main(int argc, char* argv[])
    }
    catch (const std::exception& e)
    {
+#if FORGE_DEBUG
       ASSERT(false, "Caught exception: %s", e.what());
+#else
+      LOG_ERROR_MSG_BOX(e.what());
+#endif
+
       return 1;
    }
 

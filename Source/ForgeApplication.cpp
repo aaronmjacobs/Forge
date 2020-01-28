@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <array>
 #include <cstring>
+#include <map>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -141,6 +142,69 @@ namespace
 
       return layers;
    }
+
+   int getPhysicalDeviceScore(vk::PhysicalDevice physicalDevice)
+   {
+      bool hasGraphicsQueueFamily = false;
+      for (vk::QueueFamilyProperties queueFamilyProperties : physicalDevice.getQueueFamilyProperties())
+      {
+         if (queueFamilyProperties.queueFlags & vk::QueueFlagBits::eGraphics)
+         {
+            hasGraphicsQueueFamily = true;
+            break;
+         }
+      }
+      if (!hasGraphicsQueueFamily)
+      {
+         return -1;
+      }
+
+      int score = 0;
+
+      vk::PhysicalDeviceProperties properties = physicalDevice.getProperties();
+      switch (properties.deviceType)
+      {
+      case vk::PhysicalDeviceType::eOther:
+         break;
+      case vk::PhysicalDeviceType::eIntegratedGpu:
+         score += 100;
+         break;
+      case vk::PhysicalDeviceType::eDiscreteGpu:
+         score += 1000;
+         break;
+      case vk::PhysicalDeviceType::eVirtualGpu:
+         score += 10;
+         break;
+      case vk::PhysicalDeviceType::eCpu:
+         score += 1;
+         break;
+      }
+
+      vk::PhysicalDeviceFeatures features = physicalDevice.getFeatures();
+      if (features.robustBufferAccess)
+      {
+         score += 1;
+      }
+
+      return score;
+   }
+
+   vk::PhysicalDevice selectBestPhysicalDevice(const std::vector<vk::PhysicalDevice>& devices)
+   {
+      std::multimap<int, vk::PhysicalDevice> devicesByScore;
+      for (vk::PhysicalDevice device : devices)
+      {
+         devicesByScore.emplace(getPhysicalDeviceScore(device), device);
+      }
+
+      vk::PhysicalDevice bestPhysicalDevice;
+      if (!devicesByScore.empty() && devicesByScore.rbegin()->first > 0)
+      {
+         bestPhysicalDevice = devicesByScore.rbegin()->second;
+      }
+
+      return bestPhysicalDevice;
+   }
 }
 
 ForgeApplication::ForgeApplication()
@@ -185,6 +249,12 @@ ForgeApplication::ForgeApplication()
 #if FORGE_DEBUG
    debugMessenger = createDebugMessenger(instance);
 #endif // FORGE_DEBUG
+
+   physicalDevice = selectBestPhysicalDevice(instance.enumeratePhysicalDevices());
+   if (!physicalDevice)
+   {
+      throw std::runtime_error("Failed to find a suitable GPU");
+   }
 }
 
 ForgeApplication::~ForgeApplication()

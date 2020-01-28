@@ -14,7 +14,9 @@ public:
 
 private:
    GLFWwindow* window = nullptr;
+
    vk::Instance instance;
+   vk::PhysicalDevice physicalDevice;
 
 #if FORGE_DEBUG
    VkDebugUtilsMessengerEXT debugMessenger = nullptr;
