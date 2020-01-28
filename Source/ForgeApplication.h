@@ -16,8 +16,10 @@ private:
    GLFWwindow* window = nullptr;
 
    vk::Instance instance;
+   vk::SurfaceKHR surface;
    vk::Device device;
    vk::Queue graphicsQueue;
+   vk::Queue presentQueue;
 
 #if FORGE_DEBUG
    VkDebugUtilsMessengerEXT debugMessenger = nullptr;

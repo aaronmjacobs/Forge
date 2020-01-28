@@ -10,6 +10,7 @@
 #include <cstring>
 #include <map>
 #include <optional>
+#include <set>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -146,18 +147,41 @@ namespace
    struct QueueFamilyIndices
    {
       std::optional<uint32_t> graphicsFamily;
+      std::optional<uint32_t> presentFamily;
+
+      bool isComplete() const
+      {
+         return graphicsFamily && presentFamily;
+      }
+
+      std::set<uint32_t> getUniqueIndices() const
+      {
+         ASSERT(isComplete());
+
+         return { *graphicsFamily, *presentFamily };
+      }
    };
 
-   QueueFamilyIndices getQueueFamilyIndices(vk::PhysicalDevice physicalDevice)
+   QueueFamilyIndices getQueueFamilyIndices(vk::PhysicalDevice physicalDevice, vk::SurfaceKHR surface)
    {
       QueueFamilyIndices queueFamilyIndices;
 
       uint32_t index = 0;
       for (vk::QueueFamilyProperties queueFamilyProperties : physicalDevice.getQueueFamilyProperties())
       {
-         if (queueFamilyProperties.queueFlags & vk::QueueFlagBits::eGraphics)
+         if (!queueFamilyIndices.graphicsFamily && (queueFamilyProperties.queueFlags & vk::QueueFlagBits::eGraphics))
          {
             queueFamilyIndices.graphicsFamily = index;
+         }
+
+         if (!queueFamilyIndices.presentFamily && physicalDevice.getSurfaceSupportKHR(index, surface))
+         {
+            queueFamilyIndices.presentFamily = index;
+         }
+
+         if (queueFamilyIndices.isComplete())
+         {
+            break;
          }
 
          ++index;
@@ -166,10 +190,10 @@ namespace
       return queueFamilyIndices;
    }
 
-   int getPhysicalDeviceScore(vk::PhysicalDevice physicalDevice)
+   int getPhysicalDeviceScore(vk::PhysicalDevice physicalDevice, vk::SurfaceKHR surface)
    {
-      QueueFamilyIndices queueFamilyIndices = getQueueFamilyIndices(physicalDevice);
-      if (!queueFamilyIndices.graphicsFamily)
+      QueueFamilyIndices queueFamilyIndices = getQueueFamilyIndices(physicalDevice, surface);
+      if (!queueFamilyIndices.isComplete())
       {
          return -1;
       }
@@ -204,12 +228,12 @@ namespace
       return score;
    }
 
-   vk::PhysicalDevice selectBestPhysicalDevice(const std::vector<vk::PhysicalDevice>& devices)
+   vk::PhysicalDevice selectBestPhysicalDevice(const std::vector<vk::PhysicalDevice>& devices, vk::SurfaceKHR surface)
    {
       std::multimap<int, vk::PhysicalDevice> devicesByScore;
       for (vk::PhysicalDevice device : devices)
       {
-         devicesByScore.emplace(getPhysicalDeviceScore(device), device);
+         devicesByScore.emplace(getPhysicalDeviceScore(device, surface), device);
       }
 
       vk::PhysicalDevice bestPhysicalDevice;
@@ -265,26 +289,37 @@ ForgeApplication::ForgeApplication()
    debugMessenger = createDebugMessenger(instance);
 #endif // FORGE_DEBUG
 
-   vk::PhysicalDevice physicalDevice = selectBestPhysicalDevice(instance.enumeratePhysicalDevices());
+   VkSurfaceKHR vkSurface = nullptr;
+   if (glfwCreateWindowSurface(instance, window, nullptr, &vkSurface) != VK_SUCCESS)
+   {
+      throw std::runtime_error("Failed to create window surface");
+   }
+   surface = vkSurface;
+
+   vk::PhysicalDevice physicalDevice = selectBestPhysicalDevice(instance.enumeratePhysicalDevices(), surface);
    if (!physicalDevice)
    {
       throw std::runtime_error("Failed to find a suitable GPU");
    }
 
-   QueueFamilyIndices queueFamilyIndices = getQueueFamilyIndices(physicalDevice);
-   ASSERT(queueFamilyIndices.graphicsFamily);
+   QueueFamilyIndices queueFamilyIndices = getQueueFamilyIndices(physicalDevice, surface);
+   std::set<uint32_t> uniqueQueueIndices = queueFamilyIndices.getUniqueIndices();
 
    float queuePriority = 1.0f;
-   vk::DeviceQueueCreateInfo deviceQueueCreateInfo = vk::DeviceQueueCreateInfo()
-      .setQueueFamilyIndex(*queueFamilyIndices.graphicsFamily)
-      .setQueueCount(1)
-      .setPQueuePriorities(&queuePriority);
+   std::vector<vk::DeviceQueueCreateInfo> deviceQueueCreateInfos;
+   for (uint32_t queueFamilyIndex : uniqueQueueIndices)
+   {
+      deviceQueueCreateInfos.push_back(vk::DeviceQueueCreateInfo()
+         .setQueueFamilyIndex(queueFamilyIndex)
+         .setQueueCount(1)
+         .setPQueuePriorities(&queuePriority));
+   }
 
    vk::PhysicalDeviceFeatures deviceFeatures;
 
    vk::DeviceCreateInfo deviceCreateInfo = vk::DeviceCreateInfo()
-      .setPQueueCreateInfos(&deviceQueueCreateInfo)
-      .setQueueCreateInfoCount(1)
+      .setPQueueCreateInfos(deviceQueueCreateInfos.data())
+      .setQueueCreateInfoCount(static_cast<uint32_t>(deviceQueueCreateInfos.size()))
       .setPEnabledFeatures(&deviceFeatures);
 
 #if FORGE_DEBUG
@@ -294,16 +329,22 @@ ForgeApplication::ForgeApplication()
 #endif // FORGE_DEBUG
 
    device = physicalDevice.createDevice(deviceCreateInfo);
+
    graphicsQueue = device.getQueue(*queueFamilyIndices.graphicsFamily, 0);
+   presentQueue = device.getQueue(*queueFamilyIndices.presentFamily, 0);
 }
 
 ForgeApplication::~ForgeApplication()
 {
+   device.destroy();
+   device = nullptr;
+
+   instance.destroySurfaceKHR(surface);
+   surface = nullptr;
+
 #if FORGE_DEBUG
    destroyDebugMessenger(instance, debugMessenger);
 #endif // FORGE_DEBUG
-
-   device.destroy();
 
    instance.destroy();
    instance = nullptr;
