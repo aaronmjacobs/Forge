@@ -9,6 +9,7 @@
 #include <array>
 #include <cstring>
 #include <map>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -31,7 +32,6 @@ namespace
          typeName = "performance";
          break;
       default:
-         ASSERT(false);
          typeName = "unknown";
          break;
       }
@@ -71,7 +71,7 @@ namespace
 
    VkDebugUtilsMessengerEXT createDebugMessenger(vk::Instance instance)
    {
-      VkDebugUtilsMessengerEXT debugMessenger;
+      VkDebugUtilsMessengerEXT debugMessenger = nullptr;
       if (PFN_vkCreateDebugUtilsMessengerEXT pfnCreateDebugUtilsMessengerEXT = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(glfwGetInstanceProcAddress(instance, "vkCreateDebugUtilsMessengerEXT")))
       {
          VkDebugUtilsMessengerCreateInfoEXT debugUtilsMessengerCreateInfo = createDebugMessengerCreateInfo();
@@ -143,18 +143,33 @@ namespace
       return layers;
    }
 
-   int getPhysicalDeviceScore(vk::PhysicalDevice physicalDevice)
+   struct QueueFamilyIndices
    {
-      bool hasGraphicsQueueFamily = false;
+      std::optional<uint32_t> graphicsFamily;
+   };
+
+   QueueFamilyIndices getQueueFamilyIndices(vk::PhysicalDevice physicalDevice)
+   {
+      QueueFamilyIndices queueFamilyIndices;
+
+      uint32_t index = 0;
       for (vk::QueueFamilyProperties queueFamilyProperties : physicalDevice.getQueueFamilyProperties())
       {
          if (queueFamilyProperties.queueFlags & vk::QueueFlagBits::eGraphics)
          {
-            hasGraphicsQueueFamily = true;
-            break;
+            queueFamilyIndices.graphicsFamily = index;
          }
+
+         ++index;
       }
-      if (!hasGraphicsQueueFamily)
+
+      return queueFamilyIndices;
+   }
+
+   int getPhysicalDeviceScore(vk::PhysicalDevice physicalDevice)
+   {
+      QueueFamilyIndices queueFamilyIndices = getQueueFamilyIndices(physicalDevice);
+      if (!queueFamilyIndices.graphicsFamily)
       {
          return -1;
       }
@@ -250,11 +265,36 @@ ForgeApplication::ForgeApplication()
    debugMessenger = createDebugMessenger(instance);
 #endif // FORGE_DEBUG
 
-   physicalDevice = selectBestPhysicalDevice(instance.enumeratePhysicalDevices());
+   vk::PhysicalDevice physicalDevice = selectBestPhysicalDevice(instance.enumeratePhysicalDevices());
    if (!physicalDevice)
    {
       throw std::runtime_error("Failed to find a suitable GPU");
    }
+
+   QueueFamilyIndices queueFamilyIndices = getQueueFamilyIndices(physicalDevice);
+   ASSERT(queueFamilyIndices.graphicsFamily);
+
+   float queuePriority = 1.0f;
+   vk::DeviceQueueCreateInfo deviceQueueCreateInfo = vk::DeviceQueueCreateInfo()
+      .setQueueFamilyIndex(*queueFamilyIndices.graphicsFamily)
+      .setQueueCount(1)
+      .setPQueuePriorities(&queuePriority);
+
+   vk::PhysicalDeviceFeatures deviceFeatures;
+
+   vk::DeviceCreateInfo deviceCreateInfo = vk::DeviceCreateInfo()
+      .setPQueueCreateInfos(&deviceQueueCreateInfo)
+      .setQueueCreateInfoCount(1)
+      .setPEnabledFeatures(&deviceFeatures);
+
+#if FORGE_DEBUG
+   deviceCreateInfo = deviceCreateInfo
+      .setEnabledLayerCount(static_cast<uint32_t>(layers.size()))
+      .setPpEnabledLayerNames(layers.data());
+#endif // FORGE_DEBUG
+
+   device = physicalDevice.createDevice(deviceCreateInfo);
+   graphicsQueue = device.getQueue(*queueFamilyIndices.graphicsFamily, 0);
 }
 
 ForgeApplication::~ForgeApplication()
@@ -262,6 +302,8 @@ ForgeApplication::~ForgeApplication()
 #if FORGE_DEBUG
    destroyDebugMessenger(instance, debugMessenger);
 #endif // FORGE_DEBUG
+
+   device.destroy();
 
    instance.destroy();
    instance = nullptr;

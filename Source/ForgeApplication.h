@@ -16,7 +16,8 @@ private:
    GLFWwindow* window = nullptr;
 
    vk::Instance instance;
-   vk::PhysicalDevice physicalDevice;
+   vk::Device device;
+   vk::Queue graphicsQueue;
 
 #if FORGE_DEBUG
    VkDebugUtilsMessengerEXT debugMessenger = nullptr;
