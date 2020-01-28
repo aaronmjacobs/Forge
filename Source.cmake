@@ -1,4 +1,6 @@
 target_sources(${PROJECT_NAME} PRIVATE
+   "${SRC_DIR}/ForgeApplication.cpp"
+   "${SRC_DIR}/ForgeApplication.h"
    "${SRC_DIR}/Main.cpp"
 
    "${SRC_DIR}/Core/Assert.h"
