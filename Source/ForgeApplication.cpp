@@ -95,16 +95,24 @@ namespace
    }
 #endif // FORGE_DEBUG
 
+   bool hasExtensionProperty(const std::vector<vk::ExtensionProperties>& extensionProperties, const char* name)
+   {
+      return std::find_if(extensionProperties.begin(), extensionProperties.end(), [name](const vk::ExtensionProperties& properties)
+      {
+         return std::strcmp(name, properties.extensionName) == 0;
+      }) != extensionProperties.end();
+   }
+
+   bool hasLayerProperty(const std::vector<vk::LayerProperties>& layerProperties, const char* name)
+   {
+      return std::find_if(layerProperties.begin(), layerProperties.end(), [name](const vk::LayerProperties& properties)
+      {
+         return std::strcmp(name, properties.layerName) == 0;
+      }) != layerProperties.end();
+   }
+
    std::vector<const char*> getExtensions()
    {
-      static const auto hasExtensionProperty = [](const std::vector<vk::ExtensionProperties>& extensionProperties, const char* name)
-      {
-         return std::find_if(extensionProperties.begin(), extensionProperties.end(), [name](const vk::ExtensionProperties& properties)
-         {
-            return std::strcmp(name, properties.extensionName) == 0;
-         }) != extensionProperties.end();
-      };
-
       std::vector<const char*> extensions;
 
       uint32_t glfwRequiredExtensionCount = 0;
@@ -138,14 +146,6 @@ namespace
 
    std::vector<const char*> getLayers()
    {
-      static const auto hasLayerProperty = [](const std::vector<vk::LayerProperties>& layerProperties, const char* name)
-      {
-         return std::find_if(layerProperties.begin(), layerProperties.end(), [name](const vk::LayerProperties& properties)
-         {
-            return std::strcmp(name, properties.layerName) == 0;
-         }) != layerProperties.end();
-      };
-
       std::vector<const char*> layers;
 
 #if FORGE_DEBUG
@@ -166,6 +166,32 @@ namespace
 #endif // FORGE_DEBUG
 
       return layers;
+   }
+
+   std::vector<const char*> getDeviceExtensions(vk::PhysicalDevice physicalDevice)
+   {
+      static const std::array<const char*, 1> kRequiredDeviceExtensions =
+      {
+         VK_KHR_SWAPCHAIN_EXTENSION_NAME
+      };
+
+      std::vector<const char*> deviceExtensions;
+      deviceExtensions.reserve(kRequiredDeviceExtensions.size());
+
+      std::vector<vk::ExtensionProperties> deviceExtensionProperties = physicalDevice.enumerateDeviceExtensionProperties();
+      for (const char* requiredDeviceExtension : kRequiredDeviceExtensions)
+      {
+         if (hasExtensionProperty(deviceExtensionProperties, requiredDeviceExtension))
+         {
+            deviceExtensions.push_back(requiredDeviceExtension);
+         }
+         else
+         {
+            throw std::runtime_error(std::string("Required device was missing: ") + requiredDeviceExtension);
+         }
+      }
+
+      return deviceExtensions;
    }
 
    struct QueueFamilyIndices
@@ -216,6 +242,15 @@ namespace
 
    int getPhysicalDeviceScore(vk::PhysicalDevice physicalDevice, vk::SurfaceKHR surface)
    {
+      try
+      {
+         getDeviceExtensions(physicalDevice);
+      }
+      catch (const std::runtime_error & e)
+      {
+         return -1;
+      }
+
       QueueFamilyIndices queueFamilyIndices = getQueueFamilyIndices(physicalDevice, surface);
       if (!queueFamilyIndices.isComplete())
       {
@@ -339,11 +374,15 @@ ForgeApplication::ForgeApplication()
          .setPQueuePriorities(&queuePriority));
    }
 
+   std::vector<const char*> deviceExtensions = getDeviceExtensions(physicalDevice);
+
    vk::PhysicalDeviceFeatures deviceFeatures;
 
    vk::DeviceCreateInfo deviceCreateInfo = vk::DeviceCreateInfo()
       .setPQueueCreateInfos(deviceQueueCreateInfos.data())
       .setQueueCreateInfoCount(static_cast<uint32_t>(deviceQueueCreateInfos.size()))
+      .setPpEnabledExtensionNames(deviceExtensions.data())
+      .setEnabledExtensionCount(static_cast<uint32_t>(deviceExtensions.size()))
       .setPEnabledFeatures(&deviceFeatures);
 
 #if FORGE_DEBUG
