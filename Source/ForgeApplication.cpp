@@ -97,19 +97,40 @@ namespace
 
    std::vector<const char*> getExtensions()
    {
+      static const auto hasExtensionProperty = [](const std::vector<vk::ExtensionProperties>& extensionProperties, const char* name)
+      {
+         return std::find_if(extensionProperties.begin(), extensionProperties.end(), [name](const vk::ExtensionProperties& properties)
+         {
+            return std::strcmp(name, properties.extensionName) == 0;
+         }) != extensionProperties.end();
+      };
+
       std::vector<const char*> extensions;
 
       uint32_t glfwRequiredExtensionCount = 0;
       const char** glfwRequiredExtensionNames = glfwGetRequiredInstanceExtensions(&glfwRequiredExtensionCount);
-
       extensions.reserve(glfwRequiredExtensionCount);
+
+      std::vector<vk::ExtensionProperties> extensionProperties = vk::enumerateInstanceExtensionProperties();
       for (uint32_t i = 0; i < glfwRequiredExtensionCount; ++i)
       {
-         extensions.push_back(glfwRequiredExtensionNames[i]);
+         const char* requiredExtension = glfwRequiredExtensionNames[i];
+
+         if (hasExtensionProperty(extensionProperties, requiredExtension))
+         {
+            extensions.push_back(requiredExtension);
+         }
+         else
+         {
+            throw std::runtime_error(std::string("Required extension was missing: ") + requiredExtension);
+         }
       }
 
 #if FORGE_DEBUG
-      extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+      if (hasExtensionProperty(extensionProperties, VK_EXT_DEBUG_UTILS_EXTENSION_NAME))
+      {
+         extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+      }
 #endif // FORGE_DEBUG
 
       return extensions;
@@ -117,6 +138,14 @@ namespace
 
    std::vector<const char*> getLayers()
    {
+      static const auto hasLayerProperty = [](const std::vector<vk::LayerProperties>& layerProperties, const char* name)
+      {
+         return std::find_if(layerProperties.begin(), layerProperties.end(), [name](const vk::LayerProperties& properties)
+         {
+            return std::strcmp(name, properties.layerName) == 0;
+         }) != layerProperties.end();
+      };
+
       std::vector<const char*> layers;
 
 #if FORGE_DEBUG
@@ -129,12 +158,7 @@ namespace
       std::vector<vk::LayerProperties> layerProperties = vk::enumerateInstanceLayerProperties();
       for (const char* validationLayer : kDesiredValidationLayers)
       {
-         auto location = std::find_if(layerProperties.begin(), layerProperties.end(), [validationLayer](const vk::LayerProperties& properties)
-         {
-            return std::strcmp(validationLayer, properties.layerName) == 0;
-         });
-
-         if (location != layerProperties.end())
+         if (hasLayerProperty(layerProperties, validationLayer))
          {
             layers.push_back(validationLayer);
          }
