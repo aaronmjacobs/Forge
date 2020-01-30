@@ -17,6 +17,9 @@
 
 namespace
 {
+   const int kInitialWindowWidth = 1280;
+   const int kInitialWindowHeight = 720;
+
 #if FORGE_DEBUG
    VKAPI_ATTR VkBool32 VKAPI_CALL vulkanDebugMessageCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData)
    {
@@ -194,6 +197,86 @@ namespace
       return deviceExtensions;
    }
 
+   struct SwapChainSupportDetails
+   {
+      vk::SurfaceCapabilitiesKHR capabilities;
+      std::vector<vk::SurfaceFormatKHR> formats;
+      std::vector<vk::PresentModeKHR> presentModes;
+
+      bool isValid() const
+      {
+         return !formats.empty() && !presentModes.empty();
+      }
+   };
+
+   SwapChainSupportDetails getSwapChainSupportDetails(vk::PhysicalDevice physicalDevice, vk::SurfaceKHR surface)
+   {
+      SwapChainSupportDetails details;
+
+      details.capabilities = physicalDevice.getSurfaceCapabilitiesKHR(surface);
+      details.formats = physicalDevice.getSurfaceFormatsKHR(surface);
+      details.presentModes = physicalDevice.getSurfacePresentModesKHR(surface);
+
+      return details;
+   }
+
+   vk::SurfaceFormatKHR chooseSwapChainSurfaceFormat(const std::vector<vk::SurfaceFormatKHR>& formats)
+   {
+      for (const vk::SurfaceFormatKHR& format : formats)
+      {
+         if (format.format == vk::Format::eB8G8R8A8Unorm && format.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear)
+         {
+            return format;
+         }
+      }
+
+      if (!formats.empty())
+      {
+         return formats[0];
+      }
+
+      throw std::runtime_error("No swapchain formats available");
+   }
+
+   vk::PresentModeKHR chooseSwapChainPresentMode(const std::vector<vk::PresentModeKHR>& presentModes)
+   {
+      static const auto containsPresentMode = [](const std::vector<vk::PresentModeKHR>& presentModes, vk::PresentModeKHR presentMode)
+      {
+         return std::find(presentModes.begin(), presentModes.end(), presentMode) != presentModes.end();
+      };
+
+      if (containsPresentMode(presentModes, vk::PresentModeKHR::eMailbox))
+      {
+         return vk::PresentModeKHR::eMailbox;
+      }
+
+      if (containsPresentMode(presentModes, vk::PresentModeKHR::eFifo))
+      {
+         return vk::PresentModeKHR::eFifo;
+      }
+
+      if (!presentModes.empty())
+      {
+         return presentModes[0];
+      }
+
+      throw std::runtime_error("No swapchain present modes available");
+   }
+
+   vk::Extent2D chooseSwapChainExtent(const vk::SurfaceCapabilitiesKHR& capabilities)
+   {
+      if (capabilities.currentExtent.width != UINT32_MAX)
+      {
+         return capabilities.currentExtent;
+      }
+
+      vk::Extent2D extent(static_cast<uint32_t>(kInitialWindowWidth), static_cast<uint32_t>(kInitialWindowHeight));
+      extent.width = std::max(capabilities.minImageExtent.width, std::min(capabilities.maxImageExtent.width, extent.width));
+      extent.height = std::max(capabilities.minImageExtent.height, std::min(capabilities.maxImageExtent.height, extent.height));
+
+      return extent;
+   }
+
    struct QueueFamilyIndices
    {
       std::optional<uint32_t> graphicsFamily;
@@ -246,7 +329,13 @@ namespace
       {
          getDeviceExtensions(physicalDevice);
       }
-      catch (const std::runtime_error & e)
+      catch (const std::runtime_error&)
+      {
+         return -1;
+      }
+
+      SwapChainSupportDetails swapChainSupportDetails = getSwapChainSupportDetails(physicalDevice, surface);
+      if (!swapChainSupportDetails.isValid())
       {
          return -1;
       }
@@ -318,7 +407,7 @@ ForgeApplication::ForgeApplication()
    }
 
    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-   window = glfwCreateWindow(1280, 720, FORGE_PROJECT_NAME, nullptr, nullptr);
+   window = glfwCreateWindow(kInitialWindowWidth, kInitialWindowHeight, FORGE_PROJECT_NAME, nullptr, nullptr);
 
    vk::ApplicationInfo applicationInfo = vk::ApplicationInfo()
       .setPApplicationName(FORGE_PROJECT_NAME)
@@ -395,10 +484,55 @@ ForgeApplication::ForgeApplication()
 
    graphicsQueue = device.getQueue(*queueFamilyIndices.graphicsFamily, 0);
    presentQueue = device.getQueue(*queueFamilyIndices.presentFamily, 0);
+
+   SwapChainSupportDetails swapChainSupportDetails = getSwapChainSupportDetails(physicalDevice, surface);
+   ASSERT(swapChainSupportDetails.isValid());
+
+   vk::SurfaceFormatKHR surfaceFormat = chooseSwapChainSurfaceFormat(swapChainSupportDetails.formats);
+   vk::PresentModeKHR presentMode = chooseSwapChainPresentMode(swapChainSupportDetails.presentModes);
+   vk::Extent2D extent = chooseSwapChainExtent(swapChainSupportDetails.capabilities);
+
+   uint32_t desiredMinImageCount = swapChainSupportDetails.capabilities.minImageCount + 1;
+   uint32_t minImageCount = swapChainSupportDetails.capabilities.maxImageCount > 0 ? std::min(swapChainSupportDetails.capabilities.maxImageCount, desiredMinImageCount) : desiredMinImageCount;
+
+   vk::SwapchainCreateInfoKHR swapchainCreateInfo = vk::SwapchainCreateInfoKHR()
+      .setSurface(surface)
+      .setMinImageCount(minImageCount)
+      .setImageFormat(surfaceFormat.format)
+      .setImageColorSpace(surfaceFormat.colorSpace)
+      .setImageExtent(extent)
+      .setImageArrayLayers(1)
+      .setImageUsage(vk::ImageUsageFlagBits::eColorAttachment)
+      .setPreTransform(swapChainSupportDetails.capabilities.currentTransform)
+      .setCompositeAlpha(vk::CompositeAlphaFlagBitsKHR::eOpaque)
+      .setPresentMode(presentMode)
+      .setClipped(true);
+
+   if (*queueFamilyIndices.graphicsFamily == *queueFamilyIndices.presentFamily)
+   {
+      swapchainCreateInfo = swapchainCreateInfo.setImageSharingMode(vk::SharingMode::eExclusive);
+   }
+   else
+   {
+      std::array<uint32_t, 2> indices = { *queueFamilyIndices.graphicsFamily, *queueFamilyIndices.presentFamily };
+
+      swapchainCreateInfo = swapchainCreateInfo
+         .setImageSharingMode(vk::SharingMode::eConcurrent)
+         .setQueueFamilyIndexCount(static_cast<uint32_t>(indices.size()))
+         .setPQueueFamilyIndices(indices.data());
+   }
+
+   swapchain = device.createSwapchainKHR(swapchainCreateInfo);
+   swapchainImages = device.getSwapchainImagesKHR(swapchain);
+   swapchainImageFormat = surfaceFormat.format;
+   swapchainExtent = extent;
 }
 
 ForgeApplication::~ForgeApplication()
 {
+   device.destroySwapchainKHR(swapchain);
+   swapchain = nullptr;
+
    device.destroy();
    device = nullptr;
 

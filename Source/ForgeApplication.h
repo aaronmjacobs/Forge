@@ -2,6 +2,8 @@
 
 #include <vulkan/vulkan.hpp>
 
+#include <vector>
+
 struct GLFWwindow;
 
 class ForgeApplication
@@ -20,6 +22,11 @@ private:
    vk::Device device;
    vk::Queue graphicsQueue;
    vk::Queue presentQueue;
+
+   vk::SwapchainKHR swapchain;
+   std::vector<vk::Image> swapchainImages;
+   vk::Format swapchainImageFormat;
+   vk::Extent2D swapchainExtent;
 
 #if FORGE_DEBUG
    VkDebugUtilsMessengerEXT debugMessenger = nullptr;
