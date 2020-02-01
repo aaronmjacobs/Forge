@@ -396,6 +396,28 @@ namespace
 
 ForgeApplication::ForgeApplication()
 {
+   initializeGlfw();
+   initializeVulkan();
+}
+
+ForgeApplication::~ForgeApplication()
+{
+   terminateVulkan();
+   terminateGlfw();
+}
+
+void ForgeApplication::run()
+{
+   while (!glfwWindowShouldClose(window))
+   {
+      glfwPollEvents();
+   }
+}
+
+void ForgeApplication::initializeGlfw()
+{
+   ASSERT(!window);
+
    if (!glfwInit())
    {
       throw std::runtime_error("Failed to initialize GLFW");
@@ -409,7 +431,20 @@ ForgeApplication::ForgeApplication()
    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
    window = glfwCreateWindow(kInitialWindowWidth, kInitialWindowHeight, FORGE_PROJECT_NAME, nullptr, nullptr);
+}
 
+void ForgeApplication::terminateGlfw()
+{
+   ASSERT(window);
+
+   glfwDestroyWindow(window);
+   window = nullptr;
+
+   glfwTerminate();
+}
+
+void ForgeApplication::initializeVulkan()
+{
    vk::ApplicationInfo applicationInfo = vk::ApplicationInfo()
       .setPApplicationName(FORGE_PROJECT_NAME)
       .setApplicationVersion(VK_MAKE_VERSION(FORGE_VERSION_MAJOR, FORGE_VERSION_MINOR, FORGE_VERSION_PATCH))
@@ -548,7 +583,7 @@ ForgeApplication::ForgeApplication()
    }
 }
 
-ForgeApplication::~ForgeApplication()
+void ForgeApplication::terminateVulkan()
 {
    for (vk::ImageView swapchainImageView : swapchainImageViews)
    {
@@ -571,17 +606,4 @@ ForgeApplication::~ForgeApplication()
 
    instance.destroy();
    instance = nullptr;
-
-   glfwDestroyWindow(window);
-   window = nullptr;
-
-   glfwTerminate();
-}
-
-void ForgeApplication::run()
-{
-   while (!glfwWindowShouldClose(window))
-   {
-      glfwPollEvents();
-   }
 }

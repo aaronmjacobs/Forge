@@ -15,6 +15,12 @@ public:
    void run();
 
 private:
+   void initializeGlfw();
+   void terminateGlfw();
+
+   void initializeVulkan();
+   void terminateVulkan();
+
    GLFWwindow* window = nullptr;
 
    vk::Instance instance;
