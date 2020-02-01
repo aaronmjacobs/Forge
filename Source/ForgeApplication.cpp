@@ -527,10 +527,35 @@ ForgeApplication::ForgeApplication()
    swapchainImages = device.getSwapchainImagesKHR(swapchain);
    swapchainImageFormat = surfaceFormat.format;
    swapchainExtent = extent;
+
+   swapchainImageViews.reserve(swapchainImages.size());
+   for (vk::Image swapchainImage : swapchainImages)
+   {
+      vk::ImageSubresourceRange imageSubresourceRange = vk::ImageSubresourceRange()
+         .setAspectMask(vk::ImageAspectFlagBits::eColor)
+         .setBaseMipLevel(0)
+         .setLevelCount(1)
+         .setBaseArrayLayer(0)
+         .setLayerCount(1);
+
+      vk::ImageViewCreateInfo imageViewCreateInfo = vk::ImageViewCreateInfo()
+         .setImage(swapchainImage)
+         .setViewType(vk::ImageViewType::e2D)
+         .setFormat(swapchainImageFormat)
+         .setSubresourceRange(imageSubresourceRange);
+
+      swapchainImageViews.push_back(device.createImageView(imageViewCreateInfo));
+   }
 }
 
 ForgeApplication::~ForgeApplication()
 {
+   for (vk::ImageView swapchainImageView : swapchainImageViews)
+   {
+      device.destroyImageView(swapchainImageView);
+   }
+   swapchainImageViews.clear();
+
    device.destroySwapchainKHR(swapchain);
    swapchain = nullptr;
 
