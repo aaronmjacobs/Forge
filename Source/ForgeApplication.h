@@ -27,6 +27,9 @@ private:
    void initializeGraphicsPipeline();
    void terminateGraphicsPipeline();
 
+   void initializeFramebuffers();
+   void terminateFramebuffers();
+
    GLFWwindow* window = nullptr;
 
    vk::Instance instance;
@@ -44,6 +47,8 @@ private:
    vk::RenderPass renderPass;
    vk::PipelineLayout pipelineLayout;
    vk::Pipeline graphicsPipeline;
+
+   std::vector<vk::Framebuffer> swapchainFramebuffers;
 
 #if FORGE_DEBUG
    VkDebugUtilsMessengerEXT debugMessenger = nullptr;

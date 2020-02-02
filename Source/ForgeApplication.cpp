@@ -420,10 +420,12 @@ ForgeApplication::ForgeApplication()
    initializeVulkan();
    initializeRenderPass();
    initializeGraphicsPipeline();
+   initializeFramebuffers();
 }
 
 ForgeApplication::~ForgeApplication()
 {
+   terminateFramebuffers();
    terminateGraphicsPipeline();
    terminateRenderPass();
    terminateVulkan();
@@ -760,4 +762,34 @@ void ForgeApplication::terminateGraphicsPipeline()
 
    device.destroyPipelineLayout(pipelineLayout);
    pipelineLayout = nullptr;
+}
+
+void ForgeApplication::initializeFramebuffers()
+{
+   ASSERT(swapchainFramebuffers.empty());
+   swapchainFramebuffers.reserve(swapchainImageViews.size());
+
+   for (vk::ImageView swapchainImageView : swapchainImageViews)
+   {
+      std::array<vk::ImageView, 1> attachments = { swapchainImageView };
+
+      vk::FramebufferCreateInfo framebufferCreateInfo = vk::FramebufferCreateInfo()
+         .setRenderPass(renderPass)
+         .setAttachmentCount(static_cast<uint32_t>(attachments.size()))
+         .setPAttachments(attachments.data())
+         .setWidth(swapchainExtent.width)
+         .setHeight(swapchainExtent.height)
+         .setLayers(1);
+
+      swapchainFramebuffers.push_back(device.createFramebuffer(framebufferCreateInfo));
+   }
+}
+
+void ForgeApplication::terminateFramebuffers()
+{
+   for (vk::Framebuffer swapchainFramebuffer : swapchainFramebuffers)
+   {
+      device.destroyFramebuffer(swapchainFramebuffer);
+   }
+   swapchainFramebuffers.clear();
 }
