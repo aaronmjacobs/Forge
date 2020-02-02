@@ -21,6 +21,12 @@ private:
    void initializeVulkan();
    void terminateVulkan();
 
+   void initializeRenderPass();
+   void terminateRenderPass();
+
+   void initializeGraphicsPipeline();
+   void terminateGraphicsPipeline();
+
    GLFWwindow* window = nullptr;
 
    vk::Instance instance;
@@ -34,6 +40,10 @@ private:
    vk::Format swapchainImageFormat;
    vk::Extent2D swapchainExtent;
    std::vector<vk::ImageView> swapchainImageViews;
+
+   vk::RenderPass renderPass;
+   vk::PipelineLayout pipelineLayout;
+   vk::Pipeline graphicsPipeline;
 
 #if FORGE_DEBUG
    VkDebugUtilsMessengerEXT debugMessenger = nullptr;

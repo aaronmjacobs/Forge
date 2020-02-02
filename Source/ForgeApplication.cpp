@@ -2,6 +2,7 @@
 
 #include "Core/Assert.h"
 #include "Core/Log.h"
+#include "Platform/IOUtils.h"
 
 #include <GLFW/glfw3.h>
 
@@ -392,16 +393,39 @@ namespace
 
       return bestPhysicalDevice;
    }
+
+   vk::ShaderModule createShaderModule(vk::Device device, const std::filesystem::path& relativeShaderPath)
+   {
+      vk::ShaderModule shaderModule;
+
+      if (std::optional<std::filesystem::path> absoluteShaderPath = IOUtils::getAbsoluteResourcePath(relativeShaderPath))
+      {
+         if (std::optional<std::vector<uint8_t>> shaderData = IOUtils::readBinaryFile(*absoluteShaderPath))
+         {
+            vk::ShaderModuleCreateInfo createInfo = vk::ShaderModuleCreateInfo()
+               .setCodeSize(shaderData->size())
+               .setPCode(reinterpret_cast<const uint32_t*>(shaderData->data()));
+
+            shaderModule = device.createShaderModule(createInfo);
+         }
+      }
+
+      return shaderModule;
+   }
 }
 
 ForgeApplication::ForgeApplication()
 {
    initializeGlfw();
    initializeVulkan();
+   initializeRenderPass();
+   initializeGraphicsPipeline();
 }
 
 ForgeApplication::~ForgeApplication()
 {
+   terminateGraphicsPipeline();
+   terminateRenderPass();
    terminateVulkan();
    terminateGlfw();
 }
@@ -606,4 +630,134 @@ void ForgeApplication::terminateVulkan()
 
    instance.destroy();
    instance = nullptr;
+}
+
+void ForgeApplication::initializeRenderPass()
+{
+   vk::AttachmentDescription colorAttachment = vk::AttachmentDescription()
+      .setFormat(swapchainImageFormat)
+      .setSamples(vk::SampleCountFlagBits::e1)
+      .setLoadOp(vk::AttachmentLoadOp::eClear)
+      .setStoreOp(vk::AttachmentStoreOp::eStore)
+      .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+      .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+      .setInitialLayout(vk::ImageLayout::eUndefined)
+      .setFinalLayout(vk::ImageLayout::ePresentSrcKHR);
+
+   vk::AttachmentReference colorAttachmentReference = vk::AttachmentReference()
+      .setAttachment(0)
+      .setLayout(vk::ImageLayout::eColorAttachmentOptimal);
+
+   vk::SubpassDescription subpassDescription = vk::SubpassDescription()
+      .setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
+      .setColorAttachmentCount(1)
+      .setPColorAttachments(&colorAttachmentReference);
+
+   vk::RenderPassCreateInfo renderPassCreateInfo = vk::RenderPassCreateInfo()
+      .setAttachmentCount(1)
+      .setPAttachments(&colorAttachment)
+      .setSubpassCount(1)
+      .setPSubpasses(&subpassDescription);
+
+   renderPass = device.createRenderPass(renderPassCreateInfo);
+}
+
+void ForgeApplication::terminateRenderPass()
+{
+   device.destroyRenderPass(renderPass);
+   renderPass = nullptr;
+}
+
+void ForgeApplication::initializeGraphicsPipeline()
+{
+   vk::ShaderModule vertShaderModule = createShaderModule(device, "Shaders/Triangle.vert.spv");
+   vk::ShaderModule fragShaderModule = createShaderModule(device, "Shaders/Triangle.frag.spv");
+
+   vk::PipelineShaderStageCreateInfo vertShaderStageCreateinfo = vk::PipelineShaderStageCreateInfo()
+      .setStage(vk::ShaderStageFlagBits::eVertex)
+      .setModule(vertShaderModule)
+      .setPName("main");
+
+   vk::PipelineShaderStageCreateInfo fragShaderStageCreateinfo = vk::PipelineShaderStageCreateInfo()
+      .setStage(vk::ShaderStageFlagBits::eFragment)
+      .setModule(fragShaderModule)
+      .setPName("main");
+
+   std::array<vk::PipelineShaderStageCreateInfo, 2> shaderStages = { vertShaderStageCreateinfo, fragShaderStageCreateinfo };
+
+   vk::PipelineVertexInputStateCreateInfo vertexInputCreateInfo;
+
+   vk::PipelineInputAssemblyStateCreateInfo inputAssemblyCreateInfo = vk::PipelineInputAssemblyStateCreateInfo()
+      .setTopology(vk::PrimitiveTopology::eTriangleList);
+
+   vk::Viewport viewport = vk::Viewport()
+      .setX(0.0f)
+      .setY(0.0f)
+      .setWidth(static_cast<float>(swapchainExtent.width))
+      .setHeight(static_cast<float>(swapchainExtent.height))
+      .setMinDepth(0.0f)
+      .setMaxDepth(1.0f);
+
+   vk::Rect2D scissor = vk::Rect2D()
+      .setExtent(swapchainExtent);
+
+   vk::PipelineViewportStateCreateInfo viewportStateCreateInfo = vk::PipelineViewportStateCreateInfo()
+      .setViewportCount(1)
+      .setPViewports(&viewport)
+      .setScissorCount(1)
+      .setPScissors(&scissor);
+
+   vk::PipelineRasterizationStateCreateInfo rasterizationStateCreateInfo = vk::PipelineRasterizationStateCreateInfo()
+      .setPolygonMode(vk::PolygonMode::eFill)
+      .setLineWidth(1.0f) // TODO necessary?
+      .setCullMode(vk::CullModeFlagBits::eBack)
+      .setFrontFace(vk::FrontFace::eClockwise);
+
+   vk::PipelineMultisampleStateCreateInfo multisampleStateCreateInfo = vk::PipelineMultisampleStateCreateInfo()
+      .setSampleShadingEnable(false)
+      .setRasterizationSamples(vk::SampleCountFlagBits::e1)
+      .setMinSampleShading(1.0f);
+
+   vk::PipelineColorBlendAttachmentState colorBlendAttachmentState = vk::PipelineColorBlendAttachmentState()
+      .setColorWriteMask(vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA)
+      .setBlendEnable(false);
+
+   vk::PipelineColorBlendStateCreateInfo colorBlendStateCreateInfo = vk::PipelineColorBlendStateCreateInfo()
+      .setLogicOpEnable(false)
+      .setAttachmentCount(1)
+      .setPAttachments(&colorBlendAttachmentState);
+
+   vk::PipelineLayoutCreateInfo pipelineLayoutCreateInfo;
+   pipelineLayout = device.createPipelineLayout(pipelineLayoutCreateInfo);
+
+   vk::GraphicsPipelineCreateInfo graphicsPipelineCreateInfo = vk::GraphicsPipelineCreateInfo()
+      .setStageCount(static_cast<uint32_t>(shaderStages.size()))
+      .setPStages(shaderStages.data())
+      .setPVertexInputState(&vertexInputCreateInfo)
+      .setPInputAssemblyState(&inputAssemblyCreateInfo)
+      .setPViewportState(&viewportStateCreateInfo)
+      .setPRasterizationState(&rasterizationStateCreateInfo)
+      .setPMultisampleState(&multisampleStateCreateInfo)
+      .setPDepthStencilState(nullptr)
+      .setPColorBlendState(&colorBlendStateCreateInfo)
+      .setPDynamicState(nullptr)
+      .setLayout(pipelineLayout)
+      .setRenderPass(renderPass)
+      .setSubpass(0)
+      .setBasePipelineHandle(nullptr)
+      .setBasePipelineIndex(-1);
+
+   graphicsPipeline = device.createGraphicsPipeline(nullptr, graphicsPipelineCreateInfo);
+
+   device.destroyShaderModule(fragShaderModule);
+   device.destroyShaderModule(vertShaderModule);
+}
+
+void ForgeApplication::terminateGraphicsPipeline()
+{
+   device.destroyPipeline(graphicsPipeline);
+   graphicsPipeline = nullptr;
+
+   device.destroyPipelineLayout(pipelineLayout);
+   pipelineLayout = nullptr;
 }
