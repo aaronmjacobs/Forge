@@ -8,7 +8,14 @@ target_sources(${PROJECT_NAME} PRIVATE
    "${SRC_DIR}/Core/Assert.h"
    "${SRC_DIR}/Core/Log.cpp"
    "${SRC_DIR}/Core/Log.h"
+
+   "${SRC_DIR}/Platform/OSUtils.cpp"
+   "${SRC_DIR}/Platform/OSUtils.h"
 )
+
+if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+   target_sources(${PROJECT_NAME} PRIVATE "${SRC_DIR}/Platform/MacOSUtils.mm")
+endif()
 
 target_include_directories(${PROJECT_NAME} PUBLIC "${SRC_DIR}")
 
