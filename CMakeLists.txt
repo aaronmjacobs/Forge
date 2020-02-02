@@ -14,6 +14,7 @@ target_compile_definitions(${PROJECT_NAME} PUBLIC FORGE_VERSION_PATCH=${PROJECT_
 target_compile_definitions(${PROJECT_NAME} PUBLIC FORGE_VERSION_TWEAK=${PROJECT_VERSION_TWEAK})
 target_compile_definitions(${PROJECT_NAME} PUBLIC NOMINMAX)
 
+set(RES_DIR "${PROJECT_SOURCE_DIR}/Resources")
 include("${PROJECT_SOURCE_DIR}/Source.cmake")
 include("${PROJECT_SOURCE_DIR}/Shaders.cmake")
 include("${PROJECT_SOURCE_DIR}/Libraries.cmake")

@@ -1,5 +1,5 @@
 set(SHADER_DIR "${PROJECT_SOURCE_DIR}/Shaders")
-set(SHADER_BIN_DIR "${PROJECT_BINARY_DIR}/Shaders")
+set(SHADER_BIN_DIR "${RES_DIR}/Shaders")
 
 set(SHADER_SOURCE_FILES
    "${SHADER_DIR}/Triangle.frag"
