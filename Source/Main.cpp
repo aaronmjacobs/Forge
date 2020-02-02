@@ -1,3 +1,7 @@
+#if FORGE_PLATFORM_WINDOWS && !FORGE_DEBUG
+#  pragma comment(linker, "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup")
+#endif // FORGE_PLATFORM_WINDOWS && !FORGE_DEBUG
+
 #include "ForgeApplication.h"
 
 #include "Core/Assert.h"
