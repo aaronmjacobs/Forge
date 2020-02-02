@@ -1,3 +1,5 @@
+set(SRC_DIR "${PROJECT_SOURCE_DIR}/Source")
+
 target_sources(${PROJECT_NAME} PRIVATE
    "${SRC_DIR}/ForgeApplication.cpp"
    "${SRC_DIR}/ForgeApplication.h"

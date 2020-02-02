@@ -1,3 +1,5 @@
+set(LIB_DIR "${PROJECT_SOURCE_DIR}/Libraries")
+
 # Boxer
 add_subdirectory("${LIB_DIR}/Boxer")
 target_link_libraries(${PROJECT_NAME} PUBLIC Boxer)
