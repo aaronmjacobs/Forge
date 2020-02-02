@@ -6,19 +6,15 @@
 
 #import <Foundation/Foundation.h>
 
-#include <CoreServices/CoreServices.h>
 #include <mach-o/dyld.h>
 #include <stdlib.h>
 #include <sys/param.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
 
 namespace OSUtils
 {
-   std::optional<std::string> getExecutablePath()
+   std::optional<std::filesystem::path> getExecutablePath()
    {
-      std::optional<std::string> executablePath;
+      std::optional<std::filesystem::path> executablePath;
 
       uint32_t size = MAXPATHLEN;
       char rawPath[size];
@@ -27,16 +23,16 @@ namespace OSUtils
          char realPath[size];
          if (realpath(rawPath, realPath))
          {
-            executablePath = std::string(realPath);
+            executablePath = std::filesystem::path(realPath);
          }
       }
 
       return executablePath;
    }
 
-   std::optional<std::string> getAppDataDirectory(std::string_view appName)
+   std::optional<std::filesystem::path> getAppDataDirectory(std::string_view appName)
    {
-      std::optional<std::string> appDataDirectory;
+      std::optional<std::filesystem::path> appDataDirectory;
 
       if (NSURL* appSupportURL = [[NSFileManager defaultManager] URLForDirectory:NSApplicationSupportDirectory
                                                                  inDomain:NSUserDomainMask
@@ -44,19 +40,9 @@ namespace OSUtils
                                                                  create:YES
                                                                  error:nil])
       {
-         appDataDirectory = std::string([[appSupportURL path] cStringUsingEncoding:NSASCIIStringEncoding]).append("/").append(appName);
+         appDataDirectory = std::filesystem::path([[appSupportURL path] cStringUsingEncoding:NSASCIIStringEncoding]) / appName;
       }
 
       return appDataDirectory;
-   }
-
-   bool setWorkingDirectory(std::string_view dir)
-   {
-      return chdir(std::string(dir).c_str()) == 0;
-   }
-
-   bool createDirectory(std::string_view dir)
-   {
-      return mkdir(std::string(dir).c_str(), 0755) == 0;
    }
 }

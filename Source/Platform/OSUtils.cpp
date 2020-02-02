@@ -1,131 +1,32 @@
 #include "Platform/OSUtils.h"
 
-#include <ctime>
-#include <vector>
-
-#if FORGE_PLATFORM_MACOS
-#include <sys/stat.h>
-#endif // FORGE_PLATFORM_MACOS
-
-#if FORGE_PLATFORM_LINUX
-#include <cstring>
-#include <limits.h>
-#include <pwd.h>
-#include <stdlib.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
-#endif // FORGE_PLATFORM_LINUX
-
 #if FORGE_PLATFORM_WINDOWS
 #include <codecvt>
-#include <cstring>
 #include <locale>
+#include <vector>
 #include <ShlObj.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 #endif // FORGE_PLATFORM_WINDOWS
 
-namespace
-{
-   const char* kPathSeparators = "/\\";
-}
+#if FORGE_PLATFORM_LINUX
+#include <linux/limits.h>
+#include <pwd.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <unistd.h>
+#endif // FORGE_PLATFORM_LINUX
 
 namespace OSUtils
 {
-   std::optional<std::string_view> getDirectoryFromPath(std::string_view path)
-   {
-      size_t pos = path.find_last_of(kPathSeparators);
-      if (pos == std::string::npos)
-      {
-         return {};
-      }
-
 #if FORGE_PLATFORM_WINDOWS
-      bool isRoot = pos == 2;
-#else
-      bool isRoot = pos == 0;
-#endif
-
-      return isRoot ? path : path.substr(0, pos);
-   }
-
-   std::optional<std::string_view> getFileNameFromPath(std::string_view path, bool withExtension)
-   {
-      size_t slashPos = path.find_last_of(kPathSeparators);
-      if (slashPos == std::string::npos)
-      {
-         return {};
-      }
-
-      size_t count = path.size() - slashPos;
-      if (!withExtension)
-      {
-         size_t dotPos = path.find(".", slashPos);
-         if (dotPos != std::string::npos)
-         {
-            count = dotPos - slashPos;
-         }
-      }
-
-      return path.substr(slashPos + 1, count - 1);
-   }
-
-#if FORGE_PLATFORM_LINUX
-   std::optional<std::string> getExecutablePath()
-   {
-      char path[PATH_MAX + 1];
-
-      ssize_t numBytes = readlink("/proc/self/exe", path, PATH_MAX);
-      if (numBytes == -1)
-      {
-         return {};
-      }
-      path[numBytes] = '\0';
-
-      return std::string(path);
-   }
-
-   std::optional<std::string> getAppDataDirectory(std::string_view appName)
-   {
-      // First, check the HOME environment variable
-      char* homePath = secure_getenv("HOME");
-
-      // If it isn't set, grab the directory from the password entry file
-      if (!homePath)
-      {
-         homePath = getpwuid(getuid())->pw_dir;
-      }
-
-      if (!homePath)
-      {
-         return {};
-      }
-
-      return std::string(homePath).append("/.config/").append(appName);
-   }
-
-   bool setWorkingDirectory(std::string_view dir)
-   {
-      return chdir(std::string(dir).c_str()) == 0;
-   }
-
-   bool createDirectory(std::string_view dir)
-   {
-      return mkdir(std::string(dir).c_str(), 0755) == 0;
-   }
-#endif // FORGE_PLATFORM_LINUX
-
-#if FORGE_PLATFORM_WINDOWS
-   std::optional<std::string> getExecutablePath()
+   std::optional<std::filesystem::path> getExecutablePath()
    {
       TCHAR buffer[MAX_PATH + 1];
       DWORD length = GetModuleFileName(nullptr, buffer, MAX_PATH);
       buffer[length] = '\0';
 
-      std::optional<std::string> executablePath;
+      std::optional<std::filesystem::path> executablePath;
       if (length == 0 || length == MAX_PATH || GetLastError() == ERROR_INSUFFICIENT_BUFFER)
       {
          static const DWORD kUnreasonablyLargeStringLength = 32767;
@@ -135,75 +36,88 @@ namespace OSUtils
 
          if (length != 0 && length != kUnreasonablyLargeStringLength && GetLastError() != ERROR_INSUFFICIENT_BUFFER)
          {
-            executablePath = std::string(unreasonablyLargeBuffer.data());
+            executablePath = std::filesystem::path(unreasonablyLargeBuffer.data());
          }
       }
       else
       {
-         executablePath = std::string(buffer);
+         executablePath = std::filesystem::path(buffer);
       }
 
       return executablePath;
    }
 
-   std::optional<std::string> getAppDataDirectory(std::string_view appName)
+   std::optional<std::filesystem::path> getAppDataDirectory(std::string_view appName)
    {
-      PWSTR path;
-      if (SHGetKnownFolderPath(FOLDERID_LocalAppData, 0, nullptr, &path) != S_OK)
+      std::optional<std::filesystem::path> appDataDirectory;
+
+      PWSTR path = nullptr;
+      if (SHGetKnownFolderPath(FOLDERID_LocalAppData, KF_FLAG_DEFAULT, nullptr, &path) == S_OK)
       {
-         CoTaskMemFree(path);
-         return {};
-      }
-
-      std::wstring widePathStr(path);
-      CoTaskMemFree(path);
-
 #pragma warning(push)
 #pragma warning(disable: 4996) // codecvt is deprecated, but there is no replacement
-      std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
-      return converter.to_bytes(widePathStr).append("/").append(appName);
+         std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
+         appDataDirectory = std::filesystem::path(converter.to_bytes(std::wstring(path))) / appName;
 #pragma warning(pop)
-   }
+      }
+      CoTaskMemFree(path);
 
-   bool setWorkingDirectory(std::string_view dir)
-   {
-      return SetCurrentDirectory(std::string(dir).c_str()) != 0;
-   }
-
-   bool createDirectory(std::string_view dir)
-   {
-      return CreateDirectory(std::string(dir).c_str(), nullptr) != 0;
+      return appDataDirectory;
    }
 #endif // FORGE_PLATFORM_WINDOWS
 
-   bool fixWorkingDirectory()
+#if FORGE_PLATFORM_LINUX
+   std::optional<std::filesystem::path> getExecutablePath()
    {
-      if (std::optional<std::string> executablePath = getExecutablePath())
+      std::optional<std::filesystem::path> executablePath;
+
+      char path[PATH_MAX + 1];
+
+      ssize_t numBytes = readlink("/proc/self/exe", path, PATH_MAX);
+      if (numBytes >= 0 && numBytes <= PATH_MAX)
       {
-         if (std::optional<std::string_view> executableDir = getDirectoryFromPath(*executablePath))
+         path[numBytes] = '\0';
+         executablePath = std::filesystem::path(path);
+      }
+
+      return executablePath;
+   }
+
+   std::optional<std::filesystem::path> getAppDataDirectory(std::string_view appName)
+   {
+      std::optional<std::filesystem::path> appDataDirectory;
+
+      // First, check the HOME environment variable
+      char* homePath = secure_getenv("HOME");
+
+      // If it isn't set, grab the directory from the password entry file
+      if (!homePath)
+      {
+         if (struct passwd* pw = getpwuid(getuid()))
          {
-            return setWorkingDirectory(*executableDir);
+            homePath = pw->pw_dir;
          }
       }
 
-      return false;
-   }
-
-   bool directoryExists(std::string_view dir)
-   {
-      struct stat info;
-      if (stat(std::string(dir).c_str(), &info) != 0)
+      if (homePath)
       {
-         return false;
+         appDataDirectory = std::filesystem::path(homePath) / ".config" / appName;
       }
 
-      return (info.st_mode & S_IFDIR) != 0;
+      return appDataDirectory;
    }
+#endif // FORGE_PLATFORM_LINUX
 
-   int64_t getTime()
+   bool fixWorkingDirectory()
    {
-      static_assert(sizeof(std::time_t) <= sizeof(int64_t), "std::time_t will not fit in an int64_t");
+      if (std::optional<std::filesystem::path> executablePath = getExecutablePath())
+      {
+         std::error_code errorCode;
+         std::filesystem::current_path(executablePath->parent_path(), errorCode);
 
-      return static_cast<int64_t>(std::time(nullptr));
+         return !errorCode;
+      }
+
+      return false;
    }
 }
