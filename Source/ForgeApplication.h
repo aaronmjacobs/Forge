@@ -1,10 +1,32 @@
 #pragma once
 
+#include "Core/Assert.h"
+
 #include <vulkan/vulkan.hpp>
 
+#include <optional>
+#include <set>
 #include <vector>
 
 struct GLFWwindow;
+
+struct QueueFamilyIndices
+{
+   std::optional<uint32_t> graphicsFamily;
+   std::optional<uint32_t> presentFamily;
+
+   bool isComplete() const
+   {
+      return graphicsFamily && presentFamily;
+   }
+
+   std::set<uint32_t> getUniqueIndices() const
+   {
+      ASSERT(isComplete());
+
+      return { *graphicsFamily, *presentFamily };
+   }
+};
 
 class ForgeApplication
 {
@@ -30,10 +52,14 @@ private:
    void initializeFramebuffers();
    void terminateFramebuffers();
 
+   void initializeCommandBuffers();
+   void terminateCommandBuffers();
+
    GLFWwindow* window = nullptr;
 
    vk::Instance instance;
    vk::SurfaceKHR surface;
+   QueueFamilyIndices queueFamilyIndices;
    vk::Device device;
    vk::Queue graphicsQueue;
    vk::Queue presentQueue;
@@ -49,6 +75,9 @@ private:
    vk::Pipeline graphicsPipeline;
 
    std::vector<vk::Framebuffer> swapchainFramebuffers;
+
+   vk::CommandPool commandPool;
+   std::vector<vk::CommandBuffer> commandBuffers;
 
 #if FORGE_DEBUG
    VkDebugUtilsMessengerEXT debugMessenger = nullptr;

@@ -1,6 +1,5 @@
 #include "ForgeApplication.h"
 
-#include "Core/Assert.h"
 #include "Core/Log.h"
 #include "Platform/IOUtils.h"
 
@@ -10,8 +9,6 @@
 #include <array>
 #include <cstring>
 #include <map>
-#include <optional>
-#include <set>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -278,24 +275,6 @@ namespace
       return extent;
    }
 
-   struct QueueFamilyIndices
-   {
-      std::optional<uint32_t> graphicsFamily;
-      std::optional<uint32_t> presentFamily;
-
-      bool isComplete() const
-      {
-         return graphicsFamily && presentFamily;
-      }
-
-      std::set<uint32_t> getUniqueIndices() const
-      {
-         ASSERT(isComplete());
-
-         return { *graphicsFamily, *presentFamily };
-      }
-   };
-
    QueueFamilyIndices getQueueFamilyIndices(vk::PhysicalDevice physicalDevice, vk::SurfaceKHR surface)
    {
       QueueFamilyIndices queueFamilyIndices;
@@ -421,10 +400,12 @@ ForgeApplication::ForgeApplication()
    initializeRenderPass();
    initializeGraphicsPipeline();
    initializeFramebuffers();
+   initializeCommandBuffers();
 }
 
 ForgeApplication::~ForgeApplication()
 {
+   terminateCommandBuffers();
    terminateFramebuffers();
    terminateGraphicsPipeline();
    terminateRenderPass();
@@ -512,7 +493,7 @@ void ForgeApplication::initializeVulkan()
       throw std::runtime_error("Failed to find a suitable GPU");
    }
 
-   QueueFamilyIndices queueFamilyIndices = getQueueFamilyIndices(physicalDevice, surface);
+   queueFamilyIndices = getQueueFamilyIndices(physicalDevice, surface);
    std::set<uint32_t> uniqueQueueIndices = queueFamilyIndices.getUniqueIndices();
 
    float queuePriority = 1.0f;
@@ -792,4 +773,58 @@ void ForgeApplication::terminateFramebuffers()
       device.destroyFramebuffer(swapchainFramebuffer);
    }
    swapchainFramebuffers.clear();
+}
+
+void ForgeApplication::initializeCommandBuffers()
+{
+   ASSERT(queueFamilyIndices.graphicsFamily.has_value());
+
+   vk::CommandPoolCreateInfo commandPoolCreateInfo = vk::CommandPoolCreateInfo()
+      .setQueueFamilyIndex(*queueFamilyIndices.graphicsFamily);
+
+   commandPool = device.createCommandPool(commandPoolCreateInfo);
+
+   vk::CommandBufferAllocateInfo commandBufferAllocateInfo = vk::CommandBufferAllocateInfo()
+      .setCommandPool(commandPool)
+      .setLevel(vk::CommandBufferLevel::ePrimary)
+      .setCommandBufferCount(static_cast<uint32_t>(swapchainFramebuffers.size()));
+
+   ASSERT(commandBuffers.empty());
+   commandBuffers = device.allocateCommandBuffers(commandBufferAllocateInfo);
+
+   for (std::size_t i = 0; i < commandBuffers.size(); ++i)
+   {
+      vk::CommandBuffer commandBuffer = commandBuffers[i];
+
+      vk::CommandBufferBeginInfo commandBufferBeginInfo;
+
+      commandBuffer.begin(commandBufferBeginInfo);
+
+      std::array<float, 4> clearColorValues = { 0.0f, 0.0f, 0.0f, 1.0f };
+      std::array<vk::ClearValue, 1> clearColors = { vk::ClearColorValue(clearColorValues) };
+
+      vk::RenderPassBeginInfo renderPassBeginInfo = vk::RenderPassBeginInfo()
+         .setRenderPass(renderPass)
+         .setFramebuffer(swapchainFramebuffers[i])
+         .setRenderArea(vk::Rect2D(vk::Offset2D(0, 0), swapchainExtent))
+         .setClearValueCount(static_cast<uint32_t>(clearColors.size()))
+         .setPClearValues(clearColors.data());
+
+      commandBuffer.beginRenderPass(renderPassBeginInfo, vk::SubpassContents::eInline);
+
+      commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, graphicsPipeline);
+      commandBuffer.draw(3, 1, 0, 0);
+
+      commandBuffer.endRenderPass();
+
+      commandBuffer.end();
+   }
+}
+
+void ForgeApplication::terminateCommandBuffers()
+{
+   commandBuffers.clear();
+
+   device.destroyCommandPool(commandPool);
+   commandPool = nullptr;
 }
