@@ -21,7 +21,7 @@ int main(int argc, char* argv[])
 #if FORGE_DEBUG
       ASSERT(false, "Caught exception: %s", e.what());
 #else
-      LOG_ERROR_MSG_BOX(e.what());
+      LOG_ERROR_MSG_BOX("Caught exception: " << e.what());
 #endif
 
       return 1;
