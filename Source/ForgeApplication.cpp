@@ -15,8 +15,9 @@
 
 namespace
 {
-   const int kInitialWindowWidth = 1280;
-   const int kInitialWindowHeight = 720;
+   const int kInitialWindowWidth = 800;
+   const int kInitialWindowHeight = 600;
+   const std::size_t kMaxFramesInFlight = 2;
 
 #if FORGE_DEBUG
    VKAPI_ATTR VkBool32 VKAPI_CALL vulkanDebugMessageCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData)
@@ -401,10 +402,12 @@ ForgeApplication::ForgeApplication()
    initializeGraphicsPipeline();
    initializeFramebuffers();
    initializeCommandBuffers();
+   initializeSyncObjects();
 }
 
 ForgeApplication::~ForgeApplication()
 {
+   terminateSyncObjects();
    terminateCommandBuffers();
    terminateFramebuffers();
    terminateGraphicsPipeline();
@@ -418,7 +421,55 @@ void ForgeApplication::run()
    while (!glfwWindowShouldClose(window))
    {
       glfwPollEvents();
+      render();
    }
+
+   device.waitIdle();
+}
+
+void ForgeApplication::render()
+{
+   device.waitForFences({ frameFences[frameIndex] }, true, UINT64_MAX);
+
+   vk::ResultValue<uint32_t> imageIndex = device.acquireNextImageKHR(swapchain, UINT64_MAX, imageAvailableSemaphores[frameIndex], nullptr);
+   ASSERT(imageIndex.result == vk::Result::eSuccess);
+
+   if (imageFences[imageIndex.value])
+   {
+      // If a previous frame is still using the image, wait for it to complete
+      device.waitForFences({ imageFences[imageIndex.value] }, true, UINT64_MAX);
+   }
+   imageFences[imageIndex.value] = frameFences[frameIndex];
+
+   std::array<vk::Semaphore, 1> waitSemaphores = { imageAvailableSemaphores[frameIndex] };
+   std::array<vk::PipelineStageFlags, 1> waitStages = { vk::PipelineStageFlagBits::eColorAttachmentOutput };
+   static_assert(waitSemaphores.size() == waitStages.size(), "Wait semaphores and wait stages must be parallel arrays");
+
+   std::array<vk::Semaphore, 1> signalSemaphores = { renderFinishedSemaphores[frameIndex] };
+   vk::SubmitInfo submitInfo = vk::SubmitInfo()
+      .setWaitSemaphoreCount(static_cast<uint32_t>(waitSemaphores.size()))
+      .setPWaitSemaphores(waitSemaphores.data())
+      .setPWaitDstStageMask(waitStages.data())
+      .setCommandBufferCount(1)
+      .setPCommandBuffers(&commandBuffers[imageIndex.value])
+      .setSignalSemaphoreCount(static_cast<uint32_t>(signalSemaphores.size()))
+      .setPSignalSemaphores(signalSemaphores.data());
+
+   device.resetFences({ frameFences[frameIndex] });
+   graphicsQueue.submit({ submitInfo }, frameFences[frameIndex]);
+
+   std::array<vk::SwapchainKHR, 1> swapchains = { swapchain };
+
+   vk::PresentInfoKHR presentInfo = vk::PresentInfoKHR()
+      .setWaitSemaphoreCount(static_cast<uint32_t>(signalSemaphores.size()))
+      .setPWaitSemaphores(signalSemaphores.data())
+      .setSwapchainCount(static_cast<uint32_t>(swapchains.size()))
+      .setPSwapchains(swapchains.data())
+      .setPImageIndices(&imageIndex.value);
+
+   presentQueue.presentKHR(presentInfo);
+
+   frameIndex = (frameIndex + 1) % kMaxFramesInFlight;
 }
 
 void ForgeApplication::initializeGlfw()
@@ -636,11 +687,21 @@ void ForgeApplication::initializeRenderPass()
       .setColorAttachmentCount(1)
       .setPColorAttachments(&colorAttachmentReference);
 
+   vk::SubpassDependency subpassDependency = vk::SubpassDependency()
+      .setSrcSubpass(VK_SUBPASS_EXTERNAL)
+      .setDstSubpass(0)
+      .setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
+      .setSrcAccessMask({})
+      .setDstStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
+      .setDstAccessMask(vk::AccessFlagBits::eColorAttachmentRead | vk::AccessFlagBits::eColorAttachmentWrite);
+
    vk::RenderPassCreateInfo renderPassCreateInfo = vk::RenderPassCreateInfo()
       .setAttachmentCount(1)
       .setPAttachments(&colorAttachment)
       .setSubpassCount(1)
-      .setPSubpasses(&subpassDescription);
+      .setPSubpasses(&subpassDescription)
+      .setDependencyCount(1)
+      .setPDependencies(&subpassDependency);
 
    renderPass = device.createRenderPass(renderPassCreateInfo);
 }
@@ -827,4 +888,44 @@ void ForgeApplication::terminateCommandBuffers()
 
    device.destroyCommandPool(commandPool);
    commandPool = nullptr;
+}
+
+void ForgeApplication::initializeSyncObjects()
+{
+   imageAvailableSemaphores.resize(kMaxFramesInFlight);
+   renderFinishedSemaphores.resize(kMaxFramesInFlight);
+   frameFences.resize(kMaxFramesInFlight);
+   imageFences.resize(swapchainImages.size());
+
+   vk::SemaphoreCreateInfo semaphoreCreateInfo;
+   vk::FenceCreateInfo fenceCreateInfo = vk::FenceCreateInfo()
+      .setFlags(vk::FenceCreateFlagBits::eSignaled);
+
+   for (std::size_t i = 0; i < kMaxFramesInFlight; ++i)
+   {
+      imageAvailableSemaphores[i] = device.createSemaphore(semaphoreCreateInfo);
+      renderFinishedSemaphores[i] = device.createSemaphore(semaphoreCreateInfo);
+      frameFences[i] = device.createFence(fenceCreateInfo);
+   }
+}
+
+void ForgeApplication::terminateSyncObjects()
+{
+   for (vk::Fence frameFence : frameFences)
+   {
+      device.destroyFence(frameFence);
+   }
+   frameFences.clear();
+
+   for (vk::Semaphore renderFinishedSemaphore : renderFinishedSemaphores)
+   {
+      device.destroySemaphore(renderFinishedSemaphore);
+   }
+   renderFinishedSemaphores.clear();
+
+   for (vk::Semaphore imageAvailableSemaphore : imageAvailableSemaphores)
+   {
+      device.destroySemaphore(imageAvailableSemaphore);
+   }
+   imageAvailableSemaphores.clear();
 }

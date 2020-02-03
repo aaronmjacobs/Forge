@@ -37,6 +37,8 @@ public:
    void run();
 
 private:
+   void render();
+
    void initializeGlfw();
    void terminateGlfw();
 
@@ -54,6 +56,9 @@ private:
 
    void initializeCommandBuffers();
    void terminateCommandBuffers();
+
+   void initializeSyncObjects();
+   void terminateSyncObjects();
 
    GLFWwindow* window = nullptr;
 
@@ -78,6 +83,12 @@ private:
 
    vk::CommandPool commandPool;
    std::vector<vk::CommandBuffer> commandBuffers;
+
+   std::vector<vk::Semaphore> imageAvailableSemaphores;
+   std::vector<vk::Semaphore> renderFinishedSemaphores;
+   std::vector<vk::Fence> frameFences;
+   std::vector<vk::Fence> imageFences;
+   std::size_t frameIndex = 0;
 
 #if FORGE_DEBUG
    VkDebugUtilsMessengerEXT debugMessenger = nullptr;
