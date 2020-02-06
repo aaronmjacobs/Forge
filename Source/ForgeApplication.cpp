@@ -72,10 +72,12 @@ namespace
          .setMessageType(vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral | vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation | vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance);
    }
 
+#define FIND_VULKAN_FUNCTION(instance, name) reinterpret_cast<PFN_##name>(glfwGetInstanceProcAddress(instance, #name))
+
    VkDebugUtilsMessengerEXT createDebugMessenger(vk::Instance instance)
    {
       VkDebugUtilsMessengerEXT debugMessenger = nullptr;
-      if (PFN_vkCreateDebugUtilsMessengerEXT pfnCreateDebugUtilsMessengerEXT = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(glfwGetInstanceProcAddress(instance, "vkCreateDebugUtilsMessengerEXT")))
+      if (auto pfnCreateDebugUtilsMessengerEXT = FIND_VULKAN_FUNCTION(instance, vkCreateDebugUtilsMessengerEXT))
       {
          VkDebugUtilsMessengerCreateInfoEXT debugUtilsMessengerCreateInfo = createDebugMessengerCreateInfo();
          if (pfnCreateDebugUtilsMessengerEXT(instance, &debugUtilsMessengerCreateInfo, nullptr, &debugMessenger) != VK_SUCCESS)
@@ -89,12 +91,15 @@ namespace
 
    void destroyDebugMessenger(vk::Instance instance, VkDebugUtilsMessengerEXT& debugMessenger)
    {
-      if (PFN_vkDestroyDebugUtilsMessengerEXT pfnDestroyDebugUtilsMessengerEXT = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(glfwGetInstanceProcAddress(instance, "vkDestroyDebugUtilsMessengerEXT")))
+      if (auto pfnDestroyDebugUtilsMessengerEXT = FIND_VULKAN_FUNCTION(instance, vkDestroyDebugUtilsMessengerEXT))
       {
          pfnDestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
          debugMessenger = nullptr;
       }
    }
+
+#undef FIND_VULKAN_FUNCTION
+
 #endif // FORGE_DEBUG
 
    void framebufferSizeCallback(GLFWwindow* window, int width, int height)
