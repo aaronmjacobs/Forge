@@ -97,6 +97,14 @@ namespace
    }
 #endif // FORGE_DEBUG
 
+   void framebufferSizeCallback(GLFWwindow* window, int width, int height)
+   {
+      if (ForgeApplication* forgeApplication = reinterpret_cast<ForgeApplication*>(glfwGetWindowUserPointer(window)))
+      {
+         forgeApplication->onFramebufferResized();
+      }
+   }
+
    bool hasExtensionProperty(const std::vector<vk::ExtensionProperties>& extensionProperties, const char* name)
    {
       return std::find_if(extensionProperties.begin(), extensionProperties.end(), [name](const vk::ExtensionProperties& properties)
@@ -262,14 +270,22 @@ namespace
       throw std::runtime_error("No swapchain present modes available");
    }
 
-   vk::Extent2D chooseSwapChainExtent(const vk::SurfaceCapabilitiesKHR& capabilities)
+   vk::Extent2D chooseSwapChainExtent(const vk::SurfaceCapabilitiesKHR& capabilities, GLFWwindow* window)
    {
       if (capabilities.currentExtent.width != UINT32_MAX)
       {
          return capabilities.currentExtent;
       }
 
-      vk::Extent2D extent(static_cast<uint32_t>(kInitialWindowWidth), static_cast<uint32_t>(kInitialWindowHeight));
+      int framebufferWidth = 0;
+      int framebufferHeight = 0;
+      glfwGetFramebufferSize(window, &framebufferWidth, &framebufferHeight);
+      if (framebufferWidth < 0 || framebufferHeight < 0)
+      {
+         throw std::runtime_error("Negative framebuffer size");
+      }
+
+      vk::Extent2D extent(static_cast<uint32_t>(framebufferWidth), static_cast<uint32_t>(framebufferHeight));
       extent.width = std::max(capabilities.minImageExtent.width, std::min(capabilities.maxImageExtent.width, extent.width));
       extent.height = std::max(capabilities.minImageExtent.height, std::min(capabilities.maxImageExtent.height, extent.height));
 
@@ -398,6 +414,7 @@ ForgeApplication::ForgeApplication()
 {
    initializeGlfw();
    initializeVulkan();
+   initializeSwapchain();
    initializeRenderPass();
    initializeGraphicsPipeline();
    initializeFramebuffers();
@@ -408,10 +425,11 @@ ForgeApplication::ForgeApplication()
 ForgeApplication::~ForgeApplication()
 {
    terminateSyncObjects();
-   terminateCommandBuffers();
+   terminateCommandBuffers(false);
    terminateFramebuffers();
    terminateGraphicsPipeline();
    terminateRenderPass();
+   terminateSwapchain();
    terminateVulkan();
    terminateGlfw();
 }
@@ -429,17 +447,31 @@ void ForgeApplication::run()
 
 void ForgeApplication::render()
 {
+   if (framebufferResized)
+   {
+      recreateSwapchain();
+   }
+
    device.waitForFences({ frameFences[frameIndex] }, true, UINT64_MAX);
 
-   vk::ResultValue<uint32_t> imageIndex = device.acquireNextImageKHR(swapchain, UINT64_MAX, imageAvailableSemaphores[frameIndex], nullptr);
-   ASSERT(imageIndex.result == vk::Result::eSuccess);
+   vk::ResultValue<uint32_t> imageIndexResultValue = device.acquireNextImageKHR(swapchain, UINT64_MAX, imageAvailableSemaphores[frameIndex], nullptr);
+   if (imageIndexResultValue.result == vk::Result::eErrorOutOfDateKHR)
+   {
+      recreateSwapchain();
+      imageIndexResultValue = device.acquireNextImageKHR(swapchain, UINT64_MAX, imageAvailableSemaphores[frameIndex], nullptr);
+   }
+   if (imageIndexResultValue.result != vk::Result::eSuccess && imageIndexResultValue.result != vk::Result::eSuboptimalKHR)
+   {
+      throw std::runtime_error("Failed to acquire swapchain image");
+   }
+   uint32_t imageIndex = imageIndexResultValue.value;
 
-   if (imageFences[imageIndex.value])
+   if (imageFences[imageIndex])
    {
       // If a previous frame is still using the image, wait for it to complete
-      device.waitForFences({ imageFences[imageIndex.value] }, true, UINT64_MAX);
+      device.waitForFences({ imageFences[imageIndex] }, true, UINT64_MAX);
    }
-   imageFences[imageIndex.value] = frameFences[frameIndex];
+   imageFences[imageIndex] = frameFences[frameIndex];
 
    std::array<vk::Semaphore, 1> waitSemaphores = { imageAvailableSemaphores[frameIndex] };
    std::array<vk::PipelineStageFlags, 1> waitStages = { vk::PipelineStageFlagBits::eColorAttachmentOutput };
@@ -451,7 +483,7 @@ void ForgeApplication::render()
       .setPWaitSemaphores(waitSemaphores.data())
       .setPWaitDstStageMask(waitStages.data())
       .setCommandBufferCount(1)
-      .setPCommandBuffers(&commandBuffers[imageIndex.value])
+      .setPCommandBuffers(&commandBuffers[imageIndex])
       .setSignalSemaphoreCount(static_cast<uint32_t>(signalSemaphores.size()))
       .setPSignalSemaphores(signalSemaphores.data());
 
@@ -465,11 +497,47 @@ void ForgeApplication::render()
       .setPWaitSemaphores(signalSemaphores.data())
       .setSwapchainCount(static_cast<uint32_t>(swapchains.size()))
       .setPSwapchains(swapchains.data())
-      .setPImageIndices(&imageIndex.value);
+      .setPImageIndices(&imageIndex);
 
-   presentQueue.presentKHR(presentInfo);
+   vk::Result presentResult = presentQueue.presentKHR(presentInfo);
+   if (presentResult == vk::Result::eErrorOutOfDateKHR || presentResult == vk::Result::eSuboptimalKHR)
+   {
+      recreateSwapchain();
+   }
+   else if (presentResult != vk::Result::eSuccess)
+   {
+      throw std::runtime_error("Failed to present swapchain image");
+   }
 
    frameIndex = (frameIndex + 1) % kMaxFramesInFlight;
+}
+
+void ForgeApplication::recreateSwapchain()
+{
+   int width = 0;
+   int height = 0;
+   glfwGetFramebufferSize(window, &width, &height);
+   while (width == 0 || height == 0)
+   {
+      glfwGetFramebufferSize(window, &width, &height);
+      glfwWaitEvents();
+   }
+
+   device.waitIdle();
+
+   terminateCommandBuffers(true);
+   terminateFramebuffers();
+   terminateGraphicsPipeline();
+   terminateRenderPass();
+   terminateSwapchain();
+
+   initializeSwapchain();
+   initializeRenderPass();
+   initializeGraphicsPipeline();
+   initializeFramebuffers();
+   initializeCommandBuffers();
+
+   framebufferResized = false;
 }
 
 void ForgeApplication::initializeGlfw()
@@ -487,8 +555,10 @@ void ForgeApplication::initializeGlfw()
    }
 
    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-   glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
    window = glfwCreateWindow(kInitialWindowWidth, kInitialWindowHeight, FORGE_PROJECT_NAME, nullptr, nullptr);
+
+   glfwSetWindowUserPointer(window, this);
+   glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
 }
 
 void ForgeApplication::terminateGlfw()
@@ -538,7 +608,7 @@ void ForgeApplication::initializeVulkan()
    }
    surface = vkSurface;
 
-   vk::PhysicalDevice physicalDevice = selectBestPhysicalDevice(instance.enumeratePhysicalDevices(), surface);
+   physicalDevice = selectBestPhysicalDevice(instance.enumeratePhysicalDevices(), surface);
    if (!physicalDevice)
    {
       throw std::runtime_error("Failed to find a suitable GPU");
@@ -578,13 +648,32 @@ void ForgeApplication::initializeVulkan()
 
    graphicsQueue = device.getQueue(*queueFamilyIndices.graphicsFamily, 0);
    presentQueue = device.getQueue(*queueFamilyIndices.presentFamily, 0);
+}
 
+void ForgeApplication::terminateVulkan()
+{
+   device.destroy();
+   device = nullptr;
+
+   instance.destroySurfaceKHR(surface);
+   surface = nullptr;
+
+#if FORGE_DEBUG
+   destroyDebugMessenger(instance, debugMessenger);
+#endif // FORGE_DEBUG
+
+   instance.destroy();
+   instance = nullptr;
+}
+
+void ForgeApplication::initializeSwapchain()
+{
    SwapChainSupportDetails swapChainSupportDetails = getSwapChainSupportDetails(physicalDevice, surface);
    ASSERT(swapChainSupportDetails.isValid());
 
    vk::SurfaceFormatKHR surfaceFormat = chooseSwapChainSurfaceFormat(swapChainSupportDetails.formats);
    vk::PresentModeKHR presentMode = chooseSwapChainPresentMode(swapChainSupportDetails.presentModes);
-   vk::Extent2D extent = chooseSwapChainExtent(swapChainSupportDetails.capabilities);
+   vk::Extent2D extent = chooseSwapChainExtent(swapChainSupportDetails.capabilities, window);
 
    uint32_t desiredMinImageCount = swapChainSupportDetails.capabilities.minImageCount + 1;
    uint32_t minImageCount = swapChainSupportDetails.capabilities.maxImageCount > 0 ? std::min(swapChainSupportDetails.capabilities.maxImageCount, desiredMinImageCount) : desiredMinImageCount;
@@ -641,7 +730,7 @@ void ForgeApplication::initializeVulkan()
    }
 }
 
-void ForgeApplication::terminateVulkan()
+void ForgeApplication::terminateSwapchain()
 {
    for (vk::ImageView swapchainImageView : swapchainImageViews)
    {
@@ -651,19 +740,6 @@ void ForgeApplication::terminateVulkan()
 
    device.destroySwapchainKHR(swapchain);
    swapchain = nullptr;
-
-   device.destroy();
-   device = nullptr;
-
-   instance.destroySurfaceKHR(surface);
-   surface = nullptr;
-
-#if FORGE_DEBUG
-   destroyDebugMessenger(instance, debugMessenger);
-#endif // FORGE_DEBUG
-
-   instance.destroy();
-   instance = nullptr;
 }
 
 void ForgeApplication::initializeRenderPass()
@@ -840,10 +916,13 @@ void ForgeApplication::initializeCommandBuffers()
 {
    ASSERT(queueFamilyIndices.graphicsFamily.has_value());
 
-   vk::CommandPoolCreateInfo commandPoolCreateInfo = vk::CommandPoolCreateInfo()
-      .setQueueFamilyIndex(*queueFamilyIndices.graphicsFamily);
+   if (!commandPool)
+   {
+      vk::CommandPoolCreateInfo commandPoolCreateInfo = vk::CommandPoolCreateInfo()
+         .setQueueFamilyIndex(*queueFamilyIndices.graphicsFamily);
 
-   commandPool = device.createCommandPool(commandPoolCreateInfo);
+      commandPool = device.createCommandPool(commandPoolCreateInfo);
+   }
 
    vk::CommandBufferAllocateInfo commandBufferAllocateInfo = vk::CommandBufferAllocateInfo()
       .setCommandPool(commandPool)
@@ -882,12 +961,20 @@ void ForgeApplication::initializeCommandBuffers()
    }
 }
 
-void ForgeApplication::terminateCommandBuffers()
+void ForgeApplication::terminateCommandBuffers(bool keepPoolAlive)
 {
-   commandBuffers.clear();
+   if (keepPoolAlive)
+   {
+      device.freeCommandBuffers(commandPool, commandBuffers);
+   }
+   else
+   {
+      // Command buffers will get cleaned up with the pool
+      device.destroyCommandPool(commandPool);
+      commandPool = nullptr;
+   }
 
-   device.destroyCommandPool(commandPool);
-   commandPool = nullptr;
+   commandBuffers.clear();
 }
 
 void ForgeApplication::initializeSyncObjects()

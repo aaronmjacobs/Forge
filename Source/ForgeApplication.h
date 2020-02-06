@@ -2,7 +2,7 @@
 
 #include "Core/Assert.h"
 
-#include <vulkan/vulkan.hpp>
+#include "Graphics/Vulkan.h"
 
 #include <optional>
 #include <set>
@@ -36,14 +36,24 @@ public:
 
    void run();
 
+   void onFramebufferResized()
+   {
+      framebufferResized = true;
+   }
+
 private:
    void render();
+
+   void recreateSwapchain();
 
    void initializeGlfw();
    void terminateGlfw();
 
    void initializeVulkan();
    void terminateVulkan();
+
+   void initializeSwapchain();
+   void terminateSwapchain();
 
    void initializeRenderPass();
    void terminateRenderPass();
@@ -55,7 +65,7 @@ private:
    void terminateFramebuffers();
 
    void initializeCommandBuffers();
-   void terminateCommandBuffers();
+   void terminateCommandBuffers(bool keepPoolAlive);
 
    void initializeSyncObjects();
    void terminateSyncObjects();
@@ -64,6 +74,7 @@ private:
 
    vk::Instance instance;
    vk::SurfaceKHR surface;
+   vk::PhysicalDevice physicalDevice;
    QueueFamilyIndices queueFamilyIndices;
    vk::Device device;
    vk::Queue graphicsQueue;
@@ -89,6 +100,8 @@ private:
    std::vector<vk::Fence> frameFences;
    std::vector<vk::Fence> imageFences;
    std::size_t frameIndex = 0;
+
+   bool framebufferResized = false;
 
 #if FORGE_DEBUG
    VkDebugUtilsMessengerEXT debugMessenger = nullptr;

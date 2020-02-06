@@ -9,6 +9,8 @@ target_sources(${PROJECT_NAME} PRIVATE
    "${SRC_DIR}/Core/Log.cpp"
    "${SRC_DIR}/Core/Log.h"
 
+   "${SRC_DIR}/Graphics/Vulkan.h"
+
    "${SRC_DIR}/Platform/IOUtils.cpp"
    "${SRC_DIR}/Platform/IOUtils.h"
    "${SRC_DIR}/Platform/OSUtils.cpp"
