@@ -64,6 +64,9 @@ private:
    void initializeFramebuffers();
    void terminateFramebuffers();
 
+   void initializeVertexBuffers();
+   void terminateVertexBuffers();
+
    void initializeCommandBuffers();
    void terminateCommandBuffers(bool keepPoolAlive);
 
@@ -91,6 +94,9 @@ private:
    vk::Pipeline graphicsPipeline;
 
    std::vector<vk::Framebuffer> swapchainFramebuffers;
+
+   vk::Buffer vertexBuffer;
+   vk::DeviceMemory vertexBufferMemory;
 
    vk::CommandPool commandPool;
    std::vector<vk::CommandBuffer> commandBuffers;

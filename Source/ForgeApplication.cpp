@@ -3,6 +3,7 @@
 #include "Core/Log.h"
 #include "Platform/IOUtils.h"
 
+#include <glm/glm.hpp>
 #include <GLFW/glfw3.h>
 
 #include <algorithm>
@@ -413,6 +414,66 @@ namespace
 
       return shaderModule;
    }
+
+   struct Vertex
+   {
+      glm::vec2 position;
+      glm::vec3 color;
+
+      Vertex(const glm::vec2& initialPosition = glm::vec2(0.0f), const glm::vec3& initialColor = glm::vec3(0.0f))
+         : position(initialPosition)
+         , color(initialColor)
+      {
+      }
+
+      static vk::VertexInputBindingDescription getBindingDescription()
+      {
+         return vk::VertexInputBindingDescription()
+            .setBinding(0)
+            .setStride(sizeof(Vertex))
+            .setInputRate(vk::VertexInputRate::eVertex);
+      }
+
+      static std::array<vk::VertexInputAttributeDescription, 2> getAttributeDescriptions()
+      {
+         return
+         {
+            vk::VertexInputAttributeDescription()
+               .setLocation(0)
+               .setBinding(0)
+               .setFormat(vk::Format::eR32G32Sfloat)
+               .setOffset(offsetof(Vertex, position)),
+            vk::VertexInputAttributeDescription()
+               .setLocation(1)
+               .setBinding(0)
+               .setFormat(vk::Format::eR32G32B32Sfloat)
+               .setOffset(offsetof(Vertex, color))
+         };
+      }
+   };
+
+   const std::array<Vertex, 3> kVertices =
+   {
+      Vertex(glm::vec2(0.0f, -0.5f), glm::vec3(1.0f, 0.0f, 0.0f)),
+      Vertex(glm::vec2(0.5f, 0.5f), glm::vec3(0.0f, 1.0f, 0.0f)),
+      Vertex(glm::vec2(-0.5f, 0.5f), glm::vec3(0.0f, 0.0f, 1.0f))
+   };
+
+   uint32_t findMemoryType(vk::PhysicalDevice physicalDevice, uint32_t typeFilter, vk::MemoryPropertyFlags properties)
+   {
+      vk::PhysicalDeviceMemoryProperties physicalDeviceMemoryProperties = physicalDevice.getMemoryProperties();
+
+      for (uint32_t i = 0; i < physicalDeviceMemoryProperties.memoryTypeCount; ++i)
+      {
+         if ((typeFilter & (1 << i))
+            && (physicalDeviceMemoryProperties.memoryTypes[i].propertyFlags & properties) == properties)
+         {
+            return i;
+         }
+      }
+
+      throw std::runtime_error("Failed to find suitable memory type");
+   }
 }
 
 ForgeApplication::ForgeApplication()
@@ -423,6 +484,7 @@ ForgeApplication::ForgeApplication()
    initializeRenderPass();
    initializeGraphicsPipeline();
    initializeFramebuffers();
+   initializeVertexBuffers();
    initializeCommandBuffers();
    initializeSyncObjects();
 }
@@ -431,6 +493,7 @@ ForgeApplication::~ForgeApplication()
 {
    terminateSyncObjects();
    terminateCommandBuffers(false);
+   terminateVertexBuffers();
    terminateFramebuffers();
    terminateGraphicsPipeline();
    terminateRenderPass();
@@ -810,7 +873,13 @@ void ForgeApplication::initializeGraphicsPipeline()
 
    std::array<vk::PipelineShaderStageCreateInfo, 2> shaderStages = { vertShaderStageCreateinfo, fragShaderStageCreateinfo };
 
-   vk::PipelineVertexInputStateCreateInfo vertexInputCreateInfo;
+   vk::VertexInputBindingDescription vertexBindingDescription = Vertex::getBindingDescription();
+   std::array<vk::VertexInputAttributeDescription, 2> vertexAttributeDescriptions = Vertex::getAttributeDescriptions();
+   vk::PipelineVertexInputStateCreateInfo vertexInputCreateInfo = vk::PipelineVertexInputStateCreateInfo()
+      .setVertexBindingDescriptionCount(1)
+      .setPVertexBindingDescriptions(&vertexBindingDescription)
+      .setVertexAttributeDescriptionCount(static_cast<uint32_t>(vertexAttributeDescriptions.size()))
+      .setPVertexAttributeDescriptions(vertexAttributeDescriptions.data());
 
    vk::PipelineInputAssemblyStateCreateInfo inputAssemblyCreateInfo = vk::PipelineInputAssemblyStateCreateInfo()
       .setTopology(vk::PrimitiveTopology::eTriangleList);
@@ -917,6 +986,38 @@ void ForgeApplication::terminateFramebuffers()
    swapchainFramebuffers.clear();
 }
 
+void ForgeApplication::initializeVertexBuffers()
+{
+   vk::BufferCreateInfo bufferCreateInfo = vk::BufferCreateInfo()
+      .setSize(kVertices.size() * sizeof(Vertex))
+      .setUsage(vk::BufferUsageFlagBits::eVertexBuffer)
+      .setSharingMode(vk::SharingMode::eExclusive);
+
+   vertexBuffer = device.createBuffer(bufferCreateInfo);
+
+   vk::MemoryRequirements memoryRequirements = device.getBufferMemoryRequirements(vertexBuffer);
+   vk::MemoryAllocateInfo allocateInfo = vk::MemoryAllocateInfo()
+      .setAllocationSize(memoryRequirements.size)
+      .setMemoryTypeIndex(findMemoryType(physicalDevice, memoryRequirements.memoryTypeBits, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent));
+
+   vertexBufferMemory = device.allocateMemory(allocateInfo);
+   device.bindBufferMemory(vertexBuffer, vertexBufferMemory, 0);
+
+   void* data = device.mapMemory(vertexBufferMemory, 0, bufferCreateInfo.size, vk::MemoryMapFlags());
+   std::memcpy(data, kVertices.data(), static_cast<std::size_t>(bufferCreateInfo.size));
+   device.unmapMemory(vertexBufferMemory);
+   data = nullptr;
+}
+
+void ForgeApplication::terminateVertexBuffers()
+{
+   device.destroyBuffer(vertexBuffer);
+   vertexBuffer = nullptr;
+
+   device.freeMemory(vertexBufferMemory);
+   vertexBufferMemory = nullptr;
+}
+
 void ForgeApplication::initializeCommandBuffers()
 {
    ASSERT(queueFamilyIndices.graphicsFamily.has_value());
@@ -958,7 +1059,12 @@ void ForgeApplication::initializeCommandBuffers()
       commandBuffer.beginRenderPass(renderPassBeginInfo, vk::SubpassContents::eInline);
 
       commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, graphicsPipeline);
-      commandBuffer.draw(3, 1, 0, 0);
+
+      std::array<vk::Buffer, 1> vertexBuffers = { vertexBuffer };
+      std::array<vk::DeviceSize, 1> vertexOffsets = { 0 };
+      commandBuffer.bindVertexBuffers(0, vertexBuffers, vertexOffsets);
+
+      commandBuffer.draw(static_cast<uint32_t>(kVertices.size()), 1, 0, 0);
 
       commandBuffer.endRenderPass();
 
