@@ -44,9 +44,3 @@ source_group("Libraries\\templog" "${TEMPLOG_DIR}")
 # Vulkan
 find_package(Vulkan REQUIRED)
 target_link_libraries(${PROJECT_NAME} PUBLIC Vulkan::Vulkan)
-
-# Vulkan-Hpp
-set(VULKAN_HPP_DIR "${LIB_DIR}/Vulkan-Hpp")
-target_sources(${PROJECT_NAME} PRIVATE "${VULKAN_HPP_DIR}/vulkan/vulkan.hpp")
-target_include_directories(${PROJECT_NAME} PUBLIC "${VULKAN_HPP_DIR}")
-source_group("Libraries\\Vulkan-Hpp" "${VULKAN_HPP_DIR}")
