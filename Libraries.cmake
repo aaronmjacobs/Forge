@@ -48,3 +48,4 @@ source_group("Libraries\\templog" "${TEMPLOG_DIR}")
 # Vulkan
 find_package(Vulkan REQUIRED)
 target_link_libraries(${PROJECT_NAME} PUBLIC Vulkan::Vulkan)
+file(WRITE "${PROJECT_BINARY_DIR}/va_stdafx.h" "#define VULKAN_HPP_NAMESPACE vk\n") # Help out Visual Assist with the Vulkan-HPP namespace
