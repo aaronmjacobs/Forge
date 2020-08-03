@@ -64,6 +64,9 @@ private:
    void initializeFramebuffers();
    void terminateFramebuffers();
 
+   void initializeTransientCommandPool();
+   void terminateTransientCommandPool();
+
    void initializeVertexBuffers();
    void terminateVertexBuffers();
 
@@ -72,6 +75,9 @@ private:
 
    void initializeSyncObjects();
    void terminateSyncObjects();
+
+   void createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Buffer& buffer, vk::DeviceMemory& bufferMemory) const;
+   void copyBuffer(vk::Buffer sourceBuffer, vk::Buffer destinationBuffer, vk::DeviceSize size);
 
    GLFWwindow* window = nullptr;
 
@@ -94,6 +100,8 @@ private:
    vk::Pipeline graphicsPipeline;
 
    std::vector<vk::Framebuffer> swapchainFramebuffers;
+
+   vk::CommandPool transientCommandPool;
 
    vk::Buffer vertexBuffer;
    vk::DeviceMemory vertexBufferMemory;

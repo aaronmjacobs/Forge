@@ -484,6 +484,7 @@ ForgeApplication::ForgeApplication()
    initializeRenderPass();
    initializeGraphicsPipeline();
    initializeFramebuffers();
+   initializeTransientCommandPool();
    initializeVertexBuffers();
    initializeCommandBuffers();
    initializeSyncObjects();
@@ -495,6 +496,7 @@ ForgeApplication::~ForgeApplication()
    terminateCommandBuffers(false);
    terminateVertexBuffers();
    terminateFramebuffers();
+   terminateTransientCommandPool();
    terminateGraphicsPipeline();
    terminateRenderPass();
    terminateSwapchain();
@@ -986,27 +988,44 @@ void ForgeApplication::terminateFramebuffers()
    swapchainFramebuffers.clear();
 }
 
+void ForgeApplication::initializeTransientCommandPool()
+{
+   ASSERT(!transientCommandPool);
+
+   vk::CommandPoolCreateInfo commandPoolCreateInfo = vk::CommandPoolCreateInfo()
+      .setQueueFamilyIndex(*queueFamilyIndices.graphicsFamily)
+      .setFlags(vk::CommandPoolCreateFlagBits::eTransient);
+
+   transientCommandPool = device.createCommandPool(commandPoolCreateInfo);
+}
+
+void ForgeApplication::terminateTransientCommandPool()
+{
+   device.destroyCommandPool(transientCommandPool);
+   transientCommandPool = nullptr;
+}
+
 void ForgeApplication::initializeVertexBuffers()
 {
-   vk::BufferCreateInfo bufferCreateInfo = vk::BufferCreateInfo()
-      .setSize(kVertices.size() * sizeof(Vertex))
-      .setUsage(vk::BufferUsageFlagBits::eVertexBuffer)
-      .setSharingMode(vk::SharingMode::eExclusive);
+   vk::DeviceSize bufferSize = kVertices.size() * sizeof(Vertex);
 
-   vertexBuffer = device.createBuffer(bufferCreateInfo);
+   vk::Buffer stagingBuffer;
+   vk::DeviceMemory stagingBufferMemory;
+   createBuffer(bufferSize, vk::BufferUsageFlagBits::eTransferSrc, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, stagingBuffer, stagingBufferMemory);
 
-   vk::MemoryRequirements memoryRequirements = device.getBufferMemoryRequirements(vertexBuffer);
-   vk::MemoryAllocateInfo allocateInfo = vk::MemoryAllocateInfo()
-      .setAllocationSize(memoryRequirements.size)
-      .setMemoryTypeIndex(findMemoryType(physicalDevice, memoryRequirements.memoryTypeBits, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent));
-
-   vertexBufferMemory = device.allocateMemory(allocateInfo);
-   device.bindBufferMemory(vertexBuffer, vertexBufferMemory, 0);
-
-   void* data = device.mapMemory(vertexBufferMemory, 0, bufferCreateInfo.size, vk::MemoryMapFlags());
-   std::memcpy(data, kVertices.data(), static_cast<std::size_t>(bufferCreateInfo.size));
-   device.unmapMemory(vertexBufferMemory);
+   void* data = device.mapMemory(stagingBufferMemory, 0, bufferSize, vk::MemoryMapFlags());
+   std::memcpy(data, kVertices.data(), static_cast<std::size_t>(bufferSize));
+   device.unmapMemory(stagingBufferMemory);
    data = nullptr;
+
+   createBuffer(bufferSize, vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer, vk::MemoryPropertyFlagBits::eDeviceLocal, vertexBuffer, vertexBufferMemory);
+   copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
+
+   device.destroyBuffer(stagingBuffer);
+   stagingBuffer = nullptr;
+
+   device.freeMemory(stagingBufferMemory);
+   stagingBufferMemory = nullptr;
 }
 
 void ForgeApplication::terminateVertexBuffers()
@@ -1126,4 +1145,52 @@ void ForgeApplication::terminateSyncObjects()
       device.destroySemaphore(imageAvailableSemaphore);
    }
    imageAvailableSemaphores.clear();
+}
+
+void ForgeApplication::createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Buffer& buffer, vk::DeviceMemory& bufferMemory) const
+{
+   vk::BufferCreateInfo bufferCreateInfo = vk::BufferCreateInfo()
+      .setSize(size)
+      .setUsage(usage)
+      .setSharingMode(vk::SharingMode::eExclusive);
+
+   buffer = device.createBuffer(bufferCreateInfo);
+
+   vk::MemoryRequirements memoryRequirements = device.getBufferMemoryRequirements(buffer);
+   vk::MemoryAllocateInfo allocateInfo = vk::MemoryAllocateInfo()
+      .setAllocationSize(memoryRequirements.size)
+      .setMemoryTypeIndex(findMemoryType(physicalDevice, memoryRequirements.memoryTypeBits, properties));
+
+   bufferMemory = device.allocateMemory(allocateInfo);
+   device.bindBufferMemory(buffer, bufferMemory, 0);
+}
+
+void ForgeApplication::copyBuffer(vk::Buffer sourceBuffer, vk::Buffer destinationBuffer, vk::DeviceSize size)
+{
+   vk::CommandBufferAllocateInfo commandBufferAllocateInfo = vk::CommandBufferAllocateInfo()
+      .setLevel(vk::CommandBufferLevel::ePrimary)
+      .setCommandPool(transientCommandPool)
+      .setCommandBufferCount(1);
+
+   std::vector<vk::CommandBuffer> copyCommandBuffers = device.allocateCommandBuffers(commandBufferAllocateInfo);
+   vk::CommandBuffer copyCommandBuffer = copyCommandBuffers[0];
+
+   vk::CommandBufferBeginInfo beginInfo = vk::CommandBufferBeginInfo()
+      .setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
+   copyCommandBuffer.begin(beginInfo);
+
+   vk::BufferCopy copyRegion = vk::BufferCopy()
+      .setSize(size);
+   copyCommandBuffer.copyBuffer(sourceBuffer, destinationBuffer, { copyRegion });
+
+   copyCommandBuffer.end();
+
+   vk::SubmitInfo submitInfo = vk::SubmitInfo()
+      .setCommandBufferCount(1)
+      .setPCommandBuffers(&copyCommandBuffer);
+
+   graphicsQueue.submit({ submitInfo }, nullptr);
+   graphicsQueue.waitIdle();
+
+   device.freeCommandBuffers(transientCommandPool, copyCommandBuffers);
 }
