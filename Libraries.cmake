@@ -22,6 +22,10 @@ target_compile_definitions(${PROJECT_NAME} PUBLIC GLM_FORCE_CTOR_INIT)
 target_compile_definitions(${PROJECT_NAME} PUBLIC GLM_FORCE_DEPTH_ZERO_TO_ONE)
 target_link_libraries(${PROJECT_NAME} PUBLIC glm)
 
+# PlatformUtils
+add_subdirectory("${LIB_DIR}/PlatformUtils")
+target_link_libraries(${PROJECT_NAME} PUBLIC PlatformUtils)
+
 # PPK_ASSERT
 set(PPK_DIR "${LIB_DIR}/PPK_ASSERT")
 target_sources(${PROJECT_NAME} PRIVATE "${PPK_DIR}/src/ppk_assert.h" "${PPK_DIR}/src/ppk_assert.cpp")

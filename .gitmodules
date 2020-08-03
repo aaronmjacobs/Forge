@@ -13,3 +13,6 @@
 [submodule "Libraries/Boxer"]
 	path = Libraries/Boxer
 	url = https://github.com/aaronmjacobs/Boxer.git
+[submodule "Libraries/PlatformUtils"]
+	path = Libraries/PlatformUtils
+	url = https://github.com/aaronmjacobs/PlatformUtils.git

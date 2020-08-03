@@ -1,10 +1,10 @@
 #include "ForgeApplication.h"
 
 #include "Core/Log.h"
-#include "Platform/IOUtils.h"
 
 #include <glm/glm.hpp>
 #include <GLFW/glfw3.h>
+#include <PlatformUtils/IOUtils.h>
 
 #include <algorithm>
 #include <array>
@@ -400,7 +400,7 @@ namespace
    {
       vk::ShaderModule shaderModule;
 
-      if (std::optional<std::filesystem::path> absoluteShaderPath = IOUtils::getAbsoluteResourcePath(relativeShaderPath))
+      if (std::optional<std::filesystem::path> absoluteShaderPath = IOUtils::getAboluteProjectPath(relativeShaderPath))
       {
          if (std::optional<std::vector<uint8_t>> shaderData = IOUtils::readBinaryFile(*absoluteShaderPath))
          {
@@ -858,8 +858,8 @@ void ForgeApplication::terminateRenderPass()
 
 void ForgeApplication::initializeGraphicsPipeline()
 {
-   vk::ShaderModule vertShaderModule = createShaderModule(device, "Shaders/Triangle.vert.spv");
-   vk::ShaderModule fragShaderModule = createShaderModule(device, "Shaders/Triangle.frag.spv");
+   vk::ShaderModule vertShaderModule = createShaderModule(device, "Resources/Shaders/Triangle.vert.spv");
+   vk::ShaderModule fragShaderModule = createShaderModule(device, "Resources/Shaders/Triangle.frag.spv");
 
    vk::PipelineShaderStageCreateInfo vertShaderStageCreateinfo = vk::PipelineShaderStageCreateInfo()
       .setStage(vk::ShaderStageFlagBits::eVertex)

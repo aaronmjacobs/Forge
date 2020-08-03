@@ -10,11 +10,6 @@ target_sources(${PROJECT_NAME} PRIVATE
    "${SRC_DIR}/Core/Log.h"
 
    "${SRC_DIR}/Graphics/Vulkan.h"
-
-   "${SRC_DIR}/Platform/IOUtils.cpp"
-   "${SRC_DIR}/Platform/IOUtils.h"
-   "${SRC_DIR}/Platform/OSUtils.cpp"
-   "${SRC_DIR}/Platform/OSUtils.h"
 )
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
