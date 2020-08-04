@@ -67,8 +67,8 @@ private:
    void initializeTransientCommandPool();
    void terminateTransientCommandPool();
 
-   void initializeVertexBuffers();
-   void terminateVertexBuffers();
+   void initializeShaderBuffers();
+   void terminateShaderBuffers();
 
    void initializeCommandBuffers();
    void terminateCommandBuffers(bool keepPoolAlive);
@@ -78,6 +78,9 @@ private:
 
    void createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Buffer& buffer, vk::DeviceMemory& bufferMemory) const;
    void copyBuffer(vk::Buffer sourceBuffer, vk::Buffer destinationBuffer, vk::DeviceSize size);
+
+   template<typename T, std::size_t size>
+   vk::Buffer createAndInitializeBuffer(const std::array<T, size>& data, vk::DeviceMemory& deviceMemory, vk::BufferUsageFlags usage);
 
    GLFWwindow* window = nullptr;
 
@@ -105,6 +108,8 @@ private:
 
    vk::Buffer vertexBuffer;
    vk::DeviceMemory vertexBufferMemory;
+   vk::Buffer indexBuffer;
+   vk::DeviceMemory indexBufferMemory;
 
    vk::CommandPool commandPool;
    std::vector<vk::CommandBuffer> commandBuffers;

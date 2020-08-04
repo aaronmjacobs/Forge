@@ -452,11 +452,18 @@ namespace
       }
    };
 
-   const std::array<Vertex, 3> kVertices =
+   const std::array<Vertex, 4> kVertices =
    {
-      Vertex(glm::vec2(0.0f, -0.5f), glm::vec3(1.0f, 0.0f, 0.0f)),
-      Vertex(glm::vec2(0.5f, 0.5f), glm::vec3(0.0f, 1.0f, 0.0f)),
-      Vertex(glm::vec2(-0.5f, 0.5f), glm::vec3(0.0f, 0.0f, 1.0f))
+      Vertex(glm::vec2(-0.5f, -0.5f), glm::vec3(1.0f, 0.0f, 0.0f)),
+      Vertex(glm::vec2(0.5f, -0.5f), glm::vec3(0.0f, 1.0f, 0.0f)),
+      Vertex(glm::vec2(0.5f, 0.5f), glm::vec3(0.0f, 0.0f, 1.0f)),
+      Vertex(glm::vec2(-0.5f, 0.5f), glm::vec3(1.0f, 1.0f, 1.0f)),
+   };
+
+   const std::array<int16_t, 6> kIndices =
+   {
+      0, 1, 2,
+      2, 3, 0
    };
 
    uint32_t findMemoryType(vk::PhysicalDevice physicalDevice, uint32_t typeFilter, vk::MemoryPropertyFlags properties)
@@ -485,7 +492,7 @@ ForgeApplication::ForgeApplication()
    initializeGraphicsPipeline();
    initializeFramebuffers();
    initializeTransientCommandPool();
-   initializeVertexBuffers();
+   initializeShaderBuffers();
    initializeCommandBuffers();
    initializeSyncObjects();
 }
@@ -494,7 +501,7 @@ ForgeApplication::~ForgeApplication()
 {
    terminateSyncObjects();
    terminateCommandBuffers(false);
-   terminateVertexBuffers();
+   terminateShaderBuffers();
    terminateFramebuffers();
    terminateTransientCommandPool();
    terminateGraphicsPipeline();
@@ -1005,36 +1012,25 @@ void ForgeApplication::terminateTransientCommandPool()
    transientCommandPool = nullptr;
 }
 
-void ForgeApplication::initializeVertexBuffers()
+void ForgeApplication::initializeShaderBuffers()
 {
-   vk::DeviceSize bufferSize = kVertices.size() * sizeof(Vertex);
-
-   vk::Buffer stagingBuffer;
-   vk::DeviceMemory stagingBufferMemory;
-   createBuffer(bufferSize, vk::BufferUsageFlagBits::eTransferSrc, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, stagingBuffer, stagingBufferMemory);
-
-   void* data = device.mapMemory(stagingBufferMemory, 0, bufferSize, vk::MemoryMapFlags());
-   std::memcpy(data, kVertices.data(), static_cast<std::size_t>(bufferSize));
-   device.unmapMemory(stagingBufferMemory);
-   data = nullptr;
-
-   createBuffer(bufferSize, vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer, vk::MemoryPropertyFlagBits::eDeviceLocal, vertexBuffer, vertexBufferMemory);
-   copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
-
-   device.destroyBuffer(stagingBuffer);
-   stagingBuffer = nullptr;
-
-   device.freeMemory(stagingBufferMemory);
-   stagingBufferMemory = nullptr;
+   vertexBuffer = createAndInitializeBuffer(kVertices, vertexBufferMemory, vk::BufferUsageFlagBits::eVertexBuffer);
+   indexBuffer = createAndInitializeBuffer(kIndices, indexBufferMemory, vk::BufferUsageFlagBits::eIndexBuffer);
 }
 
-void ForgeApplication::terminateVertexBuffers()
+void ForgeApplication::terminateShaderBuffers()
 {
    device.destroyBuffer(vertexBuffer);
    vertexBuffer = nullptr;
 
    device.freeMemory(vertexBufferMemory);
    vertexBufferMemory = nullptr;
+
+   device.destroyBuffer(indexBuffer);
+   indexBuffer = nullptr;
+
+   device.freeMemory(indexBufferMemory);
+   indexBufferMemory = nullptr;
 }
 
 void ForgeApplication::initializeCommandBuffers()
@@ -1079,11 +1075,10 @@ void ForgeApplication::initializeCommandBuffers()
 
       commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, graphicsPipeline);
 
-      std::array<vk::Buffer, 1> vertexBuffers = { vertexBuffer };
-      std::array<vk::DeviceSize, 1> vertexOffsets = { 0 };
-      commandBuffer.bindVertexBuffers(0, vertexBuffers, vertexOffsets);
+      commandBuffer.bindVertexBuffers(0, { vertexBuffer }, { 0 });
+      commandBuffer.bindIndexBuffer(indexBuffer, 0, vk::IndexType::eUint16);
 
-      commandBuffer.draw(static_cast<uint32_t>(kVertices.size()), 1, 0, 0);
+      commandBuffer.drawIndexed(static_cast<uint32_t>(kIndices.size()), 1, 0, 0, 0);
 
       commandBuffer.endRenderPass();
 
@@ -1193,4 +1188,32 @@ void ForgeApplication::copyBuffer(vk::Buffer sourceBuffer, vk::Buffer destinatio
    graphicsQueue.waitIdle();
 
    device.freeCommandBuffers(transientCommandPool, copyCommandBuffers);
+}
+
+
+template<typename T, std::size_t size>
+vk::Buffer ForgeApplication::createAndInitializeBuffer(const std::array<T, size>& data, vk::DeviceMemory& deviceMemory, vk::BufferUsageFlags usage)
+{
+   vk::DeviceSize bufferSize = data.size() * sizeof(T);
+
+   vk::Buffer stagingBuffer;
+   vk::DeviceMemory stagingBufferMemory;
+   createBuffer(bufferSize, vk::BufferUsageFlagBits::eTransferSrc, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, stagingBuffer, stagingBufferMemory);
+
+   void* mappedData = device.mapMemory(stagingBufferMemory, 0, bufferSize, vk::MemoryMapFlags());
+   std::memcpy(mappedData, data.data(), static_cast<std::size_t>(bufferSize));
+   device.unmapMemory(stagingBufferMemory);
+   mappedData = nullptr;
+
+   vk::Buffer buffer;
+   createBuffer(bufferSize, vk::BufferUsageFlagBits::eTransferDst | usage, vk::MemoryPropertyFlagBits::eDeviceLocal, buffer, deviceMemory);
+   copyBuffer(stagingBuffer, buffer, bufferSize);
+
+   device.destroyBuffer(stagingBuffer);
+   stagingBuffer = nullptr;
+
+   device.freeMemory(stagingBufferMemory);
+   stagingBufferMemory = nullptr;
+
+   return buffer;
 }
