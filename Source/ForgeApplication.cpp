@@ -2,7 +2,6 @@
 
 #include "Core/Log.h"
 
-#include <glm/glm.hpp>
 #include <GLFW/glfw3.h>
 #include <PlatformUtils/IOUtils.h>
 
@@ -415,57 +414,6 @@ namespace
       return shaderModule;
    }
 
-   struct Vertex
-   {
-      glm::vec2 position;
-      glm::vec3 color;
-
-      Vertex(const glm::vec2& initialPosition = glm::vec2(0.0f), const glm::vec3& initialColor = glm::vec3(0.0f))
-         : position(initialPosition)
-         , color(initialColor)
-      {
-      }
-
-      static vk::VertexInputBindingDescription getBindingDescription()
-      {
-         return vk::VertexInputBindingDescription()
-            .setBinding(0)
-            .setStride(sizeof(Vertex))
-            .setInputRate(vk::VertexInputRate::eVertex);
-      }
-
-      static std::array<vk::VertexInputAttributeDescription, 2> getAttributeDescriptions()
-      {
-         return
-         {
-            vk::VertexInputAttributeDescription()
-               .setLocation(0)
-               .setBinding(0)
-               .setFormat(vk::Format::eR32G32Sfloat)
-               .setOffset(offsetof(Vertex, position)),
-            vk::VertexInputAttributeDescription()
-               .setLocation(1)
-               .setBinding(0)
-               .setFormat(vk::Format::eR32G32B32Sfloat)
-               .setOffset(offsetof(Vertex, color))
-         };
-      }
-   };
-
-   const std::array<Vertex, 4> kVertices =
-   {
-      Vertex(glm::vec2(-0.5f, -0.5f), glm::vec3(1.0f, 0.0f, 0.0f)),
-      Vertex(glm::vec2(0.5f, -0.5f), glm::vec3(0.0f, 1.0f, 0.0f)),
-      Vertex(glm::vec2(0.5f, 0.5f), glm::vec3(0.0f, 0.0f, 1.0f)),
-      Vertex(glm::vec2(-0.5f, 0.5f), glm::vec3(1.0f, 1.0f, 1.0f)),
-   };
-
-   const std::array<int16_t, 6> kIndices =
-   {
-      0, 1, 2,
-      2, 3, 0
-   };
-
    uint32_t findMemoryType(vk::PhysicalDevice physicalDevice, uint32_t typeFilter, vk::MemoryPropertyFlags properties)
    {
       vk::PhysicalDeviceMemoryProperties physicalDeviceMemoryProperties = physicalDevice.getMemoryProperties();
@@ -481,6 +429,166 @@ namespace
 
       throw std::runtime_error("Failed to find suitable memory type");
    }
+
+   struct BufferCopyInfo
+   {
+      vk::Buffer srcBuffer;
+      vk::Buffer dstBuffer;
+
+      vk::DeviceSize srcOffset = 0;
+      vk::DeviceSize dstOffset = 0;
+
+      vk::DeviceSize size = 0;
+   };
+
+   void copyBuffers(const VulkanContext& context, const std::vector<BufferCopyInfo>& copyInfo)
+   {
+      vk::CommandBufferAllocateInfo commandBufferAllocateInfo = vk::CommandBufferAllocateInfo()
+         .setLevel(vk::CommandBufferLevel::ePrimary)
+         .setCommandPool(context.transientCommandPool)
+         .setCommandBufferCount(1);
+
+      std::vector<vk::CommandBuffer> copyCommandBuffers = context.device.allocateCommandBuffers(commandBufferAllocateInfo);
+      vk::CommandBuffer copyCommandBuffer = copyCommandBuffers[0];
+
+      vk::CommandBufferBeginInfo beginInfo = vk::CommandBufferBeginInfo()
+         .setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
+      copyCommandBuffer.begin(beginInfo);
+
+      for (const BufferCopyInfo& info : copyInfo)
+      {
+         vk::BufferCopy copyRegion = vk::BufferCopy()
+            .setSrcOffset(info.srcOffset)
+            .setDstOffset(info.dstOffset)
+            .setSize(info.size);
+         copyCommandBuffer.copyBuffer(info.srcBuffer, info.dstBuffer, { copyRegion });
+      }
+
+      copyCommandBuffer.end();
+
+      vk::SubmitInfo submitInfo = vk::SubmitInfo()
+         .setCommandBufferCount(1)
+         .setPCommandBuffers(&copyCommandBuffer);
+
+      context.graphicsQueue.submit({ submitInfo }, nullptr);
+      context.graphicsQueue.waitIdle();
+
+      context.device.freeCommandBuffers(context.transientCommandPool, copyCommandBuffers);
+   }
+}
+
+// static
+vk::VertexInputBindingDescription Vertex::getBindingDescription()
+{
+   return vk::VertexInputBindingDescription()
+      .setBinding(0)
+      .setStride(sizeof(Vertex))
+      .setInputRate(vk::VertexInputRate::eVertex);
+}
+
+// static
+std::array<vk::VertexInputAttributeDescription, 2> Vertex::getAttributeDescriptions()
+{
+   return
+   {
+      vk::VertexInputAttributeDescription()
+         .setLocation(0)
+         .setBinding(0)
+         .setFormat(vk::Format::eR32G32Sfloat)
+         .setOffset(offsetof(Vertex, position)),
+      vk::VertexInputAttributeDescription()
+         .setLocation(1)
+         .setBinding(0)
+         .setFormat(vk::Format::eR32G32B32Sfloat)
+         .setOffset(offsetof(Vertex, color))
+   };
+}
+
+void Mesh::initialize(const VulkanContext& context, const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices)
+{
+   vk::DeviceSize vertexBufferSize = vertices.size() * sizeof(Vertex);
+   vk::DeviceSize indexBufferSize = indices.size() * sizeof(uint32_t);
+
+   // Create vertex and index buffers
+
+   vk::BufferCreateInfo vertexBufferCreateInfo = vk::BufferCreateInfo()
+      .setSize(vertexBufferSize)
+      .setUsage(vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer)
+      .setSharingMode(vk::SharingMode::eExclusive);
+   vertexBuffer = context.device.createBuffer(vertexBufferCreateInfo);
+
+   vk::BufferCreateInfo indexBufferCreateInfo = vk::BufferCreateInfo()
+      .setSize(indexBufferSize)
+      .setUsage(vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eIndexBuffer)
+      .setSharingMode(vk::SharingMode::eExclusive);
+   indexBuffer = context.device.createBuffer(indexBufferCreateInfo);
+
+   vk::MemoryRequirements vertexMemoryRequirements = context.device.getBufferMemoryRequirements(vertexBuffer);
+   vk::MemoryRequirements indexMemoryRequirements = context.device.getBufferMemoryRequirements(vertexBuffer);
+   vk::MemoryAllocateInfo allocateInfo = vk::MemoryAllocateInfo()
+      .setAllocationSize(vertexMemoryRequirements.size + indexMemoryRequirements.size)
+      .setMemoryTypeIndex(findMemoryType(context.physicalDevice, vertexMemoryRequirements.memoryTypeBits & indexMemoryRequirements.memoryTypeBits, vk::MemoryPropertyFlagBits::eDeviceLocal));
+
+   deviceMemory = context.device.allocateMemory(allocateInfo);
+   context.device.bindBufferMemory(vertexBuffer, deviceMemory, 0);
+   context.device.bindBufferMemory(indexBuffer, deviceMemory, vertexMemoryRequirements.size);
+
+   numIndices = static_cast<uint32_t>(indices.size());
+
+   // Create staging buffer, and use it to copy over data
+
+   vk::BufferCreateInfo stagingBufferCreateInfo = vk::BufferCreateInfo()
+      .setSize(vertexBufferSize + indexBufferSize)
+      .setUsage(vk::BufferUsageFlagBits::eTransferSrc)
+      .setSharingMode(vk::SharingMode::eExclusive);
+   vk::Buffer stagingBuffer = context.device.createBuffer(stagingBufferCreateInfo);
+
+   vk::MemoryRequirements stagingMemoryRequirements = context.device.getBufferMemoryRequirements(stagingBuffer);
+   vk::MemoryAllocateInfo stagingAllocateInfo = vk::MemoryAllocateInfo()
+      .setAllocationSize(stagingMemoryRequirements.size)
+      .setMemoryTypeIndex(findMemoryType(context.physicalDevice, stagingMemoryRequirements.memoryTypeBits, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent));
+
+   vk::DeviceMemory stagingDeviceMemory = context.device.allocateMemory(stagingAllocateInfo);
+   context.device.bindBufferMemory(stagingBuffer, stagingDeviceMemory, 0);
+
+   void* mappedData = context.device.mapMemory(stagingDeviceMemory, 0, stagingAllocateInfo.allocationSize, vk::MemoryMapFlags());
+   std::memcpy(mappedData, vertices.data(), static_cast<std::size_t>(vertexBufferSize));
+   std::memcpy(static_cast<uint8_t*>(mappedData) + vertexBufferSize, indices.data(), static_cast<std::size_t>(indexBufferSize));
+   context.device.unmapMemory(stagingDeviceMemory);
+   mappedData = nullptr;
+
+   BufferCopyInfo vertexCopyInfo;
+   vertexCopyInfo.srcBuffer = stagingBuffer;
+   vertexCopyInfo.dstBuffer = vertexBuffer;
+   vertexCopyInfo.size = vertexBufferSize;
+
+   BufferCopyInfo indexCopyInfo;
+   indexCopyInfo.srcBuffer = stagingBuffer;
+   indexCopyInfo.dstBuffer = indexBuffer;
+   indexCopyInfo.srcOffset = vertexBufferSize;
+   indexCopyInfo.size = indexBufferSize;
+
+   copyBuffers(context, { vertexCopyInfo, indexCopyInfo });
+
+   context.device.destroyBuffer(stagingBuffer);
+   stagingBuffer = nullptr;
+
+   context.device.freeMemory(stagingDeviceMemory);
+   stagingDeviceMemory = nullptr;
+}
+
+void Mesh::terminate(const VulkanContext& context)
+{
+   context.device.destroyBuffer(vertexBuffer);
+   vertexBuffer = nullptr;
+
+   context.device.destroyBuffer(indexBuffer);
+   indexBuffer = nullptr;
+
+   context.device.freeMemory(deviceMemory);
+   deviceMemory = nullptr;
+
+   numIndices = 0;
 }
 
 ForgeApplication::ForgeApplication()
@@ -492,7 +600,7 @@ ForgeApplication::ForgeApplication()
    initializeGraphicsPipeline();
    initializeFramebuffers();
    initializeTransientCommandPool();
-   initializeShaderBuffers();
+   initializeMesh();
    initializeCommandBuffers();
    initializeSyncObjects();
 }
@@ -501,7 +609,7 @@ ForgeApplication::~ForgeApplication()
 {
    terminateSyncObjects();
    terminateCommandBuffers(false);
-   terminateShaderBuffers();
+   terminateMesh();
    terminateFramebuffers();
    terminateTransientCommandPool();
    terminateGraphicsPipeline();
@@ -519,7 +627,7 @@ void ForgeApplication::run()
       render();
    }
 
-   device.waitIdle();
+   context.device.waitIdle();
 }
 
 void ForgeApplication::render()
@@ -529,13 +637,13 @@ void ForgeApplication::render()
       recreateSwapchain();
    }
 
-   device.waitForFences({ frameFences[frameIndex] }, true, UINT64_MAX);
+   context.device.waitForFences({ frameFences[frameIndex] }, true, UINT64_MAX);
 
-   vk::ResultValue<uint32_t> imageIndexResultValue = device.acquireNextImageKHR(swapchain, UINT64_MAX, imageAvailableSemaphores[frameIndex], nullptr);
+   vk::ResultValue<uint32_t> imageIndexResultValue = context.device.acquireNextImageKHR(swapchain, UINT64_MAX, imageAvailableSemaphores[frameIndex], nullptr);
    if (imageIndexResultValue.result == vk::Result::eErrorOutOfDateKHR)
    {
       recreateSwapchain();
-      imageIndexResultValue = device.acquireNextImageKHR(swapchain, UINT64_MAX, imageAvailableSemaphores[frameIndex], nullptr);
+      imageIndexResultValue = context.device.acquireNextImageKHR(swapchain, UINT64_MAX, imageAvailableSemaphores[frameIndex], nullptr);
    }
    if (imageIndexResultValue.result != vk::Result::eSuccess && imageIndexResultValue.result != vk::Result::eSuboptimalKHR)
    {
@@ -546,7 +654,7 @@ void ForgeApplication::render()
    if (imageFences[imageIndex])
    {
       // If a previous frame is still using the image, wait for it to complete
-      device.waitForFences({ imageFences[imageIndex] }, true, UINT64_MAX);
+      context.device.waitForFences({ imageFences[imageIndex] }, true, UINT64_MAX);
    }
    imageFences[imageIndex] = frameFences[frameIndex];
 
@@ -564,8 +672,8 @@ void ForgeApplication::render()
       .setSignalSemaphoreCount(static_cast<uint32_t>(signalSemaphores.size()))
       .setPSignalSemaphores(signalSemaphores.data());
 
-   device.resetFences({ frameFences[frameIndex] });
-   graphicsQueue.submit({ submitInfo }, frameFences[frameIndex]);
+   context.device.resetFences({ frameFences[frameIndex] });
+   context.graphicsQueue.submit({ submitInfo }, frameFences[frameIndex]);
 
    std::array<vk::SwapchainKHR, 1> swapchains = { swapchain };
 
@@ -576,7 +684,7 @@ void ForgeApplication::render()
       .setPSwapchains(swapchains.data())
       .setPImageIndices(&imageIndex);
 
-   vk::Result presentResult = presentQueue.presentKHR(presentInfo);
+   vk::Result presentResult = context.presentQueue.presentKHR(presentInfo);
    if (presentResult == vk::Result::eErrorOutOfDateKHR || presentResult == vk::Result::eSuboptimalKHR)
    {
       recreateSwapchain();
@@ -600,7 +708,7 @@ void ForgeApplication::recreateSwapchain()
       glfwWaitEvents();
    }
 
-   device.waitIdle();
+   context.device.waitIdle();
 
    terminateCommandBuffers(true);
    terminateFramebuffers();
@@ -672,27 +780,27 @@ void ForgeApplication::initializeVulkan()
       .setEnabledLayerCount(static_cast<uint32_t>(layers.size()))
       .setPpEnabledLayerNames(layers.data());
 
-   instance = vk::createInstance(createInfo);
+   context.instance = vk::createInstance(createInfo);
 
 #if FORGE_DEBUG
-   debugMessenger = createDebugMessenger(instance);
+   debugMessenger = createDebugMessenger(context.instance);
 #endif // FORGE_DEBUG
 
    VkSurfaceKHR vkSurface = nullptr;
-   if (glfwCreateWindowSurface(instance, window, nullptr, &vkSurface) != VK_SUCCESS)
+   if (glfwCreateWindowSurface(context.instance, window, nullptr, &vkSurface) != VK_SUCCESS)
    {
       throw std::runtime_error("Failed to create window surface");
    }
-   surface = vkSurface;
+   context.surface = vkSurface;
 
-   physicalDevice = selectBestPhysicalDevice(instance.enumeratePhysicalDevices(), surface);
-   if (!physicalDevice)
+   context.physicalDevice = selectBestPhysicalDevice(context.instance.enumeratePhysicalDevices(), context.surface);
+   if (!context.physicalDevice)
    {
       throw std::runtime_error("Failed to find a suitable GPU");
    }
 
-   queueFamilyIndices = getQueueFamilyIndices(physicalDevice, surface);
-   std::set<uint32_t> uniqueQueueIndices = queueFamilyIndices.getUniqueIndices();
+   context.queueFamilyIndices = getQueueFamilyIndices(context.physicalDevice, context.surface);
+   std::set<uint32_t> uniqueQueueIndices = context.queueFamilyIndices.getUniqueIndices();
 
    float queuePriority = 1.0f;
    std::vector<vk::DeviceQueueCreateInfo> deviceQueueCreateInfos;
@@ -704,7 +812,7 @@ void ForgeApplication::initializeVulkan()
          .setPQueuePriorities(&queuePriority));
    }
 
-   std::vector<const char*> deviceExtensions = getDeviceExtensions(physicalDevice);
+   std::vector<const char*> deviceExtensions = getDeviceExtensions(context.physicalDevice);
 
    vk::PhysicalDeviceFeatures deviceFeatures;
 
@@ -721,31 +829,31 @@ void ForgeApplication::initializeVulkan()
       .setPpEnabledLayerNames(layers.data());
 #endif // FORGE_DEBUG
 
-   device = physicalDevice.createDevice(deviceCreateInfo);
+   context.device = context.physicalDevice.createDevice(deviceCreateInfo);
 
-   graphicsQueue = device.getQueue(*queueFamilyIndices.graphicsFamily, 0);
-   presentQueue = device.getQueue(*queueFamilyIndices.presentFamily, 0);
+   context.graphicsQueue = context.device.getQueue(*context.queueFamilyIndices.graphicsFamily, 0);
+   context.presentQueue = context.device.getQueue(*context.queueFamilyIndices.presentFamily, 0);
 }
 
 void ForgeApplication::terminateVulkan()
 {
-   device.destroy();
-   device = nullptr;
+   context.device.destroy();
+   context.device = nullptr;
 
-   instance.destroySurfaceKHR(surface);
-   surface = nullptr;
+   context.instance.destroySurfaceKHR(context.surface);
+   context.surface = nullptr;
 
 #if FORGE_DEBUG
-   destroyDebugMessenger(instance, debugMessenger);
+   destroyDebugMessenger(context.instance, debugMessenger);
 #endif // FORGE_DEBUG
 
-   instance.destroy();
-   instance = nullptr;
+   context.instance.destroy();
+   context.instance = nullptr;
 }
 
 void ForgeApplication::initializeSwapchain()
 {
-   SwapChainSupportDetails swapChainSupportDetails = getSwapChainSupportDetails(physicalDevice, surface);
+   SwapChainSupportDetails swapChainSupportDetails = getSwapChainSupportDetails(context.physicalDevice, context.surface);
    ASSERT(swapChainSupportDetails.isValid());
 
    vk::SurfaceFormatKHR surfaceFormat = chooseSwapChainSurfaceFormat(swapChainSupportDetails.formats);
@@ -756,7 +864,7 @@ void ForgeApplication::initializeSwapchain()
    uint32_t minImageCount = swapChainSupportDetails.capabilities.maxImageCount > 0 ? std::min(swapChainSupportDetails.capabilities.maxImageCount, desiredMinImageCount) : desiredMinImageCount;
 
    vk::SwapchainCreateInfoKHR swapchainCreateInfo = vk::SwapchainCreateInfoKHR()
-      .setSurface(surface)
+      .setSurface(context.surface)
       .setMinImageCount(minImageCount)
       .setImageFormat(surfaceFormat.format)
       .setImageColorSpace(surfaceFormat.colorSpace)
@@ -768,13 +876,13 @@ void ForgeApplication::initializeSwapchain()
       .setPresentMode(presentMode)
       .setClipped(true);
 
-   if (*queueFamilyIndices.graphicsFamily == *queueFamilyIndices.presentFamily)
+   if (*context.queueFamilyIndices.graphicsFamily == *context.queueFamilyIndices.presentFamily)
    {
       swapchainCreateInfo = swapchainCreateInfo.setImageSharingMode(vk::SharingMode::eExclusive);
    }
    else
    {
-      std::array<uint32_t, 2> indices = { *queueFamilyIndices.graphicsFamily, *queueFamilyIndices.presentFamily };
+      std::array<uint32_t, 2> indices = { *context.queueFamilyIndices.graphicsFamily, *context.queueFamilyIndices.presentFamily };
 
       swapchainCreateInfo = swapchainCreateInfo
          .setImageSharingMode(vk::SharingMode::eConcurrent)
@@ -782,8 +890,8 @@ void ForgeApplication::initializeSwapchain()
          .setPQueueFamilyIndices(indices.data());
    }
 
-   swapchain = device.createSwapchainKHR(swapchainCreateInfo);
-   swapchainImages = device.getSwapchainImagesKHR(swapchain);
+   swapchain = context.device.createSwapchainKHR(swapchainCreateInfo);
+   swapchainImages = context.device.getSwapchainImagesKHR(swapchain);
    swapchainImageFormat = surfaceFormat.format;
    swapchainExtent = extent;
 
@@ -803,7 +911,7 @@ void ForgeApplication::initializeSwapchain()
          .setFormat(swapchainImageFormat)
          .setSubresourceRange(imageSubresourceRange);
 
-      swapchainImageViews.push_back(device.createImageView(imageViewCreateInfo));
+      swapchainImageViews.push_back(context.device.createImageView(imageViewCreateInfo));
    }
 }
 
@@ -811,11 +919,11 @@ void ForgeApplication::terminateSwapchain()
 {
    for (vk::ImageView swapchainImageView : swapchainImageViews)
    {
-      device.destroyImageView(swapchainImageView);
+      context.device.destroyImageView(swapchainImageView);
    }
    swapchainImageViews.clear();
 
-   device.destroySwapchainKHR(swapchain);
+   context.device.destroySwapchainKHR(swapchain);
    swapchain = nullptr;
 }
 
@@ -856,19 +964,19 @@ void ForgeApplication::initializeRenderPass()
       .setDependencyCount(1)
       .setPDependencies(&subpassDependency);
 
-   renderPass = device.createRenderPass(renderPassCreateInfo);
+   renderPass = context.device.createRenderPass(renderPassCreateInfo);
 }
 
 void ForgeApplication::terminateRenderPass()
 {
-   device.destroyRenderPass(renderPass);
+   context.device.destroyRenderPass(renderPass);
    renderPass = nullptr;
 }
 
 void ForgeApplication::initializeGraphicsPipeline()
 {
-   vk::ShaderModule vertShaderModule = createShaderModule(device, "Resources/Shaders/Triangle.vert.spv");
-   vk::ShaderModule fragShaderModule = createShaderModule(device, "Resources/Shaders/Triangle.frag.spv");
+   vk::ShaderModule vertShaderModule = createShaderModule(context.device, "Resources/Shaders/Triangle.vert.spv");
+   vk::ShaderModule fragShaderModule = createShaderModule(context.device, "Resources/Shaders/Triangle.frag.spv");
 
    vk::PipelineShaderStageCreateInfo vertShaderStageCreateinfo = vk::PipelineShaderStageCreateInfo()
       .setStage(vk::ShaderStageFlagBits::eVertex)
@@ -931,7 +1039,7 @@ void ForgeApplication::initializeGraphicsPipeline()
       .setPAttachments(&colorBlendAttachmentState);
 
    vk::PipelineLayoutCreateInfo pipelineLayoutCreateInfo;
-   pipelineLayout = device.createPipelineLayout(pipelineLayoutCreateInfo);
+   pipelineLayout = context.device.createPipelineLayout(pipelineLayoutCreateInfo);
 
    vk::GraphicsPipelineCreateInfo graphicsPipelineCreateInfo = vk::GraphicsPipelineCreateInfo()
       .setStageCount(static_cast<uint32_t>(shaderStages.size()))
@@ -950,18 +1058,18 @@ void ForgeApplication::initializeGraphicsPipeline()
       .setBasePipelineHandle(nullptr)
       .setBasePipelineIndex(-1);
 
-   graphicsPipeline = device.createGraphicsPipeline(nullptr, graphicsPipelineCreateInfo);
+   graphicsPipeline = context.device.createGraphicsPipeline(nullptr, graphicsPipelineCreateInfo);
 
-   device.destroyShaderModule(fragShaderModule);
-   device.destroyShaderModule(vertShaderModule);
+   context.device.destroyShaderModule(fragShaderModule);
+   context.device.destroyShaderModule(vertShaderModule);
 }
 
 void ForgeApplication::terminateGraphicsPipeline()
 {
-   device.destroyPipeline(graphicsPipeline);
+   context.device.destroyPipeline(graphicsPipeline);
    graphicsPipeline = nullptr;
 
-   device.destroyPipelineLayout(pipelineLayout);
+   context.device.destroyPipelineLayout(pipelineLayout);
    pipelineLayout = nullptr;
 }
 
@@ -982,7 +1090,7 @@ void ForgeApplication::initializeFramebuffers()
          .setHeight(swapchainExtent.height)
          .setLayers(1);
 
-      swapchainFramebuffers.push_back(device.createFramebuffer(framebufferCreateInfo));
+      swapchainFramebuffers.push_back(context.device.createFramebuffer(framebufferCreateInfo));
    }
 }
 
@@ -990,59 +1098,62 @@ void ForgeApplication::terminateFramebuffers()
 {
    for (vk::Framebuffer swapchainFramebuffer : swapchainFramebuffers)
    {
-      device.destroyFramebuffer(swapchainFramebuffer);
+      context.device.destroyFramebuffer(swapchainFramebuffer);
    }
    swapchainFramebuffers.clear();
 }
 
 void ForgeApplication::initializeTransientCommandPool()
 {
-   ASSERT(!transientCommandPool);
+   ASSERT(!context.transientCommandPool);
 
    vk::CommandPoolCreateInfo commandPoolCreateInfo = vk::CommandPoolCreateInfo()
-      .setQueueFamilyIndex(*queueFamilyIndices.graphicsFamily)
+      .setQueueFamilyIndex(*context.queueFamilyIndices.graphicsFamily)
       .setFlags(vk::CommandPoolCreateFlagBits::eTransient);
 
-   transientCommandPool = device.createCommandPool(commandPoolCreateInfo);
+   context.transientCommandPool = context.device.createCommandPool(commandPoolCreateInfo);
 }
 
 void ForgeApplication::terminateTransientCommandPool()
 {
-   device.destroyCommandPool(transientCommandPool);
-   transientCommandPool = nullptr;
+   context.device.destroyCommandPool(context.transientCommandPool);
+   context.transientCommandPool = nullptr;
 }
 
-void ForgeApplication::initializeShaderBuffers()
+void ForgeApplication::initializeMesh()
 {
-   vertexBuffer = createAndInitializeBuffer(kVertices, vertexBufferMemory, vk::BufferUsageFlagBits::eVertexBuffer);
-   indexBuffer = createAndInitializeBuffer(kIndices, indexBufferMemory, vk::BufferUsageFlagBits::eIndexBuffer);
+   std::vector<Vertex> vertices =
+   {
+      Vertex(glm::vec2(-0.5f, -0.5f), glm::vec3(1.0f, 0.0f, 0.0f)),
+      Vertex(glm::vec2(0.5f, -0.5f), glm::vec3(0.0f, 1.0f, 0.0f)),
+      Vertex(glm::vec2(0.5f, 0.5f), glm::vec3(0.0f, 0.0f, 1.0f)),
+      Vertex(glm::vec2(-0.5f, 0.5f), glm::vec3(1.0f, 1.0f, 1.0f)),
+   };
+
+   std::vector<uint32_t> indices =
+   {
+      0, 1, 2,
+      2, 3, 0
+   };
+
+   quadMesh.initialize(context, vertices, indices);
 }
 
-void ForgeApplication::terminateShaderBuffers()
+void ForgeApplication::terminateMesh()
 {
-   device.destroyBuffer(vertexBuffer);
-   vertexBuffer = nullptr;
-
-   device.freeMemory(vertexBufferMemory);
-   vertexBufferMemory = nullptr;
-
-   device.destroyBuffer(indexBuffer);
-   indexBuffer = nullptr;
-
-   device.freeMemory(indexBufferMemory);
-   indexBufferMemory = nullptr;
+   quadMesh.terminate(context);
 }
 
 void ForgeApplication::initializeCommandBuffers()
 {
-   ASSERT(queueFamilyIndices.graphicsFamily.has_value());
+   ASSERT(context.queueFamilyIndices.graphicsFamily.has_value());
 
    if (!commandPool)
    {
       vk::CommandPoolCreateInfo commandPoolCreateInfo = vk::CommandPoolCreateInfo()
-         .setQueueFamilyIndex(*queueFamilyIndices.graphicsFamily);
+         .setQueueFamilyIndex(*context.queueFamilyIndices.graphicsFamily);
 
-      commandPool = device.createCommandPool(commandPoolCreateInfo);
+      commandPool = context.device.createCommandPool(commandPoolCreateInfo);
    }
 
    vk::CommandBufferAllocateInfo commandBufferAllocateInfo = vk::CommandBufferAllocateInfo()
@@ -1051,7 +1162,7 @@ void ForgeApplication::initializeCommandBuffers()
       .setCommandBufferCount(static_cast<uint32_t>(swapchainFramebuffers.size()));
 
    ASSERT(commandBuffers.empty());
-   commandBuffers = device.allocateCommandBuffers(commandBufferAllocateInfo);
+   commandBuffers = context.device.allocateCommandBuffers(commandBufferAllocateInfo);
 
    for (std::size_t i = 0; i < commandBuffers.size(); ++i)
    {
@@ -1075,10 +1186,10 @@ void ForgeApplication::initializeCommandBuffers()
 
       commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, graphicsPipeline);
 
-      commandBuffer.bindVertexBuffers(0, { vertexBuffer }, { 0 });
-      commandBuffer.bindIndexBuffer(indexBuffer, 0, vk::IndexType::eUint16);
+      commandBuffer.bindVertexBuffers(0, { quadMesh.vertexBuffer }, { 0 });
+      commandBuffer.bindIndexBuffer(quadMesh.indexBuffer, 0, vk::IndexType::eUint32);
 
-      commandBuffer.drawIndexed(static_cast<uint32_t>(kIndices.size()), 1, 0, 0, 0);
+      commandBuffer.drawIndexed(quadMesh.numIndices, 1, 0, 0, 0);
 
       commandBuffer.endRenderPass();
 
@@ -1090,12 +1201,12 @@ void ForgeApplication::terminateCommandBuffers(bool keepPoolAlive)
 {
    if (keepPoolAlive)
    {
-      device.freeCommandBuffers(commandPool, commandBuffers);
+      context.device.freeCommandBuffers(commandPool, commandBuffers);
    }
    else
    {
       // Command buffers will get cleaned up with the pool
-      device.destroyCommandPool(commandPool);
+      context.device.destroyCommandPool(commandPool);
       commandPool = nullptr;
    }
 
@@ -1115,9 +1226,9 @@ void ForgeApplication::initializeSyncObjects()
 
    for (std::size_t i = 0; i < kMaxFramesInFlight; ++i)
    {
-      imageAvailableSemaphores[i] = device.createSemaphore(semaphoreCreateInfo);
-      renderFinishedSemaphores[i] = device.createSemaphore(semaphoreCreateInfo);
-      frameFences[i] = device.createFence(fenceCreateInfo);
+      imageAvailableSemaphores[i] = context.device.createSemaphore(semaphoreCreateInfo);
+      renderFinishedSemaphores[i] = context.device.createSemaphore(semaphoreCreateInfo);
+      frameFences[i] = context.device.createFence(fenceCreateInfo);
    }
 }
 
@@ -1125,19 +1236,19 @@ void ForgeApplication::terminateSyncObjects()
 {
    for (vk::Fence frameFence : frameFences)
    {
-      device.destroyFence(frameFence);
+      context.device.destroyFence(frameFence);
    }
    frameFences.clear();
 
    for (vk::Semaphore renderFinishedSemaphore : renderFinishedSemaphores)
    {
-      device.destroySemaphore(renderFinishedSemaphore);
+      context.device.destroySemaphore(renderFinishedSemaphore);
    }
    renderFinishedSemaphores.clear();
 
    for (vk::Semaphore imageAvailableSemaphore : imageAvailableSemaphores)
    {
-      device.destroySemaphore(imageAvailableSemaphore);
+      context.device.destroySemaphore(imageAvailableSemaphore);
    }
    imageAvailableSemaphores.clear();
 }
@@ -1149,71 +1260,13 @@ void ForgeApplication::createBuffer(vk::DeviceSize size, vk::BufferUsageFlags us
       .setUsage(usage)
       .setSharingMode(vk::SharingMode::eExclusive);
 
-   buffer = device.createBuffer(bufferCreateInfo);
+   buffer = context.device.createBuffer(bufferCreateInfo);
 
-   vk::MemoryRequirements memoryRequirements = device.getBufferMemoryRequirements(buffer);
+   vk::MemoryRequirements memoryRequirements = context.device.getBufferMemoryRequirements(buffer);
    vk::MemoryAllocateInfo allocateInfo = vk::MemoryAllocateInfo()
       .setAllocationSize(memoryRequirements.size)
-      .setMemoryTypeIndex(findMemoryType(physicalDevice, memoryRequirements.memoryTypeBits, properties));
+      .setMemoryTypeIndex(findMemoryType(context.physicalDevice, memoryRequirements.memoryTypeBits, properties));
 
-   bufferMemory = device.allocateMemory(allocateInfo);
-   device.bindBufferMemory(buffer, bufferMemory, 0);
-}
-
-void ForgeApplication::copyBuffer(vk::Buffer sourceBuffer, vk::Buffer destinationBuffer, vk::DeviceSize size)
-{
-   vk::CommandBufferAllocateInfo commandBufferAllocateInfo = vk::CommandBufferAllocateInfo()
-      .setLevel(vk::CommandBufferLevel::ePrimary)
-      .setCommandPool(transientCommandPool)
-      .setCommandBufferCount(1);
-
-   std::vector<vk::CommandBuffer> copyCommandBuffers = device.allocateCommandBuffers(commandBufferAllocateInfo);
-   vk::CommandBuffer copyCommandBuffer = copyCommandBuffers[0];
-
-   vk::CommandBufferBeginInfo beginInfo = vk::CommandBufferBeginInfo()
-      .setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
-   copyCommandBuffer.begin(beginInfo);
-
-   vk::BufferCopy copyRegion = vk::BufferCopy()
-      .setSize(size);
-   copyCommandBuffer.copyBuffer(sourceBuffer, destinationBuffer, { copyRegion });
-
-   copyCommandBuffer.end();
-
-   vk::SubmitInfo submitInfo = vk::SubmitInfo()
-      .setCommandBufferCount(1)
-      .setPCommandBuffers(&copyCommandBuffer);
-
-   graphicsQueue.submit({ submitInfo }, nullptr);
-   graphicsQueue.waitIdle();
-
-   device.freeCommandBuffers(transientCommandPool, copyCommandBuffers);
-}
-
-
-template<typename T, std::size_t size>
-vk::Buffer ForgeApplication::createAndInitializeBuffer(const std::array<T, size>& data, vk::DeviceMemory& deviceMemory, vk::BufferUsageFlags usage)
-{
-   vk::DeviceSize bufferSize = data.size() * sizeof(T);
-
-   vk::Buffer stagingBuffer;
-   vk::DeviceMemory stagingBufferMemory;
-   createBuffer(bufferSize, vk::BufferUsageFlagBits::eTransferSrc, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, stagingBuffer, stagingBufferMemory);
-
-   void* mappedData = device.mapMemory(stagingBufferMemory, 0, bufferSize, vk::MemoryMapFlags());
-   std::memcpy(mappedData, data.data(), static_cast<std::size_t>(bufferSize));
-   device.unmapMemory(stagingBufferMemory);
-   mappedData = nullptr;
-
-   vk::Buffer buffer;
-   createBuffer(bufferSize, vk::BufferUsageFlagBits::eTransferDst | usage, vk::MemoryPropertyFlagBits::eDeviceLocal, buffer, deviceMemory);
-   copyBuffer(stagingBuffer, buffer, bufferSize);
-
-   device.destroyBuffer(stagingBuffer);
-   stagingBuffer = nullptr;
-
-   device.freeMemory(stagingBufferMemory);
-   stagingBufferMemory = nullptr;
-
-   return buffer;
+   bufferMemory = context.device.allocateMemory(allocateInfo);
+   context.device.bindBufferMemory(buffer, bufferMemory, 0);
 }

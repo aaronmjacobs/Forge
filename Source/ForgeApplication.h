@@ -4,6 +4,8 @@
 
 #include "Graphics/Vulkan.h"
 
+#include <glm/glm.hpp>
+
 #include <optional>
 #include <set>
 #include <vector>
@@ -26,6 +28,45 @@ struct QueueFamilyIndices
 
       return { *graphicsFamily, *presentFamily };
    }
+};
+
+struct VulkanContext
+{
+   vk::Instance instance;
+   vk::SurfaceKHR surface;
+   vk::PhysicalDevice physicalDevice;
+   QueueFamilyIndices queueFamilyIndices;
+   vk::Device device;
+   vk::Queue graphicsQueue;
+   vk::Queue presentQueue;
+
+   vk::CommandPool transientCommandPool;
+};
+
+struct Vertex
+{
+   glm::vec2 position;
+   glm::vec3 color;
+
+   Vertex(const glm::vec2& initialPosition = glm::vec2(0.0f), const glm::vec3& initialColor = glm::vec3(0.0f))
+      : position(initialPosition)
+      , color(initialColor)
+   {
+   }
+
+   static vk::VertexInputBindingDescription getBindingDescription();
+   static std::array<vk::VertexInputAttributeDescription, 2> getAttributeDescriptions();
+};
+
+struct Mesh
+{
+   vk::Buffer vertexBuffer;
+   vk::Buffer indexBuffer;
+   vk::DeviceMemory deviceMemory;
+   uint32_t numIndices = 0;
+
+   void initialize(const VulkanContext& context, const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices);
+   void terminate(const VulkanContext& context);
 };
 
 class ForgeApplication
@@ -67,8 +108,8 @@ private:
    void initializeTransientCommandPool();
    void terminateTransientCommandPool();
 
-   void initializeShaderBuffers();
-   void terminateShaderBuffers();
+   void initializeMesh();
+   void terminateMesh();
 
    void initializeCommandBuffers();
    void terminateCommandBuffers(bool keepPoolAlive);
@@ -77,20 +118,13 @@ private:
    void terminateSyncObjects();
 
    void createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Buffer& buffer, vk::DeviceMemory& bufferMemory) const;
-   void copyBuffer(vk::Buffer sourceBuffer, vk::Buffer destinationBuffer, vk::DeviceSize size);
 
    template<typename T, std::size_t size>
    vk::Buffer createAndInitializeBuffer(const std::array<T, size>& data, vk::DeviceMemory& deviceMemory, vk::BufferUsageFlags usage);
 
    GLFWwindow* window = nullptr;
 
-   vk::Instance instance;
-   vk::SurfaceKHR surface;
-   vk::PhysicalDevice physicalDevice;
-   QueueFamilyIndices queueFamilyIndices;
-   vk::Device device;
-   vk::Queue graphicsQueue;
-   vk::Queue presentQueue;
+   VulkanContext context;
 
    vk::SwapchainKHR swapchain;
    std::vector<vk::Image> swapchainImages;
@@ -104,12 +138,7 @@ private:
 
    std::vector<vk::Framebuffer> swapchainFramebuffers;
 
-   vk::CommandPool transientCommandPool;
-
-   vk::Buffer vertexBuffer;
-   vk::DeviceMemory vertexBufferMemory;
-   vk::Buffer indexBuffer;
-   vk::DeviceMemory indexBufferMemory;
+   Mesh quadMesh;
 
    vk::CommandPool commandPool;
    std::vector<vk::CommandBuffer> commandBuffers;
