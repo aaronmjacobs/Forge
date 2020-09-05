@@ -475,6 +475,12 @@ namespace
 
       context.device.freeCommandBuffers(context.transientCommandPool, copyCommandBuffers);
    }
+
+   vk::DeviceSize getAlignedSize(vk::DeviceSize size, vk::DeviceSize alignment)
+   {
+      ASSERT((alignment & (alignment - 1)) == 0, "Alignment is not a power of two: %llu", alignment);
+      return (size + (alignment - 1)) & ~(alignment - 1);
+   }
 }
 
 // static
@@ -524,14 +530,15 @@ void Mesh::initialize(const VulkanContext& context, const std::vector<Vertex>& v
    indexBuffer = context.device.createBuffer(indexBufferCreateInfo);
 
    vk::MemoryRequirements vertexMemoryRequirements = context.device.getBufferMemoryRequirements(vertexBuffer);
-   vk::MemoryRequirements indexMemoryRequirements = context.device.getBufferMemoryRequirements(vertexBuffer);
+   vk::MemoryRequirements indexMemoryRequirements = context.device.getBufferMemoryRequirements(indexBuffer);
+   vk::DeviceSize alignedVertexSize = getAlignedSize(vertexMemoryRequirements.size, indexMemoryRequirements.alignment);
    vk::MemoryAllocateInfo allocateInfo = vk::MemoryAllocateInfo()
-      .setAllocationSize(vertexMemoryRequirements.size + indexMemoryRequirements.size)
+      .setAllocationSize(alignedVertexSize + indexMemoryRequirements.size)
       .setMemoryTypeIndex(findMemoryType(context.physicalDevice, vertexMemoryRequirements.memoryTypeBits & indexMemoryRequirements.memoryTypeBits, vk::MemoryPropertyFlagBits::eDeviceLocal));
 
    deviceMemory = context.device.allocateMemory(allocateInfo);
    context.device.bindBufferMemory(vertexBuffer, deviceMemory, 0);
-   context.device.bindBufferMemory(indexBuffer, deviceMemory, vertexMemoryRequirements.size);
+   context.device.bindBufferMemory(indexBuffer, deviceMemory, alignedVertexSize);
 
    numIndices = static_cast<uint32_t>(indices.size());
 
