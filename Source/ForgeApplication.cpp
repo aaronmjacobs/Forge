@@ -512,40 +512,32 @@ std::array<vk::VertexInputAttributeDescription, 2> Vertex::getAttributeDescripti
 
 void Mesh::initialize(const VulkanContext& context, const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices)
 {
-   vk::DeviceSize vertexBufferSize = vertices.size() * sizeof(Vertex);
-   vk::DeviceSize indexBufferSize = indices.size() * sizeof(uint32_t);
+   vk::DeviceSize vertexDataSize = vertices.size() * sizeof(Vertex);
+   vk::DeviceSize indexDataSize = indices.size() * sizeof(uint32_t);
 
-   // Create vertex and index buffers
+   // Create the buffer
 
-   vk::BufferCreateInfo vertexBufferCreateInfo = vk::BufferCreateInfo()
-      .setSize(vertexBufferSize)
-      .setUsage(vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer)
+   vk::BufferCreateInfo bufferCreateInfo = vk::BufferCreateInfo()
+      .setSize(vertexDataSize + indexDataSize)
+      .setUsage(vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eIndexBuffer)
       .setSharingMode(vk::SharingMode::eExclusive);
-   vertexBuffer = context.device.createBuffer(vertexBufferCreateInfo);
+   buffer = context.device.createBuffer(bufferCreateInfo);
 
-   vk::BufferCreateInfo indexBufferCreateInfo = vk::BufferCreateInfo()
-      .setSize(indexBufferSize)
-      .setUsage(vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eIndexBuffer)
-      .setSharingMode(vk::SharingMode::eExclusive);
-   indexBuffer = context.device.createBuffer(indexBufferCreateInfo);
-
-   vk::MemoryRequirements vertexMemoryRequirements = context.device.getBufferMemoryRequirements(vertexBuffer);
-   vk::MemoryRequirements indexMemoryRequirements = context.device.getBufferMemoryRequirements(indexBuffer);
-   vk::DeviceSize alignedVertexSize = getAlignedSize(vertexMemoryRequirements.size, indexMemoryRequirements.alignment);
+   vk::MemoryRequirements memoryRequirements = context.device.getBufferMemoryRequirements(buffer);
    vk::MemoryAllocateInfo allocateInfo = vk::MemoryAllocateInfo()
-      .setAllocationSize(alignedVertexSize + indexMemoryRequirements.size)
-      .setMemoryTypeIndex(findMemoryType(context.physicalDevice, vertexMemoryRequirements.memoryTypeBits & indexMemoryRequirements.memoryTypeBits, vk::MemoryPropertyFlagBits::eDeviceLocal));
+      .setAllocationSize(memoryRequirements.size)
+      .setMemoryTypeIndex(findMemoryType(context.physicalDevice, memoryRequirements.memoryTypeBits, vk::MemoryPropertyFlagBits::eDeviceLocal));
 
    deviceMemory = context.device.allocateMemory(allocateInfo);
-   context.device.bindBufferMemory(vertexBuffer, deviceMemory, 0);
-   context.device.bindBufferMemory(indexBuffer, deviceMemory, alignedVertexSize);
+   context.device.bindBufferMemory(buffer, deviceMemory, 0);
 
+   indexOffset = vertexDataSize;
    numIndices = static_cast<uint32_t>(indices.size());
 
    // Create staging buffer, and use it to copy over data
 
    vk::BufferCreateInfo stagingBufferCreateInfo = vk::BufferCreateInfo()
-      .setSize(vertexBufferSize + indexBufferSize)
+      .setSize(bufferCreateInfo.size)
       .setUsage(vk::BufferUsageFlagBits::eTransferSrc)
       .setSharingMode(vk::SharingMode::eExclusive);
    vk::Buffer stagingBuffer = context.device.createBuffer(stagingBufferCreateInfo);
@@ -559,23 +551,17 @@ void Mesh::initialize(const VulkanContext& context, const std::vector<Vertex>& v
    context.device.bindBufferMemory(stagingBuffer, stagingDeviceMemory, 0);
 
    void* mappedData = context.device.mapMemory(stagingDeviceMemory, 0, stagingAllocateInfo.allocationSize, vk::MemoryMapFlags());
-   std::memcpy(mappedData, vertices.data(), static_cast<std::size_t>(vertexBufferSize));
-   std::memcpy(static_cast<uint8_t*>(mappedData) + vertexBufferSize, indices.data(), static_cast<std::size_t>(indexBufferSize));
+   std::memcpy(mappedData, vertices.data(), static_cast<std::size_t>(vertexDataSize));
+   std::memcpy(static_cast<uint8_t*>(mappedData) + vertexDataSize, indices.data(), static_cast<std::size_t>(indexDataSize));
    context.device.unmapMemory(stagingDeviceMemory);
    mappedData = nullptr;
 
-   BufferCopyInfo vertexCopyInfo;
-   vertexCopyInfo.srcBuffer = stagingBuffer;
-   vertexCopyInfo.dstBuffer = vertexBuffer;
-   vertexCopyInfo.size = vertexBufferSize;
+   BufferCopyInfo copyInfo;
+   copyInfo.srcBuffer = stagingBuffer;
+   copyInfo.dstBuffer = buffer;
+   copyInfo.size = vertexDataSize + indexDataSize;
 
-   BufferCopyInfo indexCopyInfo;
-   indexCopyInfo.srcBuffer = stagingBuffer;
-   indexCopyInfo.dstBuffer = indexBuffer;
-   indexCopyInfo.srcOffset = vertexBufferSize;
-   indexCopyInfo.size = indexBufferSize;
-
-   copyBuffers(context, { vertexCopyInfo, indexCopyInfo });
+   copyBuffers(context, { copyInfo });
 
    context.device.destroyBuffer(stagingBuffer);
    stagingBuffer = nullptr;
@@ -586,15 +572,13 @@ void Mesh::initialize(const VulkanContext& context, const std::vector<Vertex>& v
 
 void Mesh::terminate(const VulkanContext& context)
 {
-   context.device.destroyBuffer(vertexBuffer);
-   vertexBuffer = nullptr;
-
-   context.device.destroyBuffer(indexBuffer);
-   indexBuffer = nullptr;
+   context.device.destroyBuffer(buffer);
+   buffer = nullptr;
 
    context.device.freeMemory(deviceMemory);
    deviceMemory = nullptr;
 
+   indexOffset = 0;
    numIndices = 0;
 }
 
@@ -1193,8 +1177,8 @@ void ForgeApplication::initializeCommandBuffers()
 
       commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, graphicsPipeline);
 
-      commandBuffer.bindVertexBuffers(0, { quadMesh.vertexBuffer }, { 0 });
-      commandBuffer.bindIndexBuffer(quadMesh.indexBuffer, 0, vk::IndexType::eUint32);
+      commandBuffer.bindVertexBuffers(0, { quadMesh.buffer }, { 0 });
+      commandBuffer.bindIndexBuffer(quadMesh.buffer, quadMesh.indexOffset, vk::IndexType::eUint32);
 
       commandBuffer.drawIndexed(quadMesh.numIndices, 1, 0, 0, 0);
 

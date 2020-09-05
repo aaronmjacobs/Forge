@@ -60,9 +60,9 @@ struct Vertex
 
 struct Mesh
 {
-   vk::Buffer vertexBuffer;
-   vk::Buffer indexBuffer;
+   vk::Buffer buffer;
    vk::DeviceMemory deviceMemory;
+   vk::DeviceSize indexOffset = 0;
    uint32_t numIndices = 0;
 
    void initialize(const VulkanContext& context, const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices);
