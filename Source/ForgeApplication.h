@@ -35,6 +35,7 @@ struct VulkanContext
    vk::Instance instance;
    vk::SurfaceKHR surface;
    vk::PhysicalDevice physicalDevice;
+   vk::PhysicalDeviceProperties physicalDeviceProperties;
    QueueFamilyIndices queueFamilyIndices;
    vk::Device device;
    vk::Queue graphicsQueue;
@@ -85,6 +86,8 @@ public:
 private:
    void render();
 
+   void updateUniformBuffers(uint32_t index);
+
    void recreateSwapchain();
 
    void initializeGlfw();
@@ -99,6 +102,9 @@ private:
    void initializeRenderPass();
    void terminateRenderPass();
 
+   void initializeDescriptorSetLayout();
+   void terminateDescriptorSetLayout();
+
    void initializeGraphicsPipeline();
    void terminateGraphicsPipeline();
 
@@ -107,6 +113,15 @@ private:
 
    void initializeTransientCommandPool();
    void terminateTransientCommandPool();
+
+   void initializeUniformBuffers();
+   void terminateUniformBuffers();
+
+   void initializeDescriptorPool();
+   void terminateDescriptorPool();
+
+   void initializeDescriptorSets();
+   void terminateDescriptorSets();
 
    void initializeMesh();
    void terminateMesh();
@@ -119,9 +134,6 @@ private:
 
    void createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Buffer& buffer, vk::DeviceMemory& bufferMemory) const;
 
-   template<typename T, std::size_t size>
-   vk::Buffer createAndInitializeBuffer(const std::array<T, size>& data, vk::DeviceMemory& deviceMemory, vk::BufferUsageFlags usage);
-
    GLFWwindow* window = nullptr;
 
    VulkanContext context;
@@ -133,11 +145,17 @@ private:
    std::vector<vk::ImageView> swapchainImageViews;
 
    vk::RenderPass renderPass;
+   vk::DescriptorSetLayout descriptorSetLayout;
    vk::PipelineLayout pipelineLayout;
    vk::Pipeline graphicsPipeline;
 
    std::vector<vk::Framebuffer> swapchainFramebuffers;
 
+   vk::DescriptorPool descriptorPool;
+   std::vector<vk::DescriptorSet> descriptorSets;
+
+   vk::Buffer uniformBuffers;
+   vk::DeviceMemory uniformBufferMemory;
    Mesh quadMesh;
 
    vk::CommandPool commandPool;

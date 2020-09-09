@@ -3,6 +3,9 @@
 #include "Core/Log.h"
 
 #include <GLFW/glfw3.h>
+#define GLM_FORCE_RADIANS
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 #include <PlatformUtils/IOUtils.h>
 
 #include <algorithm>
@@ -481,6 +484,45 @@ namespace
       ASSERT((alignment & (alignment - 1)) == 0, "Alignment is not a power of two: %llu", alignment);
       return (size + (alignment - 1)) & ~(alignment - 1);
    }
+
+   struct ViewUniformData
+   {
+      alignas(16) glm::mat4 worldToClip;
+   };
+
+   struct MeshUniformData
+   {
+      alignas(16) glm::mat4 localToWorld;
+   };
+
+   struct UniformBufferData
+   {
+      ViewUniformData view;
+      MeshUniformData mesh;
+
+      static vk::DeviceSize getPaddedSize(const VulkanContext& context)
+      {
+         vk::DeviceSize alignment = context.physicalDeviceProperties.limits.minUniformBufferOffsetAlignment;
+         vk::DeviceSize paddedViewSize = getAlignedSize(static_cast<vk::DeviceSize>(sizeof(ViewUniformData)), alignment);
+         vk::DeviceSize paddedMeshSize = getAlignedSize(static_cast<vk::DeviceSize>(sizeof(MeshUniformData)), alignment);
+
+         return paddedViewSize + paddedMeshSize;
+      }
+
+      static vk::DeviceSize getPaddedMeshDataOffset(const VulkanContext& context)
+      {
+         vk::DeviceSize alignment = context.physicalDeviceProperties.limits.minUniformBufferOffsetAlignment;
+         vk::DeviceSize paddedViewSize = getAlignedSize(static_cast<vk::DeviceSize>(sizeof(ViewUniformData)), alignment);
+
+         return paddedViewSize;
+      }
+
+      void copyToDeviceMemory(const VulkanContext& context, void* memory) const
+      {
+         std::memcpy(memory, &view, sizeof(ViewUniformData));
+         std::memcpy(static_cast<char*>(memory) + getPaddedMeshDataOffset(context), &mesh, sizeof(MeshUniformData));
+      }
+   };
 }
 
 // static
@@ -588,9 +630,13 @@ ForgeApplication::ForgeApplication()
    initializeVulkan();
    initializeSwapchain();
    initializeRenderPass();
+   initializeDescriptorSetLayout();
    initializeGraphicsPipeline();
    initializeFramebuffers();
    initializeTransientCommandPool();
+   initializeUniformBuffers();
+   initializeDescriptorPool();
+   initializeDescriptorSets();
    initializeMesh();
    initializeCommandBuffers();
    initializeSyncObjects();
@@ -601,9 +647,13 @@ ForgeApplication::~ForgeApplication()
    terminateSyncObjects();
    terminateCommandBuffers(false);
    terminateMesh();
+   terminateDescriptorSets();
+   terminateDescriptorPool();
+   terminateUniformBuffers();
    terminateFramebuffers();
    terminateTransientCommandPool();
    terminateGraphicsPipeline();
+   terminateDescriptorSetLayout();
    terminateRenderPass();
    terminateSwapchain();
    terminateVulkan();
@@ -653,6 +703,8 @@ void ForgeApplication::render()
    std::array<vk::PipelineStageFlags, 1> waitStages = { vk::PipelineStageFlagBits::eColorAttachmentOutput };
    static_assert(waitSemaphores.size() == waitStages.size(), "Wait semaphores and wait stages must be parallel arrays");
 
+   updateUniformBuffers(imageIndex);
+
    std::array<vk::Semaphore, 1> signalSemaphores = { renderFinishedSemaphores[frameIndex] };
    vk::SubmitInfo submitInfo = vk::SubmitInfo()
       .setWaitSemaphoreCount(static_cast<uint32_t>(waitSemaphores.size()))
@@ -688,6 +740,28 @@ void ForgeApplication::render()
    frameIndex = (frameIndex + 1) % kMaxFramesInFlight;
 }
 
+void ForgeApplication::updateUniformBuffers(uint32_t index)
+{
+   UniformBufferData uniformBufferData;
+
+   double time = glfwGetTime();
+
+   glm::mat4 worldToView = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+   glm::mat4 viewToClip = glm::perspective(glm::radians(45.0f), static_cast<float>(swapchainExtent.width) / swapchainExtent.height, 0.1f, 10.0f);
+   viewToClip[1][1] *= -1.0f;
+
+   uniformBufferData.view.worldToClip = viewToClip * worldToView;
+
+   uniformBufferData.mesh.localToWorld = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f) * static_cast<float>(time), glm::vec3(0.0f, 0.0f, 1.0f));
+
+   vk::DeviceSize size = UniformBufferData::getPaddedSize(context);
+   vk::DeviceSize offset = size * index;
+   void* memory = context.device.mapMemory(uniformBufferMemory, offset, size);
+   uniformBufferData.copyToDeviceMemory(context, memory);
+   context.device.unmapMemory(uniformBufferMemory);
+   memory = nullptr;
+}
+
 void ForgeApplication::recreateSwapchain()
 {
    int width = 0;
@@ -702,6 +776,9 @@ void ForgeApplication::recreateSwapchain()
    context.device.waitIdle();
 
    terminateCommandBuffers(true);
+   terminateDescriptorSets();
+   terminateDescriptorPool();
+   terminateUniformBuffers();
    terminateFramebuffers();
    terminateGraphicsPipeline();
    terminateRenderPass();
@@ -711,6 +788,9 @@ void ForgeApplication::recreateSwapchain()
    initializeRenderPass();
    initializeGraphicsPipeline();
    initializeFramebuffers();
+   initializeUniformBuffers();
+   initializeDescriptorPool();
+   initializeDescriptorSets();
    initializeCommandBuffers();
 
    framebufferResized = false;
@@ -789,6 +869,7 @@ void ForgeApplication::initializeVulkan()
    {
       throw std::runtime_error("Failed to find a suitable GPU");
    }
+   context.physicalDeviceProperties = context.physicalDevice.getProperties();
 
    context.queueFamilyIndices = getQueueFamilyIndices(context.physicalDevice, context.surface);
    std::set<uint32_t> uniqueQueueIndices = context.queueFamilyIndices.getUniqueIndices();
@@ -964,6 +1045,34 @@ void ForgeApplication::terminateRenderPass()
    renderPass = nullptr;
 }
 
+void ForgeApplication::initializeDescriptorSetLayout()
+{
+   vk::DescriptorSetLayoutBinding viewUniformBufferLayoutBinding = vk::DescriptorSetLayoutBinding()
+      .setBinding(0)
+      .setDescriptorType(vk::DescriptorType::eUniformBuffer)
+      .setDescriptorCount(1)
+      .setStageFlags(vk::ShaderStageFlagBits::eVertex);
+
+   vk::DescriptorSetLayoutBinding meshUniformBufferLayoutBinding = vk::DescriptorSetLayoutBinding()
+      .setBinding(1)
+      .setDescriptorType(vk::DescriptorType::eUniformBuffer)
+      .setDescriptorCount(1)
+      .setStageFlags(vk::ShaderStageFlagBits::eVertex);
+
+   std::array<vk::DescriptorSetLayoutBinding, 2> descriptorSetLayoutBindings = { viewUniformBufferLayoutBinding, meshUniformBufferLayoutBinding };
+
+   vk::DescriptorSetLayoutCreateInfo layoutCreateInfo = vk::DescriptorSetLayoutCreateInfo()
+      .setBindingCount(static_cast<uint32_t>(descriptorSetLayoutBindings.size()))
+      .setPBindings(descriptorSetLayoutBindings.data());
+   descriptorSetLayout = context.device.createDescriptorSetLayout(layoutCreateInfo);
+}
+
+void ForgeApplication::terminateDescriptorSetLayout()
+{
+   context.device.destroyDescriptorSetLayout(descriptorSetLayout);
+   descriptorSetLayout = nullptr;
+}
+
 void ForgeApplication::initializeGraphicsPipeline()
 {
    vk::ShaderModule vertShaderModule = createShaderModule(context.device, "Resources/Shaders/Triangle.vert.spv");
@@ -1013,7 +1122,7 @@ void ForgeApplication::initializeGraphicsPipeline()
       .setPolygonMode(vk::PolygonMode::eFill)
       .setLineWidth(1.0f) // TODO necessary?
       .setCullMode(vk::CullModeFlagBits::eBack)
-      .setFrontFace(vk::FrontFace::eClockwise);
+      .setFrontFace(vk::FrontFace::eCounterClockwise);
 
    vk::PipelineMultisampleStateCreateInfo multisampleStateCreateInfo = vk::PipelineMultisampleStateCreateInfo()
       .setSampleShadingEnable(false)
@@ -1029,7 +1138,9 @@ void ForgeApplication::initializeGraphicsPipeline()
       .setAttachmentCount(1)
       .setPAttachments(&colorBlendAttachmentState);
 
-   vk::PipelineLayoutCreateInfo pipelineLayoutCreateInfo;
+   vk::PipelineLayoutCreateInfo pipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo()
+      .setSetLayoutCount(1)
+      .setPSetLayouts(&descriptorSetLayout);
    pipelineLayout = context.device.createPipelineLayout(pipelineLayoutCreateInfo);
 
    vk::GraphicsPipelineCreateInfo graphicsPipelineCreateInfo = vk::GraphicsPipelineCreateInfo()
@@ -1111,6 +1222,90 @@ void ForgeApplication::terminateTransientCommandPool()
    context.transientCommandPool = nullptr;
 }
 
+void ForgeApplication::initializeUniformBuffers()
+{
+   vk::DeviceSize bufferSize = UniformBufferData::getPaddedSize(context) * swapchainImages.size();
+   createBuffer(bufferSize, vk::BufferUsageFlagBits::eUniformBuffer, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, uniformBuffers, uniformBufferMemory);
+}
+
+void ForgeApplication::terminateUniformBuffers()
+{
+   context.device.destroyBuffer(uniformBuffers);
+   uniformBuffers = nullptr;
+
+   context.device.freeMemory(uniformBufferMemory);
+   uniformBufferMemory = nullptr;
+}
+
+void ForgeApplication::initializeDescriptorPool()
+{
+   vk::DescriptorPoolSize poolSize = vk::DescriptorPoolSize()
+      .setType(vk::DescriptorType::eUniformBuffer)
+      .setDescriptorCount(static_cast<uint32_t>(swapchainImages.size() * 2));
+
+   vk::DescriptorPoolCreateInfo createInfo = vk::DescriptorPoolCreateInfo()
+      .setPoolSizeCount(1)
+      .setPPoolSizes(&poolSize)
+      .setMaxSets(static_cast<uint32_t>(swapchainImages.size()));
+   descriptorPool = context.device.createDescriptorPool(createInfo);
+}
+
+void ForgeApplication::terminateDescriptorPool()
+{
+   ASSERT(descriptorSets.empty());
+
+   context.device.destroyDescriptorPool(descriptorPool);
+   descriptorPool = nullptr;
+}
+
+void ForgeApplication::initializeDescriptorSets()
+{
+   std::vector<vk::DescriptorSetLayout> layouts(swapchainImages.size(), descriptorSetLayout);
+
+   vk::DescriptorSetAllocateInfo allocateInfo = vk::DescriptorSetAllocateInfo()
+      .setDescriptorPool(descriptorPool)
+      .setDescriptorSetCount(static_cast<uint32_t>(layouts.size()))
+      .setPSetLayouts(layouts.data());
+
+   descriptorSets = context.device.allocateDescriptorSets(allocateInfo);
+
+   for (std::size_t i = 0; i < descriptorSets.size(); ++i)
+   {
+      vk::DescriptorBufferInfo viewBufferInfo = vk::DescriptorBufferInfo()
+         .setBuffer(uniformBuffers)
+         .setOffset(static_cast<vk::DeviceSize>(i * UniformBufferData::getPaddedSize(context)))
+         .setRange(sizeof(ViewUniformData));
+
+      vk::DescriptorBufferInfo meshBufferInfo = vk::DescriptorBufferInfo()
+         .setBuffer(uniformBuffers)
+         .setOffset(static_cast<vk::DeviceSize>(i * UniformBufferData::getPaddedSize(context) + UniformBufferData::getPaddedMeshDataOffset(context)))
+         .setRange(sizeof(MeshUniformData));
+
+      vk::WriteDescriptorSet viewDescriptorWrite = vk::WriteDescriptorSet()
+         .setDstSet(descriptorSets[i])
+         .setDstBinding(0)
+         .setDstArrayElement(0)
+         .setDescriptorType(vk::DescriptorType::eUniformBuffer)
+         .setDescriptorCount(1)
+         .setPBufferInfo(&viewBufferInfo);
+
+      vk::WriteDescriptorSet meshDescriptorWrite = vk::WriteDescriptorSet()
+         .setDstSet(descriptorSets[i])
+         .setDstBinding(1)
+         .setDstArrayElement(0)
+         .setDescriptorType(vk::DescriptorType::eUniformBuffer)
+         .setDescriptorCount(1)
+         .setPBufferInfo(&meshBufferInfo);
+
+      context.device.updateDescriptorSets({ viewDescriptorWrite, meshDescriptorWrite }, {});
+   }
+}
+
+void ForgeApplication::terminateDescriptorSets()
+{
+   descriptorSets.clear();
+}
+
 void ForgeApplication::initializeMesh()
 {
    std::vector<Vertex> vertices =
@@ -1179,6 +1374,8 @@ void ForgeApplication::initializeCommandBuffers()
 
       commandBuffer.bindVertexBuffers(0, { quadMesh.buffer }, { 0 });
       commandBuffer.bindIndexBuffer(quadMesh.buffer, quadMesh.indexOffset, vk::IndexType::eUint32);
+
+      commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, 0, { descriptorSets[i] }, {});
 
       commandBuffer.drawIndexed(quadMesh.numIndices, 1, 0, 0, 0);
 
