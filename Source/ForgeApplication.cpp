@@ -1288,16 +1288,18 @@ void ForgeApplication::initializeDescriptorSets()
    frameDescriptorSets = context.device.allocateDescriptorSets(frameAllocateInfo);
    drawDescriptorSets = context.device.allocateDescriptorSets(drawAllocateInfo);
 
+   vk::DeviceSize uniformBufferDataSize = UniformBufferData::getPaddedSize(context);
+   vk::DeviceSize paddedMeshDataOffset = UniformBufferData::getPaddedMeshDataOffset(context);
    for (std::size_t i = 0; i < swapchainImages.size(); ++i)
    {
       vk::DescriptorBufferInfo viewBufferInfo = vk::DescriptorBufferInfo()
          .setBuffer(uniformBuffers)
-         .setOffset(static_cast<vk::DeviceSize>(i * UniformBufferData::getPaddedSize(context)))
+         .setOffset(static_cast<vk::DeviceSize>(uniformBufferDataSize * i))
          .setRange(sizeof(ViewUniformData));
 
       vk::DescriptorBufferInfo meshBufferInfo = vk::DescriptorBufferInfo()
          .setBuffer(uniformBuffers)
-         .setOffset(static_cast<vk::DeviceSize>(i * UniformBufferData::getPaddedSize(context) + UniformBufferData::getPaddedMeshDataOffset(context)))
+         .setOffset(static_cast<vk::DeviceSize>(uniformBufferDataSize * i + paddedMeshDataOffset))
          .setRange(sizeof(MeshUniformData));
 
       vk::WriteDescriptorSet viewDescriptorWrite = vk::WriteDescriptorSet()
