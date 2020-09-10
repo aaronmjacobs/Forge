@@ -32,6 +32,12 @@ target_sources(${PROJECT_NAME} PRIVATE "${PPK_DIR}/src/ppk_assert.h" "${PPK_DIR}
 target_include_directories(${PROJECT_NAME} PUBLIC "${PPK_DIR}/src")
 source_group("Libraries\\PPK_ASSERT" "${PPK_DIR}/src")
 
+# stb
+set(STB_DIR "${LIB_DIR}/stb")
+target_sources(${PROJECT_NAME} PRIVATE "${STB_DIR}/stb_image.h")
+target_include_directories(${PROJECT_NAME} PUBLIC "${STB_DIR}")
+source_group("Libraries\\stb" "${STB_DIR}")
+
 # templog
 set(TEMPLOG_DIR "${LIB_DIR}/templog")
 target_sources(${PROJECT_NAME} PRIVATE

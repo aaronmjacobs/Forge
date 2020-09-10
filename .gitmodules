@@ -16,3 +16,6 @@
 [submodule "Libraries/PlatformUtils"]
 	path = Libraries/PlatformUtils
 	url = https://github.com/aaronmjacobs/PlatformUtils.git
+[submodule "Libraries/stb"]
+	path = Libraries/stb
+	url = https://github.com/nothings/stb.git
