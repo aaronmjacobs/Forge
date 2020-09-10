@@ -1233,6 +1233,11 @@ void ForgeApplication::initializeUniformBuffers()
 {
    vk::DeviceSize bufferSize = UniformBufferData::getPaddedSize(context) * swapchainImages.size();
    createBuffer(bufferSize, vk::BufferUsageFlagBits::eUniformBuffer, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, uniformBuffers, uniformBufferMemory);
+
+   void* memory = context.device.mapMemory(uniformBufferMemory, 0, bufferSize);
+   std::memset(memory, 0, bufferSize);
+   context.device.unmapMemory(uniformBufferMemory);
+   memory = nullptr;
 }
 
 void ForgeApplication::terminateUniformBuffers()
@@ -1283,7 +1288,6 @@ void ForgeApplication::initializeDescriptorSets()
    frameDescriptorSets = context.device.allocateDescriptorSets(frameAllocateInfo);
    drawDescriptorSets = context.device.allocateDescriptorSets(drawAllocateInfo);
 
-   std::vector<vk::WriteDescriptorSet> writes;
    for (std::size_t i = 0; i < swapchainImages.size(); ++i)
    {
       vk::DescriptorBufferInfo viewBufferInfo = vk::DescriptorBufferInfo()
@@ -1312,10 +1316,8 @@ void ForgeApplication::initializeDescriptorSets()
          .setDescriptorCount(1)
          .setPBufferInfo(&meshBufferInfo);
 
-      writes.push_back(viewDescriptorWrite);
-      writes.push_back(meshDescriptorWrite);
+      context.device.updateDescriptorSets({ viewDescriptorWrite, meshDescriptorWrite }, {});
    }
-   context.device.updateDescriptorSets(writes, {});
 }
 
 void ForgeApplication::terminateDescriptorSets()
