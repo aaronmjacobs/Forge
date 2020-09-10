@@ -3,7 +3,7 @@
 
 #include "View.glsl"
 
-layout(set = 0, binding = 1) uniform Mesh
+layout(set = 1, binding = 0) uniform Mesh
 {
     mat4 localToWorld;
 } mesh;

@@ -102,8 +102,8 @@ private:
    void initializeRenderPass();
    void terminateRenderPass();
 
-   void initializeDescriptorSetLayout();
-   void terminateDescriptorSetLayout();
+   void initializeDescriptorSetLayouts();
+   void terminateDescriptorSetLayouts();
 
    void initializeGraphicsPipeline();
    void terminateGraphicsPipeline();
@@ -145,14 +145,16 @@ private:
    std::vector<vk::ImageView> swapchainImageViews;
 
    vk::RenderPass renderPass;
-   vk::DescriptorSetLayout descriptorSetLayout;
+   vk::DescriptorSetLayout frameDescriptorSetLayout;
+   vk::DescriptorSetLayout drawDescriptorSetLayout;
    vk::PipelineLayout pipelineLayout;
    vk::Pipeline graphicsPipeline;
 
    std::vector<vk::Framebuffer> swapchainFramebuffers;
 
    vk::DescriptorPool descriptorPool;
-   std::vector<vk::DescriptorSet> descriptorSets;
+   std::vector<vk::DescriptorSet> frameDescriptorSets;
+   std::vector<vk::DescriptorSet> drawDescriptorSets;
 
    vk::Buffer uniformBuffers;
    vk::DeviceMemory uniformBufferMemory;

@@ -630,7 +630,7 @@ ForgeApplication::ForgeApplication()
    initializeVulkan();
    initializeSwapchain();
    initializeRenderPass();
-   initializeDescriptorSetLayout();
+   initializeDescriptorSetLayouts();
    initializeGraphicsPipeline();
    initializeFramebuffers();
    initializeTransientCommandPool();
@@ -653,7 +653,7 @@ ForgeApplication::~ForgeApplication()
    terminateFramebuffers();
    terminateTransientCommandPool();
    terminateGraphicsPipeline();
-   terminateDescriptorSetLayout();
+   terminateDescriptorSetLayouts();
    terminateRenderPass();
    terminateSwapchain();
    terminateVulkan();
@@ -1045,7 +1045,7 @@ void ForgeApplication::terminateRenderPass()
    renderPass = nullptr;
 }
 
-void ForgeApplication::initializeDescriptorSetLayout()
+void ForgeApplication::initializeDescriptorSetLayouts()
 {
    vk::DescriptorSetLayoutBinding viewUniformBufferLayoutBinding = vk::DescriptorSetLayoutBinding()
       .setBinding(0)
@@ -1054,23 +1054,29 @@ void ForgeApplication::initializeDescriptorSetLayout()
       .setStageFlags(vk::ShaderStageFlagBits::eVertex);
 
    vk::DescriptorSetLayoutBinding meshUniformBufferLayoutBinding = vk::DescriptorSetLayoutBinding()
-      .setBinding(1)
+      .setBinding(0)
       .setDescriptorType(vk::DescriptorType::eUniformBuffer)
       .setDescriptorCount(1)
       .setStageFlags(vk::ShaderStageFlagBits::eVertex);
 
-   std::array<vk::DescriptorSetLayoutBinding, 2> descriptorSetLayoutBindings = { viewUniformBufferLayoutBinding, meshUniformBufferLayoutBinding };
+   vk::DescriptorSetLayoutCreateInfo frameLayoutCreateInfo = vk::DescriptorSetLayoutCreateInfo()
+      .setBindingCount(1)
+      .setPBindings(&viewUniformBufferLayoutBinding);
+   frameDescriptorSetLayout = context.device.createDescriptorSetLayout(frameLayoutCreateInfo);
 
-   vk::DescriptorSetLayoutCreateInfo layoutCreateInfo = vk::DescriptorSetLayoutCreateInfo()
-      .setBindingCount(static_cast<uint32_t>(descriptorSetLayoutBindings.size()))
-      .setPBindings(descriptorSetLayoutBindings.data());
-   descriptorSetLayout = context.device.createDescriptorSetLayout(layoutCreateInfo);
+   vk::DescriptorSetLayoutCreateInfo drawLayoutCreateInfo = vk::DescriptorSetLayoutCreateInfo()
+      .setBindingCount(1)
+      .setPBindings(&meshUniformBufferLayoutBinding);
+   drawDescriptorSetLayout = context.device.createDescriptorSetLayout(drawLayoutCreateInfo);
 }
 
-void ForgeApplication::terminateDescriptorSetLayout()
+void ForgeApplication::terminateDescriptorSetLayouts()
 {
-   context.device.destroyDescriptorSetLayout(descriptorSetLayout);
-   descriptorSetLayout = nullptr;
+   context.device.destroyDescriptorSetLayout(frameDescriptorSetLayout);
+   frameDescriptorSetLayout = nullptr;
+
+   context.device.destroyDescriptorSetLayout(drawDescriptorSetLayout);
+   drawDescriptorSetLayout = nullptr;
 }
 
 void ForgeApplication::initializeGraphicsPipeline()
@@ -1138,9 +1144,10 @@ void ForgeApplication::initializeGraphicsPipeline()
       .setAttachmentCount(1)
       .setPAttachments(&colorBlendAttachmentState);
 
+   std::array<vk::DescriptorSetLayout, 2> descriptorSetLayouts = { frameDescriptorSetLayout, drawDescriptorSetLayout };
    vk::PipelineLayoutCreateInfo pipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo()
-      .setSetLayoutCount(1)
-      .setPSetLayouts(&descriptorSetLayout);
+      .setSetLayoutCount(static_cast<uint32_t>(descriptorSetLayouts.size()))
+      .setPSetLayouts(descriptorSetLayouts.data());
    pipelineLayout = context.device.createPipelineLayout(pipelineLayoutCreateInfo);
 
    vk::GraphicsPipelineCreateInfo graphicsPipelineCreateInfo = vk::GraphicsPipelineCreateInfo()
@@ -1246,13 +1253,14 @@ void ForgeApplication::initializeDescriptorPool()
    vk::DescriptorPoolCreateInfo createInfo = vk::DescriptorPoolCreateInfo()
       .setPoolSizeCount(1)
       .setPPoolSizes(&poolSize)
-      .setMaxSets(static_cast<uint32_t>(swapchainImages.size()));
+      .setMaxSets(static_cast<uint32_t>(swapchainImages.size() * 2));
    descriptorPool = context.device.createDescriptorPool(createInfo);
 }
 
 void ForgeApplication::terminateDescriptorPool()
 {
-   ASSERT(descriptorSets.empty());
+   ASSERT(frameDescriptorSets.empty());
+   ASSERT(drawDescriptorSets.empty());
 
    context.device.destroyDescriptorPool(descriptorPool);
    descriptorPool = nullptr;
@@ -1260,16 +1268,23 @@ void ForgeApplication::terminateDescriptorPool()
 
 void ForgeApplication::initializeDescriptorSets()
 {
-   std::vector<vk::DescriptorSetLayout> layouts(swapchainImages.size(), descriptorSetLayout);
+   std::vector<vk::DescriptorSetLayout> frameLayouts(swapchainImages.size(), frameDescriptorSetLayout);
+   std::vector<vk::DescriptorSetLayout> drawLayouts(swapchainImages.size(), drawDescriptorSetLayout);
 
-   vk::DescriptorSetAllocateInfo allocateInfo = vk::DescriptorSetAllocateInfo()
+   vk::DescriptorSetAllocateInfo frameAllocateInfo = vk::DescriptorSetAllocateInfo()
       .setDescriptorPool(descriptorPool)
-      .setDescriptorSetCount(static_cast<uint32_t>(layouts.size()))
-      .setPSetLayouts(layouts.data());
+      .setDescriptorSetCount(static_cast<uint32_t>(frameLayouts.size()))
+      .setPSetLayouts(frameLayouts.data());
+   vk::DescriptorSetAllocateInfo drawAllocateInfo = vk::DescriptorSetAllocateInfo()
+      .setDescriptorPool(descriptorPool)
+      .setDescriptorSetCount(static_cast<uint32_t>(drawLayouts.size()))
+      .setPSetLayouts(drawLayouts.data());
 
-   descriptorSets = context.device.allocateDescriptorSets(allocateInfo);
+   frameDescriptorSets = context.device.allocateDescriptorSets(frameAllocateInfo);
+   drawDescriptorSets = context.device.allocateDescriptorSets(drawAllocateInfo);
 
-   for (std::size_t i = 0; i < descriptorSets.size(); ++i)
+   std::vector<vk::WriteDescriptorSet> writes;
+   for (std::size_t i = 0; i < swapchainImages.size(); ++i)
    {
       vk::DescriptorBufferInfo viewBufferInfo = vk::DescriptorBufferInfo()
          .setBuffer(uniformBuffers)
@@ -1282,7 +1297,7 @@ void ForgeApplication::initializeDescriptorSets()
          .setRange(sizeof(MeshUniformData));
 
       vk::WriteDescriptorSet viewDescriptorWrite = vk::WriteDescriptorSet()
-         .setDstSet(descriptorSets[i])
+         .setDstSet(frameDescriptorSets[i])
          .setDstBinding(0)
          .setDstArrayElement(0)
          .setDescriptorType(vk::DescriptorType::eUniformBuffer)
@@ -1290,20 +1305,23 @@ void ForgeApplication::initializeDescriptorSets()
          .setPBufferInfo(&viewBufferInfo);
 
       vk::WriteDescriptorSet meshDescriptorWrite = vk::WriteDescriptorSet()
-         .setDstSet(descriptorSets[i])
-         .setDstBinding(1)
+         .setDstSet(drawDescriptorSets[i])
+         .setDstBinding(0)
          .setDstArrayElement(0)
          .setDescriptorType(vk::DescriptorType::eUniformBuffer)
          .setDescriptorCount(1)
          .setPBufferInfo(&meshBufferInfo);
 
-      context.device.updateDescriptorSets({ viewDescriptorWrite, meshDescriptorWrite }, {});
+      writes.push_back(viewDescriptorWrite);
+      writes.push_back(meshDescriptorWrite);
    }
+   context.device.updateDescriptorSets(writes, {});
 }
 
 void ForgeApplication::terminateDescriptorSets()
 {
-   descriptorSets.clear();
+   frameDescriptorSets.clear();
+   drawDescriptorSets.clear();
 }
 
 void ForgeApplication::initializeMesh()
@@ -1375,7 +1393,7 @@ void ForgeApplication::initializeCommandBuffers()
       commandBuffer.bindVertexBuffers(0, { quadMesh.buffer }, { 0 });
       commandBuffer.bindIndexBuffer(quadMesh.buffer, quadMesh.indexOffset, vk::IndexType::eUint32);
 
-      commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, 0, { descriptorSets[i] }, {});
+      commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, 0, { frameDescriptorSets[i], drawDescriptorSets[i] }, {});
 
       commandBuffer.drawIndexed(quadMesh.numIndices, 1, 0, 0, 0);
 
