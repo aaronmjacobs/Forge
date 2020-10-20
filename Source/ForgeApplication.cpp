@@ -7,6 +7,8 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <PlatformUtils/IOUtils.h>
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
 
 #include <algorithm>
 #include <array>
@@ -373,6 +375,10 @@ namespace
       }
 
       vk::PhysicalDeviceFeatures features = physicalDevice.getFeatures();
+      if (features.samplerAnisotropy)
+      {
+         score += 1;
+      }
       if (features.robustBufferAccess)
       {
          score += 1;
@@ -433,6 +439,38 @@ namespace
       throw std::runtime_error("Failed to find suitable memory type");
    }
 
+   vk::CommandBuffer beginSingleTimeCommands(const VulkanContext& context)
+   {
+      vk::CommandBufferAllocateInfo commandBufferAllocateInfo = vk::CommandBufferAllocateInfo()
+         .setLevel(vk::CommandBufferLevel::ePrimary)
+         .setCommandPool(context.transientCommandPool)
+         .setCommandBufferCount(1);
+
+      std::vector<vk::CommandBuffer> commandBuffers = context.device.allocateCommandBuffers(commandBufferAllocateInfo);
+      ASSERT(commandBuffers.size() == 1);
+      vk::CommandBuffer commandBuffer = commandBuffers[0];
+
+      vk::CommandBufferBeginInfo beginInfo = vk::CommandBufferBeginInfo()
+         .setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
+      commandBuffer.begin(beginInfo);
+
+      return commandBuffer;
+   }
+
+   void endSingleTimeCommands(const VulkanContext& context, vk::CommandBuffer commandBuffer)
+   {
+      commandBuffer.end();
+
+      vk::SubmitInfo submitInfo = vk::SubmitInfo()
+         .setCommandBufferCount(1)
+         .setPCommandBuffers(&commandBuffer);
+
+      context.graphicsQueue.submit({ submitInfo }, nullptr);
+      context.graphicsQueue.waitIdle();
+
+      context.device.freeCommandBuffers(context.transientCommandPool, commandBuffer);
+   }
+
    struct BufferCopyInfo
    {
       vk::Buffer srcBuffer;
@@ -446,17 +484,7 @@ namespace
 
    void copyBuffers(const VulkanContext& context, const std::vector<BufferCopyInfo>& copyInfo)
    {
-      vk::CommandBufferAllocateInfo commandBufferAllocateInfo = vk::CommandBufferAllocateInfo()
-         .setLevel(vk::CommandBufferLevel::ePrimary)
-         .setCommandPool(context.transientCommandPool)
-         .setCommandBufferCount(1);
-
-      std::vector<vk::CommandBuffer> copyCommandBuffers = context.device.allocateCommandBuffers(commandBufferAllocateInfo);
-      vk::CommandBuffer copyCommandBuffer = copyCommandBuffers[0];
-
-      vk::CommandBufferBeginInfo beginInfo = vk::CommandBufferBeginInfo()
-         .setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
-      copyCommandBuffer.begin(beginInfo);
+      vk::CommandBuffer copyCommandBuffer = beginSingleTimeCommands(context);
 
       for (const BufferCopyInfo& info : copyInfo)
       {
@@ -467,16 +495,99 @@ namespace
          copyCommandBuffer.copyBuffer(info.srcBuffer, info.dstBuffer, { copyRegion });
       }
 
-      copyCommandBuffer.end();
+      endSingleTimeCommands(context, copyCommandBuffer);
+   }
 
-      vk::SubmitInfo submitInfo = vk::SubmitInfo()
-         .setCommandBufferCount(1)
-         .setPCommandBuffers(&copyCommandBuffer);
+   void copyBufferToImage(const VulkanContext& context, vk::Buffer buffer, vk::Image image, uint32_t width, uint32_t height)
+   {
+      vk::CommandBuffer commandBuffer = beginSingleTimeCommands(context);
 
-      context.graphicsQueue.submit({ submitInfo }, nullptr);
-      context.graphicsQueue.waitIdle();
+      vk::ImageSubresourceLayers imageSubresource = vk::ImageSubresourceLayers()
+         .setAspectMask(vk::ImageAspectFlagBits::eColor)
+         .setMipLevel(0)
+         .setBaseArrayLayer(0)
+         .setLayerCount(1);
 
-      context.device.freeCommandBuffers(context.transientCommandPool, copyCommandBuffers);
+      vk::BufferImageCopy region = vk::BufferImageCopy()
+         .setBufferOffset(0)
+         .setBufferRowLength(0)
+         .setBufferImageHeight(0)
+         .setImageSubresource(imageSubresource)
+         .setImageOffset(vk::Offset3D(0, 0))
+         .setImageExtent(vk::Extent3D(width, height, 1));
+
+      commandBuffer.copyBufferToImage(buffer, image, vk::ImageLayout::eTransferDstOptimal, { region });
+
+      endSingleTimeCommands(context, commandBuffer);
+   }
+
+   void transitionImageLayout(const VulkanContext& context, vk::Image image, vk::Format format, vk::ImageLayout oldLayout, vk::ImageLayout newLayout)
+   {
+      vk::CommandBuffer commandBuffer = beginSingleTimeCommands(context);
+
+      vk::ImageSubresourceRange subresourceRange = vk::ImageSubresourceRange()
+         .setAspectMask(vk::ImageAspectFlagBits::eColor)
+         .setBaseMipLevel(0)
+         .setLevelCount(1)
+         .setBaseArrayLayer(0)
+         .setLayerCount(1);
+
+      vk::AccessFlags srcAccessMask;
+      vk::AccessFlags dstAccessMask;
+      vk::PipelineStageFlags srcStage;
+      vk::PipelineStageFlags dstStage;
+      if (oldLayout == vk::ImageLayout::eUndefined && newLayout == vk::ImageLayout::eTransferDstOptimal)
+      {
+         dstAccessMask = vk::AccessFlagBits::eTransferWrite;
+
+         srcStage = vk::PipelineStageFlagBits::eTopOfPipe;
+         dstStage = vk::PipelineStageFlagBits::eTransfer;
+      }
+      else if (oldLayout == vk::ImageLayout::eTransferDstOptimal && newLayout == vk::ImageLayout::eShaderReadOnlyOptimal)
+      {
+         srcAccessMask = vk::AccessFlagBits::eTransferWrite;
+         dstAccessMask = vk::AccessFlagBits::eShaderRead;
+
+         srcStage = vk::PipelineStageFlagBits::eTransfer;
+         dstStage = vk::PipelineStageFlagBits::eFragmentShader;
+
+      }
+      else
+      {
+         throw std::runtime_error("Unsupported image layout transition");
+      }
+
+      vk::ImageMemoryBarrier barrier = vk::ImageMemoryBarrier()
+         .setOldLayout(oldLayout)
+         .setNewLayout(newLayout)
+         .setSrcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
+         .setDstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
+         .setImage(image)
+         .setSubresourceRange(subresourceRange)
+         .setSrcAccessMask(srcAccessMask)
+         .setDstAccessMask(dstAccessMask);
+
+      commandBuffer.pipelineBarrier(srcStage, dstStage, vk::DependencyFlags(), nullptr, nullptr, { barrier });
+
+      endSingleTimeCommands(context, commandBuffer);
+   }
+
+   vk::ImageView createImageView(const VulkanContext& context, vk::Image image, vk::Format format)
+   {
+      vk::ImageSubresourceRange subresourceRange = vk::ImageSubresourceRange()
+         .setAspectMask(vk::ImageAspectFlagBits::eColor)
+         .setBaseMipLevel(0)
+         .setLevelCount(1)
+         .setBaseArrayLayer(0)
+         .setLayerCount(1);
+
+      vk::ImageViewCreateInfo createInfo = vk::ImageViewCreateInfo()
+         .setImage(image)
+         .setViewType(vk::ImageViewType::e2D)
+         .setFormat(format)
+         .setSubresourceRange(subresourceRange);
+
+      return context.device.createImageView(createInfo);
    }
 
    vk::DeviceSize getAlignedSize(vk::DeviceSize size, vk::DeviceSize alignment)
@@ -523,6 +634,48 @@ namespace
          std::memcpy(static_cast<char*>(memory) + getPaddedMeshDataOffset(context), &mesh, sizeof(MeshUniformData));
       }
    };
+
+   struct ImageDataDeleter
+   {
+      void operator()(uint8_t* data) const
+      {
+         stbi_image_free(data);
+      }
+   };
+
+   struct LoadedImage
+   {
+      std::unique_ptr<uint8_t, ImageDataDeleter> data;
+      vk::Format format = vk::Format::eR8G8B8A8Srgb;
+      vk::DeviceSize size = 0;
+      uint32_t width = 0;
+      uint32_t height = 0;
+   };
+
+   std::optional<LoadedImage> loadImage(const std::filesystem::path& path)
+   {
+      if (std::optional<std::vector<uint8_t>> imageData = IOUtils::readBinaryFile(path))
+      {
+         int textureWidth = 0;
+         int textureHeight = 0;
+         int textureChannels = 0;
+         stbi_uc* pixelData = stbi_load_from_memory(imageData->data(), static_cast<int>(imageData->size()), &textureWidth, &textureHeight, &textureChannels, STBI_rgb_alpha);
+
+         if (pixelData)
+         {
+            LoadedImage loadedImage;
+            loadedImage.data.reset(pixelData);
+            loadedImage.format = vk::Format::eR8G8B8A8Srgb;
+            loadedImage.size = static_cast<vk::DeviceSize>(textureWidth * textureHeight * STBI_rgb_alpha);
+            loadedImage.width = static_cast<uint32_t>(textureWidth);
+            loadedImage.height = static_cast<uint32_t>(textureHeight);
+
+            return loadedImage;
+         }
+      }
+
+      return {};
+   }
 }
 
 // static
@@ -535,7 +688,7 @@ vk::VertexInputBindingDescription Vertex::getBindingDescription()
 }
 
 // static
-std::array<vk::VertexInputAttributeDescription, 2> Vertex::getAttributeDescriptions()
+std::array<vk::VertexInputAttributeDescription, 3> Vertex::getAttributeDescriptions()
 {
    return
    {
@@ -548,7 +701,12 @@ std::array<vk::VertexInputAttributeDescription, 2> Vertex::getAttributeDescripti
          .setLocation(1)
          .setBinding(0)
          .setFormat(vk::Format::eR32G32B32Sfloat)
-         .setOffset(offsetof(Vertex, color))
+         .setOffset(offsetof(Vertex, color)),
+      vk::VertexInputAttributeDescription()
+         .setLocation(2)
+         .setBinding(0)
+         .setFormat(vk::Format::eR32G32Sfloat)
+         .setOffset(offsetof(Vertex, texCoord))
    };
 }
 
@@ -635,6 +793,7 @@ ForgeApplication::ForgeApplication()
    initializeFramebuffers();
    initializeTransientCommandPool();
    initializeUniformBuffers();
+   initializeTextureImage();
    initializeDescriptorPool();
    initializeDescriptorSets();
    initializeMesh();
@@ -649,6 +808,7 @@ ForgeApplication::~ForgeApplication()
    terminateMesh();
    terminateDescriptorSets();
    terminateDescriptorPool();
+   terminateTextureImage();
    terminateUniformBuffers();
    terminateFramebuffers();
    terminateTransientCommandPool();
@@ -746,7 +906,7 @@ void ForgeApplication::updateUniformBuffers(uint32_t index)
 
    double time = glfwGetTime();
 
-   glm::mat4 worldToView = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+   glm::mat4 worldToView = glm::lookAt(glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
    glm::mat4 viewToClip = glm::perspective(glm::radians(45.0f), static_cast<float>(swapchainExtent.width) / swapchainExtent.height, 0.1f, 10.0f);
    viewToClip[1][1] *= -1.0f;
 
@@ -870,6 +1030,7 @@ void ForgeApplication::initializeVulkan()
       throw std::runtime_error("Failed to find a suitable GPU");
    }
    context.physicalDeviceProperties = context.physicalDevice.getProperties();
+   context.physicalDeviceFeatures = context.physicalDevice.getFeatures();
 
    context.queueFamilyIndices = getQueueFamilyIndices(context.physicalDevice, context.surface);
    std::set<uint32_t> uniqueQueueIndices = context.queueFamilyIndices.getUniqueIndices();
@@ -887,6 +1048,7 @@ void ForgeApplication::initializeVulkan()
    std::vector<const char*> deviceExtensions = getDeviceExtensions(context.physicalDevice);
 
    vk::PhysicalDeviceFeatures deviceFeatures;
+   deviceFeatures.setSamplerAnisotropy(context.physicalDeviceFeatures.samplerAnisotropy);
 
    vk::DeviceCreateInfo deviceCreateInfo = vk::DeviceCreateInfo()
       .setPQueueCreateInfos(deviceQueueCreateInfos.data())
@@ -970,20 +1132,7 @@ void ForgeApplication::initializeSwapchain()
    swapchainImageViews.reserve(swapchainImages.size());
    for (vk::Image swapchainImage : swapchainImages)
    {
-      vk::ImageSubresourceRange imageSubresourceRange = vk::ImageSubresourceRange()
-         .setAspectMask(vk::ImageAspectFlagBits::eColor)
-         .setBaseMipLevel(0)
-         .setLevelCount(1)
-         .setBaseArrayLayer(0)
-         .setLayerCount(1);
-
-      vk::ImageViewCreateInfo imageViewCreateInfo = vk::ImageViewCreateInfo()
-         .setImage(swapchainImage)
-         .setViewType(vk::ImageViewType::e2D)
-         .setFormat(swapchainImageFormat)
-         .setSubresourceRange(imageSubresourceRange);
-
-      swapchainImageViews.push_back(context.device.createImageView(imageViewCreateInfo));
+      swapchainImageViews.push_back(createImageView(context, swapchainImage, swapchainImageFormat));
    }
 }
 
@@ -1059,14 +1208,25 @@ void ForgeApplication::initializeDescriptorSetLayouts()
       .setDescriptorCount(1)
       .setStageFlags(vk::ShaderStageFlagBits::eVertex);
 
+   vk::DescriptorSetLayoutBinding samplerLayoutBinding = vk::DescriptorSetLayoutBinding()
+      .setBinding(1)
+      .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+      .setDescriptorCount(1)
+      .setStageFlags(vk::ShaderStageFlagBits::eFragment);
+
    vk::DescriptorSetLayoutCreateInfo frameLayoutCreateInfo = vk::DescriptorSetLayoutCreateInfo()
       .setBindingCount(1)
       .setPBindings(&viewUniformBufferLayoutBinding);
    frameDescriptorSetLayout = context.device.createDescriptorSetLayout(frameLayoutCreateInfo);
 
+   std::array<vk::DescriptorSetLayoutBinding, 2> drawLayoutBindings =
+   {
+      meshUniformBufferLayoutBinding,
+      samplerLayoutBinding
+   };
    vk::DescriptorSetLayoutCreateInfo drawLayoutCreateInfo = vk::DescriptorSetLayoutCreateInfo()
-      .setBindingCount(1)
-      .setPBindings(&meshUniformBufferLayoutBinding);
+      .setBindingCount(static_cast<uint32_t>(drawLayoutBindings.size()))
+      .setPBindings(drawLayoutBindings.data());
    drawDescriptorSetLayout = context.device.createDescriptorSetLayout(drawLayoutCreateInfo);
 }
 
@@ -1097,7 +1257,7 @@ void ForgeApplication::initializeGraphicsPipeline()
    std::array<vk::PipelineShaderStageCreateInfo, 2> shaderStages = { vertShaderStageCreateinfo, fragShaderStageCreateinfo };
 
    vk::VertexInputBindingDescription vertexBindingDescription = Vertex::getBindingDescription();
-   std::array<vk::VertexInputAttributeDescription, 2> vertexAttributeDescriptions = Vertex::getAttributeDescriptions();
+   std::array<vk::VertexInputAttributeDescription, 3> vertexAttributeDescriptions = Vertex::getAttributeDescriptions();
    vk::PipelineVertexInputStateCreateInfo vertexInputCreateInfo = vk::PipelineVertexInputStateCreateInfo()
       .setVertexBindingDescriptionCount(1)
       .setPVertexBindingDescriptions(&vertexBindingDescription)
@@ -1251,13 +1411,23 @@ void ForgeApplication::terminateUniformBuffers()
 
 void ForgeApplication::initializeDescriptorPool()
 {
-   vk::DescriptorPoolSize poolSize = vk::DescriptorPoolSize()
+   vk::DescriptorPoolSize uniformPoolSize = vk::DescriptorPoolSize()
       .setType(vk::DescriptorType::eUniformBuffer)
       .setDescriptorCount(static_cast<uint32_t>(swapchainImages.size() * 2));
 
+   vk::DescriptorPoolSize samplerPoolSize = vk::DescriptorPoolSize()
+      .setType(vk::DescriptorType::eCombinedImageSampler)
+      .setDescriptorCount(static_cast<uint32_t>(swapchainImages.size()));
+
+   std::array<vk::DescriptorPoolSize, 2> descriptorPoolSizes =
+   {
+      uniformPoolSize,
+      samplerPoolSize
+   };
+
    vk::DescriptorPoolCreateInfo createInfo = vk::DescriptorPoolCreateInfo()
-      .setPoolSizeCount(1)
-      .setPPoolSizes(&poolSize)
+      .setPoolSizeCount(static_cast<uint32_t>(descriptorPoolSizes.size()))
+      .setPPoolSizes(descriptorPoolSizes.data())
       .setMaxSets(static_cast<uint32_t>(swapchainImages.size() * 2));
    descriptorPool = context.device.createDescriptorPool(createInfo);
 }
@@ -1302,6 +1472,11 @@ void ForgeApplication::initializeDescriptorSets()
          .setOffset(static_cast<vk::DeviceSize>(uniformBufferDataSize * i + paddedMeshDataOffset))
          .setRange(sizeof(MeshUniformData));
 
+      vk::DescriptorImageInfo imageInfo = vk::DescriptorImageInfo()
+         .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+         .setImageView(textureImageView)
+         .setSampler(textureImageSampler);
+
       vk::WriteDescriptorSet viewDescriptorWrite = vk::WriteDescriptorSet()
          .setDstSet(frameDescriptorSets[i])
          .setDstBinding(0)
@@ -1318,7 +1493,15 @@ void ForgeApplication::initializeDescriptorSets()
          .setDescriptorCount(1)
          .setPBufferInfo(&meshBufferInfo);
 
-      context.device.updateDescriptorSets({ viewDescriptorWrite, meshDescriptorWrite }, {});
+      vk::WriteDescriptorSet imageDescriptorWrite = vk::WriteDescriptorSet()
+         .setDstSet(drawDescriptorSets[i])
+         .setDstBinding(1)
+         .setDstArrayElement(0)
+         .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+         .setDescriptorCount(1)
+         .setPImageInfo(&imageInfo);
+
+      context.device.updateDescriptorSets({ viewDescriptorWrite, meshDescriptorWrite, imageDescriptorWrite }, {});
    }
 }
 
@@ -1328,14 +1511,87 @@ void ForgeApplication::terminateDescriptorSets()
    drawDescriptorSets.clear();
 }
 
+void ForgeApplication::initializeTextureImage()
+{
+   std::optional<LoadedImage> image;
+   if (std::optional<std::filesystem::path> absoluteImagePath = IOUtils::getAboluteProjectPath("Resources/Textures/statue.jpg"))
+   {
+      image = loadImage(*absoluteImagePath);
+   }
+
+   if (!image)
+   {
+      throw std::runtime_error(std::string("Failed to load texture image"));
+   }
+
+   vk::Buffer stagingBuffer;
+   vk::DeviceMemory stagingBufferMemory;
+   createBuffer(image->size, vk::BufferUsageFlagBits::eTransferSrc, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, stagingBuffer, stagingBufferMemory);
+
+   void* memory = context.device.mapMemory(stagingBufferMemory, 0, image->size);
+   std::memcpy(memory, image->data.get(), static_cast<std::size_t>(image->size));
+   context.device.unmapMemory(stagingBufferMemory);
+   memory = nullptr;
+
+   image->data.reset();
+
+   createImage(image->width, image->height, image->format, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, textureImage, textureImageMemory);
+
+   transitionImageLayout(context, textureImage, image->format, vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal);
+   copyBufferToImage(context, stagingBuffer, textureImage, image->width, image->height);
+   transitionImageLayout(context, textureImage, image->format, vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eShaderReadOnlyOptimal);
+
+   context.device.destroyBuffer(stagingBuffer);
+   stagingBuffer = nullptr;
+   context.device.freeMemory(stagingBufferMemory);
+   stagingBufferMemory = nullptr;
+
+   textureImageView = createImageView(context, textureImage, image->format);
+
+   bool anisotropySupported = context.physicalDeviceFeatures.samplerAnisotropy;
+
+   vk::SamplerCreateInfo samplerCreateInfo = vk::SamplerCreateInfo()
+      .setMagFilter(vk::Filter::eLinear)
+      .setMinFilter(vk::Filter::eLinear)
+      .setAddressModeU(vk::SamplerAddressMode::eRepeat)
+      .setAddressModeV(vk::SamplerAddressMode::eRepeat)
+      .setAddressModeW(vk::SamplerAddressMode::eRepeat)
+      .setBorderColor(vk::BorderColor::eIntOpaqueBlack)
+      .setAnisotropyEnable(anisotropySupported)
+      .setMaxAnisotropy(anisotropySupported ? 16.0f : 1.0f)
+      .setUnnormalizedCoordinates(false)
+      .setCompareEnable(false)
+      .setCompareOp(vk::CompareOp::eAlways)
+      .setMipmapMode(vk::SamplerMipmapMode::eLinear)
+      .setMipLodBias(0.0f)
+      .setMinLod(0.0f)
+      .setMaxLod(0.0f);
+   textureImageSampler = context.device.createSampler(samplerCreateInfo);
+}
+
+void ForgeApplication::terminateTextureImage()
+{
+   context.device.destroySampler(textureImageSampler);
+   textureImageSampler = nullptr;
+
+   context.device.destroyImageView(textureImageView);
+   textureImageView = nullptr;
+
+   context.device.destroyImage(textureImage);
+   textureImage = nullptr;
+
+   context.device.freeMemory(textureImageMemory);
+   textureImageMemory = nullptr;
+}
+
 void ForgeApplication::initializeMesh()
 {
    std::vector<Vertex> vertices =
    {
-      Vertex(glm::vec2(-0.5f, -0.5f), glm::vec3(1.0f, 0.0f, 0.0f)),
-      Vertex(glm::vec2(0.5f, -0.5f), glm::vec3(0.0f, 1.0f, 0.0f)),
-      Vertex(glm::vec2(0.5f, 0.5f), glm::vec3(0.0f, 0.0f, 1.0f)),
-      Vertex(glm::vec2(-0.5f, 0.5f), glm::vec3(1.0f, 1.0f, 1.0f)),
+      Vertex(glm::vec2(-0.5f, -0.5f), glm::vec3(1.0f, 0.0f, 0.0f), glm::vec2(0.0f, 0.0f)),
+      Vertex(glm::vec2(0.5f, -0.5f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec2(1.0f, 0.0f)),
+      Vertex(glm::vec2(0.5f, 0.5f), glm::vec3(0.0f, 0.0f, 1.0f), glm::vec2(1.0f, 1.0f)),
+      Vertex(glm::vec2(-0.5f, 0.5f), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec2(0.0f, 1.0f)),
    };
 
    std::vector<uint32_t> indices =
@@ -1479,4 +1735,27 @@ void ForgeApplication::createBuffer(vk::DeviceSize size, vk::BufferUsageFlags us
 
    bufferMemory = context.device.allocateMemory(allocateInfo);
    context.device.bindBufferMemory(buffer, bufferMemory, 0);
+}
+
+void ForgeApplication::createImage(uint32_t width, uint32_t height, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Image& image, vk::DeviceMemory& imageMemory) const
+{
+   vk::ImageCreateInfo imageCreateinfo = vk::ImageCreateInfo()
+      .setImageType(vk::ImageType::e2D)
+      .setExtent(vk::Extent3D(width, height, 1))
+      .setMipLevels(1)
+      .setArrayLayers(1)
+      .setFormat(format)
+      .setTiling(vk::ImageTiling::eOptimal)
+      .setInitialLayout(vk::ImageLayout::eUndefined)
+      .setUsage(usage)
+      .setSharingMode(vk::SharingMode::eExclusive)
+      .setSamples(vk::SampleCountFlagBits::e1);
+   image = context.device.createImage(imageCreateinfo);
+
+   vk::MemoryRequirements memoryRequirements = context.device.getImageMemoryRequirements(image);
+   vk::MemoryAllocateInfo allocateInfo = vk::MemoryAllocateInfo()
+      .setAllocationSize(memoryRequirements.size)
+      .setMemoryTypeIndex(findMemoryType(context.physicalDevice, memoryRequirements.memoryTypeBits, properties));
+   imageMemory = context.device.allocateMemory(allocateInfo);
+   context.device.bindImageMemory(image, imageMemory, 0);
 }

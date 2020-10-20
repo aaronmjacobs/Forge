@@ -36,6 +36,7 @@ struct VulkanContext
    vk::SurfaceKHR surface;
    vk::PhysicalDevice physicalDevice;
    vk::PhysicalDeviceProperties physicalDeviceProperties;
+   vk::PhysicalDeviceFeatures physicalDeviceFeatures;
    QueueFamilyIndices queueFamilyIndices;
    vk::Device device;
    vk::Queue graphicsQueue;
@@ -48,15 +49,17 @@ struct Vertex
 {
    glm::vec2 position;
    glm::vec3 color;
+   glm::vec2 texCoord;
 
-   Vertex(const glm::vec2& initialPosition = glm::vec2(0.0f), const glm::vec3& initialColor = glm::vec3(0.0f))
+   Vertex(const glm::vec2& initialPosition = glm::vec2(0.0f), const glm::vec3& initialColor = glm::vec3(0.0f), const glm::vec2& initialTexCoord = glm::vec2(0.0f))
       : position(initialPosition)
       , color(initialColor)
+      , texCoord(initialTexCoord)
    {
    }
 
    static vk::VertexInputBindingDescription getBindingDescription();
-   static std::array<vk::VertexInputAttributeDescription, 2> getAttributeDescriptions();
+   static std::array<vk::VertexInputAttributeDescription, 3> getAttributeDescriptions();
 };
 
 struct Mesh
@@ -123,6 +126,9 @@ private:
    void initializeDescriptorSets();
    void terminateDescriptorSets();
 
+   void initializeTextureImage();
+   void terminateTextureImage();
+
    void initializeMesh();
    void terminateMesh();
 
@@ -133,6 +139,7 @@ private:
    void terminateSyncObjects();
 
    void createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Buffer& buffer, vk::DeviceMemory& bufferMemory) const;
+   void createImage(uint32_t width, uint32_t height, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Image& image, vk::DeviceMemory& imageMemory) const;
 
    GLFWwindow* window = nullptr;
 
@@ -155,6 +162,11 @@ private:
    vk::DescriptorPool descriptorPool;
    std::vector<vk::DescriptorSet> frameDescriptorSets;
    std::vector<vk::DescriptorSet> drawDescriptorSets;
+
+   vk::Image textureImage;
+   vk::DeviceMemory textureImageMemory;
+   vk::ImageView textureImageView;
+   vk::Sampler textureImageSampler;
 
    vk::Buffer uniformBuffers;
    vk::DeviceMemory uniformBufferMemory;
