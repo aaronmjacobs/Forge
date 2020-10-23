@@ -7,6 +7,8 @@
 #include "Core/Assert.h"
 #include "Core/Log.h"
 
+#include <boxer/boxer.h>
+
 #include <exception>
 
 int main(int argc, char* argv[])
@@ -21,7 +23,7 @@ int main(int argc, char* argv[])
 #if FORGE_DEBUG
       ASSERT(false, "Caught exception: %s", e.what());
 #else
-      LOG_ERROR_MSG_BOX("Caught exception: " << e.what());
+      boxer::show((std::string("Caught exception: ") + e.what()).c_str(), "Error");
 #endif
 
       return 1;
