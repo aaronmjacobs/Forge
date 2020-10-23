@@ -838,7 +838,11 @@ void ForgeApplication::render()
       recreateSwapchain();
    }
 
-   context.device.waitForFences({ frameFences[frameIndex] }, true, UINT64_MAX);
+   vk::Result frameWaitResult = context.device.waitForFences({ frameFences[frameIndex] }, true, UINT64_MAX);
+   if (frameWaitResult != vk::Result::eSuccess)
+   {
+      throw std::runtime_error("Failed to wait for frame fence");
+   }
 
    vk::ResultValue<uint32_t> imageIndexResultValue = context.device.acquireNextImageKHR(swapchain, UINT64_MAX, imageAvailableSemaphores[frameIndex], nullptr);
    if (imageIndexResultValue.result == vk::Result::eErrorOutOfDateKHR)
@@ -855,7 +859,11 @@ void ForgeApplication::render()
    if (imageFences[imageIndex])
    {
       // If a previous frame is still using the image, wait for it to complete
-      context.device.waitForFences({ imageFences[imageIndex] }, true, UINT64_MAX);
+      vk::Result imageWaitResult = context.device.waitForFences({ imageFences[imageIndex] }, true, UINT64_MAX);
+      if (imageWaitResult != vk::Result::eSuccess)
+      {
+         throw std::runtime_error("Failed to wait for image fence");
+      }
    }
    imageFences[imageIndex] = frameFences[frameIndex];
 
@@ -996,11 +1004,6 @@ void ForgeApplication::initializeVulkan()
       .setEngineVersion(VK_MAKE_VERSION(FORGE_VERSION_MAJOR, FORGE_VERSION_MINOR, FORGE_VERSION_PATCH))
       .setApiVersion(VK_API_VERSION_1_1);
 
-#if FORGE_DEBUG
-   VkDebugUtilsMessengerCreateInfoEXT debugUtilsMessengerCreateInfo = createDebugMessengerCreateInfo();
-   applicationInfo = applicationInfo.setPNext(&debugUtilsMessengerCreateInfo);
-#endif // FORGE_DEBUG
-
    std::vector<const char*> extensions = getExtensions();
    std::vector<const char*> layers = getLayers();
 
@@ -1010,6 +1013,11 @@ void ForgeApplication::initializeVulkan()
       .setPpEnabledExtensionNames(extensions.data())
       .setEnabledLayerCount(static_cast<uint32_t>(layers.size()))
       .setPpEnabledLayerNames(layers.data());
+
+#if FORGE_DEBUG
+   VkDebugUtilsMessengerCreateInfoEXT debugUtilsMessengerCreateInfo = createDebugMessengerCreateInfo();
+   createInfo = createInfo.setPNext(&debugUtilsMessengerCreateInfo);
+#endif // FORGE_DEBUG
 
    context.instance = vk::createInstance(createInfo);
 
@@ -1327,7 +1335,7 @@ void ForgeApplication::initializeGraphicsPipeline()
       .setBasePipelineHandle(nullptr)
       .setBasePipelineIndex(-1);
 
-   graphicsPipeline = context.device.createGraphicsPipeline(nullptr, graphicsPipelineCreateInfo);
+   graphicsPipeline = context.device.createGraphicsPipeline(nullptr, graphicsPipelineCreateInfo).value;
 
    context.device.destroyShaderModule(fragShaderModule);
    context.device.destroyShaderModule(vertShaderModule);
