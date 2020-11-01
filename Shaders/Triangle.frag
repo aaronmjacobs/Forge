@@ -10,5 +10,5 @@ layout(location = 0) out vec4 outColor;
 
 void main()
 {
-   outColor = vec4(inColor * texture(textureSampler, inTexCoord * 2.0).rgb, 1.0);
+   outColor = vec4(inColor * texture(textureSampler, inTexCoord).rgb, 1.0);
 }

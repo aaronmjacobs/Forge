@@ -20,6 +20,7 @@ add_subdirectory("${LIB_DIR}/glm")
 target_compile_definitions(${PROJECT_NAME} PUBLIC GLM_ENABLE_EXPERIMENTAL)
 target_compile_definitions(${PROJECT_NAME} PUBLIC GLM_FORCE_CTOR_INIT)
 target_compile_definitions(${PROJECT_NAME} PUBLIC GLM_FORCE_DEPTH_ZERO_TO_ONE)
+target_compile_definitions(${PROJECT_NAME} PUBLIC GLM_FORCE_RADIANS)
 target_link_libraries(${PROJECT_NAME} PUBLIC glm)
 
 # PlatformUtils

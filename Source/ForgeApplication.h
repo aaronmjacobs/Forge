@@ -47,11 +47,11 @@ struct VulkanContext
 
 struct Vertex
 {
-   glm::vec2 position;
+   glm::vec3 position;
    glm::vec3 color;
    glm::vec2 texCoord;
 
-   Vertex(const glm::vec2& initialPosition = glm::vec2(0.0f), const glm::vec3& initialColor = glm::vec3(0.0f), const glm::vec2& initialTexCoord = glm::vec2(0.0f))
+   Vertex(const glm::vec3& initialPosition = glm::vec3(0.0f), const glm::vec3& initialColor = glm::vec3(0.0f), const glm::vec2& initialTexCoord = glm::vec2(0.0f))
       : position(initialPosition)
       , color(initialColor)
       , texCoord(initialTexCoord)
@@ -150,6 +150,11 @@ private:
    vk::Format swapchainImageFormat;
    vk::Extent2D swapchainExtent;
    std::vector<vk::ImageView> swapchainImageViews;
+
+   vk::Format depthImageFormat;
+   vk::DeviceMemory depthImageMemory;
+   vk::Image depthImage;
+   vk::ImageView depthImageView;
 
    vk::RenderPass renderPass;
    vk::DescriptorSetLayout frameDescriptorSetLayout;
