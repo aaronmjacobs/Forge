@@ -1,5 +1,19 @@
 set(LIB_DIR "${PROJECT_SOURCE_DIR}/Libraries")
 
+set(BUILD_SHARED_LIBS ON CACHE INTERNAL "Build package with shared libraries.")
+
+# Assimp
+add_subdirectory("${LIB_DIR}/assimp")
+set(ASSIMP_NO_EXPORT ON CACHE INTERNAL "Disable Assimp's export functionality.")
+set(ASSIMP_BUILD_ASSIMP_TOOLS OFF CACHE INTERNAL "If the supplementary tools for Assimp are built in addition to the library.")
+set(ASSIMP_BUILD_TESTS OFF CACHE INTERNAL "If the test suite for Assimp is built in addition to the library.")
+target_link_libraries(${PROJECT_NAME} PUBLIC assimp)
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+   COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:assimp>" "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
+)
+
+set(BUILD_SHARED_LIBS OFF CACHE INTERNAL "Build package with shared libraries.")
+
 # Boxer
 add_subdirectory("${LIB_DIR}/Boxer")
 target_link_libraries(${PROJECT_NAME} PUBLIC Boxer)

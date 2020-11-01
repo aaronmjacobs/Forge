@@ -19,3 +19,6 @@
 [submodule "Libraries/stb"]
 	path = Libraries/stb
 	url = https://github.com/nothings/stb.git
+[submodule "Libraries/assimp"]
+	path = Libraries/assimp
+	url = https://github.com/assimp/assimp.git
