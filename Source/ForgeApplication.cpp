@@ -723,7 +723,10 @@ namespace
    {
       return findSupportedFormat(context, { vk::Format::eD24UnormS8Uint, vk::Format::eD32SfloatS8Uint, vk::Format::eD16UnormS8Uint, vk::Format::eD32Sfloat, vk::Format::eD16Unorm }, vk::ImageTiling::eOptimal, vk::FormatFeatureFlagBits::eDepthStencilAttachment);
    }
+}
 
+namespace Helpers
+{
    void createBuffer(const VulkanContext& context, vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Buffer& buffer, vk::DeviceMemory& bufferMemory)
    {
       vk::BufferCreateInfo bufferCreateInfo = vk::BufferCreateInfo()
@@ -879,14 +882,14 @@ void Texture::initialize(const VulkanContext& context, const LoadedImage& loaded
 {
    vk::Buffer stagingBuffer;
    vk::DeviceMemory stagingBufferMemory;
-   createBuffer(context, loadedImage.size, vk::BufferUsageFlagBits::eTransferSrc, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, stagingBuffer, stagingBufferMemory);
+   Helpers::createBuffer(context, loadedImage.size, vk::BufferUsageFlagBits::eTransferSrc, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, stagingBuffer, stagingBufferMemory);
 
    void* mappedMemory = context.device.mapMemory(stagingBufferMemory, 0, loadedImage.size);
    std::memcpy(mappedMemory, loadedImage.data.get(), static_cast<std::size_t>(loadedImage.size));
    context.device.unmapMemory(stagingBufferMemory);
    mappedMemory = nullptr;
 
-   createImage(context, loadedImage.width, loadedImage.height, loadedImage.format, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, image, memory);
+   Helpers::createImage(context, loadedImage.width, loadedImage.height, loadedImage.format, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, image, memory);
 
    transitionImageLayout(context, image, loadedImage.format, vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal);
    copyBufferToImage(context, stagingBuffer, image, loadedImage.width, loadedImage.height);
@@ -1291,7 +1294,7 @@ void ForgeApplication::initializeSwapchain()
    }
 
    depthImageFormat = findDepthFormat(context);
-   createImage(context, swapchainExtent.width, swapchainExtent.height, depthImageFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eDepthStencilAttachment, vk::MemoryPropertyFlagBits::eDeviceLocal, depthImage, depthImageMemory);
+   Helpers::createImage(context, swapchainExtent.width, swapchainExtent.height, depthImageFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eDepthStencilAttachment, vk::MemoryPropertyFlagBits::eDeviceLocal, depthImage, depthImageMemory);
    depthImageView = createImageView(context, depthImage, depthImageFormat, vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil);
    //transitionImageLayout(context, depthImage, depthImageFormat, vk::ImageLayout::eUndefined, vk::ImageLayout::eDepthStencilAttachmentOptimal);
 }

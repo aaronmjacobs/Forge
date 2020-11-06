@@ -54,6 +54,12 @@ struct VulkanContext
    vk::CommandPool transientCommandPool;
 };
 
+namespace Helpers
+{
+   void createBuffer(const VulkanContext& context, vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Buffer& buffer, vk::DeviceMemory& bufferMemory);
+   void createImage(const VulkanContext& context, uint32_t width, uint32_t height, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Image& image, vk::DeviceMemory& imageMemory);
+}
+
 template<typename DataType>
 class UniformBuffer
 {
@@ -63,7 +69,7 @@ public:
       ASSERT(!buffer && !memory && !mappedMemory);
 
       vk::DeviceSize bufferSize = getPaddedDataSize(context) * swapchainImageCount;
-      createBuffer(context, bufferSize, vk::BufferUsageFlagBits::eUniformBuffer, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, buffer, memory);
+      Helpers::createBuffer(context, bufferSize, vk::BufferUsageFlagBits::eUniformBuffer, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, buffer, memory);
 
       mappedMemory = context.device.mapMemory(memory, 0, bufferSize);
       std::memset(mappedMemory, 0, bufferSize);
