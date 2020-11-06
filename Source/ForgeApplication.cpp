@@ -2,6 +2,9 @@
 
 #include "Core/Log.h"
 
+#include <assimp/Importer.hpp>
+#include <assimp/postprocess.h>
+#include <assimp/scene.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -610,68 +613,6 @@ namespace
       return context.device.createImageView(createInfo);
    }
 
-   vk::DeviceSize getAlignedSize(vk::DeviceSize size, vk::DeviceSize alignment)
-   {
-      ASSERT((alignment & (alignment - 1)) == 0, "Alignment is not a power of two: %llu", alignment);
-      return (size + (alignment - 1)) & ~(alignment - 1);
-   }
-
-   struct ViewUniformData
-   {
-      alignas(16) glm::mat4 worldToClip;
-   };
-
-   struct MeshUniformData
-   {
-      alignas(16) glm::mat4 localToWorld;
-   };
-
-   struct UniformBufferData
-   {
-      ViewUniformData view;
-      MeshUniformData mesh;
-
-      static vk::DeviceSize getPaddedSize(const VulkanContext& context)
-      {
-         vk::DeviceSize alignment = context.physicalDeviceProperties.limits.minUniformBufferOffsetAlignment;
-         vk::DeviceSize paddedViewSize = getAlignedSize(static_cast<vk::DeviceSize>(sizeof(ViewUniformData)), alignment);
-         vk::DeviceSize paddedMeshSize = getAlignedSize(static_cast<vk::DeviceSize>(sizeof(MeshUniformData)), alignment);
-
-         return paddedViewSize + paddedMeshSize;
-      }
-
-      static vk::DeviceSize getPaddedMeshDataOffset(const VulkanContext& context)
-      {
-         vk::DeviceSize alignment = context.physicalDeviceProperties.limits.minUniformBufferOffsetAlignment;
-         vk::DeviceSize paddedViewSize = getAlignedSize(static_cast<vk::DeviceSize>(sizeof(ViewUniformData)), alignment);
-
-         return paddedViewSize;
-      }
-
-      void copyToDeviceMemory(const VulkanContext& context, void* memory) const
-      {
-         std::memcpy(memory, &view, sizeof(ViewUniformData));
-         std::memcpy(static_cast<char*>(memory) + getPaddedMeshDataOffset(context), &mesh, sizeof(MeshUniformData));
-      }
-   };
-
-   struct ImageDataDeleter
-   {
-      void operator()(uint8_t* data) const
-      {
-         stbi_image_free(data);
-      }
-   };
-
-   struct LoadedImage
-   {
-      std::unique_ptr<uint8_t, ImageDataDeleter> data;
-      vk::Format format = vk::Format::eR8G8B8A8Srgb;
-      vk::DeviceSize size = 0;
-      uint32_t width = 0;
-      uint32_t height = 0;
-   };
-
    std::optional<LoadedImage> loadImage(const std::filesystem::path& path)
    {
       if (std::optional<std::vector<uint8_t>> imageData = IOUtils::readBinaryFile(path))
@@ -695,6 +636,59 @@ namespace
       }
 
       return {};
+   }
+
+   bool loadMesh(const VulkanContext& context, Mesh& mesh, const std::filesystem::path& path)
+   {
+      unsigned int flags = aiProcess_JoinIdenticalVertices | aiProcess_Triangulate | aiProcess_FlipUVs;
+
+      Assimp::Importer importer;
+      const aiScene* assimpScene = importer.ReadFile(path.string().c_str(), flags);
+      if (!assimpScene || (assimpScene->mFlags & AI_SCENE_FLAGS_INCOMPLETE) || !assimpScene->mRootNode)
+      {
+         return false;
+      }
+
+      if (assimpScene->mNumMeshes != 1)
+      {
+         return false;
+      }
+
+      const aiMesh* assimpMesh = assimpScene->mMeshes[0];
+      if (!assimpMesh)
+      {
+         return false;
+      }
+
+      static_assert(sizeof(unsigned int) == sizeof(uint32_t), "Index data types don't match");
+
+      std::vector<uint32_t> indices(assimpMesh->mNumFaces * 3);
+      for (unsigned int i = 0; i < assimpMesh->mNumFaces; ++i)
+      {
+         const aiFace& face = assimpMesh->mFaces[i];
+         ASSERT(face.mNumIndices == 3);
+
+         std::memcpy(&indices[i * 3], face.mIndices, 3 * sizeof(uint32_t));
+      }
+
+      std::vector<Vertex> vertices;
+      if (assimpMesh->mNumVertices > 0 && assimpMesh->mTextureCoords[0] && assimpMesh->mNumUVComponents[0] == 2)
+      {
+         vertices.reserve(assimpMesh->mNumVertices);
+
+         for (unsigned int i = 0; i < assimpMesh->mNumVertices; ++i)
+         {
+            glm::vec3 position(assimpMesh->mVertices[i].x, assimpMesh->mVertices[i].y, assimpMesh->mVertices[i].z);
+            glm::vec3 color(1.0f);
+            glm::vec2 texCoord(assimpMesh->mTextureCoords[0][i].x, assimpMesh->mTextureCoords[0][i].y);
+
+            vertices.push_back(Vertex(position, color, texCoord));
+         }
+      }
+
+      mesh.initialize(context, vertices, indices);
+
+      return true;
    }
 
    vk::Format findSupportedFormat(const VulkanContext& context, const std::vector<vk::Format>& candidates, vk::ImageTiling tiling, vk::FormatFeatureFlags features)
@@ -728,6 +722,47 @@ namespace
    vk::Format findDepthFormat(const VulkanContext& context)
    {
       return findSupportedFormat(context, { vk::Format::eD24UnormS8Uint, vk::Format::eD32SfloatS8Uint, vk::Format::eD16UnormS8Uint, vk::Format::eD32Sfloat, vk::Format::eD16Unorm }, vk::ImageTiling::eOptimal, vk::FormatFeatureFlagBits::eDepthStencilAttachment);
+   }
+
+   void createBuffer(const VulkanContext& context, vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Buffer& buffer, vk::DeviceMemory& bufferMemory)
+   {
+      vk::BufferCreateInfo bufferCreateInfo = vk::BufferCreateInfo()
+         .setSize(size)
+         .setUsage(usage)
+         .setSharingMode(vk::SharingMode::eExclusive);
+
+      buffer = context.device.createBuffer(bufferCreateInfo);
+
+      vk::MemoryRequirements memoryRequirements = context.device.getBufferMemoryRequirements(buffer);
+      vk::MemoryAllocateInfo allocateInfo = vk::MemoryAllocateInfo()
+         .setAllocationSize(memoryRequirements.size)
+         .setMemoryTypeIndex(findMemoryType(context.physicalDevice, memoryRequirements.memoryTypeBits, properties));
+
+      bufferMemory = context.device.allocateMemory(allocateInfo);
+      context.device.bindBufferMemory(buffer, bufferMemory, 0);
+   }
+
+   void createImage(const VulkanContext& context, uint32_t width, uint32_t height, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Image& image, vk::DeviceMemory& imageMemory)
+   {
+      vk::ImageCreateInfo imageCreateinfo = vk::ImageCreateInfo()
+         .setImageType(vk::ImageType::e2D)
+         .setExtent(vk::Extent3D(width, height, 1))
+         .setMipLevels(1)
+         .setArrayLayers(1)
+         .setFormat(format)
+         .setTiling(vk::ImageTiling::eOptimal)
+         .setInitialLayout(vk::ImageLayout::eUndefined)
+         .setUsage(usage)
+         .setSharingMode(vk::SharingMode::eExclusive)
+         .setSamples(vk::SampleCountFlagBits::e1);
+      image = context.device.createImage(imageCreateinfo);
+
+      vk::MemoryRequirements memoryRequirements = context.device.getImageMemoryRequirements(image);
+      vk::MemoryAllocateInfo allocateInfo = vk::MemoryAllocateInfo()
+         .setAllocationSize(memoryRequirements.size)
+         .setMemoryTypeIndex(findMemoryType(context.physicalDevice, memoryRequirements.memoryTypeBits, properties));
+      imageMemory = context.device.allocateMemory(allocateInfo);
+      context.device.bindImageMemory(image, imageMemory, 0);
    }
 }
 
@@ -835,6 +870,71 @@ void Mesh::terminate(const VulkanContext& context)
    numIndices = 0;
 }
 
+void ImageDataDeleter::operator()(uint8_t* data) const
+{
+   stbi_image_free(data);
+}
+
+void Texture::initialize(const VulkanContext& context, const LoadedImage& loadedImage)
+{
+   vk::Buffer stagingBuffer;
+   vk::DeviceMemory stagingBufferMemory;
+   createBuffer(context, loadedImage.size, vk::BufferUsageFlagBits::eTransferSrc, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, stagingBuffer, stagingBufferMemory);
+
+   void* mappedMemory = context.device.mapMemory(stagingBufferMemory, 0, loadedImage.size);
+   std::memcpy(mappedMemory, loadedImage.data.get(), static_cast<std::size_t>(loadedImage.size));
+   context.device.unmapMemory(stagingBufferMemory);
+   mappedMemory = nullptr;
+
+   createImage(context, loadedImage.width, loadedImage.height, loadedImage.format, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, image, memory);
+
+   transitionImageLayout(context, image, loadedImage.format, vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal);
+   copyBufferToImage(context, stagingBuffer, image, loadedImage.width, loadedImage.height);
+   transitionImageLayout(context, image, loadedImage.format, vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eShaderReadOnlyOptimal);
+
+   context.device.destroyBuffer(stagingBuffer);
+   stagingBuffer = nullptr;
+   context.device.freeMemory(stagingBufferMemory);
+   stagingBufferMemory = nullptr;
+
+   view = createImageView(context, image, loadedImage.format, vk::ImageAspectFlagBits::eColor);
+
+   bool anisotropySupported = context.physicalDeviceFeatures.samplerAnisotropy;
+
+   vk::SamplerCreateInfo samplerCreateInfo = vk::SamplerCreateInfo()
+      .setMagFilter(vk::Filter::eLinear)
+      .setMinFilter(vk::Filter::eLinear)
+      .setAddressModeU(vk::SamplerAddressMode::eRepeat)
+      .setAddressModeV(vk::SamplerAddressMode::eRepeat)
+      .setAddressModeW(vk::SamplerAddressMode::eRepeat)
+      .setBorderColor(vk::BorderColor::eIntOpaqueBlack)
+      .setAnisotropyEnable(anisotropySupported)
+      .setMaxAnisotropy(anisotropySupported ? 16.0f : 1.0f)
+      .setUnnormalizedCoordinates(false)
+      .setCompareEnable(false)
+      .setCompareOp(vk::CompareOp::eAlways)
+      .setMipmapMode(vk::SamplerMipmapMode::eLinear)
+      .setMipLodBias(0.0f)
+      .setMinLod(0.0f)
+      .setMaxLod(0.0f);
+   sampler = context.device.createSampler(samplerCreateInfo);
+}
+
+void Texture::terminate(const VulkanContext& context)
+{
+   context.device.destroySampler(sampler);
+   sampler = nullptr;
+
+   context.device.destroyImageView(view);
+   view = nullptr;
+
+   context.device.destroyImage(image);
+   image = nullptr;
+
+   context.device.freeMemory(memory);
+   memory = nullptr;
+}
+
 ForgeApplication::ForgeApplication()
 {
    initializeGlfw();
@@ -846,10 +946,9 @@ ForgeApplication::ForgeApplication()
    initializeGraphicsPipeline();
    initializeFramebuffers();
    initializeUniformBuffers();
-   initializeTextureImage();
+   initializeMesh();
    initializeDescriptorPool();
    initializeDescriptorSets();
-   initializeMesh();
    initializeCommandBuffers();
    initializeSyncObjects();
 }
@@ -858,10 +957,9 @@ ForgeApplication::~ForgeApplication()
 {
    terminateSyncObjects();
    terminateCommandBuffers(false);
-   terminateMesh();
    terminateDescriptorSets();
    terminateDescriptorPool();
-   terminateTextureImage();
+   terminateMesh();
    terminateUniformBuffers();
    terminateFramebuffers();
    terminateGraphicsPipeline();
@@ -963,24 +1061,20 @@ void ForgeApplication::render()
 
 void ForgeApplication::updateUniformBuffers(uint32_t index)
 {
-   UniformBufferData uniformBufferData;
-
    double time = glfwGetTime();
 
    glm::mat4 worldToView = glm::lookAt(glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
    glm::mat4 viewToClip = glm::perspective(glm::radians(45.0f), static_cast<float>(swapchainExtent.width) / swapchainExtent.height, 0.1f, 10.0f);
    viewToClip[1][1] *= -1.0f;
 
-   uniformBufferData.view.worldToClip = viewToClip * worldToView;
+   ViewUniformData viewUniformData;
+   viewUniformData.worldToClip = viewToClip * worldToView;
 
-   uniformBufferData.mesh.localToWorld = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f) * static_cast<float>(time), glm::vec3(0.0f, 0.0f, 1.0f));
+   MeshUniformData meshUniformData;
+   meshUniformData.localToWorld = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f) * static_cast<float>(time), glm::vec3(0.0f, 0.0f, 1.0f));
 
-   vk::DeviceSize size = UniformBufferData::getPaddedSize(context);
-   vk::DeviceSize offset = size * index;
-   void* memory = context.device.mapMemory(uniformBufferMemory, offset, size);
-   uniformBufferData.copyToDeviceMemory(context, memory);
-   context.device.unmapMemory(uniformBufferMemory);
-   memory = nullptr;
+   viewUniformBuffer.update(context, viewUniformData, index);
+   meshUniformBuffer.update(context, meshUniformData, index);
 }
 
 void ForgeApplication::recreateSwapchain()
@@ -1197,7 +1291,7 @@ void ForgeApplication::initializeSwapchain()
    }
 
    depthImageFormat = findDepthFormat(context);
-   createImage(swapchainExtent.width, swapchainExtent.height, depthImageFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eDepthStencilAttachment, vk::MemoryPropertyFlagBits::eDeviceLocal, depthImage, depthImageMemory);
+   createImage(context, swapchainExtent.width, swapchainExtent.height, depthImageFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eDepthStencilAttachment, vk::MemoryPropertyFlagBits::eDeviceLocal, depthImage, depthImageMemory);
    depthImageView = createImageView(context, depthImage, depthImageFormat, vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil);
    //transitionImageLayout(context, depthImage, depthImageFormat, vk::ImageLayout::eUndefined, vk::ImageLayout::eDepthStencilAttachmentOptimal);
 }
@@ -1489,22 +1583,16 @@ void ForgeApplication::terminateTransientCommandPool()
 
 void ForgeApplication::initializeUniformBuffers()
 {
-   vk::DeviceSize bufferSize = UniformBufferData::getPaddedSize(context) * swapchainImages.size();
-   createBuffer(bufferSize, vk::BufferUsageFlagBits::eUniformBuffer, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, uniformBuffers, uniformBufferMemory);
+   uint32_t swapchainImageCount = static_cast<uint32_t>(swapchainImages.size());
 
-   void* memory = context.device.mapMemory(uniformBufferMemory, 0, bufferSize);
-   std::memset(memory, 0, bufferSize);
-   context.device.unmapMemory(uniformBufferMemory);
-   memory = nullptr;
+   viewUniformBuffer.initialize(context, swapchainImageCount);
+   meshUniformBuffer.initialize(context, swapchainImageCount);
 }
 
 void ForgeApplication::terminateUniformBuffers()
 {
-   context.device.destroyBuffer(uniformBuffers);
-   uniformBuffers = nullptr;
-
-   context.device.freeMemory(uniformBufferMemory);
-   uniformBufferMemory = nullptr;
+   meshUniformBuffer.terminate(context);
+   viewUniformBuffer.terminate(context);
 }
 
 void ForgeApplication::initializeDescriptorPool()
@@ -1556,24 +1644,15 @@ void ForgeApplication::initializeDescriptorSets()
    frameDescriptorSets = context.device.allocateDescriptorSets(frameAllocateInfo);
    drawDescriptorSets = context.device.allocateDescriptorSets(drawAllocateInfo);
 
-   vk::DeviceSize uniformBufferDataSize = UniformBufferData::getPaddedSize(context);
-   vk::DeviceSize paddedMeshDataOffset = UniformBufferData::getPaddedMeshDataOffset(context);
    for (std::size_t i = 0; i < swapchainImages.size(); ++i)
    {
-      vk::DescriptorBufferInfo viewBufferInfo = vk::DescriptorBufferInfo()
-         .setBuffer(uniformBuffers)
-         .setOffset(static_cast<vk::DeviceSize>(uniformBufferDataSize * i))
-         .setRange(sizeof(ViewUniformData));
-
-      vk::DescriptorBufferInfo meshBufferInfo = vk::DescriptorBufferInfo()
-         .setBuffer(uniformBuffers)
-         .setOffset(static_cast<vk::DeviceSize>(uniformBufferDataSize * i + paddedMeshDataOffset))
-         .setRange(sizeof(MeshUniformData));
+      vk::DescriptorBufferInfo viewBufferInfo = viewUniformBuffer.getDescriptorBufferInfo(context, static_cast<uint32_t>(i));
+      vk::DescriptorBufferInfo meshBufferInfo = meshUniformBuffer.getDescriptorBufferInfo(context, static_cast<uint32_t>(i));
 
       vk::DescriptorImageInfo imageInfo = vk::DescriptorImageInfo()
          .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-         .setImageView(textureImageView)
-         .setSampler(textureImageSampler);
+         .setImageView(texture.view)
+         .setSampler(texture.sampler);
 
       vk::WriteDescriptorSet viewDescriptorWrite = vk::WriteDescriptorSet()
          .setDstSet(frameDescriptorSets[i])
@@ -1609,109 +1688,36 @@ void ForgeApplication::terminateDescriptorSets()
    drawDescriptorSets.clear();
 }
 
-void ForgeApplication::initializeTextureImage()
+void ForgeApplication::initializeMesh()
 {
+   if (std::optional<std::filesystem::path> absoluteMeshPath = IOUtils::getAboluteProjectPath("Resources/Meshes/Viking/viking_room.obj"))
+   {
+      loadMesh(context, mesh, *absoluteMeshPath);
+   }
+
+   if (!mesh.buffer)
+   {
+      throw std::runtime_error(std::string("Failed to load mesh"));
+   }
+
    std::optional<LoadedImage> image;
-   if (std::optional<std::filesystem::path> absoluteImagePath = IOUtils::getAboluteProjectPath("Resources/Textures/statue.jpg"))
+   if (std::optional<std::filesystem::path> absoluteImagePath = IOUtils::getAboluteProjectPath("Resources/Meshes/Viking/viking_room.png"))
    {
       image = loadImage(*absoluteImagePath);
    }
 
    if (!image)
    {
-      throw std::runtime_error(std::string("Failed to load texture image"));
+      throw std::runtime_error(std::string("Failed to load image"));
    }
 
-   vk::Buffer stagingBuffer;
-   vk::DeviceMemory stagingBufferMemory;
-   createBuffer(image->size, vk::BufferUsageFlagBits::eTransferSrc, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, stagingBuffer, stagingBufferMemory);
-
-   void* memory = context.device.mapMemory(stagingBufferMemory, 0, image->size);
-   std::memcpy(memory, image->data.get(), static_cast<std::size_t>(image->size));
-   context.device.unmapMemory(stagingBufferMemory);
-   memory = nullptr;
-
-   image->data.reset();
-
-   createImage(image->width, image->height, image->format, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled, vk::MemoryPropertyFlagBits::eDeviceLocal, textureImage, textureImageMemory);
-
-   transitionImageLayout(context, textureImage, image->format, vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal);
-   copyBufferToImage(context, stagingBuffer, textureImage, image->width, image->height);
-   transitionImageLayout(context, textureImage, image->format, vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eShaderReadOnlyOptimal);
-
-   context.device.destroyBuffer(stagingBuffer);
-   stagingBuffer = nullptr;
-   context.device.freeMemory(stagingBufferMemory);
-   stagingBufferMemory = nullptr;
-
-   textureImageView = createImageView(context, textureImage, image->format, vk::ImageAspectFlagBits::eColor);
-
-   bool anisotropySupported = context.physicalDeviceFeatures.samplerAnisotropy;
-
-   vk::SamplerCreateInfo samplerCreateInfo = vk::SamplerCreateInfo()
-      .setMagFilter(vk::Filter::eLinear)
-      .setMinFilter(vk::Filter::eLinear)
-      .setAddressModeU(vk::SamplerAddressMode::eRepeat)
-      .setAddressModeV(vk::SamplerAddressMode::eRepeat)
-      .setAddressModeW(vk::SamplerAddressMode::eRepeat)
-      .setBorderColor(vk::BorderColor::eIntOpaqueBlack)
-      .setAnisotropyEnable(anisotropySupported)
-      .setMaxAnisotropy(anisotropySupported ? 16.0f : 1.0f)
-      .setUnnormalizedCoordinates(false)
-      .setCompareEnable(false)
-      .setCompareOp(vk::CompareOp::eAlways)
-      .setMipmapMode(vk::SamplerMipmapMode::eLinear)
-      .setMipLodBias(0.0f)
-      .setMinLod(0.0f)
-      .setMaxLod(0.0f);
-   textureImageSampler = context.device.createSampler(samplerCreateInfo);
-}
-
-void ForgeApplication::terminateTextureImage()
-{
-   context.device.destroySampler(textureImageSampler);
-   textureImageSampler = nullptr;
-
-   context.device.destroyImageView(textureImageView);
-   textureImageView = nullptr;
-
-   context.device.destroyImage(textureImage);
-   textureImage = nullptr;
-
-   context.device.freeMemory(textureImageMemory);
-   textureImageMemory = nullptr;
-}
-
-void ForgeApplication::initializeMesh()
-{
-   std::vector<Vertex> vertices =
-   {
-      Vertex(glm::vec3(-0.5f, -0.5f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f), glm::vec2(0.0f, 0.0f)),
-      Vertex(glm::vec3(0.5f, -0.5f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec2(2.0f, 0.0f)),
-      Vertex(glm::vec3(0.5f, 0.5f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f), glm::vec2(2.0f, 2.0f)),
-      Vertex(glm::vec3(-0.5f, 0.5f, 0.0f), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec2(0.0f, 2.0f)),
-
-      Vertex(glm::vec3(-0.5f, -0.5f, -0.5f), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec2(0.0f, 0.0f)),
-      Vertex(glm::vec3(0.5f, -0.5f, -0.5f), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec2(1.0f, 0.0f)),
-      Vertex(glm::vec3(0.5f, 0.5f, -0.5f), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec2(1.0f, 1.0f)),
-      Vertex(glm::vec3(-0.5f, 0.5f, -0.5f), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec2(0.0f, 1.0f)),
-   };
-
-   std::vector<uint32_t> indices =
-   {
-      0, 1, 2,
-      2, 3, 0,
-
-      4, 5, 6,
-      6, 7, 4
-   };
-
-   quadMesh.initialize(context, vertices, indices);
+   texture.initialize(context, *image);
 }
 
 void ForgeApplication::terminateMesh()
 {
-   quadMesh.terminate(context);
+   mesh.terminate(context);
+   texture.terminate(context);
 }
 
 void ForgeApplication::initializeCommandBuffers()
@@ -1756,12 +1762,12 @@ void ForgeApplication::initializeCommandBuffers()
 
       commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, graphicsPipeline);
 
-      commandBuffer.bindVertexBuffers(0, { quadMesh.buffer }, { 0 });
-      commandBuffer.bindIndexBuffer(quadMesh.buffer, quadMesh.indexOffset, vk::IndexType::eUint32);
+      commandBuffer.bindVertexBuffers(0, { mesh.buffer }, { 0 });
+      commandBuffer.bindIndexBuffer(mesh.buffer, mesh.indexOffset, vk::IndexType::eUint32);
 
       commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, 0, { frameDescriptorSets[i], drawDescriptorSets[i] }, {});
 
-      commandBuffer.drawIndexed(quadMesh.numIndices, 1, 0, 0, 0);
+      commandBuffer.drawIndexed(mesh.numIndices, 1, 0, 0, 0);
 
       commandBuffer.endRenderPass();
 
@@ -1823,45 +1829,4 @@ void ForgeApplication::terminateSyncObjects()
       context.device.destroySemaphore(imageAvailableSemaphore);
    }
    imageAvailableSemaphores.clear();
-}
-
-void ForgeApplication::createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Buffer& buffer, vk::DeviceMemory& bufferMemory) const
-{
-   vk::BufferCreateInfo bufferCreateInfo = vk::BufferCreateInfo()
-      .setSize(size)
-      .setUsage(usage)
-      .setSharingMode(vk::SharingMode::eExclusive);
-
-   buffer = context.device.createBuffer(bufferCreateInfo);
-
-   vk::MemoryRequirements memoryRequirements = context.device.getBufferMemoryRequirements(buffer);
-   vk::MemoryAllocateInfo allocateInfo = vk::MemoryAllocateInfo()
-      .setAllocationSize(memoryRequirements.size)
-      .setMemoryTypeIndex(findMemoryType(context.physicalDevice, memoryRequirements.memoryTypeBits, properties));
-
-   bufferMemory = context.device.allocateMemory(allocateInfo);
-   context.device.bindBufferMemory(buffer, bufferMemory, 0);
-}
-
-void ForgeApplication::createImage(uint32_t width, uint32_t height, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Image& image, vk::DeviceMemory& imageMemory) const
-{
-   vk::ImageCreateInfo imageCreateinfo = vk::ImageCreateInfo()
-      .setImageType(vk::ImageType::e2D)
-      .setExtent(vk::Extent3D(width, height, 1))
-      .setMipLevels(1)
-      .setArrayLayers(1)
-      .setFormat(format)
-      .setTiling(vk::ImageTiling::eOptimal)
-      .setInitialLayout(vk::ImageLayout::eUndefined)
-      .setUsage(usage)
-      .setSharingMode(vk::SharingMode::eExclusive)
-      .setSamples(vk::SampleCountFlagBits::e1);
-   image = context.device.createImage(imageCreateinfo);
-
-   vk::MemoryRequirements memoryRequirements = context.device.getImageMemoryRequirements(image);
-   vk::MemoryAllocateInfo allocateInfo = vk::MemoryAllocateInfo()
-      .setAllocationSize(memoryRequirements.size)
-      .setMemoryTypeIndex(findMemoryType(context.physicalDevice, memoryRequirements.memoryTypeBits, properties));
-   imageMemory = context.device.allocateMemory(allocateInfo);
-   context.device.bindImageMemory(image, imageMemory, 0);
 }

@@ -12,6 +12,15 @@
 
 struct GLFWwindow;
 
+namespace
+{
+   inline vk::DeviceSize getAlignedSize(vk::DeviceSize size, vk::DeviceSize alignment)
+   {
+      ASSERT((alignment & (alignment - 1)) == 0, "Alignment is not a power of two: %llu", alignment);
+      return (size + (alignment - 1)) & ~(alignment - 1);
+   }
+}
+
 struct QueueFamilyIndices
 {
    std::optional<uint32_t> graphicsFamily;
@@ -45,6 +54,75 @@ struct VulkanContext
    vk::CommandPool transientCommandPool;
 };
 
+template<typename DataType>
+class UniformBuffer
+{
+public:
+   void initialize(const VulkanContext& context, uint32_t swapchainImageCount)
+   {
+      ASSERT(!buffer && !memory && !mappedMemory);
+
+      vk::DeviceSize bufferSize = getPaddedDataSize(context) * swapchainImageCount;
+      createBuffer(context, bufferSize, vk::BufferUsageFlagBits::eUniformBuffer, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, buffer, memory);
+
+      mappedMemory = context.device.mapMemory(memory, 0, bufferSize);
+      std::memset(mappedMemory, 0, bufferSize);
+   }
+
+   void terminate(const VulkanContext& context)
+   {
+      ASSERT(buffer && memory && mappedMemory);
+
+      context.device.unmapMemory(memory);
+      mappedMemory = nullptr;
+
+      context.device.destroyBuffer(buffer);
+      buffer = nullptr;
+
+      context.device.freeMemory(memory);
+      memory = nullptr;
+   }
+
+   void update(const VulkanContext& context, const DataType& data, uint32_t swapchainIndex)
+   {
+      ASSERT(buffer && memory && mappedMemory);
+
+      vk::DeviceSize size = getPaddedDataSize(context);
+      vk::DeviceSize offset = size * swapchainIndex;
+
+      std::memcpy(static_cast<char*>(mappedMemory) + offset, &data, sizeof(data));
+   }
+
+   vk::DescriptorBufferInfo getDescriptorBufferInfo(const VulkanContext& context, uint32_t swapchainIndex) const
+   {
+      return vk::DescriptorBufferInfo()
+         .setBuffer(buffer)
+         .setOffset(static_cast<vk::DeviceSize>(getPaddedDataSize(context) * swapchainIndex))
+         .setRange(sizeof(DataType));
+   }
+
+private:
+   static vk::DeviceSize getPaddedDataSize(const VulkanContext& context)
+   {
+      vk::DeviceSize alignment = context.physicalDeviceProperties.limits.minUniformBufferOffsetAlignment;
+      return getAlignedSize(static_cast<vk::DeviceSize>(sizeof(DataType)), alignment);
+   }
+
+   vk::Buffer buffer;
+   vk::DeviceMemory memory;
+   void* mappedMemory = nullptr;
+};
+
+struct ViewUniformData
+{
+   alignas(16) glm::mat4 worldToClip;
+};
+
+struct MeshUniformData
+{
+   alignas(16) glm::mat4 localToWorld;
+};
+
 struct Vertex
 {
    glm::vec3 position;
@@ -70,6 +148,31 @@ struct Mesh
    uint32_t numIndices = 0;
 
    void initialize(const VulkanContext& context, const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices);
+   void terminate(const VulkanContext& context);
+};
+
+struct ImageDataDeleter
+{
+   void operator()(uint8_t* data) const;
+};
+
+struct LoadedImage
+{
+   std::unique_ptr<uint8_t, ImageDataDeleter> data;
+   vk::Format format = vk::Format::eR8G8B8A8Srgb;
+   vk::DeviceSize size = 0;
+   uint32_t width = 0;
+   uint32_t height = 0;
+};
+
+struct Texture
+{
+   vk::Image image;
+   vk::DeviceMemory memory;
+   vk::ImageView view;
+   vk::Sampler sampler;
+
+   void initialize(const VulkanContext& context, const LoadedImage& loadedImage);
    void terminate(const VulkanContext& context);
 };
 
@@ -126,9 +229,6 @@ private:
    void initializeDescriptorSets();
    void terminateDescriptorSets();
 
-   void initializeTextureImage();
-   void terminateTextureImage();
-
    void initializeMesh();
    void terminateMesh();
 
@@ -137,9 +237,6 @@ private:
 
    void initializeSyncObjects();
    void terminateSyncObjects();
-
-   void createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Buffer& buffer, vk::DeviceMemory& bufferMemory) const;
-   void createImage(uint32_t width, uint32_t height, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Image& image, vk::DeviceMemory& imageMemory) const;
 
    GLFWwindow* window = nullptr;
 
@@ -168,14 +265,11 @@ private:
    std::vector<vk::DescriptorSet> frameDescriptorSets;
    std::vector<vk::DescriptorSet> drawDescriptorSets;
 
-   vk::Image textureImage;
-   vk::DeviceMemory textureImageMemory;
-   vk::ImageView textureImageView;
-   vk::Sampler textureImageSampler;
+   UniformBuffer<ViewUniformData> viewUniformBuffer;
+   UniformBuffer<MeshUniformData> meshUniformBuffer;
 
-   vk::Buffer uniformBuffers;
-   vk::DeviceMemory uniformBufferMemory;
-   Mesh quadMesh;
+   Texture texture;
+   Mesh mesh;
 
    vk::CommandPool commandPool;
    std::vector<vk::CommandBuffer> commandBuffers;
