@@ -58,6 +58,7 @@ namespace Helpers
 {
    void createBuffer(const VulkanContext& context, vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Buffer& buffer, vk::DeviceMemory& bufferMemory);
    void createImage(const VulkanContext& context, uint32_t width, uint32_t height, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Image& image, vk::DeviceMemory& imageMemory);
+   void generateMipmaps(const VulkanContext& context, vk::Image image, vk::Format imageFormat, uint32_t width, uint32_t height, uint32_t mipLevels);
 }
 
 template<typename DataType>
@@ -177,6 +178,7 @@ struct Texture
    vk::DeviceMemory memory;
    vk::ImageView view;
    vk::Sampler sampler;
+   uint32_t mipLevels = 0;
 
    void initialize(const VulkanContext& context, const LoadedImage& loadedImage);
    void terminate(const VulkanContext& context);
