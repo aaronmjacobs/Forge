@@ -57,7 +57,7 @@ struct VulkanContext
 namespace Helpers
 {
    void createBuffer(const VulkanContext& context, vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Buffer& buffer, vk::DeviceMemory& bufferMemory);
-   void createImage(const VulkanContext& context, uint32_t width, uint32_t height, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Image& image, vk::DeviceMemory& imageMemory);
+   void createImage(const VulkanContext& context, uint32_t width, uint32_t height, uint32_t mipLevels, vk::SampleCountFlagBits sampleCount, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Image& image, vk::DeviceMemory& imageMemory);
    void generateMipmaps(const VulkanContext& context, vk::Image image, vk::Format imageFormat, uint32_t width, uint32_t height, uint32_t mipLevels);
 }
 
@@ -255,6 +255,11 @@ private:
    vk::Format swapchainImageFormat;
    vk::Extent2D swapchainExtent;
    std::vector<vk::ImageView> swapchainImageViews;
+
+   vk::SampleCountFlagBits msaaSamples = vk::SampleCountFlagBits::e1;
+   vk::Image colorImage;
+   vk::DeviceMemory colorImageMemory;
+   vk::ImageView colorImageView;
 
    vk::Format depthImageFormat;
    vk::DeviceMemory depthImageMemory;

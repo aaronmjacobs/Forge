@@ -723,6 +723,20 @@ namespace
    {
       return findSupportedFormat(context, { vk::Format::eD24UnormS8Uint, vk::Format::eD32SfloatS8Uint, vk::Format::eD16UnormS8Uint, vk::Format::eD32Sfloat, vk::Format::eD16Unorm }, vk::ImageTiling::eOptimal, vk::FormatFeatureFlagBits::eDepthStencilAttachment);
    }
+
+   vk::SampleCountFlagBits getMaxSampleCount(const VulkanContext& context)
+   {
+      vk::SampleCountFlags flags = context.physicalDeviceProperties.limits.framebufferColorSampleCounts & context.physicalDeviceProperties.limits.framebufferDepthSampleCounts;
+
+      if (flags & vk::SampleCountFlagBits::e64) { return vk::SampleCountFlagBits::e64; }
+      if (flags & vk::SampleCountFlagBits::e32) { return vk::SampleCountFlagBits::e32; }
+      if (flags & vk::SampleCountFlagBits::e16) { return vk::SampleCountFlagBits::e16; }
+      if (flags & vk::SampleCountFlagBits::e8) { return vk::SampleCountFlagBits::e8; }
+      if (flags & vk::SampleCountFlagBits::e4) { return vk::SampleCountFlagBits::e4; }
+      if (flags & vk::SampleCountFlagBits::e2) { return vk::SampleCountFlagBits::e2; }
+
+      return vk::SampleCountFlagBits::e1;
+   }
 }
 
 namespace Helpers
@@ -745,7 +759,7 @@ namespace Helpers
       context.device.bindBufferMemory(buffer, bufferMemory, 0);
    }
 
-   void createImage(const VulkanContext& context, uint32_t width, uint32_t height, uint32_t mipLevels, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Image& image, vk::DeviceMemory& imageMemory)
+   void createImage(const VulkanContext& context, uint32_t width, uint32_t height, uint32_t mipLevels, vk::SampleCountFlagBits sampleCount, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Image& image, vk::DeviceMemory& imageMemory)
    {
       vk::ImageCreateInfo imageCreateinfo = vk::ImageCreateInfo()
          .setImageType(vk::ImageType::e2D)
@@ -757,7 +771,7 @@ namespace Helpers
          .setInitialLayout(vk::ImageLayout::eUndefined)
          .setUsage(usage)
          .setSharingMode(vk::SharingMode::eExclusive)
-         .setSamples(vk::SampleCountFlagBits::e1);
+         .setSamples(sampleCount);
       image = context.device.createImage(imageCreateinfo);
 
       vk::MemoryRequirements memoryRequirements = context.device.getImageMemoryRequirements(image);
@@ -986,7 +1000,7 @@ void Texture::initialize(const VulkanContext& context, const LoadedImage& loaded
    mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(loadedImage.width, loadedImage.height)))) + 1;
 
    vk::ImageUsageFlags usage = vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled;
-   Helpers::createImage(context, loadedImage.width, loadedImage.height, mipLevels, loadedImage.format, vk::ImageTiling::eOptimal, usage, vk::MemoryPropertyFlagBits::eDeviceLocal, image, memory);
+   Helpers::createImage(context, loadedImage.width, loadedImage.height, mipLevels, vk::SampleCountFlagBits::e1, loadedImage.format, vk::ImageTiling::eOptimal, usage, vk::MemoryPropertyFlagBits::eDeviceLocal, image, memory);
 
    transitionImageLayout(context, image, loadedImage.format, vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal, mipLevels);
    copyBufferToImage(context, stagingBuffer, image, loadedImage.width, loadedImage.height);
@@ -1288,6 +1302,7 @@ void ForgeApplication::initializeVulkan()
    }
    context.physicalDeviceProperties = context.physicalDevice.getProperties();
    context.physicalDeviceFeatures = context.physicalDevice.getFeatures();
+   msaaSamples = getMaxSampleCount(context);
 
    context.queueFamilyIndices = getQueueFamilyIndices(context.physicalDevice, context.surface);
    std::set<uint32_t> uniqueQueueIndices = context.queueFamilyIndices.getUniqueIndices();
@@ -1306,6 +1321,7 @@ void ForgeApplication::initializeVulkan()
 
    vk::PhysicalDeviceFeatures deviceFeatures;
    deviceFeatures.setSamplerAnisotropy(context.physicalDeviceFeatures.samplerAnisotropy);
+   deviceFeatures.setSampleRateShading(true);
 
    vk::DeviceCreateInfo deviceCreateInfo = vk::DeviceCreateInfo()
       .setPQueueCreateInfos(deviceQueueCreateInfos.data())
@@ -1392,8 +1408,12 @@ void ForgeApplication::initializeSwapchain()
       swapchainImageViews.push_back(createImageView(context, swapchainImage, swapchainImageFormat, vk::ImageAspectFlagBits::eColor, 1));
    }
 
+   vk::Format colorImageFormat = swapchainImageFormat;
+   Helpers::createImage(context, swapchainExtent.width, swapchainExtent.height, 1, msaaSamples, colorImageFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eTransientAttachment | vk::ImageUsageFlagBits::eColorAttachment, vk::MemoryPropertyFlagBits::eDeviceLocal, colorImage, colorImageMemory);
+   colorImageView = createImageView(context, colorImage, colorImageFormat, vk::ImageAspectFlagBits::eColor, 1);
+
    depthImageFormat = findDepthFormat(context);
-   Helpers::createImage(context, swapchainExtent.width, swapchainExtent.height, 1, depthImageFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eDepthStencilAttachment, vk::MemoryPropertyFlagBits::eDeviceLocal, depthImage, depthImageMemory);
+   Helpers::createImage(context, swapchainExtent.width, swapchainExtent.height, 1, msaaSamples, depthImageFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eDepthStencilAttachment, vk::MemoryPropertyFlagBits::eDeviceLocal, depthImage, depthImageMemory);
    depthImageView = createImageView(context, depthImage, depthImageFormat, vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil, 1);
    //transitionImageLayout(context, depthImage, depthImageFormat, vk::ImageLayout::eUndefined, vk::ImageLayout::eDepthStencilAttachmentOptimal, 1);
 }
@@ -1409,6 +1429,15 @@ void ForgeApplication::terminateSwapchain()
    context.device.freeMemory(depthImageMemory);
    depthImageMemory = nullptr;
 
+   context.device.destroyImageView(colorImageView);
+   colorImageView = nullptr;
+
+   context.device.destroyImage(colorImage);
+   colorImage = nullptr;
+
+   context.device.freeMemory(colorImageMemory);
+   colorImageMemory = nullptr;
+
    for (vk::ImageView swapchainImageView : swapchainImageViews)
    {
       context.device.destroyImageView(swapchainImageView);
@@ -1423,21 +1452,23 @@ void ForgeApplication::initializeRenderPass()
 {
    vk::AttachmentDescription colorAttachment = vk::AttachmentDescription()
       .setFormat(swapchainImageFormat)
-      .setSamples(vk::SampleCountFlagBits::e1)
+      .setSamples(msaaSamples)
       .setLoadOp(vk::AttachmentLoadOp::eClear)
       .setStoreOp(vk::AttachmentStoreOp::eStore)
       .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
       .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
       .setInitialLayout(vk::ImageLayout::eUndefined)
-      .setFinalLayout(vk::ImageLayout::ePresentSrcKHR);
+      .setFinalLayout(vk::ImageLayout::eColorAttachmentOptimal);
 
    vk::AttachmentReference colorAttachmentReference = vk::AttachmentReference()
       .setAttachment(0)
       .setLayout(vk::ImageLayout::eColorAttachmentOptimal);
 
+   std::array<vk::AttachmentReference, 1> colorAttachments = { colorAttachmentReference };
+
    vk::AttachmentDescription depthAttachment = vk::AttachmentDescription()
       .setFormat(depthImageFormat)
-      .setSamples(vk::SampleCountFlagBits::e1)
+      .setSamples(msaaSamples)
       .setLoadOp(vk::AttachmentLoadOp::eClear)
       .setStoreOp(vk::AttachmentStoreOp::eDontCare)
       .setStencilLoadOp(vk::AttachmentLoadOp::eClear)
@@ -1449,11 +1480,27 @@ void ForgeApplication::initializeRenderPass()
       .setAttachment(1)
       .setLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
 
+   vk::AttachmentDescription colorAttachmentResolve = vk::AttachmentDescription()
+      .setFormat(swapchainImageFormat)
+      .setSamples(vk::SampleCountFlagBits::e1)
+      .setLoadOp(vk::AttachmentLoadOp::eDontCare)
+      .setStoreOp(vk::AttachmentStoreOp::eStore)
+      .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+      .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+      .setInitialLayout(vk::ImageLayout::eUndefined)
+      .setFinalLayout(vk::ImageLayout::ePresentSrcKHR);
+
+   vk::AttachmentReference colorAttachmentResolveReference = vk::AttachmentReference()
+      .setAttachment(2)
+      .setLayout(vk::ImageLayout::eColorAttachmentOptimal);
+
+   std::array<vk::AttachmentReference, 1> resolveAttachments = { colorAttachmentResolveReference };
+
    vk::SubpassDescription subpassDescription = vk::SubpassDescription()
       .setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
-      .setColorAttachmentCount(1)
-      .setPColorAttachments(&colorAttachmentReference)
-      .setPDepthStencilAttachment(&depthAttachmentReference);
+      .setColorAttachments(colorAttachments)
+      .setPDepthStencilAttachment(&depthAttachmentReference)
+      .setResolveAttachments(resolveAttachments);
 
    vk::SubpassDependency subpassDependency = vk::SubpassDependency()
       .setSrcSubpass(VK_SUBPASS_EXTERNAL)
@@ -1463,7 +1510,7 @@ void ForgeApplication::initializeRenderPass()
       .setDstStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
       .setDstAccessMask(vk::AccessFlagBits::eColorAttachmentRead | vk::AccessFlagBits::eColorAttachmentWrite);
 
-   std::array<vk::AttachmentDescription, 2> attachments = { colorAttachment, depthAttachment };
+   std::array<vk::AttachmentDescription, 3> attachments = { colorAttachment, depthAttachment, colorAttachmentResolve };
    vk::RenderPassCreateInfo renderPassCreateInfo = vk::RenderPassCreateInfo()
       .setAttachmentCount(static_cast<uint32_t>(attachments.size()))
       .setPAttachments(attachments.data())
@@ -1578,9 +1625,9 @@ void ForgeApplication::initializeGraphicsPipeline()
       .setFrontFace(vk::FrontFace::eCounterClockwise);
 
    vk::PipelineMultisampleStateCreateInfo multisampleStateCreateInfo = vk::PipelineMultisampleStateCreateInfo()
-      .setSampleShadingEnable(false)
-      .setRasterizationSamples(vk::SampleCountFlagBits::e1)
-      .setMinSampleShading(1.0f);
+      .setRasterizationSamples(msaaSamples)
+      .setSampleShadingEnable(true)
+      .setMinSampleShading(0.2f);
 
    vk::PipelineColorBlendAttachmentState colorBlendAttachmentState = vk::PipelineColorBlendAttachmentState()
       .setColorWriteMask(vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA)
@@ -1643,7 +1690,7 @@ void ForgeApplication::initializeFramebuffers()
 
    for (vk::ImageView swapchainImageView : swapchainImageViews)
    {
-      std::array<vk::ImageView, 2> attachments = { swapchainImageView, depthImageView };
+      std::array<vk::ImageView, 3> attachments = { colorImageView, depthImageView, swapchainImageView };
 
       vk::FramebufferCreateInfo framebufferCreateInfo = vk::FramebufferCreateInfo()
          .setRenderPass(renderPass)
