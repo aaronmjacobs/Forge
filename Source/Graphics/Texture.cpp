@@ -8,6 +8,7 @@
 
 #include "Resources/LoadedImage.h"
 
+#include <cmath>
 #include <utility>
 
 namespace
