@@ -5,7 +5,6 @@
 #include "ForgeApplication.h"
 
 #include "Core/Assert.h"
-#include "Core/Log.h"
 
 #include <boxer/boxer.h>
 
