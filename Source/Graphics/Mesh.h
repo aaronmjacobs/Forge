@@ -23,10 +23,22 @@ struct Vertex
    static std::array<vk::VertexInputAttributeDescription, 3> getAttributeDescriptions();
 };
 
+struct MeshSectionSourceData
+{
+   std::vector<Vertex> vertices;
+   std::vector<uint32_t> indices;
+};
+
+struct MeshSection
+{
+   vk::DeviceSize indexOffset = 0;
+   uint32_t numIndices = 0;
+};
+
 class Mesh
 {
 public:
-   Mesh(const VulkanContext& context, const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices);
+   Mesh(const VulkanContext& context, const std::vector<MeshSectionSourceData>& sourceData);
 
    Mesh(const Mesh& other) = delete;
    Mesh(Mesh&& other);
@@ -41,14 +53,19 @@ private:
    void release();
 
 public:
-   void bindBuffers(vk::CommandBuffer commandBuffer);
-   void draw(vk::CommandBuffer commandBuffer);
+   uint32_t getNumSections() const
+   {
+      return static_cast<uint32_t>(sections.size());
+   }
+
+   void bindBuffers(vk::CommandBuffer commandBuffer, uint32_t section) const;
+   void draw(vk::CommandBuffer commandBuffer, uint32_t section) const;
 
 private:
    vk::Device device;
 
    vk::Buffer buffer;
    vk::DeviceMemory deviceMemory;
-   vk::DeviceSize indexOffset = 0;
-   uint32_t numIndices = 0;
+
+   std::vector<MeshSection> sections;
 };

@@ -7,6 +7,9 @@
 #include "Graphics/Texture.h"
 #include "Graphics/UniformBuffer.h"
 
+#include "Resources/MeshResourceManager.h"
+#include "Resources/TextureResourceManager.h"
+
 #include <glm/glm.hpp>
 
 #include <optional>
@@ -86,6 +89,9 @@ private:
    void initializeSyncObjects();
    void terminateSyncObjects();
 
+   MeshResourceManager meshResourceManager;
+   TextureResourceManager textureResourceManager;
+
    GLFWwindow* window = nullptr;
 
    VulkanContext context;
@@ -118,8 +124,8 @@ private:
    std::optional<UniformBuffer<ViewUniformData>> viewUniformBuffer;
    std::optional<UniformBuffer<MeshUniformData>> meshUniformBuffer;
 
-   std::optional<Texture> texture;
-   std::optional<Mesh> mesh;
+   TextureHandle textureHandle;
+   MeshHandle meshHandle;
 
    vk::CommandPool commandPool;
    std::vector<vk::CommandBuffer> commandBuffers;

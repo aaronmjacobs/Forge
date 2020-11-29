@@ -28,6 +28,12 @@ target_sources(${PROJECT_NAME} PRIVATE
 
    "${SRC_DIR}/Resources/LoadedImage.cpp"
    "${SRC_DIR}/Resources/LoadedImage.h"
+   "${SRC_DIR}/Resources/MeshResourceManager.cpp"
+   "${SRC_DIR}/Resources/MeshResourceManager.h"
+   "${SRC_DIR}/Resources/ResourceManagerBase.cpp"
+   "${SRC_DIR}/Resources/ResourceManagerBase.h"
+   "${SRC_DIR}/Resources/TextureResourceManager.cpp"
+   "${SRC_DIR}/Resources/TextureResourceManager.h"
 )
 
 target_include_directories(${PROJECT_NAME} PUBLIC "${SRC_DIR}")

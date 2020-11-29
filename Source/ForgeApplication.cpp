@@ -5,17 +5,10 @@
 #include "Graphics/Command.h"
 #include "Graphics/Memory.h"
 
-#include "Resources/LoadedImage.h"
-
-#include <assimp/Importer.hpp>
-#include <assimp/postprocess.h>
-#include <assimp/scene.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <PlatformUtils/IOUtils.h>
-#define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
 
 #include <algorithm>
 #include <array>
@@ -420,84 +413,6 @@ namespace
       return context.device.createImageView(createInfo);
    }
 
-   std::optional<LoadedImage> loadImage(const std::filesystem::path& path)
-   {
-      if (std::optional<std::vector<uint8_t>> imageData = IOUtils::readBinaryFile(path))
-      {
-         int textureWidth = 0;
-         int textureHeight = 0;
-         int textureChannels = 0;
-         stbi_uc* pixelData = stbi_load_from_memory(imageData->data(), static_cast<int>(imageData->size()), &textureWidth, &textureHeight, &textureChannels, STBI_rgb_alpha);
-
-         if (pixelData)
-         {
-            LoadedImage loadedImage;
-
-            loadedImage.data.reset(pixelData);
-            loadedImage.size = static_cast<vk::DeviceSize>(textureWidth * textureHeight * STBI_rgb_alpha);
-
-            loadedImage.properties.format = vk::Format::eR8G8B8A8Srgb;
-            loadedImage.properties.width = static_cast<uint32_t>(textureWidth);
-            loadedImage.properties.height = static_cast<uint32_t>(textureHeight);
-
-            return loadedImage;
-         }
-      }
-
-      return {};
-   }
-
-   std::optional<Mesh> loadMesh(const VulkanContext& context, const std::filesystem::path& path)
-   {
-      unsigned int flags = aiProcess_JoinIdenticalVertices | aiProcess_Triangulate | aiProcess_FlipUVs;
-
-      Assimp::Importer importer;
-      const aiScene* assimpScene = importer.ReadFile(path.string().c_str(), flags);
-      if (!assimpScene || (assimpScene->mFlags & AI_SCENE_FLAGS_INCOMPLETE) || !assimpScene->mRootNode)
-      {
-         return {};
-      }
-
-      if (assimpScene->mNumMeshes != 1)
-      {
-         return {};
-      }
-
-      const aiMesh* assimpMesh = assimpScene->mMeshes[0];
-      if (!assimpMesh)
-      {
-         return {};
-      }
-
-      static_assert(sizeof(unsigned int) == sizeof(uint32_t), "Index data types don't match");
-
-      std::vector<uint32_t> indices(assimpMesh->mNumFaces * 3);
-      for (unsigned int i = 0; i < assimpMesh->mNumFaces; ++i)
-      {
-         const aiFace& face = assimpMesh->mFaces[i];
-         ASSERT(face.mNumIndices == 3);
-
-         std::memcpy(&indices[i * 3], face.mIndices, 3 * sizeof(uint32_t));
-      }
-
-      std::vector<Vertex> vertices;
-      if (assimpMesh->mNumVertices > 0 && assimpMesh->mTextureCoords[0] && assimpMesh->mNumUVComponents[0] == 2)
-      {
-         vertices.reserve(assimpMesh->mNumVertices);
-
-         for (unsigned int i = 0; i < assimpMesh->mNumVertices; ++i)
-         {
-            glm::vec3 position(assimpMesh->mVertices[i].x, assimpMesh->mVertices[i].y, assimpMesh->mVertices[i].z);
-            glm::vec3 color(1.0f);
-            glm::vec2 texCoord(assimpMesh->mTextureCoords[0][i].x, assimpMesh->mTextureCoords[0][i].y);
-
-            vertices.push_back(Vertex(position, color, texCoord));
-         }
-      }
-
-      return Mesh(context, vertices, indices);
-   }
-
    vk::Format findSupportedFormat(const VulkanContext& context, const std::vector<vk::Format>& candidates, vk::ImageTiling tiling, vk::FormatFeatureFlags features)
    {
       for (vk::Format format : candidates)
@@ -844,6 +759,9 @@ void ForgeApplication::initializeVulkan()
 
 void ForgeApplication::terminateVulkan()
 {
+   meshResourceManager.clear();
+   textureResourceManager.clear();
+
    context.device.destroy();
    context.device = nullptr;
 
@@ -1304,6 +1222,9 @@ void ForgeApplication::initializeDescriptorSets()
    frameDescriptorSets = context.device.allocateDescriptorSets(frameAllocateInfo);
    drawDescriptorSets = context.device.allocateDescriptorSets(drawAllocateInfo);
 
+   const Texture* texture = textureResourceManager.get(textureHandle);
+   ASSERT(texture);
+
    for (std::size_t i = 0; i < swapchainImages.size(); ++i)
    {
       vk::DescriptorBufferInfo viewBufferInfo = viewUniformBuffer->getDescriptorBufferInfo(context, static_cast<uint32_t>(i));
@@ -1350,36 +1271,16 @@ void ForgeApplication::terminateDescriptorSets()
 
 void ForgeApplication::initializeMesh()
 {
-   if (std::optional<std::filesystem::path> absoluteMeshPath = IOUtils::getAboluteProjectPath("Resources/Meshes/Viking/viking_room.obj"))
-   {
-      mesh = loadMesh(context, *absoluteMeshPath);
-   }
-
-   if (!mesh)
+   meshHandle = meshResourceManager.load("Resources/Meshes/Viking/viking_room.obj", context);
+   if (!meshHandle)
    {
       throw std::runtime_error(std::string("Failed to load mesh"));
    }
 
-   std::optional<LoadedImage> image;
-   if (std::optional<std::filesystem::path> absoluteImagePath = IOUtils::getAboluteProjectPath("Resources/Meshes/Viking/viking_room.png"))
-   {
-      image = loadImage(*absoluteImagePath);
-   }
-
-   if (!image)
+   textureHandle = textureResourceManager.load("Resources/Meshes/Viking/viking_room.png", context);
+   if (!textureHandle)
    {
       throw std::runtime_error(std::string("Failed to load image"));
-   }
-
-   {
-      TextureProperties textureProperties;
-      textureProperties.generateMipMaps = true;
-
-      TextureInitialLayout textureInitialLayout;
-      textureInitialLayout.layout = vk::ImageLayout::eShaderReadOnlyOptimal;
-      textureInitialLayout.memoryBarrierFlags = TextureMemoryBarrierFlags(vk::AccessFlagBits::eShaderRead, vk::PipelineStageFlagBits::eFragmentShader);
-
-      texture = Texture(context, *image, textureProperties, textureInitialLayout);
    }
 
    bool anisotropySupported = context.physicalDeviceFeatures.samplerAnisotropy;
@@ -1404,8 +1305,11 @@ void ForgeApplication::initializeMesh()
 
 void ForgeApplication::terminateMesh()
 {
-   mesh.reset();
-   texture.reset();
+   meshResourceManager.unload(meshHandle);
+   meshHandle.reset();
+
+   textureResourceManager.unload(textureHandle);
+   textureHandle.reset();
 
    context.device.destroySampler(sampler);
    sampler = nullptr;
@@ -1429,6 +1333,9 @@ void ForgeApplication::initializeCommandBuffers()
    ASSERT(commandBuffers.empty());
    commandBuffers = context.device.allocateCommandBuffers(commandBufferAllocateInfo);
 
+   const Mesh* mesh = meshResourceManager.get(meshHandle);
+   ASSERT(mesh);
+
    for (std::size_t i = 0; i < commandBuffers.size(); ++i)
    {
       vk::CommandBuffer commandBuffer = commandBuffers[i];
@@ -1451,11 +1358,13 @@ void ForgeApplication::initializeCommandBuffers()
 
       commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, graphicsPipeline);
 
-      mesh->bindBuffers(commandBuffer);
-
       commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, 0, { frameDescriptorSets[i], drawDescriptorSets[i] }, {});
 
-      mesh->draw(commandBuffer);
+      for (uint32_t section = 0; section < mesh->getNumSections(); ++section)
+      {
+         mesh->bindBuffers(commandBuffer, section);
+         mesh->draw(commandBuffer, section);
+      }
 
       commandBuffer.endRenderPass();
 

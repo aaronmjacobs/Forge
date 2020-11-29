@@ -39,16 +39,20 @@ std::array<vk::VertexInputAttributeDescription, 3> Vertex::getAttributeDescripti
    };
 }
 
-Mesh::Mesh(const VulkanContext& context, const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices)
+Mesh::Mesh(const VulkanContext& context, const std::vector<MeshSectionSourceData>& sourceData)
    : device(context.device)
 {
-   vk::DeviceSize vertexDataSize = vertices.size() * sizeof(Vertex);
-   vk::DeviceSize indexDataSize = indices.size() * sizeof(uint32_t);
+   vk::DeviceSize bufferSize = 0;
+   for (const MeshSectionSourceData& sectionData : sourceData)
+   {
+      bufferSize += sectionData.vertices.size() * sizeof(Vertex);
+      bufferSize += sectionData.indices.size() * sizeof(uint32_t);
+   }
 
    // Create the buffer
 
    vk::BufferCreateInfo bufferCreateInfo = vk::BufferCreateInfo()
-      .setSize(vertexDataSize + indexDataSize)
+      .setSize(bufferSize)
       .setUsage(vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eIndexBuffer)
       .setSharingMode(vk::SharingMode::eExclusive);
    buffer = context.device.createBuffer(bufferCreateInfo);
@@ -60,10 +64,6 @@ Mesh::Mesh(const VulkanContext& context, const std::vector<Vertex>& vertices, co
 
    deviceMemory = context.device.allocateMemory(allocateInfo);
    context.device.bindBufferMemory(buffer, deviceMemory, 0);
-
-   indexOffset = vertexDataSize;
-   ASSERT(indices.size() <= std::numeric_limits<uint32_t>::max());
-   numIndices = static_cast<uint32_t>(indices.size());
 
    // Create staging buffer, and use it to copy over data
 
@@ -82,15 +82,34 @@ Mesh::Mesh(const VulkanContext& context, const std::vector<Vertex>& vertices, co
    context.device.bindBufferMemory(stagingBuffer, stagingDeviceMemory, 0);
 
    void* mappedData = context.device.mapMemory(stagingDeviceMemory, 0, stagingAllocateInfo.allocationSize, vk::MemoryMapFlags());
-   std::memcpy(mappedData, vertices.data(), static_cast<std::size_t>(vertexDataSize));
-   std::memcpy(static_cast<uint8_t*>(mappedData) + vertexDataSize, indices.data(), static_cast<std::size_t>(indexDataSize));
+   std::size_t mappedDataOffset = 0;
+   sections.reserve(sourceData.size());
+   for (const MeshSectionSourceData& sectionData : sourceData)
+   {
+      MeshSection meshSection;
+
+      ASSERT(sectionData.indices.size() <= std::numeric_limits<uint32_t>::max());
+      meshSection.numIndices = static_cast<uint32_t>(sectionData.indices.size());
+
+      std::size_t vertexDataSize = sectionData.vertices.size() * sizeof(Vertex);
+      std::size_t indexDataSize = sectionData.indices.size() * sizeof(uint32_t);
+
+      std::memcpy(static_cast<uint8_t*>(mappedData) + mappedDataOffset, sectionData.vertices.data(), vertexDataSize);
+      mappedDataOffset += vertexDataSize;
+
+      meshSection.indexOffset = mappedDataOffset;
+      std::memcpy(static_cast<uint8_t*>(mappedData) + mappedDataOffset, sectionData.indices.data(), indexDataSize);
+      mappedDataOffset += indexDataSize;
+
+      sections.push_back(meshSection);
+   }
    context.device.unmapMemory(stagingDeviceMemory);
    mappedData = nullptr;
 
    Buffer::CopyInfo copyInfo;
    copyInfo.srcBuffer = stagingBuffer;
    copyInfo.dstBuffer = buffer;
-   copyInfo.size = vertexDataSize + indexDataSize;
+   copyInfo.size = bufferSize;
 
    Buffer::copy(context, { copyInfo });
 
@@ -111,15 +130,15 @@ Mesh::~Mesh()
    release();
 }
 
-void Mesh::bindBuffers(vk::CommandBuffer commandBuffer)
+void Mesh::bindBuffers(vk::CommandBuffer commandBuffer, uint32_t section) const
 {
    commandBuffer.bindVertexBuffers(0, { buffer }, { 0 });
-   commandBuffer.bindIndexBuffer(buffer, indexOffset, vk::IndexType::eUint32);
+   commandBuffer.bindIndexBuffer(buffer, sections[section].indexOffset, vk::IndexType::eUint32);
 }
 
-void Mesh::draw(vk::CommandBuffer commandBuffer)
+void Mesh::draw(vk::CommandBuffer commandBuffer, uint32_t section) const
 {
-   commandBuffer.drawIndexed(numIndices, 1, 0, 0, 0);
+   commandBuffer.drawIndexed(sections[section].numIndices, 1, 0, 0, 0);
 }
 
 Mesh& Mesh::operator=(Mesh&& other)
@@ -144,11 +163,8 @@ void Mesh::move(Mesh&& other)
    deviceMemory = other.deviceMemory;
    other.deviceMemory = nullptr;
 
-   indexOffset = other.indexOffset;
-   other.indexOffset = 0;
-
-   numIndices = other.numIndices;
-   other.numIndices = 0;
+   ASSERT(sections.empty());
+   sections = std::move(other.sections);
 }
 
 void Mesh::release()
@@ -164,6 +180,5 @@ void Mesh::release()
       deviceMemory = nullptr;
    }
 
-   indexOffset = 0;
-   numIndices = 0;
+   sections.clear();
 }
