@@ -8,6 +8,7 @@ target_sources(${PROJECT_NAME} PRIVATE
    "${SRC_DIR}/Core/Assert.h"
    "${SRC_DIR}/Core/Log.cpp"
    "${SRC_DIR}/Core/Log.h"
+   "${SRC_DIR}/Core/Containers/GenerationalArray.h"
 
    "${SRC_DIR}/Graphics/Buffer.cpp"
    "${SRC_DIR}/Graphics/Buffer.h"
