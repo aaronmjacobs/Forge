@@ -11,13 +11,13 @@ namespace ResourceHelpers
       {
          std::error_code errorCode;
          std::filesystem::path canonicalPath = std::filesystem::canonical(*absolutePath, errorCode);
-         
+
          if (!errorCode)
          {
             return canonicalPath;
          }
       }
-      
+
       return {};
    }
 }

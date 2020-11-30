@@ -46,7 +46,7 @@ TextureHandle TextureResourceManager::load(const std::filesystem::path& path, co
       {
          return *cachedHandle;
       }
-      
+
       if (std::optional<LoadedImage> image = loadImage(*canonicalPath))
       {
          TextureHandle handle = emplaceResource(context, *image, properties, initialLayout);
@@ -55,7 +55,7 @@ TextureHandle TextureResourceManager::load(const std::filesystem::path& path, co
          return handle;
       }
    }
-   
+
    return TextureHandle();
 }
 
@@ -63,9 +63,9 @@ TextureHandle TextureResourceManager::load(const std::filesystem::path& path, co
 TextureProperties TextureResourceManager::getDefaultProperties()
 {
    TextureProperties defaultProperties;
-   
+
    defaultProperties.generateMipMaps = true;
-   
+
    return defaultProperties;
 }
 
@@ -73,9 +73,9 @@ TextureProperties TextureResourceManager::getDefaultProperties()
 TextureInitialLayout TextureResourceManager::getDefaultInitialLayout()
 {
    TextureInitialLayout defaultInitialLayout;
-   
+
    defaultInitialLayout.layout = vk::ImageLayout::eShaderReadOnlyOptimal;
    defaultInitialLayout.memoryBarrierFlags = TextureMemoryBarrierFlags(vk::AccessFlagBits::eShaderRead, vk::PipelineStageFlagBits::eFragmentShader);
-   
+
    return defaultInitialLayout;
 }

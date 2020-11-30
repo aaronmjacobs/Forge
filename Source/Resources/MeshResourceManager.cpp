@@ -11,7 +11,7 @@ namespace
    MeshSectionSourceData processAssimpMesh(const aiMesh& assimpMesh)
    {
       MeshSectionSourceData sectionSourceData;
-      
+
       static_assert(sizeof(unsigned int) == sizeof(uint32_t), "Index data types don't match");
       sectionSourceData.indices = std::vector<uint32_t>(assimpMesh.mNumFaces * 3);
       for (unsigned int i = 0; i < assimpMesh.mNumFaces; ++i)
@@ -35,7 +35,7 @@ namespace
             sectionSourceData.vertices.push_back(Vertex(position, color, texCoord));
          }
       }
-      
+
       return sectionSourceData;
    }
 
@@ -56,7 +56,7 @@ namespace
    std::vector<MeshSectionSourceData> loadMesh(const std::filesystem::path& path)
    {
       std::vector<MeshSectionSourceData> sourceData;
-      
+
       unsigned int flags = aiProcess_JoinIdenticalVertices | aiProcess_Triangulate | aiProcess_FlipUVs;
 
       Assimp::Importer importer;
@@ -65,7 +65,7 @@ namespace
       {
          processAssimpNode(sourceData, *assimpScene, *assimpScene->mRootNode);
       }
-      
+
       return sourceData;
    }
 }
@@ -79,7 +79,7 @@ MeshHandle MeshResourceManager::load(const std::filesystem::path& path, const Vu
       {
          return *cachedHandle;
       }
-      
+
       std::vector<MeshSectionSourceData> sourceData = loadMesh(*canonicalPath);
       if (!sourceData.empty())
       {
@@ -89,6 +89,6 @@ MeshHandle MeshResourceManager::load(const std::filesystem::path& path, const Vu
          return handle;
       }
    }
-   
+
    return MeshHandle();
 }
