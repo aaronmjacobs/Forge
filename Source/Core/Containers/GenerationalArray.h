@@ -18,37 +18,38 @@ public:
       , version(0)
    {
    }
-   
+
    bool isValid() const
    {
       return version > 0;
    }
-   
+
    void reset()
    {
       index = 0;
       version = 0;
    }
-   
+
    explicit operator bool() const
    {
       return isValid();
    }
-   
+
    bool operator==(const GenerationalArrayHandle& other) const
    {
       return index == other.index && version == other.version;
    }
-   
+
    std::size_t hash() const
    {
-      return std::hash<uint32_t>{}((version << 24) | index);
+      uint32_t value = (version << 24) | index;
+      return std::hash<uint32_t>{}(value);
    }
-   
+
 private:
    template<typename U>
    friend class GenerationalArray;
-   
+
    GenerationalArrayHandle(uint32_t indexValue, uint8_t versionValue)
       : index(indexValue)
       , version(versionValue)
@@ -56,7 +57,7 @@ private:
       static_assert(sizeof(GenerationalArrayHandle) == 4);
       ASSERT(indexValue < (1 << 24));
    }
-   
+
    uint32_t index : 24;
    uint32_t version : 8;
 };
@@ -78,89 +79,94 @@ class GenerationalArray
 {
 public:
    using Handle = GenerationalArrayHandle<T>;
-   
+
    Handle add(const T& value)
    {
       std::size_t index = allocate();
-      
-      elements[index] = value;
+
+      elements[index].data = value;
 
       return createHandle(index);
    }
-   
+
    Handle add(T&& value)
    {
       std::size_t index = allocate();
-      
-      elements[index] = std::move(value);
+
+      elements[index].data = std::move(value);
 
       return createHandle(index);
    }
-   
+
    template<typename... Args>
    Handle emplace(Args&&... args)
    {
       std::size_t index = allocate();
-      
-      elements[index].emplace(std::forward<Args>(args)...);
+
+      elements[index].data.emplace(std::forward<Args>(args)...);
 
       return createHandle(index);
    }
-   
+
    bool remove(Handle handle)
    {
-      if (std::optional<T>* element = find(handle))
+      if (Element* element = find(handle))
       {
-         element->reset();
+         element->data.reset();
          freeIndices.push(handle.index);
          return true;
       }
-      
+
       return false;
    }
-   
+
    void removeAll()
    {
       for (std::size_t i = 0; i < elements.size(); ++i)
       {
-         if (elements[i])
+         if (elements[i].data.has_value())
          {
-            elements[i].reset();
+            elements[i].data.reset();
             freeIndices.push(i);
          }
       }
    }
-   
+
    void clear()
    {
       elements.clear();
-      versions.clear();
       freeIndices = std::queue<std::size_t>();
    }
-   
+
    T* get(Handle handle)
    {
-      if (std::optional<T>* element = find(handle))
+      if (Element* element = find(handle))
       {
-         ASSERT(element->has_value());
-         return &element->value();
+         ASSERT(element->data.has_value());
+         return &element->data.value();
       }
-      
+
       return nullptr;
    }
-   
+
    const T* get(Handle handle) const
    {
-      if (const std::optional<T>* element = find(handle))
+      if (const Element* element = find(handle))
       {
-         ASSERT(element->has_value());
-         return &element->value();
+         ASSERT(element->data.has_value());
+         return &element->data.value();
       }
-      
+
       return nullptr;
    }
-   
+
 private:
+   struct Element
+   {
+      std::optional<T> data;
+      uint8_t version = 0;
+   };
+
    std::size_t allocate()
    {
       std::size_t index = 0;
@@ -168,70 +174,62 @@ private:
       if (freeIndices.empty())
       {
          index = elements.size();
-
          elements.emplace_back();
-         versions.emplace_back(0);
       }
       else
       {
          index = freeIndices.front();
-
          freeIndices.pop();
       }
-      
+
       return index;
    }
-   
+
    Handle createHandle(std::size_t index)
    {
-      ASSERT(elements.size() == versions.size());
-      ASSERT(index < versions.size());
+      ASSERT(index < elements.size());
       ASSERT(index < (1 << 24));
-      
+      ASSERT(elements[index].data.has_value());
+
 #if FORGE_DEBUG
-      if (versions[index] == 255)
+      if (elements[index].version == 255)
       {
          LOG_WARNING("Generational array version overflow (index " << index << ")");
       }
 #endif // FORGE_DEBUG
-      
-      uint8_t version = ++versions[index];
+
+      uint8_t version = ++elements[index].version;
       return Handle(static_cast<uint32_t>(index), version);
    }
-   
-   std::optional<T>* find(Handle handle)
-   {
-      ASSERT(elements.size() == versions.size());
 
-      if (handle.index < elements.size() && handle.version == versions[handle.index])
+   Element* find(Handle handle)
+   {
+      if (handle.index < elements.size())
       {
-         std::optional<T>& element = elements[handle.index];
-         if (element)
+         Element& element = elements[handle.index];
+         if (element.data.has_value() && element.version == handle.version)
          {
             return &element;
          }
       }
-      
+
       return nullptr;
    }
-   
-   const std::optional<T>* find(Handle handle) const
-   {
-      ASSERT(elements.size() == versions.size());
 
-      if (handle.index < elements.size() && handle.version == versions[handle.index])
+   const Element* find(Handle handle) const
+   {
+      if (handle.index < elements.size())
       {
-         const std::optional<T>& element = elements[handle.index];
-         if (element)
+         const Element& element = elements[handle.index];
+         if (element.data.has_value() && element.version == handle.version)
          {
             return &element;
          }
       }
-      
+
       return nullptr;
    }
-   
-   std::vector<std::optional<T>> elements;
-   std::vector<uint8_t> versions;
+
+   std::vector<Element> elements;
    std::queue<std::size_t> freeIndices;
 };
