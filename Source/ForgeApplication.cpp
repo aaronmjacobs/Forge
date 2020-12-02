@@ -1012,10 +1012,23 @@ void ForgeApplication::initializeGraphicsPipeline()
       .setModule(vertShaderModule)
       .setPName("main");
 
+   vk::SpecializationMapEntry specializationMapEntry = vk::SpecializationMapEntry()
+      .setConstantID(0)
+      .setOffset(0)
+      .setSize(sizeof(VkBool32));
+
+   std::array<vk::SpecializationMapEntry, 1> specializationMapEntries = { specializationMapEntry };
+   std::array<VkBool32, 1> specializationData = { true };
+
+   vk::SpecializationInfo specializationInfo = vk::SpecializationInfo()
+      .setMapEntries(specializationMapEntries)
+      .setData<VkBool32>(specializationData);
+
    vk::PipelineShaderStageCreateInfo fragShaderStageCreateinfo = vk::PipelineShaderStageCreateInfo()
       .setStage(vk::ShaderStageFlagBits::eFragment)
       .setModule(fragShaderModule)
-      .setPName("main");
+      .setPName("main")
+      .setPSpecializationInfo(&specializationInfo);
 
    std::array<vk::PipelineShaderStageCreateInfo, 2> shaderStages = { vertShaderStageCreateinfo, fragShaderStageCreateinfo };
 
