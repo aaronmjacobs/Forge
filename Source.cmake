@@ -21,6 +21,8 @@ target_sources(${PROJECT_NAME} PRIVATE
    "${SRC_DIR}/Graphics/Memory.h"
    "${SRC_DIR}/Graphics/Mesh.cpp"
    "${SRC_DIR}/Graphics/Mesh.h"
+   "${SRC_DIR}/Graphics/ShaderModule.cpp"
+   "${SRC_DIR}/Graphics/ShaderModule.h"
    "${SRC_DIR}/Graphics/Texture.cpp"
    "${SRC_DIR}/Graphics/Texture.h"
    "${SRC_DIR}/Graphics/UniformBuffer.h"
@@ -32,6 +34,8 @@ target_sources(${PROJECT_NAME} PRIVATE
    "${SRC_DIR}/Resources/MeshResourceManager.h"
    "${SRC_DIR}/Resources/ResourceManagerBase.cpp"
    "${SRC_DIR}/Resources/ResourceManagerBase.h"
+   "${SRC_DIR}/Resources/ShaderModuleResourceManager.cpp"
+   "${SRC_DIR}/Resources/ShaderModuleResourceManager.h"
    "${SRC_DIR}/Resources/TextureResourceManager.cpp"
    "${SRC_DIR}/Resources/TextureResourceManager.h"
 )

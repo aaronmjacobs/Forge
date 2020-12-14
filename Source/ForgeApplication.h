@@ -8,6 +8,7 @@
 #include "Graphics/UniformBuffer.h"
 
 #include "Resources/MeshResourceManager.h"
+#include "Resources/ShaderModuleResourceManager.h"
 #include "Resources/TextureResourceManager.h"
 
 #include <glm/glm.hpp>
@@ -90,6 +91,7 @@ private:
    void terminateSyncObjects();
 
    MeshResourceManager meshResourceManager;
+   ShaderModuleResourceManager shaderModuleResourceManager;
    TextureResourceManager textureResourceManager;
 
    GLFWwindow* window = nullptr;

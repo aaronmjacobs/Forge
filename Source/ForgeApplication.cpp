@@ -376,25 +376,6 @@ namespace
       return bestPhysicalDevice;
    }
 
-   vk::ShaderModule createShaderModule(vk::Device device, const std::filesystem::path& relativeShaderPath)
-   {
-      vk::ShaderModule shaderModule;
-
-      if (std::optional<std::filesystem::path> absoluteShaderPath = IOUtils::getAboluteProjectPath(relativeShaderPath))
-      {
-         if (std::optional<std::vector<uint8_t>> shaderData = IOUtils::readBinaryFile(*absoluteShaderPath))
-         {
-            vk::ShaderModuleCreateInfo createInfo = vk::ShaderModuleCreateInfo()
-               .setCodeSize(shaderData->size())
-               .setPCode(reinterpret_cast<const uint32_t*>(shaderData->data()));
-
-            shaderModule = device.createShaderModule(createInfo);
-         }
-      }
-
-      return shaderModule;
-   }
-
    vk::ImageView createImageView(const VulkanContext& context, vk::Image image, vk::Format format, vk::ImageAspectFlags aspectFlags, uint32_t mipLevels)
    {
       vk::ImageSubresourceRange subresourceRange = vk::ImageSubresourceRange()
@@ -1004,12 +985,19 @@ void ForgeApplication::terminateDescriptorSetLayouts()
 
 void ForgeApplication::initializeGraphicsPipeline()
 {
-   vk::ShaderModule vertShaderModule = createShaderModule(context.device, "Resources/Shaders/Triangle.vert.spv");
-   vk::ShaderModule fragShaderModule = createShaderModule(context.device, "Resources/Shaders/Triangle.frag.spv");
+   ShaderModuleHandle vertModuleHandle = shaderModuleResourceManager.load("Resources/Shaders/Triangle.vert.spv", context);
+   ShaderModuleHandle fragModuleHandle = shaderModuleResourceManager.load("Resources/Shaders/Triangle.frag.spv", context);
+
+   const ShaderModule* vertShaderModule = shaderModuleResourceManager.get(vertModuleHandle);
+   const ShaderModule* fragShaderModule = shaderModuleResourceManager.get(fragModuleHandle);
+   if (!vertShaderModule || !fragShaderModule)
+   {
+      throw std::runtime_error(std::string("Failed to load shader"));
+   }
 
    vk::PipelineShaderStageCreateInfo vertShaderStageCreateinfo = vk::PipelineShaderStageCreateInfo()
       .setStage(vk::ShaderStageFlagBits::eVertex)
-      .setModule(vertShaderModule)
+      .setModule(vertShaderModule->getShaderModule())
       .setPName("main");
 
    vk::SpecializationMapEntry specializationMapEntry = vk::SpecializationMapEntry()
@@ -1026,7 +1014,7 @@ void ForgeApplication::initializeGraphicsPipeline()
 
    vk::PipelineShaderStageCreateInfo fragShaderStageCreateinfo = vk::PipelineShaderStageCreateInfo()
       .setStage(vk::ShaderStageFlagBits::eFragment)
-      .setModule(fragShaderModule)
+      .setModule(fragShaderModule->getShaderModule())
       .setPName("main")
       .setPSpecializationInfo(&specializationInfo);
 
@@ -1089,13 +1077,11 @@ void ForgeApplication::initializeGraphicsPipeline()
 
    std::array<vk::DescriptorSetLayout, 2> descriptorSetLayouts = { frameDescriptorSetLayout, drawDescriptorSetLayout };
    vk::PipelineLayoutCreateInfo pipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo()
-      .setSetLayoutCount(static_cast<uint32_t>(descriptorSetLayouts.size()))
-      .setPSetLayouts(descriptorSetLayouts.data());
+      .setSetLayouts(descriptorSetLayouts);
    pipelineLayout = context.device.createPipelineLayout(pipelineLayoutCreateInfo);
 
    vk::GraphicsPipelineCreateInfo graphicsPipelineCreateInfo = vk::GraphicsPipelineCreateInfo()
-      .setStageCount(static_cast<uint32_t>(shaderStages.size()))
-      .setPStages(shaderStages.data())
+      .setStages(shaderStages)
       .setPVertexInputState(&vertexInputCreateInfo)
       .setPInputAssemblyState(&inputAssemblyCreateInfo)
       .setPViewportState(&viewportStateCreateInfo)
@@ -1112,12 +1098,14 @@ void ForgeApplication::initializeGraphicsPipeline()
 
    graphicsPipeline = context.device.createGraphicsPipeline(nullptr, graphicsPipelineCreateInfo).value;
 
-   context.device.destroyShaderModule(fragShaderModule);
-   context.device.destroyShaderModule(vertShaderModule);
+   shaderModuleResourceManager.unload(vertModuleHandle);
+   shaderModuleResourceManager.unload(fragModuleHandle);
 }
 
 void ForgeApplication::terminateGraphicsPipeline()
 {
+   shaderModuleResourceManager.clear();
+
    context.device.destroyPipeline(graphicsPipeline);
    graphicsPipeline = nullptr;
 
