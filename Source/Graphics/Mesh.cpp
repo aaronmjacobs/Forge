@@ -8,12 +8,15 @@
 #include <limits>
 
 // static
-vk::VertexInputBindingDescription Vertex::getBindingDescription()
+std::array<vk::VertexInputBindingDescription, 1> Vertex::getBindingDescriptions()
 {
-   return vk::VertexInputBindingDescription()
+   return
+   {
+      vk::VertexInputBindingDescription()
       .setBinding(0)
       .setStride(sizeof(Vertex))
-      .setInputRate(vk::VertexInputRate::eVertex);
+      .setInputRate(vk::VertexInputRate::eVertex)
+   };
 }
 
 // static

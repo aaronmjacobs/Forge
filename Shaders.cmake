@@ -6,8 +6,8 @@ set(SHADER_HEADER_FILES
 )
 
 set(SHADER_SOURCE_FILES
-   "${SHADER_DIR}/Triangle.frag"
-   "${SHADER_DIR}/Triangle.vert"
+   "${SHADER_DIR}/Simple.frag"
+   "${SHADER_DIR}/Simple.vert"
 )
 
 find_program(GLSLC glslc)

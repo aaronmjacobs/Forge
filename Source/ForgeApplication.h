@@ -6,27 +6,17 @@
 #include "Graphics/Mesh.h"
 #include "Graphics/Texture.h"
 #include "Graphics/UniformBuffer.h"
+#include "Graphics/UniformData.h"
+#include "Graphics/Shaders/SimpleShader.h"
 
 #include "Resources/MeshResourceManager.h"
 #include "Resources/ShaderModuleResourceManager.h"
 #include "Resources/TextureResourceManager.h"
 
-#include <glm/glm.hpp>
-
 #include <optional>
 #include <vector>
 
 struct GLFWwindow;
-
-struct ViewUniformData
-{
-   alignas(16) glm::mat4 worldToClip;
-};
-
-struct MeshUniformData
-{
-   alignas(16) glm::mat4 localToWorld;
-};
 
 class ForgeApplication
 {
@@ -60,8 +50,8 @@ private:
    void initializeRenderPass();
    void terminateRenderPass();
 
-   void initializeDescriptorSetLayouts();
-   void terminateDescriptorSetLayouts();
+   void initializeShaders();
+   void terminateShaders();
 
    void initializeGraphicsPipeline();
    void terminateGraphicsPipeline();
@@ -111,17 +101,15 @@ private:
 
    vk::Sampler sampler;
 
+   std::optional<SimpleShader> simpleShader;
+
    vk::RenderPass renderPass;
-   vk::DescriptorSetLayout frameDescriptorSetLayout;
-   vk::DescriptorSetLayout drawDescriptorSetLayout;
    vk::PipelineLayout pipelineLayout;
    vk::Pipeline graphicsPipeline;
 
    std::vector<vk::Framebuffer> swapchainFramebuffers;
 
    vk::DescriptorPool descriptorPool;
-   std::vector<vk::DescriptorSet> frameDescriptorSets;
-   std::vector<vk::DescriptorSet> drawDescriptorSets;
 
    std::optional<UniformBuffer<ViewUniformData>> viewUniformBuffer;
    std::optional<UniformBuffer<MeshUniformData>> meshUniformBuffer;

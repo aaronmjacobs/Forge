@@ -19,7 +19,7 @@ struct Vertex
    {
    }
 
-   static vk::VertexInputBindingDescription getBindingDescription();
+   static std::array<vk::VertexInputBindingDescription, 1> getBindingDescriptions();
    static std::array<vk::VertexInputAttributeDescription, 3> getAttributeDescriptions();
 };
 

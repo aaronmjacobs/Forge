@@ -449,7 +449,7 @@ ForgeApplication::ForgeApplication()
    initializeTransientCommandPool();
    initializeSwapchain();
    initializeRenderPass();
-   initializeDescriptorSetLayouts();
+   initializeShaders();
    initializeGraphicsPipeline();
    initializeFramebuffers();
    initializeUniformBuffers();
@@ -470,7 +470,7 @@ ForgeApplication::~ForgeApplication()
    terminateUniformBuffers();
    terminateFramebuffers();
    terminateGraphicsPipeline();
-   terminateDescriptorSetLayouts();
+   terminateShaders();
    terminateRenderPass();
    terminateSwapchain();
    terminateTransientCommandPool();
@@ -938,95 +938,25 @@ void ForgeApplication::terminateRenderPass()
    renderPass = nullptr;
 }
 
-void ForgeApplication::initializeDescriptorSetLayouts()
+void ForgeApplication::initializeShaders()
 {
-   vk::DescriptorSetLayoutBinding viewUniformBufferLayoutBinding = vk::DescriptorSetLayoutBinding()
-      .setBinding(0)
-      .setDescriptorType(vk::DescriptorType::eUniformBuffer)
-      .setDescriptorCount(1)
-      .setStageFlags(vk::ShaderStageFlagBits::eVertex);
-
-   vk::DescriptorSetLayoutBinding meshUniformBufferLayoutBinding = vk::DescriptorSetLayoutBinding()
-      .setBinding(0)
-      .setDescriptorType(vk::DescriptorType::eUniformBuffer)
-      .setDescriptorCount(1)
-      .setStageFlags(vk::ShaderStageFlagBits::eVertex);
-
-   vk::DescriptorSetLayoutBinding samplerLayoutBinding = vk::DescriptorSetLayoutBinding()
-      .setBinding(1)
-      .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-      .setDescriptorCount(1)
-      .setStageFlags(vk::ShaderStageFlagBits::eFragment);
-
-   vk::DescriptorSetLayoutCreateInfo frameLayoutCreateInfo = vk::DescriptorSetLayoutCreateInfo()
-      .setBindingCount(1)
-      .setPBindings(&viewUniformBufferLayoutBinding);
-   frameDescriptorSetLayout = context.device.createDescriptorSetLayout(frameLayoutCreateInfo);
-
-   std::array<vk::DescriptorSetLayoutBinding, 2> drawLayoutBindings =
-   {
-      meshUniformBufferLayoutBinding,
-      samplerLayoutBinding
-   };
-   vk::DescriptorSetLayoutCreateInfo drawLayoutCreateInfo = vk::DescriptorSetLayoutCreateInfo()
-      .setBindingCount(static_cast<uint32_t>(drawLayoutBindings.size()))
-      .setPBindings(drawLayoutBindings.data());
-   drawDescriptorSetLayout = context.device.createDescriptorSetLayout(drawLayoutCreateInfo);
+   simpleShader = SimpleShader(shaderModuleResourceManager, context);
 }
 
-void ForgeApplication::terminateDescriptorSetLayouts()
+void ForgeApplication::terminateShaders()
 {
-   context.device.destroyDescriptorSetLayout(frameDescriptorSetLayout);
-   frameDescriptorSetLayout = nullptr;
-
-   context.device.destroyDescriptorSetLayout(drawDescriptorSetLayout);
-   drawDescriptorSetLayout = nullptr;
+   simpleShader.reset();
 }
 
 void ForgeApplication::initializeGraphicsPipeline()
 {
-   ShaderModuleHandle vertModuleHandle = shaderModuleResourceManager.load("Resources/Shaders/Triangle.vert.spv", context);
-   ShaderModuleHandle fragModuleHandle = shaderModuleResourceManager.load("Resources/Shaders/Triangle.frag.spv", context);
+   std::vector<vk::PipelineShaderStageCreateInfo> shaderStages = simpleShader->getStages(true);
 
-   const ShaderModule* vertShaderModule = shaderModuleResourceManager.get(vertModuleHandle);
-   const ShaderModule* fragShaderModule = shaderModuleResourceManager.get(fragModuleHandle);
-   if (!vertShaderModule || !fragShaderModule)
-   {
-      throw std::runtime_error(std::string("Failed to load shader"));
-   }
-
-   vk::PipelineShaderStageCreateInfo vertShaderStageCreateinfo = vk::PipelineShaderStageCreateInfo()
-      .setStage(vk::ShaderStageFlagBits::eVertex)
-      .setModule(vertShaderModule->getShaderModule())
-      .setPName("main");
-
-   vk::SpecializationMapEntry specializationMapEntry = vk::SpecializationMapEntry()
-      .setConstantID(0)
-      .setOffset(0)
-      .setSize(sizeof(VkBool32));
-
-   std::array<vk::SpecializationMapEntry, 1> specializationMapEntries = { specializationMapEntry };
-   std::array<VkBool32, 1> specializationData = { true };
-
-   vk::SpecializationInfo specializationInfo = vk::SpecializationInfo()
-      .setMapEntries(specializationMapEntries)
-      .setData<VkBool32>(specializationData);
-
-   vk::PipelineShaderStageCreateInfo fragShaderStageCreateinfo = vk::PipelineShaderStageCreateInfo()
-      .setStage(vk::ShaderStageFlagBits::eFragment)
-      .setModule(fragShaderModule->getShaderModule())
-      .setPName("main")
-      .setPSpecializationInfo(&specializationInfo);
-
-   std::array<vk::PipelineShaderStageCreateInfo, 2> shaderStages = { vertShaderStageCreateinfo, fragShaderStageCreateinfo };
-
-   vk::VertexInputBindingDescription vertexBindingDescription = Vertex::getBindingDescription();
+   std::array<vk::VertexInputBindingDescription, 1> vertexBindingDescriptions = Vertex::getBindingDescriptions();
    std::array<vk::VertexInputAttributeDescription, 3> vertexAttributeDescriptions = Vertex::getAttributeDescriptions();
    vk::PipelineVertexInputStateCreateInfo vertexInputCreateInfo = vk::PipelineVertexInputStateCreateInfo()
-      .setVertexBindingDescriptionCount(1)
-      .setPVertexBindingDescriptions(&vertexBindingDescription)
-      .setVertexAttributeDescriptionCount(static_cast<uint32_t>(vertexAttributeDescriptions.size()))
-      .setPVertexAttributeDescriptions(vertexAttributeDescriptions.data());
+      .setVertexBindingDescriptions(vertexBindingDescriptions)
+      .setVertexAttributeDescriptions(vertexAttributeDescriptions);
 
    vk::PipelineInputAssemblyStateCreateInfo inputAssemblyCreateInfo = vk::PipelineInputAssemblyStateCreateInfo()
       .setTopology(vk::PrimitiveTopology::eTriangleList);
@@ -1075,7 +1005,7 @@ void ForgeApplication::initializeGraphicsPipeline()
       .setAttachmentCount(1)
       .setPAttachments(&colorBlendAttachmentState);
 
-   std::array<vk::DescriptorSetLayout, 2> descriptorSetLayouts = { frameDescriptorSetLayout, drawDescriptorSetLayout };
+   std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = simpleShader->getSetLayouts();
    vk::PipelineLayoutCreateInfo pipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo()
       .setSetLayouts(descriptorSetLayouts);
    pipelineLayout = context.device.createPipelineLayout(pipelineLayoutCreateInfo);
@@ -1097,9 +1027,6 @@ void ForgeApplication::initializeGraphicsPipeline()
       .setBasePipelineIndex(-1);
 
    graphicsPipeline = context.device.createGraphicsPipeline(nullptr, graphicsPipelineCreateInfo).value;
-
-   shaderModuleResourceManager.unload(vertModuleHandle);
-   shaderModuleResourceManager.unload(fragModuleHandle);
 }
 
 void ForgeApplication::terminateGraphicsPipeline()
@@ -1124,8 +1051,7 @@ void ForgeApplication::initializeFramebuffers()
 
       vk::FramebufferCreateInfo framebufferCreateInfo = vk::FramebufferCreateInfo()
          .setRenderPass(renderPass)
-         .setAttachmentCount(static_cast<uint32_t>(attachments.size()))
-         .setPAttachments(attachments.data())
+         .setAttachments(attachments)
          .setWidth(swapchainExtent.width)
          .setHeight(swapchainExtent.height)
          .setLayers(1);
@@ -1199,8 +1125,7 @@ void ForgeApplication::initializeDescriptorPool()
 
 void ForgeApplication::terminateDescriptorPool()
 {
-   ASSERT(frameDescriptorSets.empty());
-   ASSERT(drawDescriptorSets.empty());
+   ASSERT(!simpleShader->areDescriptorSetsAllocated());
 
    context.device.destroyDescriptorPool(descriptorPool);
    descriptorPool = nullptr;
@@ -1208,66 +1133,13 @@ void ForgeApplication::terminateDescriptorPool()
 
 void ForgeApplication::initializeDescriptorSets()
 {
-   std::vector<vk::DescriptorSetLayout> frameLayouts(swapchainImages.size(), frameDescriptorSetLayout);
-   std::vector<vk::DescriptorSetLayout> drawLayouts(swapchainImages.size(), drawDescriptorSetLayout);
-
-   vk::DescriptorSetAllocateInfo frameAllocateInfo = vk::DescriptorSetAllocateInfo()
-      .setDescriptorPool(descriptorPool)
-      .setDescriptorSetCount(static_cast<uint32_t>(frameLayouts.size()))
-      .setPSetLayouts(frameLayouts.data());
-   vk::DescriptorSetAllocateInfo drawAllocateInfo = vk::DescriptorSetAllocateInfo()
-      .setDescriptorPool(descriptorPool)
-      .setDescriptorSetCount(static_cast<uint32_t>(drawLayouts.size()))
-      .setPSetLayouts(drawLayouts.data());
-
-   frameDescriptorSets = context.device.allocateDescriptorSets(frameAllocateInfo);
-   drawDescriptorSets = context.device.allocateDescriptorSets(drawAllocateInfo);
-
-   const Texture* texture = textureResourceManager.get(textureHandle);
-   ASSERT(texture);
-
-   for (std::size_t i = 0; i < swapchainImages.size(); ++i)
-   {
-      vk::DescriptorBufferInfo viewBufferInfo = viewUniformBuffer->getDescriptorBufferInfo(context, static_cast<uint32_t>(i));
-      vk::DescriptorBufferInfo meshBufferInfo = meshUniformBuffer->getDescriptorBufferInfo(context, static_cast<uint32_t>(i));
-
-      vk::DescriptorImageInfo imageInfo = vk::DescriptorImageInfo()
-         .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-         .setImageView(texture->getDefaultView())
-         .setSampler(sampler);
-
-      vk::WriteDescriptorSet viewDescriptorWrite = vk::WriteDescriptorSet()
-         .setDstSet(frameDescriptorSets[i])
-         .setDstBinding(0)
-         .setDstArrayElement(0)
-         .setDescriptorType(vk::DescriptorType::eUniformBuffer)
-         .setDescriptorCount(1)
-         .setPBufferInfo(&viewBufferInfo);
-
-      vk::WriteDescriptorSet meshDescriptorWrite = vk::WriteDescriptorSet()
-         .setDstSet(drawDescriptorSets[i])
-         .setDstBinding(0)
-         .setDstArrayElement(0)
-         .setDescriptorType(vk::DescriptorType::eUniformBuffer)
-         .setDescriptorCount(1)
-         .setPBufferInfo(&meshBufferInfo);
-
-      vk::WriteDescriptorSet imageDescriptorWrite = vk::WriteDescriptorSet()
-         .setDstSet(drawDescriptorSets[i])
-         .setDstBinding(1)
-         .setDstArrayElement(0)
-         .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-         .setDescriptorCount(1)
-         .setPImageInfo(&imageInfo);
-
-      context.device.updateDescriptorSets({ viewDescriptorWrite, meshDescriptorWrite, imageDescriptorWrite }, {});
-   }
+   simpleShader->allocateDescriptorSets(descriptorPool, static_cast<uint32_t>(swapchainImages.size()));
+   simpleShader->updateDescriptorSets(context, static_cast<uint32_t>(swapchainImages.size()), viewUniformBuffer.value(), meshUniformBuffer.value(), *textureResourceManager.get(textureHandle), sampler);
 }
 
 void ForgeApplication::terminateDescriptorSets()
 {
-   frameDescriptorSets.clear();
-   drawDescriptorSets.clear();
+   simpleShader->clearDescriptorSets();
 }
 
 void ForgeApplication::initializeMesh()
@@ -1359,7 +1231,7 @@ void ForgeApplication::initializeCommandBuffers()
 
       commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, graphicsPipeline);
 
-      commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, 0, { frameDescriptorSets[i], drawDescriptorSets[i] }, {});
+      simpleShader->bindDescriptorSets(commandBuffer, pipelineLayout, static_cast<uint32_t>(i));
 
       for (uint32_t section = 0; section < mesh->getNumSections(); ++section)
       {
