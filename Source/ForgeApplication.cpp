@@ -933,6 +933,7 @@ void ForgeApplication::initializeShaders()
 void ForgeApplication::terminateShaders()
 {
    simpleShader.reset();
+   shaderModuleResourceManager.clear();
 }
 
 void ForgeApplication::initializeGraphicsPipeline()
@@ -965,7 +966,7 @@ void ForgeApplication::initializeGraphicsPipeline()
 
    vk::PipelineRasterizationStateCreateInfo rasterizationStateCreateInfo = vk::PipelineRasterizationStateCreateInfo()
       .setPolygonMode(vk::PolygonMode::eFill)
-      .setLineWidth(1.0f) // TODO necessary?
+      .setLineWidth(1.0f)
       .setCullMode(vk::CullModeFlagBits::eBack)
       .setFrontFace(vk::FrontFace::eCounterClockwise);
 
@@ -1015,8 +1016,6 @@ void ForgeApplication::initializeGraphicsPipeline()
 
 void ForgeApplication::terminateGraphicsPipeline()
 {
-   shaderModuleResourceManager.clear();
-
    context.device.destroyPipeline(graphicsPipeline);
    graphicsPipeline = nullptr;
 
