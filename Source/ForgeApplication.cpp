@@ -411,9 +411,10 @@ void ForgeApplication::render()
    context.device.resetFences({ frameFences[frameIndex] });
    context.graphicsQueue.submit({ submitInfo }, frameFences[frameIndex]);
 
+   vk::SwapchainKHR swapchainKHR = swapchain->getSwapchainKHR();
    vk::PresentInfoKHR presentInfo = vk::PresentInfoKHR()
       .setWaitSemaphores(signalSemaphores)
-      .setSwapchains(swapchain->getSwapchainKHR())
+      .setSwapchains(swapchainKHR)
       .setImageIndices(imageIndex);
 
    vk::Result presentResult = context.presentQueue.presentKHR(presentInfo);
