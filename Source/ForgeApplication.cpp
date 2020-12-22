@@ -534,13 +534,10 @@ void ForgeApplication::render()
 
    std::array<vk::Semaphore, 1> signalSemaphores = { renderFinishedSemaphores[frameIndex] };
    vk::SubmitInfo submitInfo = vk::SubmitInfo()
-      .setWaitSemaphoreCount(static_cast<uint32_t>(waitSemaphores.size()))
-      .setPWaitSemaphores(waitSemaphores.data())
+      .setWaitSemaphores(waitSemaphores)
       .setPWaitDstStageMask(waitStages.data())
-      .setCommandBufferCount(1)
-      .setPCommandBuffers(&commandBuffers[imageIndex])
-      .setSignalSemaphoreCount(static_cast<uint32_t>(signalSemaphores.size()))
-      .setPSignalSemaphores(signalSemaphores.data());
+      .setCommandBuffers(commandBuffers[imageIndex])
+      .setSignalSemaphores(signalSemaphores);
 
    context.device.resetFences({ frameFences[frameIndex] });
    context.graphicsQueue.submit({ submitInfo }, frameFences[frameIndex]);
@@ -548,11 +545,9 @@ void ForgeApplication::render()
    std::array<vk::SwapchainKHR, 1> swapchains = { swapchain };
 
    vk::PresentInfoKHR presentInfo = vk::PresentInfoKHR()
-      .setWaitSemaphoreCount(static_cast<uint32_t>(signalSemaphores.size()))
-      .setPWaitSemaphores(signalSemaphores.data())
-      .setSwapchainCount(static_cast<uint32_t>(swapchains.size()))
-      .setPSwapchains(swapchains.data())
-      .setPImageIndices(&imageIndex);
+      .setWaitSemaphores(signalSemaphores)
+      .setSwapchains(swapchains)
+      .setImageIndices(imageIndex);
 
    vk::Result presentResult = context.presentQueue.presentKHR(presentInfo);
    if (presentResult == vk::Result::eErrorOutOfDateKHR || presentResult == vk::Result::eSuboptimalKHR)
@@ -664,10 +659,8 @@ void ForgeApplication::initializeVulkan()
 
    vk::InstanceCreateInfo createInfo = vk::InstanceCreateInfo()
       .setPApplicationInfo(&applicationInfo)
-      .setEnabledExtensionCount(static_cast<uint32_t>(extensions.size()))
-      .setPpEnabledExtensionNames(extensions.data())
-      .setEnabledLayerCount(static_cast<uint32_t>(layers.size()))
-      .setPpEnabledLayerNames(layers.data());
+      .setPEnabledExtensionNames(extensions)
+      .setPEnabledLayerNames(layers);
 
 #if FORGE_DEBUG
    VkDebugUtilsMessengerCreateInfoEXT debugUtilsMessengerCreateInfo = createDebugMessengerCreateInfo();
@@ -710,8 +703,7 @@ void ForgeApplication::initializeVulkan()
    {
       deviceQueueCreateInfos.push_back(vk::DeviceQueueCreateInfo()
          .setQueueFamilyIndex(queueFamilyIndex)
-         .setQueueCount(1)
-         .setPQueuePriorities(&queuePriority));
+         .setQueuePriorities(queuePriority));
    }
 
    std::vector<const char*> deviceExtensions = getDeviceExtensions(context.physicalDevice);
@@ -721,16 +713,13 @@ void ForgeApplication::initializeVulkan()
    deviceFeatures.setSampleRateShading(true);
 
    vk::DeviceCreateInfo deviceCreateInfo = vk::DeviceCreateInfo()
-      .setPQueueCreateInfos(deviceQueueCreateInfos.data())
-      .setQueueCreateInfoCount(static_cast<uint32_t>(deviceQueueCreateInfos.size()))
-      .setPpEnabledExtensionNames(deviceExtensions.data())
-      .setEnabledExtensionCount(static_cast<uint32_t>(deviceExtensions.size()))
+      .setQueueCreateInfos(deviceQueueCreateInfos)
+      .setPEnabledExtensionNames(deviceExtensions)
       .setPEnabledFeatures(&deviceFeatures);
 
 #if FORGE_DEBUG
    deviceCreateInfo = deviceCreateInfo
-      .setEnabledLayerCount(static_cast<uint32_t>(layers.size()))
-      .setPpEnabledLayerNames(layers.data());
+      .setPEnabledLayerNames(layers);
 #endif // FORGE_DEBUG
 
    context.device = context.physicalDevice.createDevice(deviceCreateInfo);
@@ -923,12 +912,9 @@ void ForgeApplication::initializeRenderPass()
 
    std::array<vk::AttachmentDescription, 3> attachments = { colorAttachment, depthAttachment, colorAttachmentResolve };
    vk::RenderPassCreateInfo renderPassCreateInfo = vk::RenderPassCreateInfo()
-      .setAttachmentCount(static_cast<uint32_t>(attachments.size()))
-      .setPAttachments(attachments.data())
-      .setSubpassCount(1)
-      .setPSubpasses(&subpassDescription)
-      .setDependencyCount(1)
-      .setPDependencies(&subpassDependency);
+      .setAttachments(attachments)
+      .setSubpasses(subpassDescription)
+      .setDependencies(subpassDependency);
 
    renderPass = context.device.createRenderPass(renderPassCreateInfo);
 }
@@ -974,10 +960,8 @@ void ForgeApplication::initializeGraphicsPipeline()
       .setExtent(swapchainExtent);
 
    vk::PipelineViewportStateCreateInfo viewportStateCreateInfo = vk::PipelineViewportStateCreateInfo()
-      .setViewportCount(1)
-      .setPViewports(&viewport)
-      .setScissorCount(1)
-      .setPScissors(&scissor);
+      .setViewports(viewport)
+      .setScissors(scissor);
 
    vk::PipelineRasterizationStateCreateInfo rasterizationStateCreateInfo = vk::PipelineRasterizationStateCreateInfo()
       .setPolygonMode(vk::PolygonMode::eFill)
@@ -1003,8 +987,7 @@ void ForgeApplication::initializeGraphicsPipeline()
 
    vk::PipelineColorBlendStateCreateInfo colorBlendStateCreateInfo = vk::PipelineColorBlendStateCreateInfo()
       .setLogicOpEnable(false)
-      .setAttachmentCount(1)
-      .setPAttachments(&colorBlendAttachmentState);
+      .setAttachments(colorBlendAttachmentState);
 
    std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = simpleShader->getSetLayouts();
    vk::PipelineLayoutCreateInfo pipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo()
@@ -1118,8 +1101,7 @@ void ForgeApplication::initializeDescriptorPool()
    };
 
    vk::DescriptorPoolCreateInfo createInfo = vk::DescriptorPoolCreateInfo()
-      .setPoolSizeCount(static_cast<uint32_t>(descriptorPoolSizes.size()))
-      .setPPoolSizes(descriptorPoolSizes.data())
+      .setPoolSizes(descriptorPoolSizes)
       .setMaxSets(static_cast<uint32_t>(swapchainImages.size() * 2));
    descriptorPool = context.device.createDescriptorPool(createInfo);
 }
@@ -1225,8 +1207,7 @@ void ForgeApplication::initializeCommandBuffers()
          .setRenderPass(renderPass)
          .setFramebuffer(swapchainFramebuffers[i])
          .setRenderArea(vk::Rect2D(vk::Offset2D(0, 0), swapchainExtent))
-         .setClearValueCount(static_cast<uint32_t>(clearValues.size()))
-         .setPClearValues(clearValues.data());
+         .setClearValues(clearValues);
 
       commandBuffer.beginRenderPass(renderPassBeginInfo, vk::SubpassContents::eInline);
 
