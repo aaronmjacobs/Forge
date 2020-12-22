@@ -4,6 +4,7 @@
 
 #include "Graphics/Command.h"
 #include "Graphics/Memory.h"
+#include "Graphics/Swapchain.h"
 
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -215,94 +216,6 @@ namespace
       return deviceExtensions;
    }
 
-   struct SwapChainSupportDetails
-   {
-      vk::SurfaceCapabilitiesKHR capabilities;
-      std::vector<vk::SurfaceFormatKHR> formats;
-      std::vector<vk::PresentModeKHR> presentModes;
-
-      bool isValid() const
-      {
-         return !formats.empty() && !presentModes.empty();
-      }
-   };
-
-   SwapChainSupportDetails getSwapChainSupportDetails(vk::PhysicalDevice physicalDevice, vk::SurfaceKHR surface)
-   {
-      SwapChainSupportDetails details;
-
-      details.capabilities = physicalDevice.getSurfaceCapabilitiesKHR(surface);
-      details.formats = physicalDevice.getSurfaceFormatsKHR(surface);
-      details.presentModes = physicalDevice.getSurfacePresentModesKHR(surface);
-
-      return details;
-   }
-
-   vk::SurfaceFormatKHR chooseSwapChainSurfaceFormat(const std::vector<vk::SurfaceFormatKHR>& formats)
-   {
-      for (const vk::SurfaceFormatKHR& format : formats)
-      {
-         if (format.format == vk::Format::eB8G8R8A8Unorm && format.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear)
-         {
-            return format;
-         }
-      }
-
-      if (!formats.empty())
-      {
-         return formats[0];
-      }
-
-      throw std::runtime_error("No swapchain formats available");
-   }
-
-   vk::PresentModeKHR chooseSwapChainPresentMode(const std::vector<vk::PresentModeKHR>& presentModes)
-   {
-      static const auto containsPresentMode = [](const std::vector<vk::PresentModeKHR>& presentModes, vk::PresentModeKHR presentMode)
-      {
-         return std::find(presentModes.begin(), presentModes.end(), presentMode) != presentModes.end();
-      };
-
-      if (containsPresentMode(presentModes, vk::PresentModeKHR::eMailbox))
-      {
-         return vk::PresentModeKHR::eMailbox;
-      }
-
-      if (containsPresentMode(presentModes, vk::PresentModeKHR::eFifo))
-      {
-         return vk::PresentModeKHR::eFifo;
-      }
-
-      if (!presentModes.empty())
-      {
-         return presentModes[0];
-      }
-
-      throw std::runtime_error("No swapchain present modes available");
-   }
-
-   vk::Extent2D chooseSwapChainExtent(const vk::SurfaceCapabilitiesKHR& capabilities, GLFWwindow* window)
-   {
-      if (capabilities.currentExtent.width != UINT32_MAX)
-      {
-         return capabilities.currentExtent;
-      }
-
-      int framebufferWidth = 0;
-      int framebufferHeight = 0;
-      glfwGetFramebufferSize(window, &framebufferWidth, &framebufferHeight);
-      if (framebufferWidth < 0 || framebufferHeight < 0)
-      {
-         throw std::runtime_error("Negative framebuffer size");
-      }
-
-      vk::Extent2D extent(static_cast<uint32_t>(framebufferWidth), static_cast<uint32_t>(framebufferHeight));
-      extent.width = std::max(capabilities.minImageExtent.width, std::min(capabilities.maxImageExtent.width, extent.width));
-      extent.height = std::max(capabilities.minImageExtent.height, std::min(capabilities.maxImageExtent.height, extent.height));
-
-      return extent;
-   }
-
    int getPhysicalDeviceScore(vk::PhysicalDevice physicalDevice, vk::SurfaceKHR surface)
    {
       try
@@ -314,7 +227,7 @@ namespace
          return -1;
       }
 
-      SwapChainSupportDetails swapChainSupportDetails = getSwapChainSupportDetails(physicalDevice, surface);
+      SwapchainSupportDetails swapChainSupportDetails = Swapchain::getSupportDetails(physicalDevice, surface);
       if (!swapChainSupportDetails.isValid())
       {
          return -1;
@@ -375,57 +288,6 @@ namespace
       }
 
       return bestPhysicalDevice;
-   }
-
-   vk::ImageView createImageView(const VulkanContext& context, vk::Image image, vk::Format format, vk::ImageAspectFlags aspectFlags, uint32_t mipLevels)
-   {
-      vk::ImageSubresourceRange subresourceRange = vk::ImageSubresourceRange()
-         .setAspectMask(aspectFlags)
-         .setBaseMipLevel(0)
-         .setLevelCount(mipLevels)
-         .setBaseArrayLayer(0)
-         .setLayerCount(1);
-
-      vk::ImageViewCreateInfo createInfo = vk::ImageViewCreateInfo()
-         .setImage(image)
-         .setViewType(vk::ImageViewType::e2D)
-         .setFormat(format)
-         .setSubresourceRange(subresourceRange);
-
-      return context.device.createImageView(createInfo);
-   }
-
-   vk::Format findSupportedFormat(const VulkanContext& context, const std::vector<vk::Format>& candidates, vk::ImageTiling tiling, vk::FormatFeatureFlags features)
-   {
-      for (vk::Format format : candidates)
-      {
-         vk::FormatProperties properties = context.physicalDevice.getFormatProperties(format);
-
-         switch (tiling)
-         {
-         case vk::ImageTiling::eOptimal:
-            if ((properties.optimalTilingFeatures & features) == features)
-            {
-               return format;
-            }
-            break;
-         case vk::ImageTiling::eLinear:
-            if ((properties.linearTilingFeatures & features) == features)
-            {
-               return format;
-            }
-            break;
-         default:
-            break;
-         }
-      }
-
-      throw std::runtime_error("Failed to find supported format");
-   }
-
-   vk::Format findDepthFormat(const VulkanContext& context)
-   {
-      return findSupportedFormat(context, { vk::Format::eD24UnormS8Uint, vk::Format::eD32SfloatS8Uint, vk::Format::eD16UnormS8Uint, vk::Format::eD32Sfloat, vk::Format::eD16Unorm }, vk::ImageTiling::eOptimal, vk::FormatFeatureFlagBits::eDepthStencilAttachment);
    }
 
    vk::SampleCountFlagBits getMaxSampleCount(const VulkanContext& context)
@@ -494,7 +356,10 @@ void ForgeApplication::render()
 {
    if (framebufferResized)
    {
-      recreateSwapchain();
+      if (!recreateSwapchain())
+      {
+         return;
+      }
    }
 
    vk::Result frameWaitResult = context.device.waitForFences({ frameFences[frameIndex] }, true, UINT64_MAX);
@@ -503,11 +368,15 @@ void ForgeApplication::render()
       throw std::runtime_error("Failed to wait for frame fence");
    }
 
-   vk::ResultValue<uint32_t> imageIndexResultValue = context.device.acquireNextImageKHR(swapchain, UINT64_MAX, imageAvailableSemaphores[frameIndex], nullptr);
+   vk::ResultValue<uint32_t> imageIndexResultValue = context.device.acquireNextImageKHR(swapchain->getSwapchainKHR(), UINT64_MAX, imageAvailableSemaphores[frameIndex], nullptr);
    if (imageIndexResultValue.result == vk::Result::eErrorOutOfDateKHR)
    {
-      recreateSwapchain();
-      imageIndexResultValue = context.device.acquireNextImageKHR(swapchain, UINT64_MAX, imageAvailableSemaphores[frameIndex], nullptr);
+      if (!recreateSwapchain())
+      {
+         return;
+      }
+
+      imageIndexResultValue = context.device.acquireNextImageKHR(swapchain->getSwapchainKHR(), UINT64_MAX, imageAvailableSemaphores[frameIndex], nullptr);
    }
    if (imageIndexResultValue.result != vk::Result::eSuccess && imageIndexResultValue.result != vk::Result::eSuboptimalKHR)
    {
@@ -542,17 +411,18 @@ void ForgeApplication::render()
    context.device.resetFences({ frameFences[frameIndex] });
    context.graphicsQueue.submit({ submitInfo }, frameFences[frameIndex]);
 
-   std::array<vk::SwapchainKHR, 1> swapchains = { swapchain };
-
    vk::PresentInfoKHR presentInfo = vk::PresentInfoKHR()
       .setWaitSemaphores(signalSemaphores)
-      .setSwapchains(swapchains)
+      .setSwapchains(swapchain->getSwapchainKHR())
       .setImageIndices(imageIndex);
 
    vk::Result presentResult = context.presentQueue.presentKHR(presentInfo);
    if (presentResult == vk::Result::eErrorOutOfDateKHR || presentResult == vk::Result::eSuboptimalKHR)
    {
-      recreateSwapchain();
+      if (!recreateSwapchain())
+      {
+         return;
+      }
    }
    else if (presentResult != vk::Result::eSuccess)
    {
@@ -567,6 +437,8 @@ void ForgeApplication::updateUniformBuffers(uint32_t index)
    double time = glfwGetTime();
 
    glm::mat4 worldToView = glm::lookAt(glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+
+   vk::Extent2D swapchainExtent = swapchain->getExtent();
    glm::mat4 viewToClip = glm::perspective(glm::radians(70.0f), static_cast<float>(swapchainExtent.width) / swapchainExtent.height, 0.1f, 10.0f);
    viewToClip[1][1] *= -1.0f;
 
@@ -580,17 +452,8 @@ void ForgeApplication::updateUniformBuffers(uint32_t index)
    meshUniformBuffer->update(context, meshUniformData, index);
 }
 
-void ForgeApplication::recreateSwapchain()
+bool ForgeApplication::recreateSwapchain()
 {
-   int width = 0;
-   int height = 0;
-   glfwGetFramebufferSize(window, &width, &height);
-   while (width == 0 || height == 0)
-   {
-      glfwGetFramebufferSize(window, &width, &height);
-      glfwWaitEvents();
-   }
-
    context.device.waitIdle();
 
    terminateCommandBuffers(true);
@@ -602,6 +465,18 @@ void ForgeApplication::recreateSwapchain()
    terminateRenderPass();
    terminateSwapchain();
 
+   vk::Extent2D windowExtent = getWindowExtent();
+   while ((windowExtent.width == 0 || windowExtent.height == 0) && !glfwWindowShouldClose(window))
+   {
+      glfwWaitEvents();
+      windowExtent = getWindowExtent();
+   }
+
+   if (windowExtent.width == 0 || windowExtent.height == 0)
+   {
+      return false;
+   }
+
    initializeSwapchain();
    initializeRenderPass();
    initializeGraphicsPipeline();
@@ -612,6 +487,7 @@ void ForgeApplication::recreateSwapchain()
    initializeCommandBuffers();
 
    framebufferResized = false;
+   return true;
 }
 
 void ForgeApplication::initializeGlfw()
@@ -687,7 +563,6 @@ void ForgeApplication::initializeVulkan()
    }
    context.physicalDeviceProperties = context.physicalDevice.getProperties();
    context.physicalDeviceFeatures = context.physicalDevice.getFeatures();
-   msaaSamples = getMaxSampleCount(context);
 
    std::optional<QueueFamilyIndices> queueFamilyIndices = QueueFamilyIndices::get(context.physicalDevice, context.surface);
    if (!queueFamilyIndices)
@@ -749,61 +624,18 @@ void ForgeApplication::terminateVulkan()
 
 void ForgeApplication::initializeSwapchain()
 {
-   SwapChainSupportDetails swapChainSupportDetails = getSwapChainSupportDetails(context.physicalDevice, context.surface);
-   ASSERT(swapChainSupportDetails.isValid());
+   swapchain = std::make_unique<Swapchain>(context, getWindowExtent());
 
-   vk::SurfaceFormatKHR surfaceFormat = chooseSwapChainSurfaceFormat(swapChainSupportDetails.formats);
-   vk::PresentModeKHR presentMode = chooseSwapChainPresentMode(swapChainSupportDetails.presentModes);
-   vk::Extent2D extent = chooseSwapChainExtent(swapChainSupportDetails.capabilities, window);
-
-   uint32_t desiredMinImageCount = swapChainSupportDetails.capabilities.minImageCount + 1;
-   uint32_t minImageCount = swapChainSupportDetails.capabilities.maxImageCount > 0 ? std::min(swapChainSupportDetails.capabilities.maxImageCount, desiredMinImageCount) : desiredMinImageCount;
-
-   vk::SwapchainCreateInfoKHR swapchainCreateInfo = vk::SwapchainCreateInfoKHR()
-      .setSurface(context.surface)
-      .setMinImageCount(minImageCount)
-      .setImageFormat(surfaceFormat.format)
-      .setImageColorSpace(surfaceFormat.colorSpace)
-      .setImageExtent(extent)
-      .setImageArrayLayers(1)
-      .setImageUsage(vk::ImageUsageFlagBits::eColorAttachment)
-      .setPreTransform(swapChainSupportDetails.capabilities.currentTransform)
-      .setCompositeAlpha(vk::CompositeAlphaFlagBitsKHR::eOpaque)
-      .setPresentMode(presentMode)
-      .setClipped(true);
-
-   if (context.queueFamilyIndices.graphicsFamily == context.queueFamilyIndices.presentFamily)
-   {
-      swapchainCreateInfo = swapchainCreateInfo.setImageSharingMode(vk::SharingMode::eExclusive);
-   }
-   else
-   {
-      std::array<uint32_t, 2> indices = { context.queueFamilyIndices.graphicsFamily, context.queueFamilyIndices.presentFamily };
-
-      swapchainCreateInfo = swapchainCreateInfo
-         .setImageSharingMode(vk::SharingMode::eConcurrent)
-         .setQueueFamilyIndices(indices);
-   }
-
-   swapchain = context.device.createSwapchainKHR(swapchainCreateInfo);
-   swapchainImages = context.device.getSwapchainImagesKHR(swapchain);
-   swapchainImageFormat = surfaceFormat.format;
-   swapchainExtent = extent;
-
-   swapchainImageViews.reserve(swapchainImages.size());
-   for (vk::Image swapchainImage : swapchainImages)
-   {
-      swapchainImageViews.push_back(createImageView(context, swapchainImage, swapchainImageFormat, vk::ImageAspectFlagBits::eColor, 1));
-   }
-
+   vk::Extent2D swapchainExtent = swapchain->getExtent();
+   vk::SampleCountFlagBits sampleCount = getMaxSampleCount(context);
    {
       ImageProperties colorImageProperties;
-      colorImageProperties.format = swapchainImageFormat;
+      colorImageProperties.format = swapchain->getFormat();
       colorImageProperties.width = swapchainExtent.width;
       colorImageProperties.height = swapchainExtent.height;
 
       TextureProperties colorTextureProperties;
-      colorTextureProperties.sampleCount = msaaSamples;
+      colorTextureProperties.sampleCount = sampleCount;
       colorTextureProperties.usage = vk::ImageUsageFlagBits::eTransientAttachment | vk::ImageUsageFlagBits::eColorAttachment;
       colorTextureProperties.aspects = vk::ImageAspectFlagBits::eColor;
 
@@ -816,12 +648,12 @@ void ForgeApplication::initializeSwapchain()
 
    {
       ImageProperties depthImageProperties;
-      depthImageProperties.format = findDepthFormat(context);
+      depthImageProperties.format = Texture::findSupportedFormat(context, { vk::Format::eD24UnormS8Uint, vk::Format::eD32SfloatS8Uint, vk::Format::eD16UnormS8Uint, vk::Format::eD32Sfloat, vk::Format::eD16Unorm }, vk::ImageTiling::eOptimal, vk::FormatFeatureFlagBits::eDepthStencilAttachment);
       depthImageProperties.width = swapchainExtent.width;
       depthImageProperties.height = swapchainExtent.height;
 
       TextureProperties depthTextureProperties;
-      depthTextureProperties.sampleCount = msaaSamples;
+      depthTextureProperties.sampleCount = sampleCount;
       depthTextureProperties.usage = vk::ImageUsageFlagBits::eDepthStencilAttachment;
       depthTextureProperties.aspects = vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil;
 
@@ -835,16 +667,9 @@ void ForgeApplication::initializeSwapchain()
 
 void ForgeApplication::terminateSwapchain()
 {
-   depthTexture.reset();
-   colorTexture.reset();
+   depthTexture = nullptr;
+   colorTexture = nullptr;
 
-   for (vk::ImageView swapchainImageView : swapchainImageViews)
-   {
-      context.device.destroyImageView(swapchainImageView);
-   }
-   swapchainImageViews.clear();
-
-   context.device.destroySwapchainKHR(swapchain);
    swapchain = nullptr;
 }
 
@@ -881,7 +706,7 @@ void ForgeApplication::initializeRenderPass()
       .setLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
 
    vk::AttachmentDescription colorAttachmentResolve = vk::AttachmentDescription()
-      .setFormat(swapchainImageFormat)
+      .setFormat(swapchain->getFormat())
       .setSamples(vk::SampleCountFlagBits::e1)
       .setLoadOp(vk::AttachmentLoadOp::eDontCare)
       .setStoreOp(vk::AttachmentStoreOp::eStore)
@@ -946,6 +771,7 @@ void ForgeApplication::initializeGraphicsPipeline()
       .setVertexBindingDescriptions(vertexBindingDescriptions)
       .setVertexAttributeDescriptions(vertexAttributeDescriptions);
 
+   vk::Extent2D swapchainExtent = swapchain->getExtent();
    vk::PipelineInputAssemblyStateCreateInfo inputAssemblyCreateInfo = vk::PipelineInputAssemblyStateCreateInfo()
       .setTopology(vk::PrimitiveTopology::eTriangleList);
 
@@ -971,7 +797,7 @@ void ForgeApplication::initializeGraphicsPipeline()
       .setFrontFace(vk::FrontFace::eCounterClockwise);
 
    vk::PipelineMultisampleStateCreateInfo multisampleStateCreateInfo = vk::PipelineMultisampleStateCreateInfo()
-      .setRasterizationSamples(msaaSamples)
+      .setRasterizationSamples(colorTexture->getTextureProperties().sampleCount)
       .setSampleShadingEnable(true)
       .setMinSampleShading(0.2f);
 
@@ -1025,10 +851,12 @@ void ForgeApplication::terminateGraphicsPipeline()
 
 void ForgeApplication::initializeFramebuffers()
 {
-   ASSERT(swapchainFramebuffers.empty());
-   swapchainFramebuffers.reserve(swapchainImageViews.size());
+   vk::Extent2D swapchainExtent = swapchain->getExtent();
 
-   for (vk::ImageView swapchainImageView : swapchainImageViews)
+   ASSERT(swapchainFramebuffers.empty());
+   swapchainFramebuffers.reserve(swapchain->getImageCount());
+
+   for (vk::ImageView swapchainImageView : swapchain->getImageViews())
    {
       std::array<vk::ImageView, 3> attachments = { colorTexture->getDefaultView(), depthTexture->getDefaultView(), swapchainImageView };
 
@@ -1071,7 +899,7 @@ void ForgeApplication::terminateTransientCommandPool()
 
 void ForgeApplication::initializeUniformBuffers()
 {
-   uint32_t swapchainImageCount = static_cast<uint32_t>(swapchainImages.size());
+   uint32_t swapchainImageCount = swapchain->getImageCount();
 
    viewUniformBuffer = std::make_unique<UniformBuffer<ViewUniformData>>(context, swapchainImageCount);
    meshUniformBuffer = std::make_unique<UniformBuffer<MeshUniformData>>(context, swapchainImageCount);
@@ -1085,13 +913,15 @@ void ForgeApplication::terminateUniformBuffers()
 
 void ForgeApplication::initializeDescriptorPool()
 {
+   uint32_t swapchainImageCount = swapchain->getImageCount();
+
    vk::DescriptorPoolSize uniformPoolSize = vk::DescriptorPoolSize()
       .setType(vk::DescriptorType::eUniformBuffer)
-      .setDescriptorCount(static_cast<uint32_t>(swapchainImages.size() * 2));
+      .setDescriptorCount(swapchainImageCount * 2);
 
    vk::DescriptorPoolSize samplerPoolSize = vk::DescriptorPoolSize()
       .setType(vk::DescriptorType::eCombinedImageSampler)
-      .setDescriptorCount(static_cast<uint32_t>(swapchainImages.size()));
+      .setDescriptorCount(swapchainImageCount);
 
    std::array<vk::DescriptorPoolSize, 2> descriptorPoolSizes =
    {
@@ -1101,7 +931,7 @@ void ForgeApplication::initializeDescriptorPool()
 
    vk::DescriptorPoolCreateInfo createInfo = vk::DescriptorPoolCreateInfo()
       .setPoolSizes(descriptorPoolSizes)
-      .setMaxSets(static_cast<uint32_t>(swapchainImages.size() * 2));
+      .setMaxSets(swapchainImageCount * 2);
    descriptorPool = context.device.createDescriptorPool(createInfo);
 }
 
@@ -1115,8 +945,9 @@ void ForgeApplication::terminateDescriptorPool()
 
 void ForgeApplication::initializeDescriptorSets()
 {
-   simpleShader->allocateDescriptorSets(descriptorPool, static_cast<uint32_t>(swapchainImages.size()));
-   simpleShader->updateDescriptorSets(context, static_cast<uint32_t>(swapchainImages.size()), *viewUniformBuffer, *meshUniformBuffer, *textureResourceManager.get(textureHandle), sampler);
+   uint32_t swapchainImageCount = swapchain->getImageCount();
+   simpleShader->allocateDescriptorSets(descriptorPool, swapchainImageCount);
+   simpleShader->updateDescriptorSets(context, swapchainImageCount, *viewUniformBuffer, *meshUniformBuffer, *textureResourceManager.get(textureHandle), sampler);
 }
 
 void ForgeApplication::terminateDescriptorSets()
@@ -1205,7 +1036,7 @@ void ForgeApplication::initializeCommandBuffers()
       vk::RenderPassBeginInfo renderPassBeginInfo = vk::RenderPassBeginInfo()
          .setRenderPass(renderPass)
          .setFramebuffer(swapchainFramebuffers[i])
-         .setRenderArea(vk::Rect2D(vk::Offset2D(0, 0), swapchainExtent))
+         .setRenderArea(vk::Rect2D(vk::Offset2D(0, 0), swapchain->getExtent()))
          .setClearValues(clearValues);
 
       commandBuffer.beginRenderPass(renderPassBeginInfo, vk::SubpassContents::eInline);
@@ -1247,7 +1078,7 @@ void ForgeApplication::initializeSyncObjects()
    imageAvailableSemaphores.resize(kMaxFramesInFlight);
    renderFinishedSemaphores.resize(kMaxFramesInFlight);
    frameFences.resize(kMaxFramesInFlight);
-   imageFences.resize(swapchainImages.size());
+   imageFences.resize(swapchain->getImageCount());
 
    vk::SemaphoreCreateInfo semaphoreCreateInfo;
    vk::FenceCreateInfo fenceCreateInfo = vk::FenceCreateInfo()
@@ -1280,4 +1111,13 @@ void ForgeApplication::terminateSyncObjects()
       context.device.destroySemaphore(imageAvailableSemaphore);
    }
    imageAvailableSemaphores.clear();
+}
+
+vk::Extent2D ForgeApplication::getWindowExtent() const
+{
+   int width = 0;
+   int height = 0;
+   glfwGetFramebufferSize(window, &width, &height);
+
+   return vk::Extent2D(static_cast<uint32_t>(std::max(width, 0)), static_cast<uint32_t>(std::max(height, 0)));
 }

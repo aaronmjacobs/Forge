@@ -2,6 +2,8 @@
 
 #include "Graphics/GraphicsResource.h"
 
+#include <vector>
+
 struct LoadedImage;
 
 struct ImageProperties
@@ -45,6 +47,8 @@ struct TextureInitialLayout
 class Texture : public GraphicsResource
 {
 public:
+   static vk::Format findSupportedFormat(const VulkanContext& context, const std::vector<vk::Format>& candidates, vk::ImageTiling tiling, vk::FormatFeatureFlags features);
+
    // Create a texture with no initial data
    Texture(const VulkanContext& context, const ImageProperties& imageProps, const TextureProperties& textureProps, const TextureInitialLayout& initialLayout);
 

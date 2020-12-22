@@ -36,6 +36,35 @@ namespace
    }
 }
 
+// static
+vk::Format Texture::findSupportedFormat(const VulkanContext& context, const std::vector<vk::Format>& candidates, vk::ImageTiling tiling, vk::FormatFeatureFlags features)
+{
+   for (vk::Format format : candidates)
+   {
+      vk::FormatProperties properties = context.physicalDevice.getFormatProperties(format);
+
+      switch (tiling)
+      {
+      case vk::ImageTiling::eOptimal:
+         if ((properties.optimalTilingFeatures & features) == features)
+         {
+            return format;
+         }
+         break;
+      case vk::ImageTiling::eLinear:
+         if ((properties.linearTilingFeatures & features) == features)
+         {
+            return format;
+         }
+         break;
+      default:
+         break;
+      }
+   }
+
+   throw std::runtime_error("Failed to find supported format");
+}
+
 Texture::Texture(const VulkanContext& context, const ImageProperties& imageProps, const TextureProperties& textureProps, const TextureInitialLayout& initialLayout)
    : GraphicsResource(context)
    , imageProperties(imageProps)

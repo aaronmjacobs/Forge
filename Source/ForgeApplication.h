@@ -16,6 +16,7 @@
 #include <memory>
 #include <vector>
 
+class Swapchain;
 struct GLFWwindow;
 
 class ForgeApplication
@@ -36,7 +37,7 @@ private:
 
    void updateUniformBuffers(uint32_t index);
 
-   void recreateSwapchain();
+   bool recreateSwapchain();
 
    void initializeGlfw();
    void terminateGlfw();
@@ -80,6 +81,8 @@ private:
    void initializeSyncObjects();
    void terminateSyncObjects();
 
+   vk::Extent2D getWindowExtent() const;
+
    MeshResourceManager meshResourceManager;
    ShaderModuleResourceManager shaderModuleResourceManager;
    TextureResourceManager textureResourceManager;
@@ -88,13 +91,8 @@ private:
 
    VulkanContext context;
 
-   vk::SwapchainKHR swapchain;
-   std::vector<vk::Image> swapchainImages;
-   vk::Format swapchainImageFormat;
-   vk::Extent2D swapchainExtent;
-   std::vector<vk::ImageView> swapchainImageViews;
+   std::unique_ptr<Swapchain> swapchain;
 
-   vk::SampleCountFlagBits msaaSamples = vk::SampleCountFlagBits::e1;
    std::unique_ptr<Texture> colorTexture;
    std::unique_ptr<Texture> depthTexture;
 
