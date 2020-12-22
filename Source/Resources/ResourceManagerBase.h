@@ -4,7 +4,9 @@
 #include "Core/Containers/ReflectedMap.h"
 
 #include <filesystem>
+#include <memory>
 #include <optional>
+#include <utility>
 
 namespace ResourceHelpers
 {
@@ -15,7 +17,7 @@ template<typename T>
 class ResourceManagerBase
 {
 public:
-   using Handle = typename GenerationalArray<T>::Handle;
+   using Handle = typename GenerationalArray<std::unique_ptr<T>>::Handle;
 
    bool unload(Handle handle)
    {
@@ -43,19 +45,26 @@ public:
 
    T* get(Handle handle)
    {
-      return resources.get(handle);
+      std::unique_ptr<T>* resource = resources.get(handle);
+      return resource ? resource->get() : nullptr;
    }
 
    const T* get(Handle handle) const
    {
-      return resources.get(handle);
+      const std::unique_ptr<T>* resource = resources.get(handle);
+      return resource ? resource->get() : nullptr;
    }
 
 protected:
+   Handle addResource(std::unique_ptr<T> resource)
+   {
+      return resources.emplace(std::move(resource));
+   }
+
    template<typename... Args>
    Handle emplaceResource(Args&&... args)
    {
-      return resources.emplace(std::forward<Args>(args)...);
+      return resources.emplace(std::make_unique<T>(std::forward<Args>(args)...));
    }
 
    void cacheHandle(Handle handle, const std::string& canonicalPathString)
@@ -77,6 +86,6 @@ protected:
    }
 
 private:
-   GenerationalArray<T> resources;
+   GenerationalArray<std::unique_ptr<T>> resources;
    ReflectedMap<Handle, std::string> cache;
 };

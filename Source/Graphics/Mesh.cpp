@@ -43,7 +43,7 @@ std::array<vk::VertexInputAttributeDescription, 3> Vertex::getAttributeDescripti
 }
 
 Mesh::Mesh(const VulkanContext& context, const std::vector<MeshSectionSourceData>& sourceData)
-   : device(context.device)
+   : GraphicsResource(context)
 {
    vk::DeviceSize bufferSize = 0;
    for (const MeshSectionSourceData& sectionData : sourceData)
@@ -123,14 +123,13 @@ Mesh::Mesh(const VulkanContext& context, const std::vector<MeshSectionSourceData
    stagingDeviceMemory = nullptr;
 }
 
-Mesh::Mesh(Mesh&& other)
-{
-   move(std::move(other));
-}
-
 Mesh::~Mesh()
 {
-   release();
+   ASSERT(buffer);
+   device.destroyBuffer(buffer);
+
+   ASSERT(deviceMemory);
+   device.freeMemory(deviceMemory);
 }
 
 void Mesh::bindBuffers(vk::CommandBuffer commandBuffer, uint32_t section) const
@@ -142,46 +141,4 @@ void Mesh::bindBuffers(vk::CommandBuffer commandBuffer, uint32_t section) const
 void Mesh::draw(vk::CommandBuffer commandBuffer, uint32_t section) const
 {
    commandBuffer.drawIndexed(sections[section].numIndices, 1, 0, 0, 0);
-}
-
-Mesh& Mesh::operator=(Mesh&& other)
-{
-   move(std::move(other));
-   release();
-
-   return *this;
-}
-
-void Mesh::move(Mesh&& other)
-{
-   ASSERT(!device);
-   device = other.device;
-   other.device = nullptr;
-
-   ASSERT(!buffer);
-   buffer = other.buffer;
-   other.buffer = nullptr;
-
-   ASSERT(!deviceMemory);
-   deviceMemory = other.deviceMemory;
-   other.deviceMemory = nullptr;
-
-   ASSERT(sections.empty());
-   sections = std::move(other.sections);
-}
-
-void Mesh::release()
-{
-   if (device)
-   {
-      ASSERT(buffer);
-      device.destroyBuffer(buffer);
-      buffer = nullptr;
-
-      ASSERT(deviceMemory);
-      device.freeMemory(deviceMemory);
-      deviceMemory = nullptr;
-   }
-
-   sections.clear();
 }

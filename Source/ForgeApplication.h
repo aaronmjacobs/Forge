@@ -13,7 +13,7 @@
 #include "Resources/ShaderModuleResourceManager.h"
 #include "Resources/TextureResourceManager.h"
 
-#include <optional>
+#include <memory>
 #include <vector>
 
 struct GLFWwindow;
@@ -95,13 +95,12 @@ private:
    std::vector<vk::ImageView> swapchainImageViews;
 
    vk::SampleCountFlagBits msaaSamples = vk::SampleCountFlagBits::e1;
-   std::optional<Texture> colorTexture;
-
-   std::optional<Texture> depthTexture;
+   std::unique_ptr<Texture> colorTexture;
+   std::unique_ptr<Texture> depthTexture;
 
    vk::Sampler sampler;
 
-   std::optional<SimpleShader> simpleShader;
+   std::unique_ptr<SimpleShader> simpleShader;
 
    vk::RenderPass renderPass;
    vk::PipelineLayout pipelineLayout;
@@ -111,8 +110,8 @@ private:
 
    vk::DescriptorPool descriptorPool;
 
-   std::optional<UniformBuffer<ViewUniformData>> viewUniformBuffer;
-   std::optional<UniformBuffer<MeshUniformData>> meshUniformBuffer;
+   std::unique_ptr<UniformBuffer<ViewUniformData>> viewUniformBuffer;
+   std::unique_ptr<UniformBuffer<MeshUniformData>> meshUniformBuffer;
 
    TextureHandle textureHandle;
    MeshHandle meshHandle;

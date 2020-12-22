@@ -37,7 +37,7 @@ namespace
 }
 
 Texture::Texture(const VulkanContext& context, const ImageProperties& imageProps, const TextureProperties& textureProps, const TextureInitialLayout& initialLayout)
-   : device(context.device)
+   : GraphicsResource(context)
    , imageProperties(imageProps)
    , textureProperties(textureProps)
 {
@@ -48,7 +48,7 @@ Texture::Texture(const VulkanContext& context, const ImageProperties& imageProps
 }
 
 Texture::Texture(const VulkanContext& context, const LoadedImage& loadedImage, const TextureProperties& textureProps, const TextureInitialLayout& initialLayout)
-   : device(context.device)
+   : GraphicsResource(context)
    , imageProperties(loadedImage.properties)
    , textureProperties(textureProps)
 {
@@ -73,64 +73,16 @@ Texture::Texture(const VulkanContext& context, const LoadedImage& loadedImage, c
    }
 }
 
-Texture::Texture(Texture&& other)
-{
-   move(std::move(other));
-}
-
 Texture::~Texture()
 {
-   release();
-}
+   ASSERT(defaultView);
+   device.destroyImageView(defaultView);
 
-Texture& Texture::operator=(Texture&& other)
-{
-   release();
-   move(std::move(other));
+   ASSERT(image);
+   device.destroyImage(image);
 
-   return *this;
-}
-
-void Texture::move(Texture&& other)
-{
-   ASSERT(!device);
-   device = other.device;
-   other.device = nullptr;
-
-   ASSERT(!image);
-   image = other.image;
-   other.image = nullptr;
-
-   ASSERT(!memory);
-   memory = other.memory;
-   other.memory = nullptr;
-
-   ASSERT(!defaultView);
-   defaultView = other.defaultView;
-   other.defaultView = nullptr;
-
-   imageProperties = other.imageProperties;
-   textureProperties = other.textureProperties;
-   layout = other.layout;
-   mipLevels = other.mipLevels;
-}
-
-void Texture::release()
-{
-   if (device)
-   {
-      ASSERT(defaultView);
-      device.destroyImageView(defaultView);
-      defaultView = nullptr;
-
-      ASSERT(image);
-      device.destroyImage(image);
-      image = nullptr;
-
-      ASSERT(memory);
-      device.freeMemory(memory);
-      memory = nullptr;
-   }
+   ASSERT(memory);
+   device.freeMemory(memory);
 }
 
 vk::ImageView Texture::createView(const VulkanContext& context, vk::ImageViewType viewType) const

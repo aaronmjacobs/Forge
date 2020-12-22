@@ -3,7 +3,7 @@
 #include "Core/Assert.h"
 
 ShaderModule::ShaderModule(const VulkanContext& context, const std::vector<uint8_t>& code)
-   : device(context.device)
+   : GraphicsResource(context)
 {
    ASSERT(code.size() > 0);
 
@@ -14,41 +14,8 @@ ShaderModule::ShaderModule(const VulkanContext& context, const std::vector<uint8
    shaderModule = device.createShaderModule(createInfo);
 }
 
-ShaderModule::ShaderModule(ShaderModule&& other)
-{
-   move(std::move(other));
-}
-
 ShaderModule::~ShaderModule()
 {
-   release();
-}
-
-ShaderModule& ShaderModule::operator=(ShaderModule&& other)
-{
-   move(std::move(other));
-   release();
-
-   return *this;
-}
-
-void ShaderModule::move(ShaderModule&& other)
-{
-   ASSERT(!device);
-   device = other.device;
-   other.device = nullptr;
-
-   ASSERT(!shaderModule);
-   shaderModule = other.shaderModule;
-   other.shaderModule = nullptr;
-}
-
-void ShaderModule::release()
-{
-   if (device)
-   {
-      ASSERT(shaderModule);
-      device.destroyShaderModule(shaderModule);
-      shaderModule = nullptr;
-   }
+   ASSERT(shaderModule);
+   device.destroyShaderModule(shaderModule);
 }

@@ -14,6 +14,7 @@
 #include <array>
 #include <cstring>
 #include <map>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -821,7 +822,7 @@ void ForgeApplication::initializeSwapchain()
       colorInitialLayout.layout = vk::ImageLayout::eColorAttachmentOptimal;
       colorInitialLayout.memoryBarrierFlags = TextureMemoryBarrierFlags(vk::AccessFlagBits::eColorAttachmentWrite, vk::PipelineStageFlagBits::eColorAttachmentOutput);
 
-      colorTexture = Texture(context, colorImageProperties, colorTextureProperties, colorInitialLayout);
+      colorTexture = std::make_unique<Texture>(context, colorImageProperties, colorTextureProperties, colorInitialLayout);
    }
 
    {
@@ -839,7 +840,7 @@ void ForgeApplication::initializeSwapchain()
       depthInitialLayout.layout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
       depthInitialLayout.memoryBarrierFlags = TextureMemoryBarrierFlags(vk::AccessFlagBits::eDepthStencilAttachmentRead | vk::AccessFlagBits::eDepthStencilAttachmentWrite, vk::PipelineStageFlagBits::eEarlyFragmentTests);
 
-      depthTexture = Texture(context, depthImageProperties, depthTextureProperties, depthInitialLayout);
+      depthTexture = std::make_unique<Texture>(context, depthImageProperties, depthTextureProperties, depthInitialLayout);
    }
 }
 
@@ -940,7 +941,7 @@ void ForgeApplication::terminateRenderPass()
 
 void ForgeApplication::initializeShaders()
 {
-   simpleShader = SimpleShader(shaderModuleResourceManager, context);
+   simpleShader = std::make_unique<SimpleShader>(shaderModuleResourceManager, context);
 }
 
 void ForgeApplication::terminateShaders()
@@ -1090,8 +1091,8 @@ void ForgeApplication::initializeUniformBuffers()
 {
    uint32_t swapchainImageCount = static_cast<uint32_t>(swapchainImages.size());
 
-   viewUniformBuffer = UniformBuffer<ViewUniformData>(context, swapchainImageCount);
-   meshUniformBuffer = UniformBuffer<MeshUniformData>(context, swapchainImageCount);
+   viewUniformBuffer = std::make_unique<UniformBuffer<ViewUniformData>>(context, swapchainImageCount);
+   meshUniformBuffer = std::make_unique<UniformBuffer<MeshUniformData>>(context, swapchainImageCount);
 }
 
 void ForgeApplication::terminateUniformBuffers()
@@ -1134,7 +1135,7 @@ void ForgeApplication::terminateDescriptorPool()
 void ForgeApplication::initializeDescriptorSets()
 {
    simpleShader->allocateDescriptorSets(descriptorPool, static_cast<uint32_t>(swapchainImages.size()));
-   simpleShader->updateDescriptorSets(context, static_cast<uint32_t>(swapchainImages.size()), viewUniformBuffer.value(), meshUniformBuffer.value(), *textureResourceManager.get(textureHandle), sampler);
+   simpleShader->updateDescriptorSets(context, static_cast<uint32_t>(swapchainImages.size()), *viewUniformBuffer, *meshUniformBuffer, *textureResourceManager.get(textureHandle), sampler);
 }
 
 void ForgeApplication::terminateDescriptorSets()

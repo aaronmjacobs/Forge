@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Graphics/Context.h"
+#include "Graphics/GraphicsResource.h"
 
 struct LoadedImage;
 
@@ -42,7 +42,7 @@ struct TextureInitialLayout
    TextureMemoryBarrierFlags memoryBarrierFlags;
 };
 
-class Texture
+class Texture : public GraphicsResource
 {
 public:
    // Create a texture with no initial data
@@ -51,19 +51,8 @@ public:
    // Create a texture with initial data provided by a loaded image
    Texture(const VulkanContext& context, const LoadedImage& loadedImage, const TextureProperties& textureProps, const TextureInitialLayout& initialLayout);
 
-   Texture(const Texture& other) = delete;
-   Texture(Texture&& other);
-
    ~Texture();
 
-   Texture& operator=(const Texture& other) = delete;
-   Texture& operator=(Texture&& other);
-
-private:
-   void move(Texture&& other);
-   void release();
-
-public:
    vk::ImageView createView(const VulkanContext& context, vk::ImageViewType viewType) const;
    void transitionLayout(const VulkanContext& context, vk::ImageLayout newLayout, const TextureMemoryBarrierFlags& srcMemoryBarrierFlags, const TextureMemoryBarrierFlags& dstMemoryBarrierFlags);
 
@@ -97,8 +86,6 @@ private:
    void copyBufferToImage(const VulkanContext& context, vk::Buffer buffer);
    void stageAndCopyImage(const VulkanContext& context, const LoadedImage& loadedImage);
    void generateMipmaps(const VulkanContext& context, vk::ImageLayout finalLayout, const TextureMemoryBarrierFlags& dstMemoryBarrierFlags);
-
-   vk::Device device;
 
    vk::Image image;
    vk::DeviceMemory memory;

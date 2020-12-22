@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Graphics/Context.h"
+#include "Graphics/GraphicsResource.h"
 
 #include <glm/glm.hpp>
 
@@ -35,24 +35,13 @@ struct MeshSection
    uint32_t numIndices = 0;
 };
 
-class Mesh
+class Mesh : public GraphicsResource
 {
 public:
    Mesh(const VulkanContext& context, const std::vector<MeshSectionSourceData>& sourceData);
 
-   Mesh(const Mesh& other) = delete;
-   Mesh(Mesh&& other);
-
    ~Mesh();
 
-   Mesh& operator=(const Mesh& other) = delete;
-   Mesh& operator=(Mesh&& other);
-
-private:
-   void move(Mesh&& other);
-   void release();
-
-public:
    uint32_t getNumSections() const
    {
       return static_cast<uint32_t>(sections.size());
@@ -62,8 +51,6 @@ public:
    void draw(vk::CommandBuffer commandBuffer, uint32_t section) const;
 
 private:
-   vk::Device device;
-
    vk::Buffer buffer;
    vk::DeviceMemory deviceMemory;
 

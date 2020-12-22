@@ -1,4 +1,4 @@
-#include "Graphics/Context.h"
+#include "Graphics/GraphicsResource.h"
 #include "Graphics/UniformBuffer.h"
 #include "Graphics/UniformData.h"
 
@@ -8,23 +8,13 @@
 
 class Texture;
 
-class SimpleShader
+class SimpleShader : public GraphicsResource
 {
 public:
    SimpleShader(ShaderModuleResourceManager& shaderModuleResourceManager, const VulkanContext& context);
-   SimpleShader(const SimpleShader& other) = delete;
-   SimpleShader(SimpleShader&& other);
 
    ~SimpleShader();
 
-   SimpleShader& operator=(const SimpleShader& other) = delete;
-   SimpleShader& operator=(SimpleShader&& other);
-
-private:
-   void move(SimpleShader&& other);
-   void release();
-
-public:
    void allocateDescriptorSets(vk::DescriptorPool descriptorPool, uint32_t numSwapchainImages);
    void clearDescriptorSets();
 
@@ -47,8 +37,6 @@ public:
    }
 
 private:
-   vk::Device device;
-
    vk::PipelineShaderStageCreateInfo vertStageCreateInfo;
    vk::PipelineShaderStageCreateInfo fragStageCreateInfoWithTexture;
    vk::PipelineShaderStageCreateInfo fragStageCreateInfoWithoutTexture;

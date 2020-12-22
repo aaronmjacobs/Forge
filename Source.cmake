@@ -17,6 +17,7 @@ target_sources(${PROJECT_NAME} PRIVATE
    "${SRC_DIR}/Graphics/Command.h"
    "${SRC_DIR}/Graphics/Context.cpp"
    "${SRC_DIR}/Graphics/Context.h"
+   "${SRC_DIR}/Graphics/GraphicsResource.h"
    "${SRC_DIR}/Graphics/Memory.cpp"
    "${SRC_DIR}/Graphics/Memory.h"
    "${SRC_DIR}/Graphics/Mesh.cpp"

@@ -35,7 +35,7 @@ namespace
 }
 
 SimpleShader::SimpleShader(ShaderModuleResourceManager& shaderModuleResourceManager, const VulkanContext& context)
-   : device(context.device)
+   : GraphicsResource(context)
 {
    {
       ShaderModuleHandle vertModuleHandle = shaderModuleResourceManager.load("Resources/Shaders/Simple.vert.spv", context);
@@ -101,67 +101,18 @@ SimpleShader::SimpleShader(ShaderModuleResourceManager& shaderModuleResourceMana
    }
 }
 
-SimpleShader::SimpleShader(SimpleShader&& other)
-{
-   move(std::move(other));
-}
-
 SimpleShader::~SimpleShader()
 {
-   release();
-}
+   ASSERT(device);
 
-SimpleShader& SimpleShader::operator=(SimpleShader&& other)
-{
-   move(std::move(other));
-   release();
-
-   return *this;
-}
-
-void SimpleShader::move(SimpleShader&& other)
-{
-   ASSERT(!device);
-   device = other.device;
-   other.device = nullptr;
-
-   vertStageCreateInfo = other.vertStageCreateInfo;
-   fragStageCreateInfoWithTexture = other.fragStageCreateInfoWithTexture;
-   fragStageCreateInfoWithoutTexture = other.fragStageCreateInfoWithoutTexture;
-
-   ASSERT(stages.empty());
-   stages = std::move(other.stages);
-
-   ASSERT(!frameLayout);
-   frameLayout = other.frameLayout;
-   other.frameLayout = nullptr;
-
-   ASSERT(!drawLayout);
-   drawLayout = other.drawLayout;
-   other.drawLayout = nullptr;
-
-   ASSERT(frameSets.empty());
-   frameSets = std::move(other.frameSets);
-
-   ASSERT(drawSets.empty());
-   drawSets = std::move(other.drawSets);
-}
-
-void SimpleShader::release()
-{
-   if (device)
+   if (frameLayout)
    {
-      if (frameLayout)
-      {
-         device.destroyDescriptorSetLayout(frameLayout);
-         frameLayout = nullptr;
-      }
+      device.destroyDescriptorSetLayout(frameLayout);
+   }
 
-      if (drawLayout)
-      {
-         device.destroyDescriptorSetLayout(drawLayout);
-         drawLayout = nullptr;
-      }
+   if (drawLayout)
+   {
+      device.destroyDescriptorSetLayout(drawLayout);
    }
 }
 
