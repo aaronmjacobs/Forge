@@ -70,7 +70,7 @@ namespace
    }
 }
 
-MeshHandle MeshResourceManager::load(const std::filesystem::path& path, const VulkanContext& context)
+MeshHandle MeshResourceManager::load(const std::filesystem::path& path, const GraphicsContext& context)
 {
    if (std::optional<std::filesystem::path> canonicalPath = ResourceHelpers::makeCanonical(path))
    {

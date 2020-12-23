@@ -37,11 +37,11 @@ namespace
 }
 
 // static
-vk::Format Texture::findSupportedFormat(const VulkanContext& context, const std::vector<vk::Format>& candidates, vk::ImageTiling tiling, vk::FormatFeatureFlags features)
+vk::Format Texture::findSupportedFormat(const GraphicsContext& context, const std::vector<vk::Format>& candidates, vk::ImageTiling tiling, vk::FormatFeatureFlags features)
 {
    for (vk::Format format : candidates)
    {
-      vk::FormatProperties properties = context.physicalDevice.getFormatProperties(format);
+      vk::FormatProperties properties = context.getPhysicalDevice().getFormatProperties(format);
 
       switch (tiling)
       {
@@ -65,18 +65,18 @@ vk::Format Texture::findSupportedFormat(const VulkanContext& context, const std:
    throw std::runtime_error("Failed to find supported format");
 }
 
-Texture::Texture(const VulkanContext& context, const ImageProperties& imageProps, const TextureProperties& textureProps, const TextureInitialLayout& initialLayout)
+Texture::Texture(const GraphicsContext& context, const ImageProperties& imageProps, const TextureProperties& textureProps, const TextureInitialLayout& initialLayout)
    : GraphicsResource(context)
    , imageProperties(imageProps)
    , textureProperties(textureProps)
 {
    createImage(context);
-   defaultView = createView(context, getDefaultViewType(imageProperties));
+   defaultView = createView(getDefaultViewType(imageProperties));
 
    transitionLayout(context, initialLayout.layout, TextureMemoryBarrierFlags(vk::AccessFlags(), vk::PipelineStageFlagBits::eTopOfPipe), initialLayout.memoryBarrierFlags);
 }
 
-Texture::Texture(const VulkanContext& context, const LoadedImage& loadedImage, const TextureProperties& textureProps, const TextureInitialLayout& initialLayout)
+Texture::Texture(const GraphicsContext& context, const LoadedImage& loadedImage, const TextureProperties& textureProps, const TextureInitialLayout& initialLayout)
    : GraphicsResource(context)
    , imageProperties(loadedImage.properties)
    , textureProperties(textureProps)
@@ -88,7 +88,7 @@ Texture::Texture(const VulkanContext& context, const LoadedImage& loadedImage, c
    }
 
    createImage(context);
-   defaultView = createView(context, getDefaultViewType(imageProperties));
+   defaultView = createView(getDefaultViewType(imageProperties));
 
    stageAndCopyImage(context, loadedImage);
 
@@ -114,7 +114,7 @@ Texture::~Texture()
    device.freeMemory(memory);
 }
 
-vk::ImageView Texture::createView(const VulkanContext& context, vk::ImageViewType viewType) const
+vk::ImageView Texture::createView(vk::ImageViewType viewType) const
 {
    vk::ImageSubresourceRange subresourceRange = vk::ImageSubresourceRange()
       .setAspectMask(textureProperties.aspects)
@@ -129,10 +129,10 @@ vk::ImageView Texture::createView(const VulkanContext& context, vk::ImageViewTyp
       .setFormat(imageProperties.format)
       .setSubresourceRange(subresourceRange);
 
-   return context.device.createImageView(createInfo);
+   return device.createImageView(createInfo);
 }
 
-void Texture::transitionLayout(const VulkanContext& context, vk::ImageLayout newLayout, const TextureMemoryBarrierFlags& srcMemoryBarrierFlags, const TextureMemoryBarrierFlags& dstMemoryBarrierFlags)
+void Texture::transitionLayout(const GraphicsContext& context, vk::ImageLayout newLayout, const TextureMemoryBarrierFlags& srcMemoryBarrierFlags, const TextureMemoryBarrierFlags& dstMemoryBarrierFlags)
 {
    if (layout != newLayout)
    {
@@ -164,7 +164,7 @@ void Texture::transitionLayout(const VulkanContext& context, vk::ImageLayout new
    }
 }
 
-void Texture::createImage(const VulkanContext& context)
+void Texture::createImage(const GraphicsContext& context)
 {
    ASSERT(!image && !memory);
 
@@ -181,17 +181,17 @@ void Texture::createImage(const VulkanContext& context)
       .setUsage(textureProperties.usage)
       .setSharingMode(vk::SharingMode::eExclusive)
       .setSamples(textureProperties.sampleCount);
-   image = context.device.createImage(imageCreateinfo);
+   image = device.createImage(imageCreateinfo);
 
-   vk::MemoryRequirements memoryRequirements = context.device.getImageMemoryRequirements(image);
+   vk::MemoryRequirements memoryRequirements = device.getImageMemoryRequirements(image);
    vk::MemoryAllocateInfo allocateInfo = vk::MemoryAllocateInfo()
       .setAllocationSize(memoryRequirements.size)
-      .setMemoryTypeIndex(Memory::findType(context.physicalDevice, memoryRequirements.memoryTypeBits, textureProperties.memoryProperties));
-   memory = context.device.allocateMemory(allocateInfo);
-   context.device.bindImageMemory(image, memory, 0);
+      .setMemoryTypeIndex(Memory::findType(context.getPhysicalDevice(), memoryRequirements.memoryTypeBits, textureProperties.memoryProperties));
+   memory = device.allocateMemory(allocateInfo);
+   device.bindImageMemory(image, memory, 0);
 }
 
-void Texture::copyBufferToImage(const VulkanContext& context, vk::Buffer buffer)
+void Texture::copyBufferToImage(const GraphicsContext& context, vk::Buffer buffer)
 {
    vk::CommandBuffer commandBuffer = Command::beginSingle(context);
 
@@ -215,7 +215,7 @@ void Texture::copyBufferToImage(const VulkanContext& context, vk::Buffer buffer)
    Command::endSingle(context, commandBuffer);
 }
 
-void Texture::stageAndCopyImage(const VulkanContext& context, const LoadedImage& loadedImage)
+void Texture::stageAndCopyImage(const GraphicsContext& context, const LoadedImage& loadedImage)
 {
    transitionLayout(context, vk::ImageLayout::eTransferDstOptimal, TextureMemoryBarrierFlags(vk::AccessFlags(), vk::PipelineStageFlagBits::eTopOfPipe), TextureMemoryBarrierFlags(vk::AccessFlagBits::eTransferWrite, vk::PipelineStageFlagBits::eTransfer));
 
@@ -223,22 +223,22 @@ void Texture::stageAndCopyImage(const VulkanContext& context, const LoadedImage&
    vk::DeviceMemory stagingBufferMemory;
    Buffer::create(context, loadedImage.size, vk::BufferUsageFlagBits::eTransferSrc, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, stagingBuffer, stagingBufferMemory);
 
-   void* mappedMemory = context.device.mapMemory(stagingBufferMemory, 0, loadedImage.size);
+   void* mappedMemory = device.mapMemory(stagingBufferMemory, 0, loadedImage.size);
    std::memcpy(mappedMemory, loadedImage.data.get(), static_cast<std::size_t>(loadedImage.size));
-   context.device.unmapMemory(stagingBufferMemory);
+   device.unmapMemory(stagingBufferMemory);
    mappedMemory = nullptr;
 
    copyBufferToImage(context, stagingBuffer);
 
-   context.device.destroyBuffer(stagingBuffer);
+   device.destroyBuffer(stagingBuffer);
    stagingBuffer = nullptr;
-   context.device.freeMemory(stagingBufferMemory);
+   device.freeMemory(stagingBufferMemory);
    stagingBufferMemory = nullptr;
 }
 
-void Texture::generateMipmaps(const VulkanContext& context, vk::ImageLayout finalLayout, const TextureMemoryBarrierFlags& dstMemoryBarrierFlags)
+void Texture::generateMipmaps(const GraphicsContext& context, vk::ImageLayout finalLayout, const TextureMemoryBarrierFlags& dstMemoryBarrierFlags)
 {
-   vk::FormatProperties formatProperties = context.physicalDevice.getFormatProperties(imageProperties.format);
+   vk::FormatProperties formatProperties = context.getPhysicalDevice().getFormatProperties(imageProperties.format);
    if (!(formatProperties.optimalTilingFeatures & vk::FormatFeatureFlagBits::eSampledImageFilterLinear))
    {
       throw std::runtime_error("Image format " + to_string(imageProperties.format) + " does not support linear blitting");

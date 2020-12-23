@@ -1,7 +1,5 @@
 #include "ForgeApplication.h"
 
-#include "Core/Log.h"
-
 #include "Graphics/Command.h"
 #include "Graphics/Memory.h"
 #include "Graphics/Swapchain.h"
@@ -9,13 +7,9 @@
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-#include <PlatformUtils/IOUtils.h>
 
 #include <algorithm>
 #include <array>
-#include <cstring>
-#include <map>
-#include <optional>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -26,89 +20,6 @@ namespace
    const int kInitialWindowHeight = 720;
    const std::size_t kMaxFramesInFlight = 2;
 
-#if FORGE_DEBUG
-   VKAPI_ATTR VkBool32 VKAPI_CALL vulkanDebugMessageCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData)
-   {
-      const char* typeName = nullptr;
-      switch (messageType)
-      {
-      case VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT:
-         typeName = "general";
-         break;
-      case VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT:
-         typeName = "validation";
-         break;
-      case VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT:
-         typeName = "performance";
-         break;
-      default:
-         typeName = "unknown";
-         break;
-      }
-
-      const char* messageText = pCallbackData ? pCallbackData->pMessage : "none";
-      std::string message = std::string("Vulkan debug message (type = ") + typeName + "): " + messageText;
-
-      switch (messageSeverity)
-      {
-      case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT:
-         LOG_DEBUG(message);
-         break;
-      case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT:
-         LOG_INFO(message);
-         break;
-      case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
-         LOG_WARNING(message);
-         break;
-      case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
-         ASSERT(false, "%s", message.c_str());
-         break;
-      default:
-         ASSERT(false);
-         break;
-      }
-
-      return VK_FALSE;
-   }
-
-   VkDebugUtilsMessengerCreateInfoEXT createDebugMessengerCreateInfo()
-   {
-      return vk::DebugUtilsMessengerCreateInfoEXT()
-         .setPfnUserCallback(vulkanDebugMessageCallback)
-         .setMessageSeverity(vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose | vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo | vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning | vk::DebugUtilsMessageSeverityFlagBitsEXT::eError)
-         .setMessageType(vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral | vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation | vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance);
-   }
-
-#define FIND_VULKAN_FUNCTION(instance, name) reinterpret_cast<PFN_##name>(glfwGetInstanceProcAddress(instance, #name))
-
-   VkDebugUtilsMessengerEXT createDebugMessenger(vk::Instance instance)
-   {
-      VkDebugUtilsMessengerEXT debugMessenger = nullptr;
-      if (auto pfnCreateDebugUtilsMessengerEXT = FIND_VULKAN_FUNCTION(instance, vkCreateDebugUtilsMessengerEXT))
-      {
-         VkDebugUtilsMessengerCreateInfoEXT debugUtilsMessengerCreateInfo = createDebugMessengerCreateInfo();
-         if (pfnCreateDebugUtilsMessengerEXT(instance, &debugUtilsMessengerCreateInfo, nullptr, &debugMessenger) != VK_SUCCESS)
-         {
-            ASSERT(false);
-         }
-      }
-
-      return debugMessenger;
-   }
-
-   void destroyDebugMessenger(vk::Instance instance, VkDebugUtilsMessengerEXT& debugMessenger)
-   {
-      if (auto pfnDestroyDebugUtilsMessengerEXT = FIND_VULKAN_FUNCTION(instance, vkDestroyDebugUtilsMessengerEXT))
-      {
-         pfnDestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
-         debugMessenger = nullptr;
-      }
-   }
-
-#undef FIND_VULKAN_FUNCTION
-
-#endif // FORGE_DEBUG
-
    void framebufferSizeCallback(GLFWwindow* window, int width, int height)
    {
       if (ForgeApplication* forgeApplication = reinterpret_cast<ForgeApplication*>(glfwGetWindowUserPointer(window)))
@@ -117,182 +28,10 @@ namespace
       }
    }
 
-   bool hasExtensionProperty(const std::vector<vk::ExtensionProperties>& extensionProperties, const char* name)
+   vk::SampleCountFlagBits getMaxSampleCount(const GraphicsContext& context)
    {
-      return std::find_if(extensionProperties.begin(), extensionProperties.end(), [name](const vk::ExtensionProperties& properties)
-      {
-         return std::strcmp(name, properties.extensionName) == 0;
-      }) != extensionProperties.end();
-   }
-
-   bool hasLayerProperty(const std::vector<vk::LayerProperties>& layerProperties, const char* name)
-   {
-      return std::find_if(layerProperties.begin(), layerProperties.end(), [name](const vk::LayerProperties& properties)
-      {
-         return std::strcmp(name, properties.layerName) == 0;
-      }) != layerProperties.end();
-   }
-
-   std::vector<const char*> getExtensions()
-   {
-      std::vector<const char*> extensions;
-
-      uint32_t glfwRequiredExtensionCount = 0;
-      const char** glfwRequiredExtensionNames = glfwGetRequiredInstanceExtensions(&glfwRequiredExtensionCount);
-      extensions.reserve(glfwRequiredExtensionCount);
-
-      std::vector<vk::ExtensionProperties> extensionProperties = vk::enumerateInstanceExtensionProperties();
-      for (uint32_t i = 0; i < glfwRequiredExtensionCount; ++i)
-      {
-         const char* requiredExtension = glfwRequiredExtensionNames[i];
-
-         if (hasExtensionProperty(extensionProperties, requiredExtension))
-         {
-            extensions.push_back(requiredExtension);
-         }
-         else
-         {
-            throw std::runtime_error(std::string("Required extension was missing: ") + requiredExtension);
-         }
-      }
-
-#if FORGE_DEBUG
-      if (hasExtensionProperty(extensionProperties, VK_EXT_DEBUG_UTILS_EXTENSION_NAME))
-      {
-         extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-      }
-#endif // FORGE_DEBUG
-
-      return extensions;
-   }
-
-   std::vector<const char*> getLayers()
-   {
-      std::vector<const char*> layers;
-
-#if FORGE_DEBUG
-      static const std::array<const char*, 2> kDesiredValidationLayers =
-      {
-         "VK_LAYER_KHRONOS_validation",
-         "VK_LAYER_LUNARG_standard_validation"
-      };
-
-      std::vector<vk::LayerProperties> layerProperties = vk::enumerateInstanceLayerProperties();
-      for (const char* validationLayer : kDesiredValidationLayers)
-      {
-         if (hasLayerProperty(layerProperties, validationLayer))
-         {
-            layers.push_back(validationLayer);
-         }
-      }
-#endif // FORGE_DEBUG
-
-      return layers;
-   }
-
-   std::vector<const char*> getDeviceExtensions(vk::PhysicalDevice physicalDevice)
-   {
-      static const std::array<const char*, 1> kRequiredDeviceExtensions =
-      {
-         VK_KHR_SWAPCHAIN_EXTENSION_NAME
-      };
-
-      std::vector<const char*> deviceExtensions;
-      deviceExtensions.reserve(kRequiredDeviceExtensions.size());
-
-      std::vector<vk::ExtensionProperties> deviceExtensionProperties = physicalDevice.enumerateDeviceExtensionProperties();
-      for (const char* requiredDeviceExtension : kRequiredDeviceExtensions)
-      {
-         if (hasExtensionProperty(deviceExtensionProperties, requiredDeviceExtension))
-         {
-            deviceExtensions.push_back(requiredDeviceExtension);
-         }
-         else
-         {
-            throw std::runtime_error(std::string("Required device was missing: ") + requiredDeviceExtension);
-         }
-      }
-
-      return deviceExtensions;
-   }
-
-   int getPhysicalDeviceScore(vk::PhysicalDevice physicalDevice, vk::SurfaceKHR surface)
-   {
-      try
-      {
-         getDeviceExtensions(physicalDevice);
-      }
-      catch (const std::runtime_error&)
-      {
-         return -1;
-      }
-
-      SwapchainSupportDetails swapChainSupportDetails = Swapchain::getSupportDetails(physicalDevice, surface);
-      if (!swapChainSupportDetails.isValid())
-      {
-         return -1;
-      }
-
-      std::optional<QueueFamilyIndices> queueFamilyIndices = QueueFamilyIndices::get(physicalDevice, surface);
-      if (!queueFamilyIndices)
-      {
-         return -1;
-      }
-
-      int score = 0;
-
-      vk::PhysicalDeviceProperties properties = physicalDevice.getProperties();
-      switch (properties.deviceType)
-      {
-      case vk::PhysicalDeviceType::eOther:
-         break;
-      case vk::PhysicalDeviceType::eIntegratedGpu:
-         score += 100;
-         break;
-      case vk::PhysicalDeviceType::eDiscreteGpu:
-         score += 1000;
-         break;
-      case vk::PhysicalDeviceType::eVirtualGpu:
-         score += 10;
-         break;
-      case vk::PhysicalDeviceType::eCpu:
-         score += 1;
-         break;
-      }
-
-      vk::PhysicalDeviceFeatures features = physicalDevice.getFeatures();
-      if (features.samplerAnisotropy)
-      {
-         score += 1;
-      }
-      if (features.robustBufferAccess)
-      {
-         score += 1;
-      }
-
-      return score;
-   }
-
-   vk::PhysicalDevice selectBestPhysicalDevice(const std::vector<vk::PhysicalDevice>& devices, vk::SurfaceKHR surface)
-   {
-      std::multimap<int, vk::PhysicalDevice> devicesByScore;
-      for (vk::PhysicalDevice device : devices)
-      {
-         devicesByScore.emplace(getPhysicalDeviceScore(device, surface), device);
-      }
-
-      vk::PhysicalDevice bestPhysicalDevice;
-      if (!devicesByScore.empty() && devicesByScore.rbegin()->first > 0)
-      {
-         bestPhysicalDevice = devicesByScore.rbegin()->second;
-      }
-
-      return bestPhysicalDevice;
-   }
-
-   vk::SampleCountFlagBits getMaxSampleCount(const VulkanContext& context)
-   {
-      vk::SampleCountFlags flags = context.physicalDeviceProperties.limits.framebufferColorSampleCounts & context.physicalDeviceProperties.limits.framebufferDepthSampleCounts;
+      const vk::PhysicalDeviceLimits& limits = context.getPhysicalDeviceProperties().limits;
+      vk::SampleCountFlags flags = limits.framebufferColorSampleCounts & limits.framebufferDepthSampleCounts;
 
       if (flags & vk::SampleCountFlagBits::e64) { return vk::SampleCountFlagBits::e64; }
       if (flags & vk::SampleCountFlagBits::e32) { return vk::SampleCountFlagBits::e32; }
@@ -309,7 +48,6 @@ ForgeApplication::ForgeApplication()
 {
    initializeGlfw();
    initializeVulkan();
-   initializeTransientCommandPool();
    initializeSwapchain();
    initializeRenderPass();
    initializeShaders();
@@ -336,7 +74,6 @@ ForgeApplication::~ForgeApplication()
    terminateShaders();
    terminateRenderPass();
    terminateSwapchain();
-   terminateTransientCommandPool();
    terminateVulkan();
    terminateGlfw();
 }
@@ -349,7 +86,7 @@ void ForgeApplication::run()
       render();
    }
 
-   context.device.waitIdle();
+   context->getDevice().waitIdle();
 }
 
 void ForgeApplication::render()
@@ -362,13 +99,15 @@ void ForgeApplication::render()
       }
    }
 
-   vk::Result frameWaitResult = context.device.waitForFences({ frameFences[frameIndex] }, true, UINT64_MAX);
+   vk::Device device = context->getDevice();
+
+   vk::Result frameWaitResult = device.waitForFences({ frameFences[frameIndex] }, true, UINT64_MAX);
    if (frameWaitResult != vk::Result::eSuccess)
    {
       throw std::runtime_error("Failed to wait for frame fence");
    }
 
-   vk::ResultValue<uint32_t> imageIndexResultValue = context.device.acquireNextImageKHR(swapchain->getSwapchainKHR(), UINT64_MAX, imageAvailableSemaphores[frameIndex], nullptr);
+   vk::ResultValue<uint32_t> imageIndexResultValue = device.acquireNextImageKHR(swapchain->getSwapchainKHR(), UINT64_MAX, imageAvailableSemaphores[frameIndex], nullptr);
    if (imageIndexResultValue.result == vk::Result::eErrorOutOfDateKHR)
    {
       if (!recreateSwapchain())
@@ -376,7 +115,7 @@ void ForgeApplication::render()
          return;
       }
 
-      imageIndexResultValue = context.device.acquireNextImageKHR(swapchain->getSwapchainKHR(), UINT64_MAX, imageAvailableSemaphores[frameIndex], nullptr);
+      imageIndexResultValue = device.acquireNextImageKHR(swapchain->getSwapchainKHR(), UINT64_MAX, imageAvailableSemaphores[frameIndex], nullptr);
    }
    if (imageIndexResultValue.result != vk::Result::eSuccess && imageIndexResultValue.result != vk::Result::eSuboptimalKHR)
    {
@@ -387,7 +126,7 @@ void ForgeApplication::render()
    if (imageFences[imageIndex])
    {
       // If a previous frame is still using the image, wait for it to complete
-      vk::Result imageWaitResult = context.device.waitForFences({ imageFences[imageIndex] }, true, UINT64_MAX);
+      vk::Result imageWaitResult = device.waitForFences({ imageFences[imageIndex] }, true, UINT64_MAX);
       if (imageWaitResult != vk::Result::eSuccess)
       {
          throw std::runtime_error("Failed to wait for image fence");
@@ -408,8 +147,8 @@ void ForgeApplication::render()
       .setCommandBuffers(commandBuffers[imageIndex])
       .setSignalSemaphores(signalSemaphores);
 
-   context.device.resetFences({ frameFences[frameIndex] });
-   context.graphicsQueue.submit({ submitInfo }, frameFences[frameIndex]);
+   device.resetFences({ frameFences[frameIndex] });
+   context->getGraphicsQueue().submit({ submitInfo }, frameFences[frameIndex]);
 
    vk::SwapchainKHR swapchainKHR = swapchain->getSwapchainKHR();
    vk::PresentInfoKHR presentInfo = vk::PresentInfoKHR()
@@ -417,7 +156,7 @@ void ForgeApplication::render()
       .setSwapchains(swapchainKHR)
       .setImageIndices(imageIndex);
 
-   vk::Result presentResult = context.presentQueue.presentKHR(presentInfo);
+   vk::Result presentResult = context->getPresentQueue().presentKHR(presentInfo);
    if (presentResult == vk::Result::eErrorOutOfDateKHR || presentResult == vk::Result::eSuboptimalKHR)
    {
       if (!recreateSwapchain())
@@ -449,13 +188,13 @@ void ForgeApplication::updateUniformBuffers(uint32_t index)
    MeshUniformData meshUniformData;
    meshUniformData.localToWorld = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f) * static_cast<float>(time), glm::vec3(0.0f, 0.0f, 1.0f));
 
-   viewUniformBuffer->update(context, viewUniformData, index);
-   meshUniformBuffer->update(context, meshUniformData, index);
+   viewUniformBuffer->update(*context, viewUniformData, index);
+   meshUniformBuffer->update(*context, meshUniformData, index);
 }
 
 bool ForgeApplication::recreateSwapchain()
 {
-   context.device.waitIdle();
+   context->getDevice().waitIdle();
 
    terminateCommandBuffers(true);
    terminateDescriptorSets();
@@ -524,84 +263,7 @@ void ForgeApplication::terminateGlfw()
 
 void ForgeApplication::initializeVulkan()
 {
-   vk::ApplicationInfo applicationInfo = vk::ApplicationInfo()
-      .setPApplicationName(FORGE_PROJECT_NAME)
-      .setApplicationVersion(VK_MAKE_VERSION(FORGE_VERSION_MAJOR, FORGE_VERSION_MINOR, FORGE_VERSION_PATCH))
-      .setPEngineName(FORGE_PROJECT_NAME)
-      .setEngineVersion(VK_MAKE_VERSION(FORGE_VERSION_MAJOR, FORGE_VERSION_MINOR, FORGE_VERSION_PATCH))
-      .setApiVersion(VK_API_VERSION_1_1);
-
-   std::vector<const char*> extensions = getExtensions();
-   std::vector<const char*> layers = getLayers();
-
-   vk::InstanceCreateInfo createInfo = vk::InstanceCreateInfo()
-      .setPApplicationInfo(&applicationInfo)
-      .setPEnabledExtensionNames(extensions)
-      .setPEnabledLayerNames(layers);
-
-#if FORGE_DEBUG
-   VkDebugUtilsMessengerCreateInfoEXT debugUtilsMessengerCreateInfo = createDebugMessengerCreateInfo();
-   createInfo = createInfo.setPNext(&debugUtilsMessengerCreateInfo);
-#endif // FORGE_DEBUG
-
-   context.instance = vk::createInstance(createInfo);
-
-#if FORGE_DEBUG
-   debugMessenger = createDebugMessenger(context.instance);
-#endif // FORGE_DEBUG
-
-   VkSurfaceKHR vkSurface = nullptr;
-   if (glfwCreateWindowSurface(context.instance, window, nullptr, &vkSurface) != VK_SUCCESS)
-   {
-      throw std::runtime_error("Failed to create window surface");
-   }
-   context.surface = vkSurface;
-
-   context.physicalDevice = selectBestPhysicalDevice(context.instance.enumeratePhysicalDevices(), context.surface);
-   if (!context.physicalDevice)
-   {
-      throw std::runtime_error("Failed to find a suitable GPU");
-   }
-   context.physicalDeviceProperties = context.physicalDevice.getProperties();
-   context.physicalDeviceFeatures = context.physicalDevice.getFeatures();
-
-   std::optional<QueueFamilyIndices> queueFamilyIndices = QueueFamilyIndices::get(context.physicalDevice, context.surface);
-   if (!queueFamilyIndices)
-   {
-      throw std::runtime_error("Failed to get queue family indices");
-   }
-   context.queueFamilyIndices = *queueFamilyIndices;
-   std::set<uint32_t> uniqueQueueIndices = context.queueFamilyIndices.getUniqueIndices();
-
-   float queuePriority = 1.0f;
-   std::vector<vk::DeviceQueueCreateInfo> deviceQueueCreateInfos;
-   for (uint32_t queueFamilyIndex : uniqueQueueIndices)
-   {
-      deviceQueueCreateInfos.push_back(vk::DeviceQueueCreateInfo()
-         .setQueueFamilyIndex(queueFamilyIndex)
-         .setQueuePriorities(queuePriority));
-   }
-
-   std::vector<const char*> deviceExtensions = getDeviceExtensions(context.physicalDevice);
-
-   vk::PhysicalDeviceFeatures deviceFeatures;
-   deviceFeatures.setSamplerAnisotropy(context.physicalDeviceFeatures.samplerAnisotropy);
-   deviceFeatures.setSampleRateShading(true);
-
-   vk::DeviceCreateInfo deviceCreateInfo = vk::DeviceCreateInfo()
-      .setQueueCreateInfos(deviceQueueCreateInfos)
-      .setPEnabledExtensionNames(deviceExtensions)
-      .setPEnabledFeatures(&deviceFeatures);
-
-#if FORGE_DEBUG
-   deviceCreateInfo = deviceCreateInfo
-      .setPEnabledLayerNames(layers);
-#endif // FORGE_DEBUG
-
-   context.device = context.physicalDevice.createDevice(deviceCreateInfo);
-
-   context.graphicsQueue = context.device.getQueue(context.queueFamilyIndices.graphicsFamily, 0);
-   context.presentQueue = context.device.getQueue(context.queueFamilyIndices.presentFamily, 0);
+   context = std::make_unique<GraphicsContext>(window);
 }
 
 void ForgeApplication::terminateVulkan()
@@ -609,26 +271,15 @@ void ForgeApplication::terminateVulkan()
    meshResourceManager.clear();
    textureResourceManager.clear();
 
-   context.device.destroy();
-   context.device = nullptr;
-
-   context.instance.destroySurfaceKHR(context.surface);
-   context.surface = nullptr;
-
-#if FORGE_DEBUG
-   destroyDebugMessenger(context.instance, debugMessenger);
-#endif // FORGE_DEBUG
-
-   context.instance.destroy();
-   context.instance = nullptr;
+   context = nullptr;
 }
 
 void ForgeApplication::initializeSwapchain()
 {
-   swapchain = std::make_unique<Swapchain>(context, getWindowExtent());
+   swapchain = std::make_unique<Swapchain>(*context, getWindowExtent());
 
    vk::Extent2D swapchainExtent = swapchain->getExtent();
-   vk::SampleCountFlagBits sampleCount = getMaxSampleCount(context);
+   vk::SampleCountFlagBits sampleCount = getMaxSampleCount(*context);
    {
       ImageProperties colorImageProperties;
       colorImageProperties.format = swapchain->getFormat();
@@ -644,12 +295,12 @@ void ForgeApplication::initializeSwapchain()
       colorInitialLayout.layout = vk::ImageLayout::eColorAttachmentOptimal;
       colorInitialLayout.memoryBarrierFlags = TextureMemoryBarrierFlags(vk::AccessFlagBits::eColorAttachmentWrite, vk::PipelineStageFlagBits::eColorAttachmentOutput);
 
-      colorTexture = std::make_unique<Texture>(context, colorImageProperties, colorTextureProperties, colorInitialLayout);
+      colorTexture = std::make_unique<Texture>(*context, colorImageProperties, colorTextureProperties, colorInitialLayout);
    }
 
    {
       ImageProperties depthImageProperties;
-      depthImageProperties.format = Texture::findSupportedFormat(context, { vk::Format::eD24UnormS8Uint, vk::Format::eD32SfloatS8Uint, vk::Format::eD16UnormS8Uint, vk::Format::eD32Sfloat, vk::Format::eD16Unorm }, vk::ImageTiling::eOptimal, vk::FormatFeatureFlagBits::eDepthStencilAttachment);
+      depthImageProperties.format = Texture::findSupportedFormat(*context, { vk::Format::eD24UnormS8Uint, vk::Format::eD32SfloatS8Uint, vk::Format::eD16UnormS8Uint, vk::Format::eD32Sfloat, vk::Format::eD16Unorm }, vk::ImageTiling::eOptimal, vk::FormatFeatureFlagBits::eDepthStencilAttachment);
       depthImageProperties.width = swapchainExtent.width;
       depthImageProperties.height = swapchainExtent.height;
 
@@ -662,7 +313,7 @@ void ForgeApplication::initializeSwapchain()
       depthInitialLayout.layout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
       depthInitialLayout.memoryBarrierFlags = TextureMemoryBarrierFlags(vk::AccessFlagBits::eDepthStencilAttachmentRead | vk::AccessFlagBits::eDepthStencilAttachmentWrite, vk::PipelineStageFlagBits::eEarlyFragmentTests);
 
-      depthTexture = std::make_unique<Texture>(context, depthImageProperties, depthTextureProperties, depthInitialLayout);
+      depthTexture = std::make_unique<Texture>(*context, depthImageProperties, depthTextureProperties, depthInitialLayout);
    }
 }
 
@@ -742,18 +393,18 @@ void ForgeApplication::initializeRenderPass()
       .setSubpasses(subpassDescription)
       .setDependencies(subpassDependency);
 
-   renderPass = context.device.createRenderPass(renderPassCreateInfo);
+   renderPass = context->getDevice().createRenderPass(renderPassCreateInfo);
 }
 
 void ForgeApplication::terminateRenderPass()
 {
-   context.device.destroyRenderPass(renderPass);
+   context->getDevice().destroyRenderPass(renderPass);
    renderPass = nullptr;
 }
 
 void ForgeApplication::initializeShaders()
 {
-   simpleShader = std::make_unique<SimpleShader>(shaderModuleResourceManager, context);
+   simpleShader = std::make_unique<SimpleShader>(shaderModuleResourceManager, *context);
 }
 
 void ForgeApplication::terminateShaders()
@@ -820,7 +471,7 @@ void ForgeApplication::initializeGraphicsPipeline()
    std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = simpleShader->getSetLayouts();
    vk::PipelineLayoutCreateInfo pipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo()
       .setSetLayouts(descriptorSetLayouts);
-   pipelineLayout = context.device.createPipelineLayout(pipelineLayoutCreateInfo);
+   pipelineLayout = context->getDevice().createPipelineLayout(pipelineLayoutCreateInfo);
 
    vk::GraphicsPipelineCreateInfo graphicsPipelineCreateInfo = vk::GraphicsPipelineCreateInfo()
       .setStages(shaderStages)
@@ -838,15 +489,15 @@ void ForgeApplication::initializeGraphicsPipeline()
       .setBasePipelineHandle(nullptr)
       .setBasePipelineIndex(-1);
 
-   graphicsPipeline = context.device.createGraphicsPipeline(nullptr, graphicsPipelineCreateInfo).value;
+   graphicsPipeline = context->getDevice().createGraphicsPipeline(nullptr, graphicsPipelineCreateInfo).value;
 }
 
 void ForgeApplication::terminateGraphicsPipeline()
 {
-   context.device.destroyPipeline(graphicsPipeline);
+   context->getDevice().destroyPipeline(graphicsPipeline);
    graphicsPipeline = nullptr;
 
-   context.device.destroyPipelineLayout(pipelineLayout);
+   context->getDevice().destroyPipelineLayout(pipelineLayout);
    pipelineLayout = nullptr;
 }
 
@@ -868,7 +519,7 @@ void ForgeApplication::initializeFramebuffers()
          .setHeight(swapchainExtent.height)
          .setLayers(1);
 
-      swapchainFramebuffers.push_back(context.device.createFramebuffer(framebufferCreateInfo));
+      swapchainFramebuffers.push_back(context->getDevice().createFramebuffer(framebufferCreateInfo));
    }
 }
 
@@ -876,34 +527,17 @@ void ForgeApplication::terminateFramebuffers()
 {
    for (vk::Framebuffer swapchainFramebuffer : swapchainFramebuffers)
    {
-      context.device.destroyFramebuffer(swapchainFramebuffer);
+      context->getDevice().destroyFramebuffer(swapchainFramebuffer);
    }
    swapchainFramebuffers.clear();
-}
-
-void ForgeApplication::initializeTransientCommandPool()
-{
-   ASSERT(!context.transientCommandPool);
-
-   vk::CommandPoolCreateInfo commandPoolCreateInfo = vk::CommandPoolCreateInfo()
-      .setQueueFamilyIndex(context.queueFamilyIndices.graphicsFamily)
-      .setFlags(vk::CommandPoolCreateFlagBits::eTransient);
-
-   context.transientCommandPool = context.device.createCommandPool(commandPoolCreateInfo);
-}
-
-void ForgeApplication::terminateTransientCommandPool()
-{
-   context.device.destroyCommandPool(context.transientCommandPool);
-   context.transientCommandPool = nullptr;
 }
 
 void ForgeApplication::initializeUniformBuffers()
 {
    uint32_t swapchainImageCount = swapchain->getImageCount();
 
-   viewUniformBuffer = std::make_unique<UniformBuffer<ViewUniformData>>(context, swapchainImageCount);
-   meshUniformBuffer = std::make_unique<UniformBuffer<MeshUniformData>>(context, swapchainImageCount);
+   viewUniformBuffer = std::make_unique<UniformBuffer<ViewUniformData>>(*context, swapchainImageCount);
+   meshUniformBuffer = std::make_unique<UniformBuffer<MeshUniformData>>(*context, swapchainImageCount);
 }
 
 void ForgeApplication::terminateUniformBuffers()
@@ -933,14 +567,14 @@ void ForgeApplication::initializeDescriptorPool()
    vk::DescriptorPoolCreateInfo createInfo = vk::DescriptorPoolCreateInfo()
       .setPoolSizes(descriptorPoolSizes)
       .setMaxSets(swapchainImageCount * 2);
-   descriptorPool = context.device.createDescriptorPool(createInfo);
+   descriptorPool = context->getDevice().createDescriptorPool(createInfo);
 }
 
 void ForgeApplication::terminateDescriptorPool()
 {
    ASSERT(!simpleShader->areDescriptorSetsAllocated());
 
-   context.device.destroyDescriptorPool(descriptorPool);
+   context->getDevice().destroyDescriptorPool(descriptorPool);
    descriptorPool = nullptr;
 }
 
@@ -948,7 +582,7 @@ void ForgeApplication::initializeDescriptorSets()
 {
    uint32_t swapchainImageCount = swapchain->getImageCount();
    simpleShader->allocateDescriptorSets(descriptorPool, swapchainImageCount);
-   simpleShader->updateDescriptorSets(context, swapchainImageCount, *viewUniformBuffer, *meshUniformBuffer, *textureResourceManager.get(textureHandle), sampler);
+   simpleShader->updateDescriptorSets(*context, swapchainImageCount, *viewUniformBuffer, *meshUniformBuffer, *textureResourceManager.get(textureHandle), sampler);
 }
 
 void ForgeApplication::terminateDescriptorSets()
@@ -958,19 +592,19 @@ void ForgeApplication::terminateDescriptorSets()
 
 void ForgeApplication::initializeMesh()
 {
-   meshHandle = meshResourceManager.load("Resources/Meshes/Viking/viking_room.obj", context);
+   meshHandle = meshResourceManager.load("Resources/Meshes/Viking/viking_room.obj", *context);
    if (!meshHandle)
    {
       throw std::runtime_error(std::string("Failed to load mesh"));
    }
 
-   textureHandle = textureResourceManager.load("Resources/Meshes/Viking/viking_room.png", context);
+   textureHandle = textureResourceManager.load("Resources/Meshes/Viking/viking_room.png", *context);
    if (!textureHandle)
    {
       throw std::runtime_error(std::string("Failed to load image"));
    }
 
-   bool anisotropySupported = context.physicalDeviceFeatures.samplerAnisotropy;
+   bool anisotropySupported = context->getPhysicalDeviceFeatures().samplerAnisotropy;
    vk::SamplerCreateInfo samplerCreateInfo = vk::SamplerCreateInfo()
       .setMagFilter(vk::Filter::eLinear)
       .setMinFilter(vk::Filter::eLinear)
@@ -987,7 +621,7 @@ void ForgeApplication::initializeMesh()
       .setMipLodBias(0.0f)
       .setMinLod(0.0f)
       .setMaxLod(16.0f);
-   sampler = context.device.createSampler(samplerCreateInfo);
+   sampler = context->getDevice().createSampler(samplerCreateInfo);
 }
 
 void ForgeApplication::terminateMesh()
@@ -998,7 +632,7 @@ void ForgeApplication::terminateMesh()
    textureResourceManager.unload(textureHandle);
    textureHandle.reset();
 
-   context.device.destroySampler(sampler);
+   context->getDevice().destroySampler(sampler);
    sampler = nullptr;
 }
 
@@ -1007,9 +641,9 @@ void ForgeApplication::initializeCommandBuffers()
    if (!commandPool)
    {
       vk::CommandPoolCreateInfo commandPoolCreateInfo = vk::CommandPoolCreateInfo()
-         .setQueueFamilyIndex(context.queueFamilyIndices.graphicsFamily);
+         .setQueueFamilyIndex(context->getQueueFamilyIndices().graphicsFamily);
 
-      commandPool = context.device.createCommandPool(commandPoolCreateInfo);
+      commandPool = context->getDevice().createCommandPool(commandPoolCreateInfo);
    }
 
    vk::CommandBufferAllocateInfo commandBufferAllocateInfo = vk::CommandBufferAllocateInfo()
@@ -1018,7 +652,7 @@ void ForgeApplication::initializeCommandBuffers()
       .setCommandBufferCount(static_cast<uint32_t>(swapchainFramebuffers.size()));
 
    ASSERT(commandBuffers.empty());
-   commandBuffers = context.device.allocateCommandBuffers(commandBufferAllocateInfo);
+   commandBuffers = context->getDevice().allocateCommandBuffers(commandBufferAllocateInfo);
 
    const Mesh* mesh = meshResourceManager.get(meshHandle);
    ASSERT(mesh);
@@ -1062,12 +696,12 @@ void ForgeApplication::terminateCommandBuffers(bool keepPoolAlive)
 {
    if (keepPoolAlive)
    {
-      context.device.freeCommandBuffers(commandPool, commandBuffers);
+      context->getDevice().freeCommandBuffers(commandPool, commandBuffers);
    }
    else
    {
       // Command buffers will get cleaned up with the pool
-      context.device.destroyCommandPool(commandPool);
+      context->getDevice().destroyCommandPool(commandPool);
       commandPool = nullptr;
    }
 
@@ -1087,9 +721,9 @@ void ForgeApplication::initializeSyncObjects()
 
    for (std::size_t i = 0; i < kMaxFramesInFlight; ++i)
    {
-      imageAvailableSemaphores[i] = context.device.createSemaphore(semaphoreCreateInfo);
-      renderFinishedSemaphores[i] = context.device.createSemaphore(semaphoreCreateInfo);
-      frameFences[i] = context.device.createFence(fenceCreateInfo);
+      imageAvailableSemaphores[i] = context->getDevice().createSemaphore(semaphoreCreateInfo);
+      renderFinishedSemaphores[i] = context->getDevice().createSemaphore(semaphoreCreateInfo);
+      frameFences[i] = context->getDevice().createFence(fenceCreateInfo);
    }
 }
 
@@ -1097,19 +731,19 @@ void ForgeApplication::terminateSyncObjects()
 {
    for (vk::Fence frameFence : frameFences)
    {
-      context.device.destroyFence(frameFence);
+      context->getDevice().destroyFence(frameFence);
    }
    frameFences.clear();
 
    for (vk::Semaphore renderFinishedSemaphore : renderFinishedSemaphores)
    {
-      context.device.destroySemaphore(renderFinishedSemaphore);
+      context->getDevice().destroySemaphore(renderFinishedSemaphore);
    }
    renderFinishedSemaphores.clear();
 
    for (vk::Semaphore imageAvailableSemaphore : imageAvailableSemaphores)
    {
-      context.device.destroySemaphore(imageAvailableSemaphore);
+      context->getDevice().destroySemaphore(imageAvailableSemaphore);
    }
    imageAvailableSemaphores.clear();
 }

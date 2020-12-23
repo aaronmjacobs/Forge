@@ -47,18 +47,18 @@ struct TextureInitialLayout
 class Texture : public GraphicsResource
 {
 public:
-   static vk::Format findSupportedFormat(const VulkanContext& context, const std::vector<vk::Format>& candidates, vk::ImageTiling tiling, vk::FormatFeatureFlags features);
+   static vk::Format findSupportedFormat(const GraphicsContext& context, const std::vector<vk::Format>& candidates, vk::ImageTiling tiling, vk::FormatFeatureFlags features);
 
    // Create a texture with no initial data
-   Texture(const VulkanContext& context, const ImageProperties& imageProps, const TextureProperties& textureProps, const TextureInitialLayout& initialLayout);
+   Texture(const GraphicsContext& context, const ImageProperties& imageProps, const TextureProperties& textureProps, const TextureInitialLayout& initialLayout);
 
    // Create a texture with initial data provided by a loaded image
-   Texture(const VulkanContext& context, const LoadedImage& loadedImage, const TextureProperties& textureProps, const TextureInitialLayout& initialLayout);
+   Texture(const GraphicsContext& context, const LoadedImage& loadedImage, const TextureProperties& textureProps, const TextureInitialLayout& initialLayout);
 
    ~Texture();
 
-   vk::ImageView createView(const VulkanContext& context, vk::ImageViewType viewType) const;
-   void transitionLayout(const VulkanContext& context, vk::ImageLayout newLayout, const TextureMemoryBarrierFlags& srcMemoryBarrierFlags, const TextureMemoryBarrierFlags& dstMemoryBarrierFlags);
+   vk::ImageView createView(vk::ImageViewType viewType) const;
+   void transitionLayout(const GraphicsContext& context, vk::ImageLayout newLayout, const TextureMemoryBarrierFlags& srcMemoryBarrierFlags, const TextureMemoryBarrierFlags& dstMemoryBarrierFlags);
 
    vk::ImageView getDefaultView() const
    {
@@ -86,10 +86,10 @@ public:
    }
 
 private:
-   void createImage(const VulkanContext& context);
-   void copyBufferToImage(const VulkanContext& context, vk::Buffer buffer);
-   void stageAndCopyImage(const VulkanContext& context, const LoadedImage& loadedImage);
-   void generateMipmaps(const VulkanContext& context, vk::ImageLayout finalLayout, const TextureMemoryBarrierFlags& dstMemoryBarrierFlags);
+   void createImage(const GraphicsContext& context);
+   void copyBufferToImage(const GraphicsContext& context, vk::Buffer buffer);
+   void stageAndCopyImage(const GraphicsContext& context, const LoadedImage& loadedImage);
+   void generateMipmaps(const GraphicsContext& context, vk::ImageLayout finalLayout, const TextureMemoryBarrierFlags& dstMemoryBarrierFlags);
 
    vk::Image image;
    vk::DeviceMemory memory;

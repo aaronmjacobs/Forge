@@ -8,7 +8,7 @@
 class ShaderModule : public GraphicsResource
 {
 public:
-   ShaderModule(const VulkanContext& context, const std::vector<uint8_t>& code);
+   ShaderModule(const GraphicsContext& context, const std::vector<uint8_t>& code);
 
    ~ShaderModule();
 

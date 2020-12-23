@@ -11,14 +11,14 @@ class Texture;
 class SimpleShader : public GraphicsResource
 {
 public:
-   SimpleShader(ShaderModuleResourceManager& shaderModuleResourceManager, const VulkanContext& context);
+   SimpleShader(ShaderModuleResourceManager& shaderModuleResourceManager, const GraphicsContext& context);
 
    ~SimpleShader();
 
    void allocateDescriptorSets(vk::DescriptorPool descriptorPool, uint32_t numSwapchainImages);
    void clearDescriptorSets();
 
-   void updateDescriptorSets(const VulkanContext& context, uint32_t numSwapchainImages, const UniformBuffer<ViewUniformData>& viewUniformBuffer, const UniformBuffer<MeshUniformData>& meshUniformBuffer, const Texture& texture, vk::Sampler sampler);
+   void updateDescriptorSets(const GraphicsContext& context, uint32_t numSwapchainImages, const UniformBuffer<ViewUniformData>& viewUniformBuffer, const UniformBuffer<MeshUniformData>& meshUniformBuffer, const Texture& texture, vk::Sampler sampler);
    void bindDescriptorSets(vk::CommandBuffer commandBuffer, vk::PipelineLayout pipelineLayout, uint32_t swapchainIndex);
 
    bool areDescriptorSetsAllocated() const

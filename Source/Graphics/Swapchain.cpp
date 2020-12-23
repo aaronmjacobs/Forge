@@ -59,7 +59,7 @@ namespace
       return extent;
    }
 
-   vk::ImageView createImageView(const VulkanContext& context, vk::Image image, vk::Format format)
+   vk::ImageView createImageView(const GraphicsContext& context, vk::Image image, vk::Format format)
    {
       vk::ImageSubresourceRange subresourceRange = vk::ImageSubresourceRange()
          .setAspectMask(vk::ImageAspectFlagBits::eColor)
@@ -74,7 +74,7 @@ namespace
          .setFormat(format)
          .setSubresourceRange(subresourceRange);
 
-      return context.device.createImageView(createInfo);
+      return context.getDevice().createImageView(createInfo);
    }
 }
 
@@ -90,10 +90,10 @@ SwapchainSupportDetails Swapchain::getSupportDetails(vk::PhysicalDevice physical
    return supportDetails;
 }
 
-Swapchain::Swapchain(const VulkanContext& context, vk::Extent2D desiredExtent)
+Swapchain::Swapchain(const GraphicsContext& context, vk::Extent2D desiredExtent)
    : GraphicsResource(context)
 {
-   SwapchainSupportDetails supportDetails = getSupportDetails(context.physicalDevice, context.surface);
+   SwapchainSupportDetails supportDetails = getSupportDetails(context.getPhysicalDevice(), context.getSurface());
    ASSERT(supportDetails.isValid());
 
    vk::SurfaceFormatKHR surfaceFormat = chooseSurfaceFormat(supportDetails.formats);
@@ -106,7 +106,7 @@ Swapchain::Swapchain(const VulkanContext& context, vk::Extent2D desiredExtent)
    uint32_t minImageCount = supportDetails.capabilities.maxImageCount > 0 ? std::min(supportDetails.capabilities.maxImageCount, desiredMinImageCount) : desiredMinImageCount;
 
    vk::SwapchainCreateInfoKHR createInfo = vk::SwapchainCreateInfoKHR()
-      .setSurface(context.surface)
+      .setSurface(context.getSurface())
       .setMinImageCount(minImageCount)
       .setImageFormat(surfaceFormat.format)
       .setImageColorSpace(surfaceFormat.colorSpace)
@@ -119,15 +119,15 @@ Swapchain::Swapchain(const VulkanContext& context, vk::Extent2D desiredExtent)
       .setClipped(true)
       .setImageSharingMode(vk::SharingMode::eExclusive);
 
-   std::array<uint32_t, 2> indices = { context.queueFamilyIndices.graphicsFamily, context.queueFamilyIndices.presentFamily };
-   if (context.queueFamilyIndices.graphicsFamily != context.queueFamilyIndices.presentFamily)
+   std::array<uint32_t, 2> indices = { context.getQueueFamilyIndices().graphicsFamily, context.getQueueFamilyIndices().presentFamily };
+   if (context.getQueueFamilyIndices().graphicsFamily != context.getQueueFamilyIndices().presentFamily)
    {
       createInfo.setImageSharingMode(vk::SharingMode::eConcurrent);
       createInfo.setQueueFamilyIndices(indices);
    }
 
-   swapchainKHR = context.device.createSwapchainKHR(createInfo);
-   images = context.device.getSwapchainImagesKHR(swapchainKHR);
+   swapchainKHR = context.getDevice().createSwapchainKHR(createInfo);
+   images = context.getDevice().getSwapchainImagesKHR(swapchainKHR);
 
    imageViews.reserve(images.size());
    for (vk::Image image : images)

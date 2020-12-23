@@ -38,7 +38,7 @@ struct MeshSection
 class Mesh : public GraphicsResource
 {
 public:
-   Mesh(const VulkanContext& context, const std::vector<MeshSectionSourceData>& sourceData);
+   Mesh(const GraphicsContext& context, const std::vector<MeshSectionSourceData>& sourceData);
 
    ~Mesh();
 

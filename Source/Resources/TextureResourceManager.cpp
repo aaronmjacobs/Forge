@@ -37,7 +37,7 @@ namespace
    }
 }
 
-TextureHandle TextureResourceManager::load(const std::filesystem::path& path, const VulkanContext& context, const TextureProperties& properties, const TextureInitialLayout& initialLayout)
+TextureHandle TextureResourceManager::load(const std::filesystem::path& path, const GraphicsContext& context, const TextureProperties& properties, const TextureInitialLayout& initialLayout)
 {
    if (std::optional<std::filesystem::path> canonicalPath = ResourceHelpers::makeCanonical(path))
    {

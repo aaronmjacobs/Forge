@@ -2,7 +2,7 @@
 
 #include "Core/Assert.h"
 
-ShaderModule::ShaderModule(const VulkanContext& context, const std::vector<uint8_t>& code)
+ShaderModule::ShaderModule(const GraphicsContext& context, const std::vector<uint8_t>& code)
    : GraphicsResource(context)
 {
    ASSERT(code.size() > 0);

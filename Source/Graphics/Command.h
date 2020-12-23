@@ -1,9 +1,9 @@
 #pragma once
 
-#include "Graphics/Context.h"
+#include "Graphics/GraphicsContext.h"
 
 namespace Command
 {
-   vk::CommandBuffer beginSingle(const VulkanContext& context);
-   void endSingle(const VulkanContext& context, vk::CommandBuffer commandBuffer);
+   vk::CommandBuffer beginSingle(const GraphicsContext& context);
+   void endSingle(const GraphicsContext& context, vk::CommandBuffer commandBuffer);
 }

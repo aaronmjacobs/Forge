@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Graphics/Context.h"
+#include "Graphics/GraphicsContext.h"
 
 namespace Memory
 {

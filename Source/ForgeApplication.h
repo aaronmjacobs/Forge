@@ -2,7 +2,7 @@
 
 #include "Core/Assert.h"
 
-#include "Graphics/Context.h"
+#include "Graphics/GraphicsContext.h"
 #include "Graphics/Mesh.h"
 #include "Graphics/Texture.h"
 #include "Graphics/UniformBuffer.h"
@@ -60,9 +60,6 @@ private:
    void initializeFramebuffers();
    void terminateFramebuffers();
 
-   void initializeTransientCommandPool();
-   void terminateTransientCommandPool();
-
    void initializeUniformBuffers();
    void terminateUniformBuffers();
 
@@ -89,7 +86,7 @@ private:
 
    GLFWwindow* window = nullptr;
 
-   VulkanContext context;
+   std::unique_ptr<GraphicsContext> context;
 
    std::unique_ptr<Swapchain> swapchain;
 
@@ -124,8 +121,4 @@ private:
    std::size_t frameIndex = 0;
 
    bool framebufferResized = false;
-
-#if FORGE_DEBUG
-   VkDebugUtilsMessengerEXT debugMessenger = nullptr;
-#endif // FORGE_DEBUG
 };

@@ -42,7 +42,7 @@ std::array<vk::VertexInputAttributeDescription, 3> Vertex::getAttributeDescripti
    };
 }
 
-Mesh::Mesh(const VulkanContext& context, const std::vector<MeshSectionSourceData>& sourceData)
+Mesh::Mesh(const GraphicsContext& context, const std::vector<MeshSectionSourceData>& sourceData)
    : GraphicsResource(context)
 {
    vk::DeviceSize bufferSize = 0;
@@ -58,15 +58,15 @@ Mesh::Mesh(const VulkanContext& context, const std::vector<MeshSectionSourceData
       .setSize(bufferSize)
       .setUsage(vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eIndexBuffer)
       .setSharingMode(vk::SharingMode::eExclusive);
-   buffer = context.device.createBuffer(bufferCreateInfo);
+   buffer = device.createBuffer(bufferCreateInfo);
 
-   vk::MemoryRequirements memoryRequirements = context.device.getBufferMemoryRequirements(buffer);
+   vk::MemoryRequirements memoryRequirements = device.getBufferMemoryRequirements(buffer);
    vk::MemoryAllocateInfo allocateInfo = vk::MemoryAllocateInfo()
       .setAllocationSize(memoryRequirements.size)
-      .setMemoryTypeIndex(Memory::findType(context.physicalDevice, memoryRequirements.memoryTypeBits, vk::MemoryPropertyFlagBits::eDeviceLocal));
+      .setMemoryTypeIndex(Memory::findType(context.getPhysicalDevice(), memoryRequirements.memoryTypeBits, vk::MemoryPropertyFlagBits::eDeviceLocal));
 
-   deviceMemory = context.device.allocateMemory(allocateInfo);
-   context.device.bindBufferMemory(buffer, deviceMemory, 0);
+   deviceMemory = device.allocateMemory(allocateInfo);
+   device.bindBufferMemory(buffer, deviceMemory, 0);
 
    // Create staging buffer, and use it to copy over data
 
@@ -74,17 +74,17 @@ Mesh::Mesh(const VulkanContext& context, const std::vector<MeshSectionSourceData
       .setSize(bufferCreateInfo.size)
       .setUsage(vk::BufferUsageFlagBits::eTransferSrc)
       .setSharingMode(vk::SharingMode::eExclusive);
-   vk::Buffer stagingBuffer = context.device.createBuffer(stagingBufferCreateInfo);
+   vk::Buffer stagingBuffer = device.createBuffer(stagingBufferCreateInfo);
 
-   vk::MemoryRequirements stagingMemoryRequirements = context.device.getBufferMemoryRequirements(stagingBuffer);
+   vk::MemoryRequirements stagingMemoryRequirements = device.getBufferMemoryRequirements(stagingBuffer);
    vk::MemoryAllocateInfo stagingAllocateInfo = vk::MemoryAllocateInfo()
       .setAllocationSize(stagingMemoryRequirements.size)
-      .setMemoryTypeIndex(Memory::findType(context.physicalDevice, stagingMemoryRequirements.memoryTypeBits, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent));
+      .setMemoryTypeIndex(Memory::findType(context.getPhysicalDevice(), stagingMemoryRequirements.memoryTypeBits, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent));
 
-   vk::DeviceMemory stagingDeviceMemory = context.device.allocateMemory(stagingAllocateInfo);
-   context.device.bindBufferMemory(stagingBuffer, stagingDeviceMemory, 0);
+   vk::DeviceMemory stagingDeviceMemory = device.allocateMemory(stagingAllocateInfo);
+   device.bindBufferMemory(stagingBuffer, stagingDeviceMemory, 0);
 
-   void* mappedData = context.device.mapMemory(stagingDeviceMemory, 0, stagingAllocateInfo.allocationSize, vk::MemoryMapFlags());
+   void* mappedData = device.mapMemory(stagingDeviceMemory, 0, stagingAllocateInfo.allocationSize, vk::MemoryMapFlags());
    std::size_t mappedDataOffset = 0;
    sections.reserve(sourceData.size());
    for (const MeshSectionSourceData& sectionData : sourceData)
@@ -106,7 +106,7 @@ Mesh::Mesh(const VulkanContext& context, const std::vector<MeshSectionSourceData
 
       sections.push_back(meshSection);
    }
-   context.device.unmapMemory(stagingDeviceMemory);
+   device.unmapMemory(stagingDeviceMemory);
    mappedData = nullptr;
 
    Buffer::CopyInfo copyInfo;
@@ -116,10 +116,10 @@ Mesh::Mesh(const VulkanContext& context, const std::vector<MeshSectionSourceData
 
    Buffer::copy(context, { copyInfo });
 
-   context.device.destroyBuffer(stagingBuffer);
+   device.destroyBuffer(stagingBuffer);
    stagingBuffer = nullptr;
 
-   context.device.freeMemory(stagingDeviceMemory);
+   device.freeMemory(stagingDeviceMemory);
    stagingDeviceMemory = nullptr;
 }
 

@@ -34,7 +34,7 @@ namespace
    }
 }
 
-SimpleShader::SimpleShader(ShaderModuleResourceManager& shaderModuleResourceManager, const VulkanContext& context)
+SimpleShader::SimpleShader(ShaderModuleResourceManager& shaderModuleResourceManager, const GraphicsContext& context)
    : GraphicsResource(context)
 {
    {
@@ -141,7 +141,7 @@ void SimpleShader::clearDescriptorSets()
    drawSets.clear();
 }
 
-void SimpleShader::updateDescriptorSets(const VulkanContext& context, uint32_t numSwapchainImages, const UniformBuffer<ViewUniformData>& viewUniformBuffer, const UniformBuffer<MeshUniformData>& meshUniformBuffer, const Texture& texture, vk::Sampler sampler)
+void SimpleShader::updateDescriptorSets(const GraphicsContext& context, uint32_t numSwapchainImages, const UniformBuffer<ViewUniformData>& viewUniformBuffer, const UniformBuffer<MeshUniformData>& meshUniformBuffer, const Texture& texture, vk::Sampler sampler)
 {
    for (uint32_t i = 0; i < numSwapchainImages; ++i)
    {
@@ -177,7 +177,7 @@ void SimpleShader::updateDescriptorSets(const VulkanContext& context, uint32_t n
          .setDescriptorCount(1)
          .setPImageInfo(&imageInfo);
 
-      context.device.updateDescriptorSets({ viewDescriptorWrite, meshDescriptorWrite, imageDescriptorWrite }, {});
+      device.updateDescriptorSets({ viewDescriptorWrite, meshDescriptorWrite, imageDescriptorWrite }, {});
    }
 }
 

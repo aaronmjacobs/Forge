@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Graphics/Context.h"
+#include "Graphics/GraphicsContext.h"
 
 #include <vector>
 
@@ -17,6 +17,6 @@ namespace Buffer
       vk::DeviceSize size = 0;
    };
 
-   void create(const VulkanContext& context, vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Buffer& buffer, vk::DeviceMemory& bufferMemory);
-   void copy(const VulkanContext& context, const std::vector<CopyInfo>& copyInfo);
+   void create(const GraphicsContext& context, vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Buffer& buffer, vk::DeviceMemory& bufferMemory);
+   void copy(const GraphicsContext& context, const std::vector<CopyInfo>& copyInfo);
 }

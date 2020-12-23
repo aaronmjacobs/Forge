@@ -2,13 +2,13 @@
 
 #include "Core/Assert.h"
 
-#include "Graphics/Context.h"
+#include "Graphics/GraphicsContext.h"
 
 class GraphicsResource
 {
 public:
-   GraphicsResource(const VulkanContext& context)
-      : device(context.device)
+   GraphicsResource(const GraphicsContext& context)
+      : device(context.getDevice())
    {
       ASSERT(device);
    }

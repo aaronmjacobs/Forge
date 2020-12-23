@@ -21,7 +21,7 @@ class Swapchain : public GraphicsResource
 public:
    static SwapchainSupportDetails getSupportDetails(vk::PhysicalDevice physicalDevice, vk::SurfaceKHR surface);
 
-   Swapchain(const VulkanContext& context, vk::Extent2D desiredExtent);
+   Swapchain(const GraphicsContext& context, vk::Extent2D desiredExtent);
 
    ~Swapchain();
 
