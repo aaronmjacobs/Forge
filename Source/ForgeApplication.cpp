@@ -4,11 +4,12 @@
 #include "Graphics/Memory.h"
 #include "Graphics/Swapchain.h"
 
+#include "Platform/Window.h"
+
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-#include <algorithm>
 #include <array>
 #include <stdexcept>
 #include <string>
@@ -16,17 +17,7 @@
 
 namespace
 {
-   const int kInitialWindowWidth = 1280;
-   const int kInitialWindowHeight = 720;
    const std::size_t kMaxFramesInFlight = 2;
-
-   void framebufferSizeCallback(GLFWwindow* window, int width, int height)
-   {
-      if (ForgeApplication* forgeApplication = reinterpret_cast<ForgeApplication*>(glfwGetWindowUserPointer(window)))
-      {
-         forgeApplication->onFramebufferResized();
-      }
-   }
 
    vk::SampleCountFlagBits getMaxSampleCount(const GraphicsContext& context)
    {
@@ -80,9 +71,9 @@ ForgeApplication::~ForgeApplication()
 
 void ForgeApplication::run()
 {
-   while (!glfwWindowShouldClose(window))
+   while (!window->shouldClose())
    {
-      glfwPollEvents();
+      window->pollEvents();
       render();
    }
 
@@ -91,7 +82,7 @@ void ForgeApplication::run()
 
 void ForgeApplication::render()
 {
-   if (framebufferResized)
+   if (window->pollFramebufferResized())
    {
       if (!recreateSwapchain())
       {
@@ -205,11 +196,11 @@ bool ForgeApplication::recreateSwapchain()
    terminateRenderPass();
    terminateSwapchain();
 
-   vk::Extent2D windowExtent = getWindowExtent();
-   while ((windowExtent.width == 0 || windowExtent.height == 0) && !glfwWindowShouldClose(window))
+   vk::Extent2D windowExtent = window->getExtent();
+   while ((windowExtent.width == 0 || windowExtent.height == 0) && !window->shouldClose())
    {
-      glfwWaitEvents();
-      windowExtent = getWindowExtent();
+      window->waitEvents();
+      windowExtent = window->getExtent();
    }
 
    if (windowExtent.width == 0 || windowExtent.height == 0)
@@ -226,36 +217,22 @@ bool ForgeApplication::recreateSwapchain()
    initializeDescriptorSets();
    initializeCommandBuffers();
 
-   framebufferResized = false;
    return true;
 }
 
 void ForgeApplication::initializeGlfw()
 {
-   ASSERT(!window);
-
    if (!glfwInit())
    {
       throw std::runtime_error("Failed to initialize GLFW");
    }
 
-   if (!glfwVulkanSupported())
-   {
-      throw std::runtime_error("Vulkan is not supported on this machine");
-   }
-
-   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-   window = glfwCreateWindow(kInitialWindowWidth, kInitialWindowHeight, FORGE_PROJECT_NAME, nullptr, nullptr);
-
-   glfwSetWindowUserPointer(window, this);
-   glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
+   window = std::make_unique<Window>();
 }
 
 void ForgeApplication::terminateGlfw()
 {
    ASSERT(window);
-
-   glfwDestroyWindow(window);
    window = nullptr;
 
    glfwTerminate();
@@ -263,7 +240,7 @@ void ForgeApplication::terminateGlfw()
 
 void ForgeApplication::initializeVulkan()
 {
-   context = std::make_unique<GraphicsContext>(window);
+   context = std::make_unique<GraphicsContext>(*window);
 }
 
 void ForgeApplication::terminateVulkan()
@@ -276,7 +253,7 @@ void ForgeApplication::terminateVulkan()
 
 void ForgeApplication::initializeSwapchain()
 {
-   swapchain = std::make_unique<Swapchain>(*context, getWindowExtent());
+   swapchain = std::make_unique<Swapchain>(*context, window->getExtent());
 
    vk::Extent2D swapchainExtent = swapchain->getExtent();
    vk::SampleCountFlagBits sampleCount = getMaxSampleCount(*context);
@@ -746,13 +723,4 @@ void ForgeApplication::terminateSyncObjects()
       context->getDevice().destroySemaphore(imageAvailableSemaphore);
    }
    imageAvailableSemaphores.clear();
-}
-
-vk::Extent2D ForgeApplication::getWindowExtent() const
-{
-   int width = 0;
-   int height = 0;
-   glfwGetFramebufferSize(window, &width, &height);
-
-   return vk::Extent2D(static_cast<uint32_t>(std::max(width, 0)), static_cast<uint32_t>(std::max(height, 0)));
 }

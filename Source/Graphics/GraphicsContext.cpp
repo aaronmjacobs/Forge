@@ -3,6 +3,8 @@
 #include "Graphics/GraphicsContext.h"
 #include "Graphics/Swapchain.h"
 
+#include "Platform/Window.h"
+
 #include <GLFW/glfw3.h>
 
 #include <algorithm>
@@ -303,7 +305,7 @@ std::optional<QueueFamilyIndices> QueueFamilyIndices::get(vk::PhysicalDevice phy
    return {};
 }
 
-GraphicsContext::GraphicsContext(GLFWwindow* window)
+GraphicsContext::GraphicsContext(Window& window)
 {
    vk::ApplicationInfo applicationInfo = vk::ApplicationInfo()
       .setPApplicationName(FORGE_PROJECT_NAME)
@@ -331,12 +333,7 @@ GraphicsContext::GraphicsContext(GLFWwindow* window)
    debugMessenger = createDebugMessenger(instance);
 #endif // FORGE_DEBUG
 
-   VkSurfaceKHR vkSurface = nullptr;
-   if (glfwCreateWindowSurface(instance, window, nullptr, &vkSurface) != VK_SUCCESS)
-   {
-      throw std::runtime_error("Failed to create window surface");
-   }
-   surface = vkSurface;
+   surface = window.createSurface(instance);
 
    physicalDevice = selectBestPhysicalDevice(instance.enumeratePhysicalDevices(), surface);
    if (!physicalDevice)

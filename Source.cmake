@@ -34,6 +34,9 @@ target_sources(${PROJECT_NAME} PRIVATE
    "${SRC_DIR}/Graphics/Shaders/SimpleShader.cpp"
    "${SRC_DIR}/Graphics/Shaders/SimpleShader.h"
 
+   "${SRC_DIR}/Platform/Window.cpp"
+   "${SRC_DIR}/Platform/Window.h"
+
    "${SRC_DIR}/Resources/LoadedImage.cpp"
    "${SRC_DIR}/Resources/LoadedImage.h"
    "${SRC_DIR}/Resources/MeshResourceManager.cpp"

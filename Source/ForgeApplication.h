@@ -17,7 +17,7 @@
 #include <vector>
 
 class Swapchain;
-struct GLFWwindow;
+class Window;
 
 class ForgeApplication
 {
@@ -26,11 +26,6 @@ public:
    ~ForgeApplication();
 
    void run();
-
-   void onFramebufferResized()
-   {
-      framebufferResized = true;
-   }
 
 private:
    void render();
@@ -78,16 +73,12 @@ private:
    void initializeSyncObjects();
    void terminateSyncObjects();
 
-   vk::Extent2D getWindowExtent() const;
-
    MeshResourceManager meshResourceManager;
    ShaderModuleResourceManager shaderModuleResourceManager;
    TextureResourceManager textureResourceManager;
 
-   GLFWwindow* window = nullptr;
-
+   std::unique_ptr<Window> window;
    std::unique_ptr<GraphicsContext> context;
-
    std::unique_ptr<Swapchain> swapchain;
 
    std::unique_ptr<Texture> colorTexture;
@@ -119,6 +110,4 @@ private:
    std::vector<vk::Fence> frameFences;
    std::vector<vk::Fence> imageFences;
    std::size_t frameIndex = 0;
-
-   bool framebufferResized = false;
 };

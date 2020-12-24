@@ -5,7 +5,7 @@
 #include <optional>
 #include <set>
 
-struct GLFWwindow;
+class Window;
 
 struct QueueFamilyIndices
 {
@@ -23,7 +23,7 @@ struct QueueFamilyIndices
 class GraphicsContext
 {
 public:
-   GraphicsContext(GLFWwindow* window);
+   GraphicsContext(Window& window);
 
    GraphicsContext(const GraphicsContext& other) = delete;
    GraphicsContext(GraphicsContext&& other) = delete;
