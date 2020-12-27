@@ -3,6 +3,7 @@
 #include "Graphics/Command.h"
 #include "Graphics/Memory.h"
 #include "Graphics/Swapchain.h"
+#include "Graphics/Passes/Simple/SimpleRenderPass.h"
 
 #include "Platform/Window.h"
 
@@ -40,10 +41,7 @@ ForgeApplication::ForgeApplication()
    initializeGlfw();
    initializeVulkan();
    initializeSwapchain();
-   initializeRenderPass();
-   initializeShaders();
-   initializeGraphicsPipeline();
-   initializeFramebuffers();
+   initializeRenderPasses();
    initializeUniformBuffers();
    initializeMesh();
    initializeDescriptorPool();
@@ -60,10 +58,7 @@ ForgeApplication::~ForgeApplication()
    terminateDescriptorPool();
    terminateMesh();
    terminateUniformBuffers();
-   terminateFramebuffers();
-   terminateGraphicsPipeline();
-   terminateShaders();
-   terminateRenderPass();
+   terminateRenderPasses();
    terminateSwapchain();
    terminateVulkan();
    terminateGlfw();
@@ -191,9 +186,6 @@ bool ForgeApplication::recreateSwapchain()
    terminateDescriptorSets();
    terminateDescriptorPool();
    terminateUniformBuffers();
-   terminateFramebuffers();
-   terminateGraphicsPipeline();
-   terminateRenderPass();
    terminateSwapchain();
 
    vk::Extent2D windowExtent = window->getExtent();
@@ -209,9 +201,7 @@ bool ForgeApplication::recreateSwapchain()
    }
 
    initializeSwapchain();
-   initializeRenderPass();
-   initializeGraphicsPipeline();
-   initializeFramebuffers();
+   simpleRenderPass->onSwapchainRecreated(*swapchain, *colorTexture, *depthTexture);
    initializeUniformBuffers();
    initializeDescriptorPool();
    initializeDescriptorSets();
@@ -302,211 +292,15 @@ void ForgeApplication::terminateSwapchain()
    swapchain = nullptr;
 }
 
-void ForgeApplication::initializeRenderPass()
+void ForgeApplication::initializeRenderPasses()
 {
-   vk::AttachmentDescription colorAttachment = vk::AttachmentDescription()
-      .setFormat(colorTexture->getImageProperties().format)
-      .setSamples(colorTexture->getTextureProperties().sampleCount)
-      .setLoadOp(vk::AttachmentLoadOp::eClear)
-      .setStoreOp(vk::AttachmentStoreOp::eStore)
-      .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
-      .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
-      .setInitialLayout(vk::ImageLayout::eUndefined)
-      .setFinalLayout(vk::ImageLayout::eColorAttachmentOptimal);
-
-   vk::AttachmentReference colorAttachmentReference = vk::AttachmentReference()
-      .setAttachment(0)
-      .setLayout(vk::ImageLayout::eColorAttachmentOptimal);
-
-   std::array<vk::AttachmentReference, 1> colorAttachments = { colorAttachmentReference };
-
-   vk::AttachmentDescription depthAttachment = vk::AttachmentDescription()
-      .setFormat(depthTexture->getImageProperties().format)
-      .setSamples(depthTexture->getTextureProperties().sampleCount)
-      .setLoadOp(vk::AttachmentLoadOp::eClear)
-      .setStoreOp(vk::AttachmentStoreOp::eDontCare)
-      .setStencilLoadOp(vk::AttachmentLoadOp::eClear)
-      .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
-      .setInitialLayout(vk::ImageLayout::eUndefined)
-      .setFinalLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
-
-   vk::AttachmentReference depthAttachmentReference = vk::AttachmentReference()
-      .setAttachment(1)
-      .setLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
-
-   vk::AttachmentDescription colorAttachmentResolve = vk::AttachmentDescription()
-      .setFormat(swapchain->getFormat())
-      .setSamples(vk::SampleCountFlagBits::e1)
-      .setLoadOp(vk::AttachmentLoadOp::eDontCare)
-      .setStoreOp(vk::AttachmentStoreOp::eStore)
-      .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
-      .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
-      .setInitialLayout(vk::ImageLayout::eUndefined)
-      .setFinalLayout(vk::ImageLayout::ePresentSrcKHR);
-
-   vk::AttachmentReference colorAttachmentResolveReference = vk::AttachmentReference()
-      .setAttachment(2)
-      .setLayout(vk::ImageLayout::eColorAttachmentOptimal);
-
-   std::array<vk::AttachmentReference, 1> resolveAttachments = { colorAttachmentResolveReference };
-
-   vk::SubpassDescription subpassDescription = vk::SubpassDescription()
-      .setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
-      .setColorAttachments(colorAttachments)
-      .setPDepthStencilAttachment(&depthAttachmentReference)
-      .setResolveAttachments(resolveAttachments);
-
-   vk::SubpassDependency subpassDependency = vk::SubpassDependency()
-      .setSrcSubpass(VK_SUBPASS_EXTERNAL)
-      .setDstSubpass(0)
-      .setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
-      .setSrcAccessMask({})
-      .setDstStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
-      .setDstAccessMask(vk::AccessFlagBits::eColorAttachmentRead | vk::AccessFlagBits::eColorAttachmentWrite);
-
-   std::array<vk::AttachmentDescription, 3> attachments = { colorAttachment, depthAttachment, colorAttachmentResolve };
-   vk::RenderPassCreateInfo renderPassCreateInfo = vk::RenderPassCreateInfo()
-      .setAttachments(attachments)
-      .setSubpasses(subpassDescription)
-      .setDependencies(subpassDependency);
-
-   renderPass = context->getDevice().createRenderPass(renderPassCreateInfo);
+   simpleRenderPass = std::make_unique<SimpleRenderPass>(*context, shaderModuleResourceManager, *swapchain, *colorTexture, *depthTexture);
 }
 
-void ForgeApplication::terminateRenderPass()
+void ForgeApplication::terminateRenderPasses()
 {
-   context->getDevice().destroyRenderPass(renderPass);
-   renderPass = nullptr;
-}
-
-void ForgeApplication::initializeShaders()
-{
-   simpleShader = std::make_unique<SimpleShader>(shaderModuleResourceManager, *context);
-}
-
-void ForgeApplication::terminateShaders()
-{
-   simpleShader.reset();
+   simpleRenderPass = nullptr;
    shaderModuleResourceManager.clear();
-}
-
-void ForgeApplication::initializeGraphicsPipeline()
-{
-   std::vector<vk::PipelineShaderStageCreateInfo> shaderStages = simpleShader->getStages(true);
-
-   std::array<vk::VertexInputBindingDescription, 1> vertexBindingDescriptions = Vertex::getBindingDescriptions();
-   std::array<vk::VertexInputAttributeDescription, 3> vertexAttributeDescriptions = Vertex::getAttributeDescriptions();
-   vk::PipelineVertexInputStateCreateInfo vertexInputCreateInfo = vk::PipelineVertexInputStateCreateInfo()
-      .setVertexBindingDescriptions(vertexBindingDescriptions)
-      .setVertexAttributeDescriptions(vertexAttributeDescriptions);
-
-   vk::Extent2D swapchainExtent = swapchain->getExtent();
-   vk::PipelineInputAssemblyStateCreateInfo inputAssemblyCreateInfo = vk::PipelineInputAssemblyStateCreateInfo()
-      .setTopology(vk::PrimitiveTopology::eTriangleList);
-
-   vk::Viewport viewport = vk::Viewport()
-      .setX(0.0f)
-      .setY(0.0f)
-      .setWidth(static_cast<float>(swapchainExtent.width))
-      .setHeight(static_cast<float>(swapchainExtent.height))
-      .setMinDepth(0.0f)
-      .setMaxDepth(1.0f);
-
-   vk::Rect2D scissor = vk::Rect2D()
-      .setExtent(swapchainExtent);
-
-   vk::PipelineViewportStateCreateInfo viewportStateCreateInfo = vk::PipelineViewportStateCreateInfo()
-      .setViewports(viewport)
-      .setScissors(scissor);
-
-   vk::PipelineRasterizationStateCreateInfo rasterizationStateCreateInfo = vk::PipelineRasterizationStateCreateInfo()
-      .setPolygonMode(vk::PolygonMode::eFill)
-      .setLineWidth(1.0f)
-      .setCullMode(vk::CullModeFlagBits::eBack)
-      .setFrontFace(vk::FrontFace::eCounterClockwise);
-
-   vk::PipelineMultisampleStateCreateInfo multisampleStateCreateInfo = vk::PipelineMultisampleStateCreateInfo()
-      .setRasterizationSamples(colorTexture->getTextureProperties().sampleCount)
-      .setSampleShadingEnable(true)
-      .setMinSampleShading(0.2f);
-
-   vk::PipelineColorBlendAttachmentState colorBlendAttachmentState = vk::PipelineColorBlendAttachmentState()
-      .setColorWriteMask(vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA)
-      .setBlendEnable(false);
-
-   vk::PipelineDepthStencilStateCreateInfo depthStencilCreateInfo = vk::PipelineDepthStencilStateCreateInfo()
-      .setDepthTestEnable(true)
-      .setDepthWriteEnable(true)
-      .setDepthCompareOp(vk::CompareOp::eLess)
-      .setDepthBoundsTestEnable(false)
-      .setStencilTestEnable(false);
-
-   vk::PipelineColorBlendStateCreateInfo colorBlendStateCreateInfo = vk::PipelineColorBlendStateCreateInfo()
-      .setLogicOpEnable(false)
-      .setAttachments(colorBlendAttachmentState);
-
-   std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = simpleShader->getSetLayouts();
-   vk::PipelineLayoutCreateInfo pipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo()
-      .setSetLayouts(descriptorSetLayouts);
-   pipelineLayout = context->getDevice().createPipelineLayout(pipelineLayoutCreateInfo);
-
-   vk::GraphicsPipelineCreateInfo graphicsPipelineCreateInfo = vk::GraphicsPipelineCreateInfo()
-      .setStages(shaderStages)
-      .setPVertexInputState(&vertexInputCreateInfo)
-      .setPInputAssemblyState(&inputAssemblyCreateInfo)
-      .setPViewportState(&viewportStateCreateInfo)
-      .setPRasterizationState(&rasterizationStateCreateInfo)
-      .setPMultisampleState(&multisampleStateCreateInfo)
-      .setPDepthStencilState(&depthStencilCreateInfo)
-      .setPColorBlendState(&colorBlendStateCreateInfo)
-      .setPDynamicState(nullptr)
-      .setLayout(pipelineLayout)
-      .setRenderPass(renderPass)
-      .setSubpass(0)
-      .setBasePipelineHandle(nullptr)
-      .setBasePipelineIndex(-1);
-
-   graphicsPipeline = context->getDevice().createGraphicsPipeline(nullptr, graphicsPipelineCreateInfo).value;
-}
-
-void ForgeApplication::terminateGraphicsPipeline()
-{
-   context->getDevice().destroyPipeline(graphicsPipeline);
-   graphicsPipeline = nullptr;
-
-   context->getDevice().destroyPipelineLayout(pipelineLayout);
-   pipelineLayout = nullptr;
-}
-
-void ForgeApplication::initializeFramebuffers()
-{
-   vk::Extent2D swapchainExtent = swapchain->getExtent();
-
-   ASSERT(swapchainFramebuffers.empty());
-   swapchainFramebuffers.reserve(swapchain->getImageCount());
-
-   for (vk::ImageView swapchainImageView : swapchain->getImageViews())
-   {
-      std::array<vk::ImageView, 3> attachments = { colorTexture->getDefaultView(), depthTexture->getDefaultView(), swapchainImageView };
-
-      vk::FramebufferCreateInfo framebufferCreateInfo = vk::FramebufferCreateInfo()
-         .setRenderPass(renderPass)
-         .setAttachments(attachments)
-         .setWidth(swapchainExtent.width)
-         .setHeight(swapchainExtent.height)
-         .setLayers(1);
-
-      swapchainFramebuffers.push_back(context->getDevice().createFramebuffer(framebufferCreateInfo));
-   }
-}
-
-void ForgeApplication::terminateFramebuffers()
-{
-   for (vk::Framebuffer swapchainFramebuffer : swapchainFramebuffers)
-   {
-      context->getDevice().destroyFramebuffer(swapchainFramebuffer);
-   }
-   swapchainFramebuffers.clear();
 }
 
 void ForgeApplication::initializeUniformBuffers()
@@ -549,7 +343,7 @@ void ForgeApplication::initializeDescriptorPool()
 
 void ForgeApplication::terminateDescriptorPool()
 {
-   ASSERT(!simpleShader->areDescriptorSetsAllocated());
+   ASSERT(!simpleRenderPass->areDescriptorSetsAllocated());
 
    context->getDevice().destroyDescriptorPool(descriptorPool);
    descriptorPool = nullptr;
@@ -557,14 +351,13 @@ void ForgeApplication::terminateDescriptorPool()
 
 void ForgeApplication::initializeDescriptorSets()
 {
-   uint32_t swapchainImageCount = swapchain->getImageCount();
-   simpleShader->allocateDescriptorSets(descriptorPool, swapchainImageCount);
-   simpleShader->updateDescriptorSets(*context, swapchainImageCount, *viewUniformBuffer, *meshUniformBuffer, *textureResourceManager.get(textureHandle), sampler);
+   simpleRenderPass->allocateDescriptorSets(*swapchain, descriptorPool);
+   simpleRenderPass->updateDescriptorSets(*context, *swapchain, *viewUniformBuffer, *meshUniformBuffer, *textureResourceManager.get(textureHandle));
 }
 
 void ForgeApplication::terminateDescriptorSets()
 {
-   simpleShader->clearDescriptorSets();
+   simpleRenderPass->clearDescriptorSets();
 }
 
 void ForgeApplication::initializeMesh()
@@ -580,25 +373,6 @@ void ForgeApplication::initializeMesh()
    {
       throw std::runtime_error(std::string("Failed to load image"));
    }
-
-   bool anisotropySupported = context->getPhysicalDeviceFeatures().samplerAnisotropy;
-   vk::SamplerCreateInfo samplerCreateInfo = vk::SamplerCreateInfo()
-      .setMagFilter(vk::Filter::eLinear)
-      .setMinFilter(vk::Filter::eLinear)
-      .setAddressModeU(vk::SamplerAddressMode::eRepeat)
-      .setAddressModeV(vk::SamplerAddressMode::eRepeat)
-      .setAddressModeW(vk::SamplerAddressMode::eRepeat)
-      .setBorderColor(vk::BorderColor::eIntOpaqueBlack)
-      .setAnisotropyEnable(anisotropySupported)
-      .setMaxAnisotropy(anisotropySupported ? 16.0f : 1.0f)
-      .setUnnormalizedCoordinates(false)
-      .setCompareEnable(false)
-      .setCompareOp(vk::CompareOp::eAlways)
-      .setMipmapMode(vk::SamplerMipmapMode::eLinear)
-      .setMipLodBias(0.0f)
-      .setMinLod(0.0f)
-      .setMaxLod(16.0f);
-   sampler = context->getDevice().createSampler(samplerCreateInfo);
 }
 
 void ForgeApplication::terminateMesh()
@@ -608,9 +382,6 @@ void ForgeApplication::terminateMesh()
 
    textureResourceManager.unload(textureHandle);
    textureHandle.reset();
-
-   context->getDevice().destroySampler(sampler);
-   sampler = nullptr;
 }
 
 void ForgeApplication::initializeCommandBuffers()
@@ -626,7 +397,7 @@ void ForgeApplication::initializeCommandBuffers()
    vk::CommandBufferAllocateInfo commandBufferAllocateInfo = vk::CommandBufferAllocateInfo()
       .setCommandPool(commandPool)
       .setLevel(vk::CommandBufferLevel::ePrimary)
-      .setCommandBufferCount(static_cast<uint32_t>(swapchainFramebuffers.size()));
+      .setCommandBufferCount(swapchain->getImageCount());
 
    ASSERT(commandBuffers.empty());
    commandBuffers = context->getDevice().allocateCommandBuffers(commandBufferAllocateInfo);
@@ -638,32 +409,7 @@ void ForgeApplication::initializeCommandBuffers()
    {
       vk::CommandBuffer commandBuffer = commandBuffers[i];
 
-      vk::CommandBufferBeginInfo commandBufferBeginInfo;
-
-      commandBuffer.begin(commandBufferBeginInfo);
-
-      std::array<float, 4> clearColorValues = { 0.0f, 0.0f, 0.0f, 1.0f };
-      std::array<vk::ClearValue, 2> clearValues = { vk::ClearColorValue(clearColorValues), vk::ClearDepthStencilValue(1.0f, 0) };
-
-      vk::RenderPassBeginInfo renderPassBeginInfo = vk::RenderPassBeginInfo()
-         .setRenderPass(renderPass)
-         .setFramebuffer(swapchainFramebuffers[i])
-         .setRenderArea(vk::Rect2D(vk::Offset2D(0, 0), swapchain->getExtent()))
-         .setClearValues(clearValues);
-
-      commandBuffer.beginRenderPass(renderPassBeginInfo, vk::SubpassContents::eInline);
-
-      commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, graphicsPipeline);
-
-      simpleShader->bindDescriptorSets(commandBuffer, pipelineLayout, static_cast<uint32_t>(i));
-
-      for (uint32_t section = 0; section < mesh->getNumSections(); ++section)
-      {
-         mesh->bindBuffers(commandBuffer, section);
-         mesh->draw(commandBuffer, section);
-      }
-
-      commandBuffer.endRenderPass();
+      simpleRenderPass->render(commandBuffer, *swapchain, static_cast<uint32_t>(i), *mesh);
 
       commandBuffer.end();
    }

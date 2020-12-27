@@ -31,8 +31,10 @@ target_sources(${PROJECT_NAME} PRIVATE
    "${SRC_DIR}/Graphics/UniformBuffer.h"
    "${SRC_DIR}/Graphics/UniformData.h"
    "${SRC_DIR}/Graphics/Vulkan.h"
-   "${SRC_DIR}/Graphics/Shaders/SimpleShader.cpp"
-   "${SRC_DIR}/Graphics/Shaders/SimpleShader.h"
+   "${SRC_DIR}/Graphics/Passes/Simple/SimpleRenderPass.cpp"
+   "${SRC_DIR}/Graphics/Passes/Simple/SimpleRenderPass.h"
+   "${SRC_DIR}/Graphics/Passes/Simple/SimpleShader.cpp"
+   "${SRC_DIR}/Graphics/Passes/Simple/SimpleShader.h"
 
    "${SRC_DIR}/Platform/Window.cpp"
    "${SRC_DIR}/Platform/Window.h"

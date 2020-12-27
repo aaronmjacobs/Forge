@@ -6,6 +6,7 @@
 
 #include <vector>
 
+class Swapchain;
 class Texture;
 
 class SimpleShader : public GraphicsResource
@@ -15,10 +16,10 @@ public:
 
    ~SimpleShader();
 
-   void allocateDescriptorSets(vk::DescriptorPool descriptorPool, uint32_t numSwapchainImages);
+   void allocateDescriptorSets(const Swapchain& swapchain, vk::DescriptorPool descriptorPool);
    void clearDescriptorSets();
 
-   void updateDescriptorSets(const GraphicsContext& context, uint32_t numSwapchainImages, const UniformBuffer<ViewUniformData>& viewUniformBuffer, const UniformBuffer<MeshUniformData>& meshUniformBuffer, const Texture& texture, vk::Sampler sampler);
+   void updateDescriptorSets(const GraphicsContext& context, const Swapchain& swapchain, const UniformBuffer<ViewUniformData>& viewUniformBuffer, const UniformBuffer<MeshUniformData>& meshUniformBuffer, const Texture& texture, vk::Sampler sampler);
    void bindDescriptorSets(vk::CommandBuffer commandBuffer, vk::PipelineLayout pipelineLayout, uint32_t swapchainIndex);
 
    bool areDescriptorSetsAllocated() const

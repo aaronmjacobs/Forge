@@ -1,5 +1,6 @@
-#include "Graphics/Shaders/SimpleShader.h"
+#include "Graphics/Passes/Simple/SimpleShader.h"
 
+#include "Graphics/Swapchain.h"
 #include "Graphics/Texture.h"
 
 #include <utility>
@@ -116,13 +117,14 @@ SimpleShader::~SimpleShader()
    }
 }
 
-void SimpleShader::allocateDescriptorSets(vk::DescriptorPool descriptorPool, uint32_t numSwapchainImages)
+void SimpleShader::allocateDescriptorSets(const Swapchain& swapchain, vk::DescriptorPool descriptorPool)
 {
    ASSERT(frameLayout && drawLayout);
    ASSERT(!areDescriptorSetsAllocated());
 
-   std::vector<vk::DescriptorSetLayout> frameLayouts(numSwapchainImages, frameLayout);
-   std::vector<vk::DescriptorSetLayout> drawLayouts(numSwapchainImages, drawLayout);
+   uint32_t swapchainImageCount = swapchain.getImageCount();
+   std::vector<vk::DescriptorSetLayout> frameLayouts(swapchainImageCount, frameLayout);
+   std::vector<vk::DescriptorSetLayout> drawLayouts(swapchainImageCount, drawLayout);
 
    vk::DescriptorSetAllocateInfo frameAllocateInfo = vk::DescriptorSetAllocateInfo()
       .setDescriptorPool(descriptorPool)
@@ -141,12 +143,12 @@ void SimpleShader::clearDescriptorSets()
    drawSets.clear();
 }
 
-void SimpleShader::updateDescriptorSets(const GraphicsContext& context, uint32_t numSwapchainImages, const UniformBuffer<ViewUniformData>& viewUniformBuffer, const UniformBuffer<MeshUniformData>& meshUniformBuffer, const Texture& texture, vk::Sampler sampler)
+void SimpleShader::updateDescriptorSets(const GraphicsContext& context, const Swapchain& swapchain, const UniformBuffer<ViewUniformData>& viewUniformBuffer, const UniformBuffer<MeshUniformData>& meshUniformBuffer, const Texture& texture, vk::Sampler sampler)
 {
-   for (uint32_t i = 0; i < numSwapchainImages; ++i)
+   for (uint32_t i = 0; i < swapchain.getImageCount(); ++i)
    {
-      vk::DescriptorBufferInfo viewBufferInfo = viewUniformBuffer.getDescriptorBufferInfo(context, static_cast<uint32_t>(i));
-      vk::DescriptorBufferInfo meshBufferInfo = meshUniformBuffer.getDescriptorBufferInfo(context, static_cast<uint32_t>(i));
+      vk::DescriptorBufferInfo viewBufferInfo = viewUniformBuffer.getDescriptorBufferInfo(context, i);
+      vk::DescriptorBufferInfo meshBufferInfo = meshUniformBuffer.getDescriptorBufferInfo(context, i);
 
       vk::DescriptorImageInfo imageInfo = vk::DescriptorImageInfo()
          .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)

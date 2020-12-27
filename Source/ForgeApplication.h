@@ -7,7 +7,6 @@
 #include "Graphics/Texture.h"
 #include "Graphics/UniformBuffer.h"
 #include "Graphics/UniformData.h"
-#include "Graphics/Shaders/SimpleShader.h"
 
 #include "Resources/MeshResourceManager.h"
 #include "Resources/ShaderModuleResourceManager.h"
@@ -16,6 +15,7 @@
 #include <memory>
 #include <vector>
 
+class SimpleRenderPass;
 class Swapchain;
 class Window;
 
@@ -43,17 +43,8 @@ private:
    void initializeSwapchain();
    void terminateSwapchain();
 
-   void initializeRenderPass();
-   void terminateRenderPass();
-
-   void initializeShaders();
-   void terminateShaders();
-
-   void initializeGraphicsPipeline();
-   void terminateGraphicsPipeline();
-
-   void initializeFramebuffers();
-   void terminateFramebuffers();
+   void initializeRenderPasses();
+   void terminateRenderPasses();
 
    void initializeUniformBuffers();
    void terminateUniformBuffers();
@@ -84,15 +75,7 @@ private:
    std::unique_ptr<Texture> colorTexture;
    std::unique_ptr<Texture> depthTexture;
 
-   vk::Sampler sampler;
-
-   std::unique_ptr<SimpleShader> simpleShader;
-
-   vk::RenderPass renderPass;
-   vk::PipelineLayout pipelineLayout;
-   vk::Pipeline graphicsPipeline;
-
-   std::vector<vk::Framebuffer> swapchainFramebuffers;
+   std::unique_ptr<SimpleRenderPass> simpleRenderPass;
 
    vk::DescriptorPool descriptorPool;
 
