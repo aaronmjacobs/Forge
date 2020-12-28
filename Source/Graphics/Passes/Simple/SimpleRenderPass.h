@@ -8,7 +8,7 @@
 #include <vector>
 
 class Mesh;
-class ShaderModuleResourceManager;
+class ResourceManager;
 class SimpleShader;
 class Swapchain;
 class Texture;
@@ -16,21 +16,21 @@ class Texture;
 class SimpleRenderPass : public GraphicsResource
 {
 public:
-   SimpleRenderPass(const GraphicsContext& context, ShaderModuleResourceManager& shaderModuleResourceManager, const Swapchain& swapchain, const Texture& colorTexture, const Texture& depthTexture);
+   SimpleRenderPass(const GraphicsContext& graphicsContext, ResourceManager& resourceManager, const Texture& colorTexture, const Texture& depthTexture);
 
    ~SimpleRenderPass();
 
-   void render(vk::CommandBuffer commandBuffer, const Swapchain& swapchain, uint32_t swapchainIndex, const Mesh& mesh);
+   void render(vk::CommandBuffer commandBuffer, uint32_t swapchainIndex, const Mesh& mesh);
 
-   void onSwapchainRecreated(const Swapchain& swapchain, const Texture& colorTexture, const Texture& depthTexture);
+   void onSwapchainRecreated(const Texture& colorTexture, const Texture& depthTexture);
 
    bool areDescriptorSetsAllocated() const;
-   void allocateDescriptorSets(const Swapchain& swapchain, vk::DescriptorPool descriptorPool);
+   void allocateDescriptorSets(vk::DescriptorPool descriptorPool);
    void clearDescriptorSets();
-   void updateDescriptorSets(const GraphicsContext& context, const Swapchain& swapchain, const UniformBuffer<ViewUniformData>& viewUniformBuffer, const UniformBuffer<MeshUniformData>& meshUniformBuffer, const Texture& texture);
+   void updateDescriptorSets(const UniformBuffer<ViewUniformData>& viewUniformBuffer, const UniformBuffer<MeshUniformData>& meshUniformBuffer, const Texture& texture);
 
 private:
-   void initializeSwapchainDependentResources(const Swapchain& swapchain, const Texture& colorTexture, const Texture& depthTexture);
+   void initializeSwapchainDependentResources(const Texture& colorTexture, const Texture& depthTexture);
    void terminateSwapchainDependentResources();
 
    std::unique_ptr<SimpleShader> simpleShader;

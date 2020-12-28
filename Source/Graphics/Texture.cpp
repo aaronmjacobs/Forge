@@ -65,19 +65,19 @@ vk::Format Texture::findSupportedFormat(const GraphicsContext& context, const st
    throw std::runtime_error("Failed to find supported format");
 }
 
-Texture::Texture(const GraphicsContext& context, const ImageProperties& imageProps, const TextureProperties& textureProps, const TextureInitialLayout& initialLayout)
-   : GraphicsResource(context)
+Texture::Texture(const GraphicsContext& graphicsContext, const ImageProperties& imageProps, const TextureProperties& textureProps, const TextureInitialLayout& initialLayout)
+   : GraphicsResource(graphicsContext)
    , imageProperties(imageProps)
    , textureProperties(textureProps)
 {
-   createImage(context);
+   createImage();
    defaultView = createView(getDefaultViewType(imageProperties));
 
-   transitionLayout(context, initialLayout.layout, TextureMemoryBarrierFlags(vk::AccessFlags(), vk::PipelineStageFlagBits::eTopOfPipe), initialLayout.memoryBarrierFlags);
+   transitionLayout(initialLayout.layout, TextureMemoryBarrierFlags(vk::AccessFlags(), vk::PipelineStageFlagBits::eTopOfPipe), initialLayout.memoryBarrierFlags);
 }
 
-Texture::Texture(const GraphicsContext& context, const LoadedImage& loadedImage, const TextureProperties& textureProps, const TextureInitialLayout& initialLayout)
-   : GraphicsResource(context)
+Texture::Texture(const GraphicsContext& graphicsContext, const LoadedImage& loadedImage, const TextureProperties& textureProps, const TextureInitialLayout& initialLayout)
+   : GraphicsResource(graphicsContext)
    , imageProperties(loadedImage.properties)
    , textureProperties(textureProps)
 {
@@ -87,18 +87,18 @@ Texture::Texture(const GraphicsContext& context, const LoadedImage& loadedImage,
       textureProperties.usage |= vk::ImageUsageFlagBits::eTransferSrc;
    }
 
-   createImage(context);
+   createImage();
    defaultView = createView(getDefaultViewType(imageProperties));
 
-   stageAndCopyImage(context, loadedImage);
+   stageAndCopyImage(loadedImage);
 
    if (textureProperties.generateMipMaps)
    {
-      generateMipmaps(context, initialLayout.layout, initialLayout.memoryBarrierFlags);
+      generateMipmaps(initialLayout.layout, initialLayout.memoryBarrierFlags);
    }
    else
    {
-      transitionLayout(context, initialLayout.layout, TextureMemoryBarrierFlags(vk::AccessFlagBits::eTransferWrite, vk::PipelineStageFlagBits::eTransfer), initialLayout.memoryBarrierFlags);
+      transitionLayout(initialLayout.layout, TextureMemoryBarrierFlags(vk::AccessFlagBits::eTransferWrite, vk::PipelineStageFlagBits::eTransfer), initialLayout.memoryBarrierFlags);
    }
 }
 
@@ -132,7 +132,7 @@ vk::ImageView Texture::createView(vk::ImageViewType viewType) const
    return device.createImageView(createInfo);
 }
 
-void Texture::transitionLayout(const GraphicsContext& context, vk::ImageLayout newLayout, const TextureMemoryBarrierFlags& srcMemoryBarrierFlags, const TextureMemoryBarrierFlags& dstMemoryBarrierFlags)
+void Texture::transitionLayout(vk::ImageLayout newLayout, const TextureMemoryBarrierFlags& srcMemoryBarrierFlags, const TextureMemoryBarrierFlags& dstMemoryBarrierFlags)
 {
    if (layout != newLayout)
    {
@@ -164,7 +164,7 @@ void Texture::transitionLayout(const GraphicsContext& context, vk::ImageLayout n
    }
 }
 
-void Texture::createImage(const GraphicsContext& context)
+void Texture::createImage()
 {
    ASSERT(!image && !memory);
 
@@ -191,7 +191,7 @@ void Texture::createImage(const GraphicsContext& context)
    device.bindImageMemory(image, memory, 0);
 }
 
-void Texture::copyBufferToImage(const GraphicsContext& context, vk::Buffer buffer)
+void Texture::copyBufferToImage(vk::Buffer buffer)
 {
    vk::CommandBuffer commandBuffer = Command::beginSingle(context);
 
@@ -215,9 +215,9 @@ void Texture::copyBufferToImage(const GraphicsContext& context, vk::Buffer buffe
    Command::endSingle(context, commandBuffer);
 }
 
-void Texture::stageAndCopyImage(const GraphicsContext& context, const LoadedImage& loadedImage)
+void Texture::stageAndCopyImage(const LoadedImage& loadedImage)
 {
-   transitionLayout(context, vk::ImageLayout::eTransferDstOptimal, TextureMemoryBarrierFlags(vk::AccessFlags(), vk::PipelineStageFlagBits::eTopOfPipe), TextureMemoryBarrierFlags(vk::AccessFlagBits::eTransferWrite, vk::PipelineStageFlagBits::eTransfer));
+   transitionLayout(vk::ImageLayout::eTransferDstOptimal, TextureMemoryBarrierFlags(vk::AccessFlags(), vk::PipelineStageFlagBits::eTopOfPipe), TextureMemoryBarrierFlags(vk::AccessFlagBits::eTransferWrite, vk::PipelineStageFlagBits::eTransfer));
 
    vk::Buffer stagingBuffer;
    vk::DeviceMemory stagingBufferMemory;
@@ -228,7 +228,7 @@ void Texture::stageAndCopyImage(const GraphicsContext& context, const LoadedImag
    device.unmapMemory(stagingBufferMemory);
    mappedMemory = nullptr;
 
-   copyBufferToImage(context, stagingBuffer);
+   copyBufferToImage(stagingBuffer);
 
    device.destroyBuffer(stagingBuffer);
    stagingBuffer = nullptr;
@@ -236,7 +236,7 @@ void Texture::stageAndCopyImage(const GraphicsContext& context, const LoadedImag
    stagingBufferMemory = nullptr;
 }
 
-void Texture::generateMipmaps(const GraphicsContext& context, vk::ImageLayout finalLayout, const TextureMemoryBarrierFlags& dstMemoryBarrierFlags)
+void Texture::generateMipmaps(vk::ImageLayout finalLayout, const TextureMemoryBarrierFlags& dstMemoryBarrierFlags)
 {
    vk::FormatProperties formatProperties = context.getPhysicalDevice().getFormatProperties(imageProperties.format);
    if (!(formatProperties.optimalTilingFeatures & vk::FormatFeatureFlagBits::eSampledImageFilterLinear))

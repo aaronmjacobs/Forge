@@ -7,8 +7,9 @@
 class GraphicsResource
 {
 public:
-   GraphicsResource(const GraphicsContext& context)
-      : device(context.getDevice())
+   GraphicsResource(const GraphicsContext& graphicsContext)
+      : context(graphicsContext)
+      , device(context.getDevice())
    {
       ASSERT(device);
    }
@@ -22,5 +23,6 @@ public:
    GraphicsResource& operator=(GraphicsResource&& other) = delete;
 
 protected:
+   const GraphicsContext& context;
    const vk::Device device;
 };

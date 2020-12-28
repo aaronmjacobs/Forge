@@ -5,6 +5,7 @@
 #include <optional>
 #include <set>
 
+class Swapchain;
 class Window;
 
 struct QueueFamilyIndices
@@ -78,6 +79,17 @@ public:
       return transientCommandPool;
    }
 
+   const Swapchain& getSwapchain() const
+   {
+      ASSERT(swapchain);
+      return *swapchain;
+   }
+
+   void setSwapchain(const Swapchain* newSwapchain)
+   {
+      swapchain = newSwapchain;
+   }
+
 private:
    vk::Instance instance;
    vk::SurfaceKHR surface;
@@ -93,6 +105,8 @@ private:
    vk::PhysicalDeviceFeatures physicalDeviceFeatures;
 
    vk::CommandPool transientCommandPool;
+
+   const Swapchain* swapchain = nullptr;
 
 #if FORGE_DEBUG
    VkDebugUtilsMessengerEXT debugMessenger = nullptr;

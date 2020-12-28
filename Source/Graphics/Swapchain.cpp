@@ -90,8 +90,8 @@ SwapchainSupportDetails Swapchain::getSupportDetails(vk::PhysicalDevice physical
    return supportDetails;
 }
 
-Swapchain::Swapchain(const GraphicsContext& context, vk::Extent2D desiredExtent)
-   : GraphicsResource(context)
+Swapchain::Swapchain(const GraphicsContext& graphicsContext, vk::Extent2D desiredExtent)
+   : GraphicsResource(graphicsContext)
 {
    SwapchainSupportDetails supportDetails = getSupportDetails(context.getPhysicalDevice(), context.getSurface());
    ASSERT(supportDetails.isValid());

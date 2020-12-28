@@ -21,7 +21,7 @@ class Swapchain : public GraphicsResource
 public:
    static SwapchainSupportDetails getSupportDetails(vk::PhysicalDevice physicalDevice, vk::SurfaceKHR surface);
 
-   Swapchain(const GraphicsContext& context, vk::Extent2D desiredExtent);
+   Swapchain(const GraphicsContext& graphicsContext, vk::Extent2D desiredExtent);
 
    ~Swapchain();
 
@@ -30,7 +30,7 @@ public:
       return format;
    }
 
-   vk::Extent2D getExtent() const
+   const vk::Extent2D& getExtent() const
    {
       return extent;
    }

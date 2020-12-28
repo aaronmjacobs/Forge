@@ -2,8 +2,8 @@
 
 #include "Core/Assert.h"
 
-ShaderModule::ShaderModule(const GraphicsContext& context, const std::vector<uint8_t>& code)
-   : GraphicsResource(context)
+ShaderModule::ShaderModule(const GraphicsContext& graphicsContext, const std::vector<uint8_t>& code)
+   : GraphicsResource(graphicsContext)
 {
    ASSERT(code.size() > 0);
 

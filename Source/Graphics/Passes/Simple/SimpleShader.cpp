@@ -35,15 +35,15 @@ namespace
    }
 }
 
-SimpleShader::SimpleShader(ShaderModuleResourceManager& shaderModuleResourceManager, const GraphicsContext& context)
-   : GraphicsResource(context)
+SimpleShader::SimpleShader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager)
+   : GraphicsResource(graphicsContext)
 {
    {
-      ShaderModuleHandle vertModuleHandle = shaderModuleResourceManager.load("Resources/Shaders/Simple.vert.spv", context);
-      ShaderModuleHandle fragModuleHandle = shaderModuleResourceManager.load("Resources/Shaders/Simple.frag.spv", context);
+      ShaderModuleHandle vertModuleHandle = resourceManager.loadShaderModule("Resources/Shaders/Simple.vert.spv", context);
+      ShaderModuleHandle fragModuleHandle = resourceManager.loadShaderModule("Resources/Shaders/Simple.frag.spv", context);
 
-      const ShaderModule* vertShaderModule = shaderModuleResourceManager.get(vertModuleHandle);
-      const ShaderModule* fragShaderModule = shaderModuleResourceManager.get(fragModuleHandle);
+      const ShaderModule* vertShaderModule = resourceManager.getShaderModule(vertModuleHandle);
+      const ShaderModule* fragShaderModule = resourceManager.getShaderModule(fragModuleHandle);
       if (!vertShaderModule || !fragShaderModule)
       {
          throw std::runtime_error(std::string("Failed to load shader"));
@@ -117,12 +117,12 @@ SimpleShader::~SimpleShader()
    }
 }
 
-void SimpleShader::allocateDescriptorSets(const Swapchain& swapchain, vk::DescriptorPool descriptorPool)
+void SimpleShader::allocateDescriptorSets(vk::DescriptorPool descriptorPool)
 {
    ASSERT(frameLayout && drawLayout);
    ASSERT(!areDescriptorSetsAllocated());
 
-   uint32_t swapchainImageCount = swapchain.getImageCount();
+   uint32_t swapchainImageCount = context.getSwapchain().getImageCount();
    std::vector<vk::DescriptorSetLayout> frameLayouts(swapchainImageCount, frameLayout);
    std::vector<vk::DescriptorSetLayout> drawLayouts(swapchainImageCount, drawLayout);
 
@@ -143,12 +143,12 @@ void SimpleShader::clearDescriptorSets()
    drawSets.clear();
 }
 
-void SimpleShader::updateDescriptorSets(const GraphicsContext& context, const Swapchain& swapchain, const UniformBuffer<ViewUniformData>& viewUniformBuffer, const UniformBuffer<MeshUniformData>& meshUniformBuffer, const Texture& texture, vk::Sampler sampler)
+void SimpleShader::updateDescriptorSets(const UniformBuffer<ViewUniformData>& viewUniformBuffer, const UniformBuffer<MeshUniformData>& meshUniformBuffer, const Texture& texture, vk::Sampler sampler)
 {
-   for (uint32_t i = 0; i < swapchain.getImageCount(); ++i)
+   for (uint32_t i = 0; i < context.getSwapchain().getImageCount(); ++i)
    {
-      vk::DescriptorBufferInfo viewBufferInfo = viewUniformBuffer.getDescriptorBufferInfo(context, i);
-      vk::DescriptorBufferInfo meshBufferInfo = meshUniformBuffer.getDescriptorBufferInfo(context, i);
+      vk::DescriptorBufferInfo viewBufferInfo = viewUniformBuffer.getDescriptorBufferInfo(i);
+      vk::DescriptorBufferInfo meshBufferInfo = meshUniformBuffer.getDescriptorBufferInfo(i);
 
       vk::DescriptorImageInfo imageInfo = vk::DescriptorImageInfo()
          .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)

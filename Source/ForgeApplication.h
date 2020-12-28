@@ -4,17 +4,14 @@
 
 #include "Graphics/GraphicsContext.h"
 #include "Graphics/Mesh.h"
-#include "Graphics/Texture.h"
 #include "Graphics/UniformBuffer.h"
 #include "Graphics/UniformData.h"
 
-#include "Resources/MeshResourceManager.h"
-#include "Resources/ShaderModuleResourceManager.h"
-#include "Resources/TextureResourceManager.h"
+#include "Resources/ResourceManager.h"
 
 #include <memory>
-#include <vector>
 
+class Renderer;
 class SimpleRenderPass;
 class Swapchain;
 class Window;
@@ -43,20 +40,8 @@ private:
    void initializeSwapchain();
    void terminateSwapchain();
 
-   void initializeRenderPasses();
-   void terminateRenderPasses();
-
-   void initializeUniformBuffers();
-   void terminateUniformBuffers();
-
-   void initializeDescriptorPool();
-   void terminateDescriptorPool();
-
-   void initializeDescriptorSets();
-   void terminateDescriptorSets();
-
-   void initializeMesh();
-   void terminateMesh();
+   void initializeRenderer();
+   void terminateRenderer();
 
    void initializeCommandBuffers();
    void terminateCommandBuffers(bool keepPoolAlive);
@@ -64,26 +49,13 @@ private:
    void initializeSyncObjects();
    void terminateSyncObjects();
 
-   MeshResourceManager meshResourceManager;
-   ShaderModuleResourceManager shaderModuleResourceManager;
-   TextureResourceManager textureResourceManager;
+   ResourceManager resourceManager;
 
    std::unique_ptr<Window> window;
    std::unique_ptr<GraphicsContext> context;
    std::unique_ptr<Swapchain> swapchain;
 
-   std::unique_ptr<Texture> colorTexture;
-   std::unique_ptr<Texture> depthTexture;
-
-   std::unique_ptr<SimpleRenderPass> simpleRenderPass;
-
-   vk::DescriptorPool descriptorPool;
-
-   std::unique_ptr<UniformBuffer<ViewUniformData>> viewUniformBuffer;
-   std::unique_ptr<UniformBuffer<MeshUniformData>> meshUniformBuffer;
-
-   TextureHandle textureHandle;
-   MeshHandle meshHandle;
+   std::unique_ptr<Renderer> renderer;
 
    vk::CommandPool commandPool;
    std::vector<vk::CommandBuffer> commandBuffers;

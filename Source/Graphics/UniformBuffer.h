@@ -17,8 +17,8 @@ public:
 
    ~UniformBuffer();
 
-   void update(const GraphicsContext& context, const DataType& data, uint32_t swapchainIndex);
-   vk::DescriptorBufferInfo getDescriptorBufferInfo(const GraphicsContext& context, uint32_t swapchainIndex) const;
+   void update(const DataType& data, uint32_t swapchainIndex);
+   vk::DescriptorBufferInfo getDescriptorBufferInfo(uint32_t swapchainIndex) const;
 
 private:
    static vk::DeviceSize getPaddedDataSize(const GraphicsContext& context)
@@ -32,8 +32,8 @@ private:
 };
 
 template<typename DataType>
-inline UniformBuffer<DataType>::UniformBuffer(const GraphicsContext& context, uint32_t swapchainImageCount)
-   : GraphicsResource(context)
+inline UniformBuffer<DataType>::UniformBuffer(const GraphicsContext& graphicsContext, uint32_t swapchainImageCount)
+   : GraphicsResource(graphicsContext)
 {
    vk::DeviceSize bufferSize = getPaddedDataSize(context) * swapchainImageCount;
    Buffer::create(context, bufferSize, vk::BufferUsageFlagBits::eUniformBuffer, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, buffer, memory);
@@ -56,7 +56,7 @@ inline UniformBuffer<DataType>::~UniformBuffer()
 }
 
 template<typename DataType>
-inline void UniformBuffer<DataType>::update(const GraphicsContext& context, const DataType& data, uint32_t swapchainIndex)
+inline void UniformBuffer<DataType>::update(const DataType& data, uint32_t swapchainIndex)
 {
    ASSERT(buffer && memory && mappedMemory);
 
@@ -67,7 +67,7 @@ inline void UniformBuffer<DataType>::update(const GraphicsContext& context, cons
 }
 
 template<typename DataType>
-inline vk::DescriptorBufferInfo UniformBuffer<DataType>::getDescriptorBufferInfo(const GraphicsContext& context, uint32_t swapchainIndex) const
+inline vk::DescriptorBufferInfo UniformBuffer<DataType>::getDescriptorBufferInfo(uint32_t swapchainIndex) const
 {
    return vk::DescriptorBufferInfo()
       .setBuffer(buffer)

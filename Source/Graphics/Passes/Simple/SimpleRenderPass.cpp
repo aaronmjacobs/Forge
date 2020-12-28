@@ -5,13 +5,13 @@
 #include "Graphics/Texture.h"
 #include "Graphics/Passes/Simple/SimpleShader.h"
 
-#include "Resources/ShaderModuleResourceManager.h"
+#include "Resources/ResourceManager.h"
 
-SimpleRenderPass::SimpleRenderPass(const GraphicsContext& context, ShaderModuleResourceManager& shaderModuleResourceManager, const Swapchain& swapchain, const Texture& colorTexture, const Texture& depthTexture)
-   : GraphicsResource(context)
+SimpleRenderPass::SimpleRenderPass(const GraphicsContext& graphicsContext, ResourceManager& resourceManager, const Texture& colorTexture, const Texture& depthTexture)
+   : GraphicsResource(graphicsContext)
 {
    {
-      simpleShader = std::make_unique<SimpleShader>(shaderModuleResourceManager, context);
+      simpleShader = std::make_unique<SimpleShader>(context, resourceManager);
    }
 
    {
@@ -35,7 +35,7 @@ SimpleRenderPass::SimpleRenderPass(const GraphicsContext& context, ShaderModuleR
       sampler = device.createSampler(samplerCreateInfo);
    }
 
-   initializeSwapchainDependentResources(swapchain, colorTexture, depthTexture);
+   initializeSwapchainDependentResources(colorTexture, depthTexture);
 }
 
 SimpleRenderPass::~SimpleRenderPass()
@@ -47,7 +47,7 @@ SimpleRenderPass::~SimpleRenderPass()
    simpleShader.reset();
 }
 
-void SimpleRenderPass::render(vk::CommandBuffer commandBuffer, const Swapchain& swapchain, uint32_t swapchainIndex, const Mesh& mesh)
+void SimpleRenderPass::render(vk::CommandBuffer commandBuffer, uint32_t swapchainIndex, const Mesh& mesh)
 {
    vk::CommandBufferBeginInfo commandBufferBeginInfo;
    commandBuffer.begin(commandBufferBeginInfo);
@@ -58,7 +58,7 @@ void SimpleRenderPass::render(vk::CommandBuffer commandBuffer, const Swapchain& 
    vk::RenderPassBeginInfo renderPassBeginInfo = vk::RenderPassBeginInfo()
       .setRenderPass(renderPass)
       .setFramebuffer(framebuffers[swapchainIndex])
-      .setRenderArea(vk::Rect2D(vk::Offset2D(0, 0), swapchain.getExtent()))
+      .setRenderArea(vk::Rect2D(vk::Offset2D(0, 0), context.getSwapchain().getExtent()))
       .setClearValues(clearValues);
    commandBuffer.beginRenderPass(renderPassBeginInfo, vk::SubpassContents::eInline);
 
@@ -75,10 +75,10 @@ void SimpleRenderPass::render(vk::CommandBuffer commandBuffer, const Swapchain& 
    commandBuffer.endRenderPass();
 }
 
-void SimpleRenderPass::onSwapchainRecreated(const Swapchain& swapchain, const Texture& colorTexture, const Texture& depthTexture)
+void SimpleRenderPass::onSwapchainRecreated(const Texture& colorTexture, const Texture& depthTexture)
 {
    terminateSwapchainDependentResources();
-   initializeSwapchainDependentResources(swapchain, colorTexture, depthTexture);
+   initializeSwapchainDependentResources(colorTexture, depthTexture);
 }
 
 bool SimpleRenderPass::areDescriptorSetsAllocated() const
@@ -86,10 +86,10 @@ bool SimpleRenderPass::areDescriptorSetsAllocated() const
    return simpleShader && simpleShader->areDescriptorSetsAllocated();
 }
 
-void SimpleRenderPass::allocateDescriptorSets(const Swapchain& swapchain, vk::DescriptorPool descriptorPool)
+void SimpleRenderPass::allocateDescriptorSets(vk::DescriptorPool descriptorPool)
 {
    ASSERT(simpleShader);
-   simpleShader->allocateDescriptorSets(swapchain, descriptorPool);
+   simpleShader->allocateDescriptorSets(descriptorPool);
 }
 
 void SimpleRenderPass::clearDescriptorSets()
@@ -98,15 +98,15 @@ void SimpleRenderPass::clearDescriptorSets()
    simpleShader->clearDescriptorSets();
 }
 
-void SimpleRenderPass::updateDescriptorSets(const GraphicsContext& context, const Swapchain& swapchain, const UniformBuffer<ViewUniformData>& viewUniformBuffer, const UniformBuffer<MeshUniformData>& meshUniformBuffer, const Texture& texture)
+void SimpleRenderPass::updateDescriptorSets(const UniformBuffer<ViewUniformData>& viewUniformBuffer, const UniformBuffer<MeshUniformData>& meshUniformBuffer, const Texture& texture)
 {
    ASSERT(simpleShader);
-   simpleShader->updateDescriptorSets(context, swapchain, viewUniformBuffer, meshUniformBuffer, texture, sampler);
+   simpleShader->updateDescriptorSets(viewUniformBuffer, meshUniformBuffer, texture, sampler);
 }
 
-void SimpleRenderPass::initializeSwapchainDependentResources(const Swapchain& swapchain, const Texture& colorTexture, const Texture& depthTexture)
+void SimpleRenderPass::initializeSwapchainDependentResources(const Texture& colorTexture, const Texture& depthTexture)
 {
-   vk::Extent2D swapchainExtent = swapchain.getExtent();
+   vk::Extent2D swapchainExtent = context.getSwapchain().getExtent();
 
    {
       vk::AttachmentDescription colorAttachment = vk::AttachmentDescription()
@@ -140,7 +140,7 @@ void SimpleRenderPass::initializeSwapchainDependentResources(const Swapchain& sw
          .setLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
 
       vk::AttachmentDescription colorAttachmentResolve = vk::AttachmentDescription()
-         .setFormat(swapchain.getFormat())
+         .setFormat(context.getSwapchain().getFormat())
          .setSamples(vk::SampleCountFlagBits::e1)
          .setLoadOp(vk::AttachmentLoadOp::eDontCare)
          .setStoreOp(vk::AttachmentStoreOp::eStore)
@@ -256,9 +256,9 @@ void SimpleRenderPass::initializeSwapchainDependentResources(const Swapchain& sw
    }
 
    {
-      framebuffers.reserve(swapchain.getImageCount());
+      framebuffers.reserve(context.getSwapchain().getImageCount());
 
-      for (vk::ImageView swapchainImageView : swapchain.getImageViews())
+      for (vk::ImageView swapchainImageView : context.getSwapchain().getImageViews())
       {
          std::array<vk::ImageView, 3> attachments = { colorTexture.getDefaultView(), depthTexture.getDefaultView(), swapchainImageView };
 

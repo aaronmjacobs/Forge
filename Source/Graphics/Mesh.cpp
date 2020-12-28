@@ -42,8 +42,8 @@ std::array<vk::VertexInputAttributeDescription, 3> Vertex::getAttributeDescripti
    };
 }
 
-Mesh::Mesh(const GraphicsContext& context, const std::vector<MeshSectionSourceData>& sourceData)
-   : GraphicsResource(context)
+Mesh::Mesh(const GraphicsContext& graphicsContext, const std::vector<MeshSectionSourceData>& sourceData)
+   : GraphicsResource(graphicsContext)
 {
    vk::DeviceSize bufferSize = 0;
    for (const MeshSectionSourceData& sectionData : sourceData)

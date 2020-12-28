@@ -2,7 +2,7 @@
 #include "Graphics/UniformBuffer.h"
 #include "Graphics/UniformData.h"
 
-#include "Resources/ShaderModuleResourceManager.h"
+#include "Resources/ResourceManager.h"
 
 #include <vector>
 
@@ -12,14 +12,14 @@ class Texture;
 class SimpleShader : public GraphicsResource
 {
 public:
-   SimpleShader(ShaderModuleResourceManager& shaderModuleResourceManager, const GraphicsContext& context);
+   SimpleShader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager);
 
    ~SimpleShader();
 
-   void allocateDescriptorSets(const Swapchain& swapchain, vk::DescriptorPool descriptorPool);
+   void allocateDescriptorSets(vk::DescriptorPool descriptorPool);
    void clearDescriptorSets();
 
-   void updateDescriptorSets(const GraphicsContext& context, const Swapchain& swapchain, const UniformBuffer<ViewUniformData>& viewUniformBuffer, const UniformBuffer<MeshUniformData>& meshUniformBuffer, const Texture& texture, vk::Sampler sampler);
+   void updateDescriptorSets(const UniformBuffer<ViewUniformData>& viewUniformBuffer, const UniformBuffer<MeshUniformData>& meshUniformBuffer, const Texture& texture, vk::Sampler sampler);
    void bindDescriptorSets(vk::CommandBuffer commandBuffer, vk::PipelineLayout pipelineLayout, uint32_t swapchainIndex);
 
    bool areDescriptorSetsAllocated() const
