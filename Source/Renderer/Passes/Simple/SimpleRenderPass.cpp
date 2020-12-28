@@ -1,9 +1,10 @@
-#include "Graphics/Passes/Simple/SimpleRenderPass.h"
+#include "Renderer/Passes/Simple/SimpleRenderPass.h"
 
 #include "Graphics/Mesh.h"
 #include "Graphics/Swapchain.h"
 #include "Graphics/Texture.h"
-#include "Graphics/Passes/Simple/SimpleShader.h"
+
+#include "Renderer/Passes/Simple/SimpleShader.h"
 
 #include "Resources/ResourceManager.h"
 

@@ -1,8 +1,9 @@
-#include "Graphics/Renderer.h"
+#include "Renderer/Renderer.h"
 
-#include "Graphics/Passes/Simple/SimpleRenderPass.h"
 #include "Graphics/Swapchain.h"
 #include "Graphics/Texture.h"
+
+#include "Renderer/Passes/Simple/SimpleRenderPass.h"
 
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>

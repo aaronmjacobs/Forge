@@ -1,4 +1,4 @@
-#include "Graphics/Passes/Simple/SimpleShader.h"
+#include "Renderer/Passes/Simple/SimpleShader.h"
 
 #include "Graphics/Swapchain.h"
 #include "Graphics/Texture.h"
