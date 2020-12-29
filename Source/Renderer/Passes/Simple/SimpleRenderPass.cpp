@@ -48,7 +48,7 @@ SimpleRenderPass::~SimpleRenderPass()
    simpleShader.reset();
 }
 
-void SimpleRenderPass::render(vk::CommandBuffer commandBuffer, uint32_t swapchainIndex, const Mesh& mesh)
+void SimpleRenderPass::render(vk::CommandBuffer commandBuffer, const Mesh& mesh)
 {
    vk::CommandBufferBeginInfo commandBufferBeginInfo;
    commandBuffer.begin(commandBufferBeginInfo);
@@ -58,14 +58,14 @@ void SimpleRenderPass::render(vk::CommandBuffer commandBuffer, uint32_t swapchai
 
    vk::RenderPassBeginInfo renderPassBeginInfo = vk::RenderPassBeginInfo()
       .setRenderPass(renderPass)
-      .setFramebuffer(framebuffers[swapchainIndex])
+      .setFramebuffer(framebuffers[context.getSwapchainIndex()])
       .setRenderArea(vk::Rect2D(vk::Offset2D(0, 0), context.getSwapchain().getExtent()))
       .setClearValues(clearValues);
    commandBuffer.beginRenderPass(renderPassBeginInfo, vk::SubpassContents::eInline);
 
    commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline);
 
-   simpleShader->bindDescriptorSets(commandBuffer, pipelineLayout, swapchainIndex);
+   simpleShader->bindDescriptorSets(commandBuffer, pipelineLayout);
 
    for (uint32_t section = 0; section < mesh.getNumSections(); ++section)
    {

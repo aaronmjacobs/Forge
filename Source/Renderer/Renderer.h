@@ -20,9 +20,9 @@ public:
 
    ~Renderer();
 
-   void render(vk::CommandBuffer commandBuffer, uint32_t swapchainIndex);
+   void render(vk::CommandBuffer commandBuffer);
 
-   void updateUniformBuffers(uint32_t swapchainIndex);
+   void updateUniformBuffers();
    void onSwapchainRecreated();
 
 private:

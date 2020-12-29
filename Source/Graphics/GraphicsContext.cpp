@@ -398,3 +398,9 @@ GraphicsContext::~GraphicsContext()
 
    instance.destroy();
 }
+
+void GraphicsContext::setSwapchainIndex(uint32_t index)
+{
+   ASSERT(swapchain && index < swapchain->getImageCount());
+   swapchainIndex = index;
+}

@@ -183,7 +183,7 @@ void SimpleShader::updateDescriptorSets(const UniformBuffer<ViewUniformData>& vi
    }
 }
 
-void SimpleShader::bindDescriptorSets(vk::CommandBuffer commandBuffer, vk::PipelineLayout pipelineLayout, uint32_t swapchainIndex)
+void SimpleShader::bindDescriptorSets(vk::CommandBuffer commandBuffer, vk::PipelineLayout pipelineLayout)
 {
-   commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, 0, { frameSets[swapchainIndex], drawSets[swapchainIndex] }, {});
+   commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, 0, { frameSets[context.getSwapchainIndex()], drawSets[context.getSwapchainIndex()] }, {});
 }

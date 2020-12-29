@@ -20,7 +20,7 @@ public:
 
    ~SimpleRenderPass();
 
-   void render(vk::CommandBuffer commandBuffer, uint32_t swapchainIndex, const Mesh& mesh);
+   void render(vk::CommandBuffer commandBuffer, const Mesh& mesh);
 
    void onSwapchainRecreated(const Texture& colorTexture, const Texture& depthTexture);
 

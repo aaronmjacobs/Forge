@@ -92,11 +92,12 @@ void ForgeApplication::render()
    }
    imageFences[imageIndex] = frameFences[frameIndex];
 
+   context->setSwapchainIndex(imageIndex);
+   renderer->updateUniformBuffers();
+
    std::array<vk::Semaphore, 1> waitSemaphores = { imageAvailableSemaphores[frameIndex] };
    std::array<vk::PipelineStageFlags, 1> waitStages = { vk::PipelineStageFlagBits::eColorAttachmentOutput };
    static_assert(waitSemaphores.size() == waitStages.size(), "Wait semaphores and wait stages must be parallel arrays");
-
-   updateUniformBuffers(imageIndex);
 
    std::array<vk::Semaphore, 1> signalSemaphores = { renderFinishedSemaphores[frameIndex] };
    vk::SubmitInfo submitInfo = vk::SubmitInfo()
@@ -128,11 +129,6 @@ void ForgeApplication::render()
    }
 
    frameIndex = (frameIndex + 1) % kMaxFramesInFlight;
-}
-
-void ForgeApplication::updateUniformBuffers(uint32_t index)
-{
-   renderer->updateUniformBuffers(index);
 }
 
 bool ForgeApplication::recreateSwapchain()
@@ -244,7 +240,8 @@ void ForgeApplication::initializeCommandBuffers()
    {
       vk::CommandBuffer commandBuffer = commandBuffers[i];
 
-      renderer->render(commandBuffer, static_cast<uint32_t>(i));
+      context->setSwapchainIndex(static_cast<uint32_t>(i));
+      renderer->render(commandBuffer);
 
       commandBuffer.end();
    }

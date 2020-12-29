@@ -27,8 +27,6 @@ public:
 private:
    void render();
 
-   void updateUniformBuffers(uint32_t index);
-
    bool recreateSwapchain();
 
    void initializeGlfw();

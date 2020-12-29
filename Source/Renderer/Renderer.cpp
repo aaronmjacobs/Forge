@@ -106,8 +106,8 @@ Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& reso
    }
 
    {
-      viewUniformBuffer = std::make_unique<UniformBuffer<ViewUniformData>>(context, swapchainImageCount);
-      meshUniformBuffer = std::make_unique<UniformBuffer<MeshUniformData>>(context, swapchainImageCount);
+      viewUniformBuffer = std::make_unique<UniformBuffer<ViewUniformData>>(context);
+      meshUniformBuffer = std::make_unique<UniformBuffer<MeshUniformData>>(context);
    }
 
    {
@@ -152,15 +152,15 @@ Renderer::~Renderer()
    descriptorPool = nullptr;
 }
 
-void Renderer::render(vk::CommandBuffer commandBuffer, uint32_t swapchainIndex)
+void Renderer::render(vk::CommandBuffer commandBuffer)
 {
    const Mesh* mesh = resourceManager.getMesh(meshHandle);
    ASSERT(mesh);
 
-   simpleRenderPass->render(commandBuffer, swapchainIndex, *mesh);
+   simpleRenderPass->render(commandBuffer, *mesh);
 }
 
-void Renderer::updateUniformBuffers(uint32_t swapchainIndex)
+void Renderer::updateUniformBuffers()
 {
    double time = glfwGetTime();
 
@@ -176,8 +176,8 @@ void Renderer::updateUniformBuffers(uint32_t swapchainIndex)
    MeshUniformData meshUniformData;
    meshUniformData.localToWorld = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f) * static_cast<float>(time), glm::vec3(0.0f, 0.0f, 1.0f));
 
-   viewUniformBuffer->update(viewUniformData, swapchainIndex);
-   meshUniformBuffer->update(meshUniformData, swapchainIndex);
+   viewUniformBuffer->update(viewUniformData);
+   meshUniformBuffer->update(meshUniformData);
 }
 
 void Renderer::onSwapchainRecreated()

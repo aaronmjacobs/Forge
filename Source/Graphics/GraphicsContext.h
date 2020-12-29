@@ -90,6 +90,13 @@ public:
       swapchain = newSwapchain;
    }
 
+   uint32_t getSwapchainIndex() const
+   {
+      return swapchainIndex;
+   }
+
+   void setSwapchainIndex(uint32_t index);
+
 private:
    vk::Instance instance;
    vk::SurfaceKHR surface;
@@ -107,6 +114,7 @@ private:
    vk::CommandPool transientCommandPool;
 
    const Swapchain* swapchain = nullptr;
+   uint32_t swapchainIndex = 0;
 
 #if FORGE_DEBUG
    VkDebugUtilsMessengerEXT debugMessenger = nullptr;

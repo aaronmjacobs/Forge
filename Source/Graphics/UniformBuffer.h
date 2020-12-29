@@ -5,6 +5,7 @@
 #include "Graphics/Buffer.h"
 #include "Graphics/GraphicsContext.h"
 #include "Graphics/Memory.h"
+#include "Graphics/Swapchain.h"
 
 #include <cstring>
 #include <utility>
@@ -13,11 +14,11 @@ template<typename DataType>
 class UniformBuffer : public GraphicsResource
 {
 public:
-   UniformBuffer(const GraphicsContext& context, uint32_t swapchainImageCount);
+   UniformBuffer(const GraphicsContext& context);
 
    ~UniformBuffer();
 
-   void update(const DataType& data, uint32_t swapchainIndex);
+   void update(const DataType& data);
    vk::DescriptorBufferInfo getDescriptorBufferInfo(uint32_t swapchainIndex) const;
 
 private:
@@ -32,10 +33,10 @@ private:
 };
 
 template<typename DataType>
-inline UniformBuffer<DataType>::UniformBuffer(const GraphicsContext& graphicsContext, uint32_t swapchainImageCount)
+inline UniformBuffer<DataType>::UniformBuffer(const GraphicsContext& graphicsContext)
    : GraphicsResource(graphicsContext)
 {
-   vk::DeviceSize bufferSize = getPaddedDataSize(context) * swapchainImageCount;
+   vk::DeviceSize bufferSize = getPaddedDataSize(context) * context.getSwapchain().getImageCount();
    Buffer::create(context, bufferSize, vk::BufferUsageFlagBits::eUniformBuffer, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, buffer, memory);
 
    mappedMemory = device.mapMemory(memory, 0, bufferSize);
@@ -56,12 +57,12 @@ inline UniformBuffer<DataType>::~UniformBuffer()
 }
 
 template<typename DataType>
-inline void UniformBuffer<DataType>::update(const DataType& data, uint32_t swapchainIndex)
+inline void UniformBuffer<DataType>::update(const DataType& data)
 {
    ASSERT(buffer && memory && mappedMemory);
 
    vk::DeviceSize size = getPaddedDataSize(context);
-   vk::DeviceSize offset = size * swapchainIndex;
+   vk::DeviceSize offset = size * context.getSwapchainIndex();
 
    std::memcpy(static_cast<char*>(mappedMemory) + offset, &data, sizeof(data));
 }
