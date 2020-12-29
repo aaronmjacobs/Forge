@@ -2,7 +2,8 @@
 
 #include "Graphics/GraphicsResource.h"
 #include "Graphics/UniformBuffer.h"
-#include "Graphics/UniformData.h"
+
+#include "Renderer/UniformData.h"
 
 #include <memory>
 #include <vector>
@@ -27,7 +28,7 @@ public:
    bool areDescriptorSetsAllocated() const;
    void allocateDescriptorSets(vk::DescriptorPool descriptorPool);
    void clearDescriptorSets();
-   void updateDescriptorSets(const UniformBuffer<ViewUniformData>& viewUniformBuffer, const UniformBuffer<MeshUniformData>& meshUniformBuffer, const Texture& texture);
+   void updateDescriptorSets(const UniformBuffer<ViewUniformData>& viewUniformBuffer, const Texture& texture);
 
 private:
    void initializeSwapchainDependentResources(const Texture& colorTexture, const Texture& depthTexture);

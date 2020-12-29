@@ -3,7 +3,7 @@
 
 layout(constant_id = 0) const bool kUseTexture = false;
 
-layout(set = 1, binding = 1) uniform sampler2D textureSampler;
+layout(set = 1, binding = 0) uniform sampler2D textureSampler;
 
 layout(location = 0) in vec3 inColor;
 layout(location = 1) in vec2 inTexCoord;

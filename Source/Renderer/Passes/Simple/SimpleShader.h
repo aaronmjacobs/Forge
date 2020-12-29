@@ -1,6 +1,7 @@
 #include "Graphics/GraphicsResource.h"
 #include "Graphics/UniformBuffer.h"
-#include "Graphics/UniformData.h"
+
+#include "Renderer/UniformData.h"
 
 #include "Resources/ResourceManager.h"
 
@@ -19,7 +20,7 @@ public:
    void allocateDescriptorSets(vk::DescriptorPool descriptorPool);
    void clearDescriptorSets();
 
-   void updateDescriptorSets(const UniformBuffer<ViewUniformData>& viewUniformBuffer, const UniformBuffer<MeshUniformData>& meshUniformBuffer, const Texture& texture, vk::Sampler sampler);
+   void updateDescriptorSets(const UniformBuffer<ViewUniformData>& viewUniformBuffer, const Texture& texture, vk::Sampler sampler);
    void bindDescriptorSets(vk::CommandBuffer commandBuffer, vk::PipelineLayout pipelineLayout);
 
    bool areDescriptorSetsAllocated() const
@@ -36,6 +37,8 @@ public:
    {
       return { frameLayout, drawLayout };
    }
+
+   std::vector<vk::PushConstantRange> getPushConstantRanges() const;
 
 private:
    vk::PipelineShaderStageCreateInfo vertStageCreateInfo;

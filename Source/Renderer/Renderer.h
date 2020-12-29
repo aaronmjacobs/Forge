@@ -2,7 +2,8 @@
 
 #include "Graphics/GraphicsResource.h"
 #include "Graphics/UniformBuffer.h"
-#include "Graphics/UniformData.h"
+
+#include "Renderer/UniformData.h"
 
 #include "Resources/ResourceManager.h"
 
@@ -36,7 +37,6 @@ private:
    std::unique_ptr<SimpleRenderPass> simpleRenderPass;
 
    std::unique_ptr<UniformBuffer<ViewUniformData>> viewUniformBuffer;
-   std::unique_ptr<UniformBuffer<MeshUniformData>> meshUniformBuffer;
 
    TextureHandle textureHandle;
    MeshHandle meshHandle;

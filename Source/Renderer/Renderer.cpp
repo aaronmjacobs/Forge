@@ -5,7 +5,6 @@
 
 #include "Renderer/Passes/Simple/SimpleRenderPass.h"
 
-#include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -107,7 +106,6 @@ Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& reso
 
    {
       viewUniformBuffer = std::make_unique<UniformBuffer<ViewUniformData>>(context);
-      meshUniformBuffer = std::make_unique<UniformBuffer<MeshUniformData>>(context);
    }
 
    {
@@ -126,7 +124,7 @@ Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& reso
 
    {
       simpleRenderPass->allocateDescriptorSets(descriptorPool);
-      simpleRenderPass->updateDescriptorSets(*viewUniformBuffer, *meshUniformBuffer, *resourceManager.getTexture(textureHandle));
+      simpleRenderPass->updateDescriptorSets(*viewUniformBuffer, *resourceManager.getTexture(textureHandle));
    }
 }
 
@@ -140,7 +138,6 @@ Renderer::~Renderer()
    resourceManager.unloadTexture(textureHandle);
    textureHandle.reset();
 
-   meshUniformBuffer.reset();
    viewUniformBuffer.reset();
 
    simpleRenderPass = nullptr;
@@ -154,6 +151,8 @@ Renderer::~Renderer()
 
 void Renderer::render(vk::CommandBuffer commandBuffer)
 {
+   updateUniformBuffers();
+
    const Mesh* mesh = resourceManager.getMesh(meshHandle);
    ASSERT(mesh);
 
@@ -162,8 +161,6 @@ void Renderer::render(vk::CommandBuffer commandBuffer)
 
 void Renderer::updateUniformBuffers()
 {
-   double time = glfwGetTime();
-
    glm::mat4 worldToView = glm::lookAt(glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 
    vk::Extent2D swapchainExtent = context.getSwapchain().getExtent();
@@ -173,11 +170,7 @@ void Renderer::updateUniformBuffers()
    ViewUniformData viewUniformData;
    viewUniformData.worldToClip = viewToClip * worldToView;
 
-   MeshUniformData meshUniformData;
-   meshUniformData.localToWorld = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f) * static_cast<float>(time), glm::vec3(0.0f, 0.0f, 1.0f));
-
    viewUniformBuffer->update(viewUniformData);
-   meshUniformBuffer->update(meshUniformData);
 }
 
 void Renderer::onSwapchainRecreated()

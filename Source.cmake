@@ -29,7 +29,6 @@ target_sources(${PROJECT_NAME} PRIVATE
    "${SRC_DIR}/Graphics/Texture.cpp"
    "${SRC_DIR}/Graphics/Texture.h"
    "${SRC_DIR}/Graphics/UniformBuffer.h"
-   "${SRC_DIR}/Graphics/UniformData.h"
    "${SRC_DIR}/Graphics/Vulkan.h"
 
    "${SRC_DIR}/Platform/Window.cpp"
@@ -41,6 +40,7 @@ target_sources(${PROJECT_NAME} PRIVATE
    "${SRC_DIR}/Renderer/Passes/Simple/SimpleShader.h"
    "${SRC_DIR}/Renderer/Renderer.cpp"
    "${SRC_DIR}/Renderer/Renderer.h"
+   "${SRC_DIR}/Renderer/UniformData.h"
 
    "${SRC_DIR}/Resources/LoadedImage.cpp"
    "${SRC_DIR}/Resources/LoadedImage.h"

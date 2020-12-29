@@ -1,11 +1,6 @@
 #pragma once
 
-#include "Core/Assert.h"
-
 #include "Graphics/GraphicsContext.h"
-#include "Graphics/Mesh.h"
-#include "Graphics/UniformBuffer.h"
-#include "Graphics/UniformData.h"
 
 #include "Resources/ResourceManager.h"
 

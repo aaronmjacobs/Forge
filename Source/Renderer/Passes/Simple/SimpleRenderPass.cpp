@@ -8,6 +8,10 @@
 
 #include "Resources/ResourceManager.h"
 
+#include <GLFW/glfw3.h>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+
 SimpleRenderPass::SimpleRenderPass(const GraphicsContext& graphicsContext, ResourceManager& resourceManager, const Texture& colorTexture, const Texture& depthTexture)
    : GraphicsResource(graphicsContext)
 {
@@ -50,9 +54,6 @@ SimpleRenderPass::~SimpleRenderPass()
 
 void SimpleRenderPass::render(vk::CommandBuffer commandBuffer, const Mesh& mesh)
 {
-   vk::CommandBufferBeginInfo commandBufferBeginInfo;
-   commandBuffer.begin(commandBufferBeginInfo);
-
    std::array<float, 4> clearColorValues = { 0.0f, 0.0f, 0.0f, 1.0f };
    std::array<vk::ClearValue, 2> clearValues = { vk::ClearColorValue(clearColorValues), vk::ClearDepthStencilValue(1.0f, 0) };
 
@@ -66,6 +67,11 @@ void SimpleRenderPass::render(vk::CommandBuffer commandBuffer, const Mesh& mesh)
    commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline);
 
    simpleShader->bindDescriptorSets(commandBuffer, pipelineLayout);
+
+   double time = glfwGetTime();
+   MeshUniformData meshUniformData;
+   meshUniformData.localToWorld = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f) * static_cast<float>(time), glm::vec3(0.0f, 0.0f, 1.0f));
+   commandBuffer.pushConstants<MeshUniformData>(pipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, meshUniformData);
 
    for (uint32_t section = 0; section < mesh.getNumSections(); ++section)
    {
@@ -99,10 +105,10 @@ void SimpleRenderPass::clearDescriptorSets()
    simpleShader->clearDescriptorSets();
 }
 
-void SimpleRenderPass::updateDescriptorSets(const UniformBuffer<ViewUniformData>& viewUniformBuffer, const UniformBuffer<MeshUniformData>& meshUniformBuffer, const Texture& texture)
+void SimpleRenderPass::updateDescriptorSets(const UniformBuffer<ViewUniformData>& viewUniformBuffer, const Texture& texture)
 {
    ASSERT(simpleShader);
-   simpleShader->updateDescriptorSets(viewUniformBuffer, meshUniformBuffer, texture, sampler);
+   simpleShader->updateDescriptorSets(viewUniformBuffer, texture, sampler);
 }
 
 void SimpleRenderPass::initializeSwapchainDependentResources(const Texture& colorTexture, const Texture& depthTexture)
@@ -233,8 +239,10 @@ void SimpleRenderPass::initializeSwapchainDependentResources(const Texture& colo
          .setAttachments(colorBlendAttachmentState);
 
       std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = simpleShader->getSetLayouts();
+      std::vector<vk::PushConstantRange> pushConstantRanges = simpleShader->getPushConstantRanges();
       vk::PipelineLayoutCreateInfo pipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo()
-         .setSetLayouts(descriptorSetLayouts);
+         .setSetLayouts(descriptorSetLayouts)
+         .setPushConstantRanges(pushConstantRanges);
       pipelineLayout = device.createPipelineLayout(pipelineLayoutCreateInfo);
 
       vk::GraphicsPipelineCreateInfo graphicsPipelineCreateInfo = vk::GraphicsPipelineCreateInfo()

@@ -75,14 +75,8 @@ SimpleShader::SimpleShader(const GraphicsContext& graphicsContext, ResourceManag
          .setDescriptorCount(1)
          .setStageFlags(vk::ShaderStageFlagBits::eVertex);
 
-      vk::DescriptorSetLayoutBinding meshUniformBufferLayoutBinding = vk::DescriptorSetLayoutBinding()
-         .setBinding(0)
-         .setDescriptorType(vk::DescriptorType::eUniformBuffer)
-         .setDescriptorCount(1)
-         .setStageFlags(vk::ShaderStageFlagBits::eVertex);
-
       vk::DescriptorSetLayoutBinding samplerLayoutBinding = vk::DescriptorSetLayoutBinding()
-         .setBinding(1)
+         .setBinding(0)
          .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
          .setDescriptorCount(1)
          .setStageFlags(vk::ShaderStageFlagBits::eFragment);
@@ -91,9 +85,8 @@ SimpleShader::SimpleShader(const GraphicsContext& graphicsContext, ResourceManag
          .setBindings(viewUniformBufferLayoutBinding);
       frameLayout = device.createDescriptorSetLayout(frameLayoutCreateInfo);
 
-      std::array<vk::DescriptorSetLayoutBinding, 2> drawLayoutBindings =
+      std::array<vk::DescriptorSetLayoutBinding, 1> drawLayoutBindings =
       {
-         meshUniformBufferLayoutBinding,
          samplerLayoutBinding
       };
       vk::DescriptorSetLayoutCreateInfo drawLayoutCreateInfo = vk::DescriptorSetLayoutCreateInfo()
@@ -143,12 +136,11 @@ void SimpleShader::clearDescriptorSets()
    drawSets.clear();
 }
 
-void SimpleShader::updateDescriptorSets(const UniformBuffer<ViewUniformData>& viewUniformBuffer, const UniformBuffer<MeshUniformData>& meshUniformBuffer, const Texture& texture, vk::Sampler sampler)
+void SimpleShader::updateDescriptorSets(const UniformBuffer<ViewUniformData>& viewUniformBuffer, const Texture& texture, vk::Sampler sampler)
 {
    for (uint32_t i = 0; i < context.getSwapchain().getImageCount(); ++i)
    {
       vk::DescriptorBufferInfo viewBufferInfo = viewUniformBuffer.getDescriptorBufferInfo(i);
-      vk::DescriptorBufferInfo meshBufferInfo = meshUniformBuffer.getDescriptorBufferInfo(i);
 
       vk::DescriptorImageInfo imageInfo = vk::DescriptorImageInfo()
          .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
@@ -163,27 +155,30 @@ void SimpleShader::updateDescriptorSets(const UniformBuffer<ViewUniformData>& vi
          .setDescriptorCount(1)
          .setPBufferInfo(&viewBufferInfo);
 
-      vk::WriteDescriptorSet meshDescriptorWrite = vk::WriteDescriptorSet()
-         .setDstSet(drawSets[i])
-         .setDstBinding(0)
-         .setDstArrayElement(0)
-         .setDescriptorType(vk::DescriptorType::eUniformBuffer)
-         .setDescriptorCount(1)
-         .setPBufferInfo(&meshBufferInfo);
-
       vk::WriteDescriptorSet imageDescriptorWrite = vk::WriteDescriptorSet()
          .setDstSet(drawSets[i])
-         .setDstBinding(1)
+         .setDstBinding(0)
          .setDstArrayElement(0)
          .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
          .setDescriptorCount(1)
          .setPImageInfo(&imageInfo);
 
-      device.updateDescriptorSets({ viewDescriptorWrite, meshDescriptorWrite, imageDescriptorWrite }, {});
+      device.updateDescriptorSets({ viewDescriptorWrite, imageDescriptorWrite }, {});
    }
 }
 
 void SimpleShader::bindDescriptorSets(vk::CommandBuffer commandBuffer, vk::PipelineLayout pipelineLayout)
 {
    commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, 0, { frameSets[context.getSwapchainIndex()], drawSets[context.getSwapchainIndex()] }, {});
+}
+
+std::vector<vk::PushConstantRange> SimpleShader::getPushConstantRanges() const
+{
+   return
+   {
+      vk::PushConstantRange()
+         .setStageFlags(vk::ShaderStageFlagBits::eVertex)
+         .setOffset(0)
+         .setSize(sizeof(MeshUniformData))
+   };
 }

@@ -1,5 +1,7 @@
 #include "ForgeApplication.h"
 
+#include "Core/Assert.h"
+
 #include "Graphics/Swapchain.h"
 
 #include "Renderer/Renderer.h"
@@ -93,7 +95,17 @@ void ForgeApplication::render()
    imageFences[imageIndex] = frameFences[frameIndex];
 
    context->setSwapchainIndex(imageIndex);
-   renderer->updateUniformBuffers();
+
+   vk::CommandBuffer commandBuffer = commandBuffers[imageIndex];
+   {
+      vk::CommandBufferBeginInfo commandBufferBeginInfo = vk::CommandBufferBeginInfo()
+         .setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
+      commandBuffer.begin(commandBufferBeginInfo);
+
+      renderer->render(commandBuffer);
+
+      commandBuffer.end();
+   }
 
    std::array<vk::Semaphore, 1> waitSemaphores = { imageAvailableSemaphores[frameIndex] };
    std::array<vk::PipelineStageFlags, 1> waitStages = { vk::PipelineStageFlagBits::eColorAttachmentOutput };
@@ -103,7 +115,7 @@ void ForgeApplication::render()
    vk::SubmitInfo submitInfo = vk::SubmitInfo()
       .setWaitSemaphores(waitSemaphores)
       .setPWaitDstStageMask(waitStages.data())
-      .setCommandBuffers(commandBuffers[imageIndex])
+      .setCommandBuffers(commandBuffer)
       .setSignalSemaphores(signalSemaphores);
 
    device.resetFences({ frameFences[frameIndex] });
@@ -223,7 +235,8 @@ void ForgeApplication::initializeCommandBuffers()
    if (!commandPool)
    {
       vk::CommandPoolCreateInfo commandPoolCreateInfo = vk::CommandPoolCreateInfo()
-         .setQueueFamilyIndex(context->getQueueFamilyIndices().graphicsFamily);
+         .setQueueFamilyIndex(context->getQueueFamilyIndices().graphicsFamily)
+         .setFlags(vk::CommandPoolCreateFlagBits::eResetCommandBuffer | vk::CommandPoolCreateFlagBits::eTransient);
 
       commandPool = context->getDevice().createCommandPool(commandPoolCreateInfo);
    }
@@ -235,16 +248,6 @@ void ForgeApplication::initializeCommandBuffers()
 
    ASSERT(commandBuffers.empty());
    commandBuffers = context->getDevice().allocateCommandBuffers(commandBufferAllocateInfo);
-
-   for (std::size_t i = 0; i < commandBuffers.size(); ++i)
-   {
-      vk::CommandBuffer commandBuffer = commandBuffers[i];
-
-      context->setSwapchainIndex(static_cast<uint32_t>(i));
-      renderer->render(commandBuffer);
-
-      commandBuffer.end();
-   }
 }
 
 void ForgeApplication::terminateCommandBuffers(bool keepPoolAlive)
