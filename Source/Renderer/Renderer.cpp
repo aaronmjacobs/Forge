@@ -72,16 +72,14 @@ Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& reso
    : GraphicsResource(graphicsContext)
    , resourceManager(resourceManagerRef)
 {
-   uint32_t swapchainImageCount = context.getSwapchain().getImageCount();
-
    {
       vk::DescriptorPoolSize uniformPoolSize = vk::DescriptorPoolSize()
          .setType(vk::DescriptorType::eUniformBuffer)
-         .setDescriptorCount(swapchainImageCount * 2);
+         .setDescriptorCount(GraphicsContext::kMaxFramesInFlight * 2);
 
       vk::DescriptorPoolSize samplerPoolSize = vk::DescriptorPoolSize()
          .setType(vk::DescriptorType::eCombinedImageSampler)
-         .setDescriptorCount(swapchainImageCount);
+         .setDescriptorCount(GraphicsContext::kMaxFramesInFlight);
 
       std::array<vk::DescriptorPoolSize, 2> descriptorPoolSizes =
       {
@@ -91,7 +89,7 @@ Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& reso
 
       vk::DescriptorPoolCreateInfo createInfo = vk::DescriptorPoolCreateInfo()
          .setPoolSizes(descriptorPoolSizes)
-         .setMaxSets(swapchainImageCount * 2);
+         .setMaxSets(GraphicsContext::kMaxFramesInFlight * 2);
       descriptorPool = device.createDescriptorPool(createInfo);
    }
 

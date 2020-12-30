@@ -115,9 +115,8 @@ void SimpleShader::allocateDescriptorSets(vk::DescriptorPool descriptorPool)
    ASSERT(frameLayout && drawLayout);
    ASSERT(!areDescriptorSetsAllocated());
 
-   uint32_t swapchainImageCount = context.getSwapchain().getImageCount();
-   std::vector<vk::DescriptorSetLayout> frameLayouts(swapchainImageCount, frameLayout);
-   std::vector<vk::DescriptorSetLayout> drawLayouts(swapchainImageCount, drawLayout);
+   std::vector<vk::DescriptorSetLayout> frameLayouts(GraphicsContext::kMaxFramesInFlight, frameLayout);
+   std::vector<vk::DescriptorSetLayout> drawLayouts(GraphicsContext::kMaxFramesInFlight, drawLayout);
 
    vk::DescriptorSetAllocateInfo frameAllocateInfo = vk::DescriptorSetAllocateInfo()
       .setDescriptorPool(descriptorPool)
@@ -138,9 +137,9 @@ void SimpleShader::clearDescriptorSets()
 
 void SimpleShader::updateDescriptorSets(const UniformBuffer<ViewUniformData>& viewUniformBuffer, const Texture& texture, vk::Sampler sampler)
 {
-   for (uint32_t i = 0; i < context.getSwapchain().getImageCount(); ++i)
+   for (uint32_t frameIndex = 0; frameIndex < GraphicsContext::kMaxFramesInFlight; ++frameIndex)
    {
-      vk::DescriptorBufferInfo viewBufferInfo = viewUniformBuffer.getDescriptorBufferInfo(i);
+      vk::DescriptorBufferInfo viewBufferInfo = viewUniformBuffer.getDescriptorBufferInfo(frameIndex);
 
       vk::DescriptorImageInfo imageInfo = vk::DescriptorImageInfo()
          .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
@@ -148,7 +147,7 @@ void SimpleShader::updateDescriptorSets(const UniformBuffer<ViewUniformData>& vi
          .setSampler(sampler);
 
       vk::WriteDescriptorSet viewDescriptorWrite = vk::WriteDescriptorSet()
-         .setDstSet(frameSets[i])
+         .setDstSet(frameSets[frameIndex])
          .setDstBinding(0)
          .setDstArrayElement(0)
          .setDescriptorType(vk::DescriptorType::eUniformBuffer)
@@ -156,7 +155,7 @@ void SimpleShader::updateDescriptorSets(const UniformBuffer<ViewUniformData>& vi
          .setPBufferInfo(&viewBufferInfo);
 
       vk::WriteDescriptorSet imageDescriptorWrite = vk::WriteDescriptorSet()
-         .setDstSet(drawSets[i])
+         .setDstSet(drawSets[frameIndex])
          .setDstBinding(0)
          .setDstArrayElement(0)
          .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
@@ -169,7 +168,7 @@ void SimpleShader::updateDescriptorSets(const UniformBuffer<ViewUniformData>& vi
 
 void SimpleShader::bindDescriptorSets(vk::CommandBuffer commandBuffer, vk::PipelineLayout pipelineLayout)
 {
-   commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, 0, { frameSets[context.getSwapchainIndex()], drawSets[context.getSwapchainIndex()] }, {});
+   commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, 0, { frameSets[context.getFrameIndex()], drawSets[context.getFrameIndex()] }, {});
 }
 
 std::vector<vk::PushConstantRange> SimpleShader::getPushConstantRanges() const

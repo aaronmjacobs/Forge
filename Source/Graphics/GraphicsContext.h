@@ -24,6 +24,8 @@ struct QueueFamilyIndices
 class GraphicsContext
 {
 public:
+   static const uint32_t kMaxFramesInFlight = 3;
+
    GraphicsContext(Window& window);
 
    GraphicsContext(const GraphicsContext& other) = delete;
@@ -97,6 +99,16 @@ public:
 
    void setSwapchainIndex(uint32_t index);
 
+   uint32_t getFrameIndex() const
+   {
+      return frameIndex;
+   }
+
+   void setFrameIndex(uint32_t index)
+   {
+      frameIndex = index;
+   }
+
 private:
    vk::Instance instance;
    vk::SurfaceKHR surface;
@@ -115,6 +127,8 @@ private:
 
    const Swapchain* swapchain = nullptr;
    uint32_t swapchainIndex = 0;
+
+   uint32_t frameIndex = 0;
 
 #if FORGE_DEBUG
    VkDebugUtilsMessengerEXT debugMessenger = nullptr;

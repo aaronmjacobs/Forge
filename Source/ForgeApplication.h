@@ -56,6 +56,6 @@ private:
    std::vector<vk::Semaphore> imageAvailableSemaphores;
    std::vector<vk::Semaphore> renderFinishedSemaphores;
    std::vector<vk::Fence> frameFences;
-   std::vector<vk::Fence> imageFences;
-   std::size_t frameIndex = 0;
+   std::vector<vk::Fence> swapchainFences;
+   uint32_t frameIndex = 0;
 };

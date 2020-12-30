@@ -13,11 +13,6 @@
 #include <array>
 #include <stdexcept>
 
-namespace
-{
-   const std::size_t kMaxFramesInFlight = 2;
-}
-
 ForgeApplication::ForgeApplication()
 {
    initializeGlfw();
@@ -67,36 +62,37 @@ void ForgeApplication::render()
       throw std::runtime_error("Failed to wait for frame fence");
    }
 
-   vk::ResultValue<uint32_t> imageIndexResultValue = device.acquireNextImageKHR(swapchain->getSwapchainKHR(), UINT64_MAX, imageAvailableSemaphores[frameIndex], nullptr);
-   if (imageIndexResultValue.result == vk::Result::eErrorOutOfDateKHR)
+   vk::ResultValue<uint32_t> swapchainIndexResultValue = device.acquireNextImageKHR(swapchain->getSwapchainKHR(), UINT64_MAX, imageAvailableSemaphores[frameIndex], nullptr);
+   if (swapchainIndexResultValue.result == vk::Result::eErrorOutOfDateKHR)
    {
       if (!recreateSwapchain())
       {
          return;
       }
 
-      imageIndexResultValue = device.acquireNextImageKHR(swapchain->getSwapchainKHR(), UINT64_MAX, imageAvailableSemaphores[frameIndex], nullptr);
+      swapchainIndexResultValue = device.acquireNextImageKHR(swapchain->getSwapchainKHR(), UINT64_MAX, imageAvailableSemaphores[frameIndex], nullptr);
    }
-   if (imageIndexResultValue.result != vk::Result::eSuccess && imageIndexResultValue.result != vk::Result::eSuboptimalKHR)
+   if (swapchainIndexResultValue.result != vk::Result::eSuccess && swapchainIndexResultValue.result != vk::Result::eSuboptimalKHR)
    {
       throw std::runtime_error("Failed to acquire swapchain image");
    }
-   uint32_t imageIndex = imageIndexResultValue.value;
+   uint32_t swapchainIndex = swapchainIndexResultValue.value;
 
-   if (imageFences[imageIndex])
+   if (swapchainFences[swapchainIndex])
    {
-      // If a previous frame is still using the image, wait for it to complete
-      vk::Result imageWaitResult = device.waitForFences({ imageFences[imageIndex] }, true, UINT64_MAX);
+      // If a previous frame is still using the swapchain image, wait for it to complete
+      vk::Result imageWaitResult = device.waitForFences({ swapchainFences[swapchainIndex] }, true, UINT64_MAX);
       if (imageWaitResult != vk::Result::eSuccess)
       {
          throw std::runtime_error("Failed to wait for image fence");
       }
    }
-   imageFences[imageIndex] = frameFences[frameIndex];
+   swapchainFences[swapchainIndex] = frameFences[frameIndex];
 
-   context->setSwapchainIndex(imageIndex);
+   context->setSwapchainIndex(swapchainIndex);
+   context->setFrameIndex(frameIndex);
 
-   vk::CommandBuffer commandBuffer = commandBuffers[imageIndex];
+   vk::CommandBuffer commandBuffer = commandBuffers[swapchainIndex];
    {
       vk::CommandBufferBeginInfo commandBufferBeginInfo = vk::CommandBufferBeginInfo()
          .setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
@@ -125,7 +121,7 @@ void ForgeApplication::render()
    vk::PresentInfoKHR presentInfo = vk::PresentInfoKHR()
       .setWaitSemaphores(signalSemaphores)
       .setSwapchains(swapchainKHR)
-      .setImageIndices(imageIndex);
+      .setImageIndices(swapchainIndex);
 
    vk::Result presentResult = context->getPresentQueue().presentKHR(presentInfo);
    if (presentResult == vk::Result::eErrorOutOfDateKHR || presentResult == vk::Result::eSuboptimalKHR)
@@ -140,14 +136,12 @@ void ForgeApplication::render()
       throw std::runtime_error("Failed to present swapchain image");
    }
 
-   frameIndex = (frameIndex + 1) % kMaxFramesInFlight;
+   frameIndex = (frameIndex + 1) % GraphicsContext::kMaxFramesInFlight;
 }
 
 bool ForgeApplication::recreateSwapchain()
 {
    context->getDevice().waitIdle();
-
-   uint32_t oldSwapchainImageCount = swapchain->getImageCount();
 
    terminateCommandBuffers(true);
    terminateSwapchain();
@@ -165,13 +159,6 @@ bool ForgeApplication::recreateSwapchain()
    }
 
    initializeSwapchain();
-
-   uint32_t newSwapchainImageCount = swapchain->getImageCount();
-   if (newSwapchainImageCount != oldSwapchainImageCount)
-   {
-      throw std::runtime_error("Swapchain image count changed unexpectedly");
-   }
-
    renderer->onSwapchainRecreated();
    initializeCommandBuffers();
 
@@ -244,7 +231,7 @@ void ForgeApplication::initializeCommandBuffers()
    vk::CommandBufferAllocateInfo commandBufferAllocateInfo = vk::CommandBufferAllocateInfo()
       .setCommandPool(commandPool)
       .setLevel(vk::CommandBufferLevel::ePrimary)
-      .setCommandBufferCount(swapchain->getImageCount());
+      .setCommandBufferCount(GraphicsContext::kMaxFramesInFlight);
 
    ASSERT(commandBuffers.empty());
    commandBuffers = context->getDevice().allocateCommandBuffers(commandBufferAllocateInfo);
@@ -252,15 +239,18 @@ void ForgeApplication::initializeCommandBuffers()
 
 void ForgeApplication::terminateCommandBuffers(bool keepPoolAlive)
 {
-   if (keepPoolAlive)
+   if (commandPool)
    {
-      context->getDevice().freeCommandBuffers(commandPool, commandBuffers);
-   }
-   else
-   {
-      // Command buffers will get cleaned up with the pool
-      context->getDevice().destroyCommandPool(commandPool);
-      commandPool = nullptr;
+      if (keepPoolAlive)
+      {
+         context->getDevice().freeCommandBuffers(commandPool, commandBuffers);
+      }
+      else
+      {
+         // Command buffers will get cleaned up with the pool
+         context->getDevice().destroyCommandPool(commandPool);
+         commandPool = nullptr;
+      }
    }
 
    commandBuffers.clear();
@@ -268,16 +258,16 @@ void ForgeApplication::terminateCommandBuffers(bool keepPoolAlive)
 
 void ForgeApplication::initializeSyncObjects()
 {
-   imageAvailableSemaphores.resize(kMaxFramesInFlight);
-   renderFinishedSemaphores.resize(kMaxFramesInFlight);
-   frameFences.resize(kMaxFramesInFlight);
-   imageFences.resize(swapchain->getImageCount());
+   imageAvailableSemaphores.resize(GraphicsContext::kMaxFramesInFlight);
+   renderFinishedSemaphores.resize(GraphicsContext::kMaxFramesInFlight);
+   frameFences.resize(GraphicsContext::kMaxFramesInFlight);
+   swapchainFences.resize(swapchain->getImageCount());
 
    vk::SemaphoreCreateInfo semaphoreCreateInfo;
    vk::FenceCreateInfo fenceCreateInfo = vk::FenceCreateInfo()
       .setFlags(vk::FenceCreateFlagBits::eSignaled);
 
-   for (std::size_t i = 0; i < kMaxFramesInFlight; ++i)
+   for (uint32_t i = 0; i < GraphicsContext::kMaxFramesInFlight; ++i)
    {
       imageAvailableSemaphores[i] = context->getDevice().createSemaphore(semaphoreCreateInfo);
       renderFinishedSemaphores[i] = context->getDevice().createSemaphore(semaphoreCreateInfo);

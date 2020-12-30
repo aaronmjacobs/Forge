@@ -36,7 +36,7 @@ template<typename DataType>
 inline UniformBuffer<DataType>::UniformBuffer(const GraphicsContext& graphicsContext)
    : GraphicsResource(graphicsContext)
 {
-   vk::DeviceSize bufferSize = getPaddedDataSize(context) * context.getSwapchain().getImageCount();
+   vk::DeviceSize bufferSize = getPaddedDataSize(context) * GraphicsContext::kMaxFramesInFlight;
    Buffer::create(context, bufferSize, vk::BufferUsageFlagBits::eUniformBuffer, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, buffer, memory);
 
    mappedMemory = device.mapMemory(memory, 0, bufferSize);
@@ -62,16 +62,16 @@ inline void UniformBuffer<DataType>::update(const DataType& data)
    ASSERT(buffer && memory && mappedMemory);
 
    vk::DeviceSize size = getPaddedDataSize(context);
-   vk::DeviceSize offset = size * context.getSwapchainIndex();
+   vk::DeviceSize offset = size * context.getFrameIndex();
 
    std::memcpy(static_cast<char*>(mappedMemory) + offset, &data, sizeof(data));
 }
 
 template<typename DataType>
-inline vk::DescriptorBufferInfo UniformBuffer<DataType>::getDescriptorBufferInfo(uint32_t swapchainIndex) const
+inline vk::DescriptorBufferInfo UniformBuffer<DataType>::getDescriptorBufferInfo(uint32_t frameIndex) const
 {
    return vk::DescriptorBufferInfo()
       .setBuffer(buffer)
-      .setOffset(static_cast<vk::DeviceSize>(getPaddedDataSize(context) * swapchainIndex))
+      .setOffset(static_cast<vk::DeviceSize>(getPaddedDataSize(context) * frameIndex))
       .setRange(sizeof(DataType));
 }
