@@ -2,9 +2,11 @@
 
 #include "Graphics/Vulkan.h"
 
+#include <memory>
 #include <optional>
 #include <set>
 
+class DescriptorSetLayoutCache;
 class Swapchain;
 class Window;
 
@@ -109,6 +111,12 @@ public:
       frameIndex = index;
    }
 
+   DescriptorSetLayoutCache& getLayoutCache() const
+   {
+      ASSERT(layoutCache);
+      return *layoutCache;
+   }
+
 private:
    vk::Instance instance;
    vk::SurfaceKHR surface;
@@ -129,6 +137,8 @@ private:
    uint32_t swapchainIndex = 0;
 
    uint32_t frameIndex = 0;
+
+   std::unique_ptr<DescriptorSetLayoutCache> layoutCache;
 
 #if FORGE_DEBUG
    VkDebugUtilsMessengerEXT debugMessenger = nullptr;

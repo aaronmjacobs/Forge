@@ -1,6 +1,8 @@
+#include "Graphics/GraphicsContext.h"
+
 #include "Core/Log.h"
 
-#include "Graphics/GraphicsContext.h"
+#include "Graphics/DescriptorSetLayoutCache.h"
 #include "Graphics/Swapchain.h"
 
 #include "Platform/Window.h"
@@ -382,10 +384,14 @@ GraphicsContext::GraphicsContext(Window& window)
       .setFlags(vk::CommandPoolCreateFlagBits::eTransient);
 
    transientCommandPool = device.createCommandPool(commandPoolCreateInfo);
+
+   layoutCache = std::make_unique<DescriptorSetLayoutCache>(*this);
 }
 
 GraphicsContext::~GraphicsContext()
 {
+   layoutCache = nullptr;
+
    device.destroyCommandPool(transientCommandPool);
 
    device.destroy();

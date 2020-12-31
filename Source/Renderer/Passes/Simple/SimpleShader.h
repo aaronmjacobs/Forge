@@ -1,7 +1,5 @@
+#include "Graphics/DescriptorSet.h"
 #include "Graphics/GraphicsResource.h"
-#include "Graphics/UniformBuffer.h"
-
-#include "Renderer/UniformData.h"
 
 #include "Resources/ResourceManager.h"
 
@@ -9,35 +7,24 @@
 
 class Swapchain;
 class Texture;
+class View;
 
 class SimpleShader : public GraphicsResource
 {
 public:
-   SimpleShader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager);
+   SimpleShader(const GraphicsContext& graphicsContext, vk::DescriptorPool descriptorPool, ResourceManager& resourceManager);
 
    ~SimpleShader();
 
-   void allocateDescriptorSets(vk::DescriptorPool descriptorPool);
-   void clearDescriptorSets();
-
-   void updateDescriptorSets(const UniformBuffer<ViewUniformData>& viewUniformBuffer, const Texture& texture, vk::Sampler sampler);
-   void bindDescriptorSets(vk::CommandBuffer commandBuffer, vk::PipelineLayout pipelineLayout);
-
-   bool areDescriptorSetsAllocated() const
-   {
-      return !frameSets.empty() || !drawSets.empty();
-   }
+   void updateDescriptorSets(const View& view, const Texture& texture, vk::Sampler sampler);
+   void bindDescriptorSets(vk::CommandBuffer commandBuffer, const View& view, vk::PipelineLayout pipelineLayout);
 
    std::vector<vk::PipelineShaderStageCreateInfo> getStages(bool withTexture) const
    {
       return { vertStageCreateInfo, withTexture ? fragStageCreateInfoWithTexture : fragStageCreateInfoWithoutTexture };
    }
 
-   std::vector<vk::DescriptorSetLayout> getSetLayouts() const
-   {
-      return { frameLayout, drawLayout };
-   }
-
+   std::vector<vk::DescriptorSetLayout> getSetLayouts() const;
    std::vector<vk::PushConstantRange> getPushConstantRanges() const;
 
 private:
@@ -47,9 +34,5 @@ private:
 
    std::vector<vk::PipelineShaderStageCreateInfo> stages;
 
-   vk::DescriptorSetLayout frameLayout;
-   vk::DescriptorSetLayout drawLayout;
-
-   std::vector<vk::DescriptorSet> frameSets;
-   std::vector<vk::DescriptorSet> drawSets;
+   DescriptorSet descriptorSet;
 };

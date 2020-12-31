@@ -4,9 +4,7 @@
 #include "Graphics/Texture.h"
 
 #include "Renderer/Passes/Simple/SimpleRenderPass.h"
-
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
+#include "Renderer/View.h"
 
 namespace
 {
@@ -75,7 +73,7 @@ Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& reso
    {
       vk::DescriptorPoolSize uniformPoolSize = vk::DescriptorPoolSize()
          .setType(vk::DescriptorType::eUniformBuffer)
-         .setDescriptorCount(GraphicsContext::kMaxFramesInFlight * 2);
+         .setDescriptorCount(GraphicsContext::kMaxFramesInFlight);
 
       vk::DescriptorPoolSize samplerPoolSize = vk::DescriptorPoolSize()
          .setType(vk::DescriptorType::eCombinedImageSampler)
@@ -94,16 +92,16 @@ Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& reso
    }
 
    {
+      view = std::make_unique<View>(context, descriptorPool);
+   }
+
+   {
       colorTexture = createColorTexture(context);
       depthTexture = createDepthTexture(context);
    }
 
    {
-      simpleRenderPass = std::make_unique<SimpleRenderPass>(context, resourceManager, *colorTexture, *depthTexture);
-   }
-
-   {
-      viewUniformBuffer = std::make_unique<UniformBuffer<ViewUniformData>>(context);
+      simpleRenderPass = std::make_unique<SimpleRenderPass>(context, descriptorPool, resourceManager, *colorTexture, *depthTexture);
    }
 
    {
@@ -121,27 +119,24 @@ Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& reso
    }
 
    {
-      simpleRenderPass->allocateDescriptorSets(descriptorPool);
-      simpleRenderPass->updateDescriptorSets(*viewUniformBuffer, *resourceManager.getTexture(textureHandle));
+      simpleRenderPass->updateDescriptorSets(*view, *resourceManager.getTexture(textureHandle));
    }
 }
 
 Renderer::~Renderer()
 {
-   simpleRenderPass->clearDescriptorSets();
-
    resourceManager.unloadMesh(meshHandle);
    meshHandle.reset();
 
    resourceManager.unloadTexture(textureHandle);
    textureHandle.reset();
 
-   viewUniformBuffer.reset();
-
    simpleRenderPass = nullptr;
 
    depthTexture = nullptr;
    colorTexture = nullptr;
+
+   view = nullptr;
 
    device.destroyDescriptorPool(descriptorPool);
    descriptorPool = nullptr;
@@ -149,26 +144,12 @@ Renderer::~Renderer()
 
 void Renderer::render(vk::CommandBuffer commandBuffer)
 {
-   updateUniformBuffers();
+   view->update();
 
    const Mesh* mesh = resourceManager.getMesh(meshHandle);
    ASSERT(mesh);
 
-   simpleRenderPass->render(commandBuffer, *mesh);
-}
-
-void Renderer::updateUniformBuffers()
-{
-   glm::mat4 worldToView = glm::lookAt(glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-
-   vk::Extent2D swapchainExtent = context.getSwapchain().getExtent();
-   glm::mat4 viewToClip = glm::perspective(glm::radians(70.0f), static_cast<float>(swapchainExtent.width) / swapchainExtent.height, 0.1f, 10.0f);
-   viewToClip[1][1] *= -1.0f;
-
-   ViewUniformData viewUniformData;
-   viewUniformData.worldToClip = viewToClip * worldToView;
-
-   viewUniformBuffer->update(viewUniformData);
+   simpleRenderPass->render(commandBuffer, *view, *mesh);
 }
 
 void Renderer::onSwapchainRecreated()

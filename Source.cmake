@@ -6,6 +6,8 @@ target_sources(${PROJECT_NAME} PRIVATE
    "${SRC_DIR}/Main.cpp"
 
    "${SRC_DIR}/Core/Assert.h"
+   "${SRC_DIR}/Core/Enum.h"
+   "${SRC_DIR}/Core/Hash.h"
    "${SRC_DIR}/Core/Log.cpp"
    "${SRC_DIR}/Core/Log.h"
    "${SRC_DIR}/Core/Containers/GenerationalArray.h"
@@ -15,6 +17,10 @@ target_sources(${PROJECT_NAME} PRIVATE
    "${SRC_DIR}/Graphics/Buffer.h"
    "${SRC_DIR}/Graphics/Command.cpp"
    "${SRC_DIR}/Graphics/Command.h"
+   "${SRC_DIR}/Graphics/DescriptorSet.cpp"
+   "${SRC_DIR}/Graphics/DescriptorSet.h"
+   "${SRC_DIR}/Graphics/DescriptorSetLayoutCache.cpp"
+   "${SRC_DIR}/Graphics/DescriptorSetLayoutCache.h"
    "${SRC_DIR}/Graphics/GraphicsContext.cpp"
    "${SRC_DIR}/Graphics/GraphicsContext.h"
    "${SRC_DIR}/Graphics/GraphicsResource.h"
@@ -41,6 +47,8 @@ target_sources(${PROJECT_NAME} PRIVATE
    "${SRC_DIR}/Renderer/Renderer.cpp"
    "${SRC_DIR}/Renderer/Renderer.h"
    "${SRC_DIR}/Renderer/UniformData.h"
+   "${SRC_DIR}/Renderer/View.cpp"
+   "${SRC_DIR}/Renderer/View.h"
 
    "${SRC_DIR}/Resources/LoadedImage.cpp"
    "${SRC_DIR}/Resources/LoadedImage.h"

@@ -13,22 +13,20 @@ class ResourceManager;
 class SimpleShader;
 class Swapchain;
 class Texture;
+class View;
 
 class SimpleRenderPass : public GraphicsResource
 {
 public:
-   SimpleRenderPass(const GraphicsContext& graphicsContext, ResourceManager& resourceManager, const Texture& colorTexture, const Texture& depthTexture);
+   SimpleRenderPass(const GraphicsContext& graphicsContext, vk::DescriptorPool descriptorPool, ResourceManager& resourceManager, const Texture& colorTexture, const Texture& depthTexture);
 
    ~SimpleRenderPass();
 
-   void render(vk::CommandBuffer commandBuffer, const Mesh& mesh);
+   void render(vk::CommandBuffer commandBuffer, const View& view, const Mesh& mesh);
 
    void onSwapchainRecreated(const Texture& colorTexture, const Texture& depthTexture);
 
-   bool areDescriptorSetsAllocated() const;
-   void allocateDescriptorSets(vk::DescriptorPool descriptorPool);
-   void clearDescriptorSets();
-   void updateDescriptorSets(const UniformBuffer<ViewUniformData>& viewUniformBuffer, const Texture& texture);
+   void updateDescriptorSets(const View& view, const Texture& texture);
 
 private:
    void initializeSwapchainDependentResources(const Texture& colorTexture, const Texture& depthTexture);

@@ -12,11 +12,11 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-SimpleRenderPass::SimpleRenderPass(const GraphicsContext& graphicsContext, ResourceManager& resourceManager, const Texture& colorTexture, const Texture& depthTexture)
+SimpleRenderPass::SimpleRenderPass(const GraphicsContext& graphicsContext, vk::DescriptorPool descriptorPool, ResourceManager& resourceManager, const Texture& colorTexture, const Texture& depthTexture)
    : GraphicsResource(graphicsContext)
 {
    {
-      simpleShader = std::make_unique<SimpleShader>(context, resourceManager);
+      simpleShader = std::make_unique<SimpleShader>(context, descriptorPool, resourceManager);
    }
 
    {
@@ -52,7 +52,7 @@ SimpleRenderPass::~SimpleRenderPass()
    simpleShader.reset();
 }
 
-void SimpleRenderPass::render(vk::CommandBuffer commandBuffer, const Mesh& mesh)
+void SimpleRenderPass::render(vk::CommandBuffer commandBuffer, const View& view, const Mesh& mesh)
 {
    std::array<float, 4> clearColorValues = { 0.0f, 0.0f, 0.0f, 1.0f };
    std::array<vk::ClearValue, 2> clearValues = { vk::ClearColorValue(clearColorValues), vk::ClearDepthStencilValue(1.0f, 0) };
@@ -66,7 +66,7 @@ void SimpleRenderPass::render(vk::CommandBuffer commandBuffer, const Mesh& mesh)
 
    commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline);
 
-   simpleShader->bindDescriptorSets(commandBuffer, pipelineLayout);
+   simpleShader->bindDescriptorSets(commandBuffer, view, pipelineLayout);
 
    double time = glfwGetTime();
    MeshUniformData meshUniformData;
@@ -88,27 +88,10 @@ void SimpleRenderPass::onSwapchainRecreated(const Texture& colorTexture, const T
    initializeSwapchainDependentResources(colorTexture, depthTexture);
 }
 
-bool SimpleRenderPass::areDescriptorSetsAllocated() const
-{
-   return simpleShader && simpleShader->areDescriptorSetsAllocated();
-}
-
-void SimpleRenderPass::allocateDescriptorSets(vk::DescriptorPool descriptorPool)
+void SimpleRenderPass::updateDescriptorSets(const View& view, const Texture& texture)
 {
    ASSERT(simpleShader);
-   simpleShader->allocateDescriptorSets(descriptorPool);
-}
-
-void SimpleRenderPass::clearDescriptorSets()
-{
-   ASSERT(simpleShader);
-   simpleShader->clearDescriptorSets();
-}
-
-void SimpleRenderPass::updateDescriptorSets(const UniformBuffer<ViewUniformData>& viewUniformBuffer, const Texture& texture)
-{
-   ASSERT(simpleShader);
-   simpleShader->updateDescriptorSets(viewUniformBuffer, texture, sampler);
+   simpleShader->updateDescriptorSets(view, texture, sampler);
 }
 
 void SimpleRenderPass::initializeSwapchainDependentResources(const Texture& colorTexture, const Texture& depthTexture)
@@ -188,8 +171,8 @@ void SimpleRenderPass::initializeSwapchainDependentResources(const Texture& colo
    {
       std::vector<vk::PipelineShaderStageCreateInfo> shaderStages = simpleShader->getStages(true);
 
-      std::array<vk::VertexInputBindingDescription, 1> vertexBindingDescriptions = Vertex::getBindingDescriptions();
-      std::array<vk::VertexInputAttributeDescription, 3> vertexAttributeDescriptions = Vertex::getAttributeDescriptions();
+      std::vector<vk::VertexInputBindingDescription> vertexBindingDescriptions = Vertex::getBindingDescriptions();
+      std::vector<vk::VertexInputAttributeDescription> vertexAttributeDescriptions = Vertex::getAttributeDescriptions(false);
       vk::PipelineVertexInputStateCreateInfo vertexInputCreateInfo = vk::PipelineVertexInputStateCreateInfo()
          .setVertexBindingDescriptions(vertexBindingDescriptions)
          .setVertexAttributeDescriptions(vertexAttributeDescriptions);

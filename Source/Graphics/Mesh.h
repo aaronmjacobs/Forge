@@ -19,8 +19,8 @@ struct Vertex
    {
    }
 
-   static std::array<vk::VertexInputBindingDescription, 1> getBindingDescriptions();
-   static std::array<vk::VertexInputAttributeDescription, 3> getAttributeDescriptions();
+   static std::vector<vk::VertexInputBindingDescription> getBindingDescriptions();
+   static std::vector<vk::VertexInputAttributeDescription> getAttributeDescriptions(bool positionOnly);
 };
 
 struct MeshSectionSourceData

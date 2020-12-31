@@ -8,7 +8,7 @@
 #include <limits>
 
 // static
-std::array<vk::VertexInputBindingDescription, 1> Vertex::getBindingDescriptions()
+std::vector<vk::VertexInputBindingDescription> Vertex::getBindingDescriptions()
 {
    return
    {
@@ -20,26 +20,40 @@ std::array<vk::VertexInputBindingDescription, 1> Vertex::getBindingDescriptions(
 }
 
 // static
-std::array<vk::VertexInputAttributeDescription, 3> Vertex::getAttributeDescriptions()
+std::vector<vk::VertexInputAttributeDescription> Vertex::getAttributeDescriptions(bool positionOnly)
 {
-   return
+   if (positionOnly)
    {
-      vk::VertexInputAttributeDescription()
-         .setLocation(0)
-         .setBinding(0)
-         .setFormat(vk::Format::eR32G32B32Sfloat)
-         .setOffset(offsetof(Vertex, position)),
-      vk::VertexInputAttributeDescription()
-         .setLocation(1)
-         .setBinding(0)
-         .setFormat(vk::Format::eR32G32B32Sfloat)
-         .setOffset(offsetof(Vertex, color)),
-      vk::VertexInputAttributeDescription()
-         .setLocation(2)
-         .setBinding(0)
-         .setFormat(vk::Format::eR32G32Sfloat)
-         .setOffset(offsetof(Vertex, texCoord))
-   };
+      return
+      {
+         vk::VertexInputAttributeDescription()
+            .setLocation(0)
+            .setBinding(0)
+            .setFormat(vk::Format::eR32G32B32Sfloat)
+            .setOffset(offsetof(Vertex, position))
+      };
+   }
+   else
+   {
+      return
+      {
+         vk::VertexInputAttributeDescription()
+            .setLocation(0)
+            .setBinding(0)
+            .setFormat(vk::Format::eR32G32B32Sfloat)
+            .setOffset(offsetof(Vertex, position)),
+         vk::VertexInputAttributeDescription()
+            .setLocation(1)
+            .setBinding(0)
+            .setFormat(vk::Format::eR32G32B32Sfloat)
+            .setOffset(offsetof(Vertex, color)),
+         vk::VertexInputAttributeDescription()
+            .setLocation(2)
+            .setBinding(0)
+            .setFormat(vk::Format::eR32G32Sfloat)
+            .setOffset(offsetof(Vertex, texCoord))
+      };
+   }
 }
 
 Mesh::Mesh(const GraphicsContext& graphicsContext, const std::vector<MeshSectionSourceData>& sourceData)

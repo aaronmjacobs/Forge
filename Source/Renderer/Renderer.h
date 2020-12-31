@@ -13,6 +13,7 @@
 class SimpleRenderPass;
 class Swapchain;
 class Texture;
+class View;
 
 class Renderer : public GraphicsResource
 {
@@ -23,7 +24,6 @@ public:
 
    void render(vk::CommandBuffer commandBuffer);
 
-   void updateUniformBuffers();
    void onSwapchainRecreated();
 
 private:
@@ -31,12 +31,12 @@ private:
 
    vk::DescriptorPool descriptorPool;
 
+   std::unique_ptr<View> view;
+
    std::unique_ptr<Texture> colorTexture;
    std::unique_ptr<Texture> depthTexture;
 
    std::unique_ptr<SimpleRenderPass> simpleRenderPass;
-
-   std::unique_ptr<UniformBuffer<ViewUniformData>> viewUniformBuffer;
 
    TextureHandle textureHandle;
    MeshHandle meshHandle;

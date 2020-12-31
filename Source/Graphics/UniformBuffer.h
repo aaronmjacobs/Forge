@@ -19,7 +19,7 @@ public:
    ~UniformBuffer();
 
    void update(const DataType& data);
-   vk::DescriptorBufferInfo getDescriptorBufferInfo(uint32_t swapchainIndex) const;
+   vk::DescriptorBufferInfo getDescriptorBufferInfo(uint32_t frameIndex) const;
 
 private:
    static vk::DeviceSize getPaddedDataSize(const GraphicsContext& context)
