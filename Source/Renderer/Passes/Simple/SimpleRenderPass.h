@@ -1,9 +1,8 @@
 #pragma once
 
 #include "Graphics/GraphicsResource.h"
-#include "Graphics/UniformBuffer.h"
 
-#include "Renderer/UniformData.h"
+#include <glm/glm.hpp>
 
 #include <memory>
 #include <vector>
@@ -11,7 +10,6 @@
 class Mesh;
 class ResourceManager;
 class SimpleShader;
-class Swapchain;
 class Texture;
 class View;
 
@@ -22,7 +20,7 @@ public:
 
    ~SimpleRenderPass();
 
-   void render(vk::CommandBuffer commandBuffer, const View& view, const Mesh& mesh);
+   void render(vk::CommandBuffer commandBuffer, const View& view, const Mesh& mesh, const glm::mat4& localToWorld);
 
    void onSwapchainRecreated(const Texture& colorTexture, const Texture& depthTexture);
 

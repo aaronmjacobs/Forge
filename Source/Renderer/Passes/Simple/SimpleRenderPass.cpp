@@ -5,12 +5,7 @@
 #include "Graphics/Texture.h"
 
 #include "Renderer/Passes/Simple/SimpleShader.h"
-
-#include "Resources/ResourceManager.h"
-
-#include <GLFW/glfw3.h>
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
+#include "Renderer/UniformData.h"
 
 SimpleRenderPass::SimpleRenderPass(const GraphicsContext& graphicsContext, vk::DescriptorPool descriptorPool, ResourceManager& resourceManager, const Texture& colorTexture, const Texture& depthTexture)
    : GraphicsResource(graphicsContext)
@@ -52,7 +47,7 @@ SimpleRenderPass::~SimpleRenderPass()
    simpleShader.reset();
 }
 
-void SimpleRenderPass::render(vk::CommandBuffer commandBuffer, const View& view, const Mesh& mesh)
+void SimpleRenderPass::render(vk::CommandBuffer commandBuffer, const View& view, const Mesh& mesh, const glm::mat4& localToWorld)
 {
    std::array<float, 4> clearColorValues = { 0.0f, 0.0f, 0.0f, 1.0f };
    std::array<vk::ClearValue, 2> clearValues = { vk::ClearColorValue(clearColorValues), vk::ClearDepthStencilValue(1.0f, 0) };
@@ -68,9 +63,8 @@ void SimpleRenderPass::render(vk::CommandBuffer commandBuffer, const View& view,
 
    simpleShader->bindDescriptorSets(commandBuffer, view, pipelineLayout);
 
-   double time = glfwGetTime();
    MeshUniformData meshUniformData;
-   meshUniformData.localToWorld = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f) * static_cast<float>(time), glm::vec3(0.0f, 0.0f, 1.0f));
+   meshUniformData.localToWorld = localToWorld;
    commandBuffer.pushConstants<MeshUniformData>(pipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, meshUniformData);
 
    for (uint32_t section = 0; section < mesh.getNumSections(); ++section)
@@ -97,17 +91,18 @@ void SimpleRenderPass::updateDescriptorSets(const View& view, const Texture& tex
 void SimpleRenderPass::initializeSwapchainDependentResources(const Texture& colorTexture, const Texture& depthTexture)
 {
    vk::Extent2D swapchainExtent = context.getSwapchain().getExtent();
+   bool isMultisampled = colorTexture.getTextureProperties().sampleCount != vk::SampleCountFlagBits::e1;
 
    {
       vk::AttachmentDescription colorAttachment = vk::AttachmentDescription()
-         .setFormat(colorTexture.getImageProperties().format)
-         .setSamples(colorTexture.getTextureProperties().sampleCount)
+         .setFormat(isMultisampled ? colorTexture.getImageProperties().format : context.getSwapchain().getFormat())
+         .setSamples(isMultisampled ? colorTexture.getTextureProperties().sampleCount : vk::SampleCountFlagBits::e1)
          .setLoadOp(vk::AttachmentLoadOp::eClear)
          .setStoreOp(vk::AttachmentStoreOp::eStore)
          .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
          .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
          .setInitialLayout(vk::ImageLayout::eUndefined)
-         .setFinalLayout(vk::ImageLayout::eColorAttachmentOptimal);
+         .setFinalLayout(isMultisampled ? vk::ImageLayout::eColorAttachmentOptimal : vk::ImageLayout::ePresentSrcKHR);
 
       vk::AttachmentReference colorAttachmentReference = vk::AttachmentReference()
          .setAttachment(0)
@@ -118,11 +113,11 @@ void SimpleRenderPass::initializeSwapchainDependentResources(const Texture& colo
       vk::AttachmentDescription depthAttachment = vk::AttachmentDescription()
          .setFormat(depthTexture.getImageProperties().format)
          .setSamples(depthTexture.getTextureProperties().sampleCount)
-         .setLoadOp(vk::AttachmentLoadOp::eClear)
-         .setStoreOp(vk::AttachmentStoreOp::eDontCare)
-         .setStencilLoadOp(vk::AttachmentLoadOp::eClear)
-         .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
-         .setInitialLayout(vk::ImageLayout::eUndefined)
+         .setLoadOp(vk::AttachmentLoadOp::eLoad)
+         .setStoreOp(vk::AttachmentStoreOp::eStore)
+         .setStencilLoadOp(vk::AttachmentLoadOp::eLoad)
+         .setStencilStoreOp(vk::AttachmentStoreOp::eStore)
+         .setInitialLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
          .setFinalLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
 
       vk::AttachmentReference depthAttachmentReference = vk::AttachmentReference()
@@ -148,18 +143,26 @@ void SimpleRenderPass::initializeSwapchainDependentResources(const Texture& colo
       vk::SubpassDescription subpassDescription = vk::SubpassDescription()
          .setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
          .setColorAttachments(colorAttachments)
-         .setPDepthStencilAttachment(&depthAttachmentReference)
-         .setResolveAttachments(resolveAttachments);
+         .setPDepthStencilAttachment(&depthAttachmentReference);
+
+      if (isMultisampled)
+      {
+         subpassDescription.setResolveAttachments(resolveAttachments);
+      }
 
       vk::SubpassDependency subpassDependency = vk::SubpassDependency()
          .setSrcSubpass(VK_SUBPASS_EXTERNAL)
          .setDstSubpass(0)
          .setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
-         .setSrcAccessMask({})
+         .setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
          .setDstStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
          .setDstAccessMask(vk::AccessFlagBits::eColorAttachmentRead | vk::AccessFlagBits::eColorAttachmentWrite);
 
-      std::array<vk::AttachmentDescription, 3> attachments = { colorAttachment, depthAttachment, colorAttachmentResolve };
+      std::vector<vk::AttachmentDescription> attachments = { colorAttachment, depthAttachment };
+      if (isMultisampled)
+      {
+         attachments.push_back(colorAttachmentResolve);
+      }
       vk::RenderPassCreateInfo renderPassCreateInfo = vk::RenderPassCreateInfo()
          .setAttachments(attachments)
          .setSubpasses(subpassDescription)
@@ -169,8 +172,6 @@ void SimpleRenderPass::initializeSwapchainDependentResources(const Texture& colo
    }
 
    {
-      std::vector<vk::PipelineShaderStageCreateInfo> shaderStages = simpleShader->getStages(true);
-
       std::vector<vk::VertexInputBindingDescription> vertexBindingDescriptions = Vertex::getBindingDescriptions();
       std::vector<vk::VertexInputAttributeDescription> vertexAttributeDescriptions = Vertex::getAttributeDescriptions(false);
       vk::PipelineVertexInputStateCreateInfo vertexInputCreateInfo = vk::PipelineVertexInputStateCreateInfo()
@@ -202,7 +203,7 @@ void SimpleRenderPass::initializeSwapchainDependentResources(const Texture& colo
          .setFrontFace(vk::FrontFace::eCounterClockwise);
 
       vk::PipelineMultisampleStateCreateInfo multisampleStateCreateInfo = vk::PipelineMultisampleStateCreateInfo()
-         .setRasterizationSamples(colorTexture.getTextureProperties().sampleCount)
+         .setRasterizationSamples(isMultisampled ? colorTexture.getTextureProperties().sampleCount : vk::SampleCountFlagBits::e1)
          .setSampleShadingEnable(true)
          .setMinSampleShading(0.2f);
 
@@ -212,8 +213,8 @@ void SimpleRenderPass::initializeSwapchainDependentResources(const Texture& colo
 
       vk::PipelineDepthStencilStateCreateInfo depthStencilCreateInfo = vk::PipelineDepthStencilStateCreateInfo()
          .setDepthTestEnable(true)
-         .setDepthWriteEnable(true)
-         .setDepthCompareOp(vk::CompareOp::eLess)
+         .setDepthWriteEnable(false)
+         .setDepthCompareOp(vk::CompareOp::eEqual)
          .setDepthBoundsTestEnable(false)
          .setStencilTestEnable(false);
 
@@ -221,6 +222,7 @@ void SimpleRenderPass::initializeSwapchainDependentResources(const Texture& colo
          .setLogicOpEnable(false)
          .setAttachments(colorBlendAttachmentState);
 
+      std::vector<vk::PipelineShaderStageCreateInfo> shaderStages = simpleShader->getStages(true);
       std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = simpleShader->getSetLayouts();
       std::vector<vk::PushConstantRange> pushConstantRanges = simpleShader->getPushConstantRanges();
       vk::PipelineLayoutCreateInfo pipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo()
@@ -252,7 +254,15 @@ void SimpleRenderPass::initializeSwapchainDependentResources(const Texture& colo
 
       for (vk::ImageView swapchainImageView : context.getSwapchain().getImageViews())
       {
-         std::array<vk::ImageView, 3> attachments = { colorTexture.getDefaultView(), depthTexture.getDefaultView(), swapchainImageView };
+         std::vector<vk::ImageView> attachments;
+         if (isMultisampled)
+         {
+            attachments = { colorTexture.getDefaultView(), depthTexture.getDefaultView(), swapchainImageView };
+         }
+         else
+         {
+            attachments = { swapchainImageView, depthTexture.getDefaultView() };
+         }
 
          vk::FramebufferCreateInfo framebufferCreateInfo = vk::FramebufferCreateInfo()
             .setRenderPass(renderPass)

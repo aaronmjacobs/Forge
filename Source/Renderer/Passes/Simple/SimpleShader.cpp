@@ -1,7 +1,6 @@
 #include "Renderer/Passes/Simple/SimpleShader.h"
 
 #include "Graphics/DescriptorSetLayoutCache.h"
-#include "Graphics/Swapchain.h"
 #include "Graphics/Texture.h"
 
 #include "Renderer/UniformData.h"
@@ -32,10 +31,10 @@ namespace
          .setData<VkBool32>(withoutTextureSpecializationData);
    };
 
-   SimpleShaderStageData& getStageData()
+   const SimpleShaderStageData& getStageData()
    {
-      static SimpleShaderStageData stageData;
-      return stageData;
+      static const SimpleShaderStageData kStageData;
+      return kStageData;
    }
 
    const vk::DescriptorSetLayoutCreateInfo& getLayoutCreateInfo()
@@ -72,7 +71,7 @@ SimpleShader::SimpleShader(const GraphicsContext& graphicsContext, vk::Descripto
          .setModule(vertShaderModule->getShaderModule())
          .setPName("main");
 
-      SimpleShaderStageData& stageData = getStageData();
+      const SimpleShaderStageData& stageData = getStageData();
 
       fragStageCreateInfoWithTexture = vk::PipelineShaderStageCreateInfo()
          .setStage(vk::ShaderStageFlagBits::eFragment)
@@ -126,6 +125,11 @@ void SimpleShader::updateDescriptorSets(const View& view, const Texture& texture
 void SimpleShader::bindDescriptorSets(vk::CommandBuffer commandBuffer, const View& view, vk::PipelineLayout pipelineLayout)
 {
    commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, 0, { view.getDescriptorSet().getCurrentSet(), descriptorSet.getCurrentSet() }, {});
+}
+
+std::vector<vk::PipelineShaderStageCreateInfo> SimpleShader::getStages(bool withTexture) const
+{
+   return { vertStageCreateInfo, withTexture ? fragStageCreateInfoWithTexture : fragStageCreateInfoWithoutTexture };
 }
 
 std::vector<vk::DescriptorSetLayout> SimpleShader::getSetLayouts() const

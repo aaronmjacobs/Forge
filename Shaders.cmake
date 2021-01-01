@@ -6,6 +6,7 @@ set(SHADER_HEADER_FILES
 )
 
 set(SHADER_SOURCE_FILES
+   "${SHADER_DIR}/Depth.vert"
    "${SHADER_DIR}/Simple.frag"
    "${SHADER_DIR}/Simple.vert"
 )

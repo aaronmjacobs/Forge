@@ -10,6 +10,7 @@
 #include <memory>
 #include <vector>
 
+class DepthPass;
 class SimpleRenderPass;
 class Swapchain;
 class Texture;
@@ -36,6 +37,7 @@ private:
    std::unique_ptr<Texture> colorTexture;
    std::unique_ptr<Texture> depthTexture;
 
+   std::unique_ptr<DepthPass> depthPass;
    std::unique_ptr<SimpleRenderPass> simpleRenderPass;
 
    TextureHandle textureHandle;

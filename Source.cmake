@@ -40,6 +40,10 @@ target_sources(${PROJECT_NAME} PRIVATE
    "${SRC_DIR}/Platform/Window.cpp"
    "${SRC_DIR}/Platform/Window.h"
 
+   "${SRC_DIR}/Renderer/Passes/Depth/DepthPass.cpp"
+   "${SRC_DIR}/Renderer/Passes/Depth/DepthPass.h"
+   "${SRC_DIR}/Renderer/Passes/Depth/DepthShader.cpp"
+   "${SRC_DIR}/Renderer/Passes/Depth/DepthShader.h"
    "${SRC_DIR}/Renderer/Passes/Simple/SimpleRenderPass.cpp"
    "${SRC_DIR}/Renderer/Passes/Simple/SimpleRenderPass.h"
    "${SRC_DIR}/Renderer/Passes/Simple/SimpleShader.cpp"

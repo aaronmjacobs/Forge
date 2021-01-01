@@ -3,8 +3,14 @@
 #include "Graphics/Swapchain.h"
 #include "Graphics/Texture.h"
 
+#include "Renderer/Passes/Depth/DepthPass.h"
 #include "Renderer/Passes/Simple/SimpleRenderPass.h"
 #include "Renderer/View.h"
+
+#include <GLFW/glfw3.h>
+
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
 namespace
 {
@@ -101,6 +107,7 @@ Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& reso
    }
 
    {
+      depthPass = std::make_unique<DepthPass>(context, resourceManager, *depthTexture);
       simpleRenderPass = std::make_unique<SimpleRenderPass>(context, descriptorPool, resourceManager, *colorTexture, *depthTexture);
    }
 
@@ -119,6 +126,7 @@ Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& reso
    }
 
    {
+      depthPass->updateDescriptorSets(*view);
       simpleRenderPass->updateDescriptorSets(*view, *resourceManager.getTexture(textureHandle));
    }
 }
@@ -132,6 +140,7 @@ Renderer::~Renderer()
    textureHandle.reset();
 
    simpleRenderPass = nullptr;
+   depthPass = nullptr;
 
    depthTexture = nullptr;
    colorTexture = nullptr;
@@ -149,7 +158,11 @@ void Renderer::render(vk::CommandBuffer commandBuffer)
    const Mesh* mesh = resourceManager.getMesh(meshHandle);
    ASSERT(mesh);
 
-   simpleRenderPass->render(commandBuffer, *view, *mesh);
+   float time = static_cast<float>(glfwGetTime());
+   glm::mat4 localToWorld = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f) * time, glm::vec3(0.0f, 0.0f, 1.0f));
+
+   depthPass->render(commandBuffer, *view, *mesh, localToWorld);
+   simpleRenderPass->render(commandBuffer, *view, *mesh, localToWorld);
 }
 
 void Renderer::onSwapchainRecreated()
@@ -157,5 +170,6 @@ void Renderer::onSwapchainRecreated()
    colorTexture = createColorTexture(context);
    depthTexture = createDepthTexture(context);
 
+   depthPass->onSwapchainRecreated(*depthTexture);
    simpleRenderPass->onSwapchainRecreated(*colorTexture, *depthTexture);
 }
