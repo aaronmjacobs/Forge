@@ -10,30 +10,26 @@
 SimpleRenderPass::SimpleRenderPass(const GraphicsContext& graphicsContext, vk::DescriptorPool descriptorPool, ResourceManager& resourceManager, const Texture& colorTexture, const Texture& depthTexture)
    : GraphicsResource(graphicsContext)
 {
-   {
-      simpleShader = std::make_unique<SimpleShader>(context, descriptorPool, resourceManager);
-   }
+   simpleShader = std::make_unique<SimpleShader>(context, descriptorPool, resourceManager);
 
-   {
-      bool anisotropySupported = context.getPhysicalDeviceFeatures().samplerAnisotropy;
-      vk::SamplerCreateInfo samplerCreateInfo = vk::SamplerCreateInfo()
-         .setMagFilter(vk::Filter::eLinear)
-         .setMinFilter(vk::Filter::eLinear)
-         .setAddressModeU(vk::SamplerAddressMode::eRepeat)
-         .setAddressModeV(vk::SamplerAddressMode::eRepeat)
-         .setAddressModeW(vk::SamplerAddressMode::eRepeat)
-         .setBorderColor(vk::BorderColor::eIntOpaqueBlack)
-         .setAnisotropyEnable(anisotropySupported)
-         .setMaxAnisotropy(anisotropySupported ? 16.0f : 1.0f)
-         .setUnnormalizedCoordinates(false)
-         .setCompareEnable(false)
-         .setCompareOp(vk::CompareOp::eAlways)
-         .setMipmapMode(vk::SamplerMipmapMode::eLinear)
-         .setMipLodBias(0.0f)
-         .setMinLod(0.0f)
-         .setMaxLod(16.0f);
-      sampler = device.createSampler(samplerCreateInfo);
-   }
+   bool anisotropySupported = context.getPhysicalDeviceFeatures().samplerAnisotropy;
+   vk::SamplerCreateInfo samplerCreateInfo = vk::SamplerCreateInfo()
+      .setMagFilter(vk::Filter::eLinear)
+      .setMinFilter(vk::Filter::eLinear)
+      .setAddressModeU(vk::SamplerAddressMode::eRepeat)
+      .setAddressModeV(vk::SamplerAddressMode::eRepeat)
+      .setAddressModeW(vk::SamplerAddressMode::eRepeat)
+      .setBorderColor(vk::BorderColor::eIntOpaqueBlack)
+      .setAnisotropyEnable(anisotropySupported)
+      .setMaxAnisotropy(anisotropySupported ? 16.0f : 1.0f)
+      .setUnnormalizedCoordinates(false)
+      .setCompareEnable(false)
+      .setCompareOp(vk::CompareOp::eAlways)
+      .setMipmapMode(vk::SamplerMipmapMode::eLinear)
+      .setMipLodBias(0.0f)
+      .setMinLod(0.0f)
+      .setMaxLod(16.0f);
+   sampler = device.createSampler(samplerCreateInfo);
 
    initializeSwapchainDependentResources(colorTexture, depthTexture);
 }

@@ -1,12 +1,9 @@
 #include "Renderer/Passes/Simple/SimpleShader.h"
 
-#include "Graphics/DescriptorSetLayoutCache.h"
 #include "Graphics/Texture.h"
 
 #include "Renderer/UniformData.h"
 #include "Renderer/View.h"
-
-#include <utility>
 
 namespace
 {
@@ -55,40 +52,33 @@ SimpleShader::SimpleShader(const GraphicsContext& graphicsContext, vk::Descripto
    : GraphicsResource(graphicsContext)
    , descriptorSet(graphicsContext, descriptorPool, getLayoutCreateInfo())
 {
+   ShaderModuleHandle vertModuleHandle = resourceManager.loadShaderModule("Resources/Shaders/Simple.vert.spv", context);
+   ShaderModuleHandle fragModuleHandle = resourceManager.loadShaderModule("Resources/Shaders/Simple.frag.spv", context);
+
+   const ShaderModule* vertShaderModule = resourceManager.getShaderModule(vertModuleHandle);
+   const ShaderModule* fragShaderModule = resourceManager.getShaderModule(fragModuleHandle);
+   if (!vertShaderModule || !fragShaderModule)
    {
-      ShaderModuleHandle vertModuleHandle = resourceManager.loadShaderModule("Resources/Shaders/Simple.vert.spv", context);
-      ShaderModuleHandle fragModuleHandle = resourceManager.loadShaderModule("Resources/Shaders/Simple.frag.spv", context);
-
-      const ShaderModule* vertShaderModule = resourceManager.getShaderModule(vertModuleHandle);
-      const ShaderModule* fragShaderModule = resourceManager.getShaderModule(fragModuleHandle);
-      if (!vertShaderModule || !fragShaderModule)
-      {
-         throw std::runtime_error(std::string("Failed to load shader"));
-      }
-
-      vertStageCreateInfo = vk::PipelineShaderStageCreateInfo()
-         .setStage(vk::ShaderStageFlagBits::eVertex)
-         .setModule(vertShaderModule->getShaderModule())
-         .setPName("main");
-
-      const SimpleShaderStageData& stageData = getStageData();
-
-      fragStageCreateInfoWithTexture = vk::PipelineShaderStageCreateInfo()
-         .setStage(vk::ShaderStageFlagBits::eFragment)
-         .setModule(fragShaderModule->getShaderModule())
-         .setPName("main")
-         .setPSpecializationInfo(&stageData.withTextureSpecializationInfo);
-      fragStageCreateInfoWithoutTexture = vk::PipelineShaderStageCreateInfo()
-         .setStage(vk::ShaderStageFlagBits::eFragment)
-         .setModule(fragShaderModule->getShaderModule())
-         .setPName("main")
-         .setPSpecializationInfo(&stageData.withoutTextureSpecializationInfo);
+      throw std::runtime_error(std::string("Failed to load shader"));
    }
-}
 
-SimpleShader::~SimpleShader()
-{
-   ASSERT(device);
+   vertStageCreateInfo = vk::PipelineShaderStageCreateInfo()
+      .setStage(vk::ShaderStageFlagBits::eVertex)
+      .setModule(vertShaderModule->getShaderModule())
+      .setPName("main");
+
+   const SimpleShaderStageData& stageData = getStageData();
+
+   fragStageCreateInfoWithTexture = vk::PipelineShaderStageCreateInfo()
+      .setStage(vk::ShaderStageFlagBits::eFragment)
+      .setModule(fragShaderModule->getShaderModule())
+      .setPName("main")
+      .setPSpecializationInfo(&stageData.withTextureSpecializationInfo);
+   fragStageCreateInfoWithoutTexture = vk::PipelineShaderStageCreateInfo()
+      .setStage(vk::ShaderStageFlagBits::eFragment)
+      .setModule(fragShaderModule->getShaderModule())
+      .setPName("main")
+      .setPSpecializationInfo(&stageData.withoutTextureSpecializationInfo);
 }
 
 void SimpleShader::updateDescriptorSets(const View& view, const Texture& texture, vk::Sampler sampler)

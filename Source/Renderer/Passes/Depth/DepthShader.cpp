@@ -1,34 +1,22 @@
 #include "Renderer/Passes/Depth/DepthShader.h"
 
-#include "Graphics/Texture.h"
-
 #include "Renderer/UniformData.h"
 #include "Renderer/View.h"
-
-#include <utility>
 
 DepthShader::DepthShader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager)
    : GraphicsResource(graphicsContext)
 {
+   ShaderModuleHandle vertModuleHandle = resourceManager.loadShaderModule("Resources/Shaders/Depth.vert.spv", context);
+   const ShaderModule* vertShaderModule = resourceManager.getShaderModule(vertModuleHandle);
+   if (!vertShaderModule)
    {
-      ShaderModuleHandle vertModuleHandle = resourceManager.loadShaderModule("Resources/Shaders/Depth.vert.spv", context);
-
-      const ShaderModule* vertShaderModule = resourceManager.getShaderModule(vertModuleHandle);
-      if (!vertShaderModule)
-      {
-         throw std::runtime_error(std::string("Failed to load shader"));
-      }
-
-      vertStageCreateInfo = vk::PipelineShaderStageCreateInfo()
-         .setStage(vk::ShaderStageFlagBits::eVertex)
-         .setModule(vertShaderModule->getShaderModule())
-         .setPName("main");
+      throw std::runtime_error(std::string("Failed to load shader"));
    }
-}
 
-DepthShader::~DepthShader()
-{
-   ASSERT(device);
+   vertStageCreateInfo = vk::PipelineShaderStageCreateInfo()
+      .setStage(vk::ShaderStageFlagBits::eVertex)
+      .setModule(vertShaderModule->getShaderModule())
+      .setPName("main");
 }
 
 void DepthShader::updateDescriptorSets(const View& view)

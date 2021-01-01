@@ -13,8 +13,6 @@ class SimpleShader : public GraphicsResource
 public:
    SimpleShader(const GraphicsContext& graphicsContext, vk::DescriptorPool descriptorPool, ResourceManager& resourceManager);
 
-   ~SimpleShader();
-
    void updateDescriptorSets(const View& view, const Texture& texture, vk::Sampler sampler);
    void bindDescriptorSets(vk::CommandBuffer commandBuffer, const View& view, vk::PipelineLayout pipelineLayout);
 
