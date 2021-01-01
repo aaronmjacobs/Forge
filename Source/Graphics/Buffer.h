@@ -2,7 +2,7 @@
 
 #include "Graphics/GraphicsContext.h"
 
-#include <vector>
+#include <span>
 
 namespace Buffer
 {
@@ -18,5 +18,5 @@ namespace Buffer
    };
 
    void create(const GraphicsContext& context, vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Buffer& buffer, vk::DeviceMemory& bufferMemory);
-   void copy(const GraphicsContext& context, const std::vector<CopyInfo>& copyInfo);
+   void copy(const GraphicsContext& context, std::span<const CopyInfo> copyInfo);
 }

@@ -37,7 +37,7 @@ namespace
 }
 
 // static
-vk::Format Texture::findSupportedFormat(const GraphicsContext& context, const std::vector<vk::Format>& candidates, vk::ImageTiling tiling, vk::FormatFeatureFlags features)
+vk::Format Texture::findSupportedFormat(const GraphicsContext& context, std::span<const vk::Format> candidates, vk::ImageTiling tiling, vk::FormatFeatureFlags features)
 {
    for (vk::Format format : candidates)
    {

@@ -23,7 +23,7 @@ namespace Buffer
       context.getDevice().bindBufferMemory(buffer, bufferMemory, 0);
    }
 
-   void copy(const GraphicsContext& context, const std::vector<CopyInfo>& copyInfo)
+   void copy(const GraphicsContext& context, std::span<const CopyInfo> copyInfo)
    {
       vk::CommandBuffer copyCommandBuffer = Command::beginSingle(context);
 

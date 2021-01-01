@@ -1,5 +1,6 @@
 #pragma once
 
+#include <span>
 #include <utility>
 #include <vector>
 
@@ -16,11 +17,11 @@ namespace Hash
 namespace std
 {
    template<typename T>
-   struct hash<std::vector<T>>
+   struct hash<span<T>>
    {
-      std::size_t operator()(const std::vector<T>& values) const
+      size_t operator()(span<T> values) const
       {
-         std::size_t seed = values.size();
+         size_t seed = values.size();
 
          for (const auto& value : values)
          {
@@ -28,6 +29,18 @@ namespace std
          }
 
          return seed;
+      }
+   };
+
+   template<typename T>
+   struct hash<vector<T>>
+   {
+      size_t operator()(const vector<T>& values) const
+      {
+         span<const T> valuesSpan = values;
+
+         hash<span<const T>> hasher;
+         return hasher(valuesSpan);
       }
    };
 }

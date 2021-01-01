@@ -2,7 +2,7 @@
 
 #include "Graphics/GraphicsResource.h"
 
-#include <vector>
+#include <span>
 
 struct LoadedImage;
 
@@ -47,7 +47,7 @@ struct TextureInitialLayout
 class Texture : public GraphicsResource
 {
 public:
-   static vk::Format findSupportedFormat(const GraphicsContext& context, const std::vector<vk::Format>& candidates, vk::ImageTiling tiling, vk::FormatFeatureFlags features);
+   static vk::Format findSupportedFormat(const GraphicsContext& context, std::span<const vk::Format> candidates, vk::ImageTiling tiling, vk::FormatFeatureFlags features);
 
    // Create a texture with no initial data
    Texture(const GraphicsContext& graphicsContext, const ImageProperties& imageProps, const TextureProperties& textureProps, const TextureInitialLayout& initialLayout);

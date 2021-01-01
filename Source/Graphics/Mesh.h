@@ -4,6 +4,7 @@
 
 #include <glm/glm.hpp>
 
+#include <span>
 #include <vector>
 
 struct Vertex
@@ -38,7 +39,7 @@ struct MeshSection
 class Mesh : public GraphicsResource
 {
 public:
-   Mesh(const GraphicsContext& graphicsContext, const std::vector<MeshSectionSourceData>& sourceData);
+   Mesh(const GraphicsContext& graphicsContext, std::span<const MeshSectionSourceData> sourceData);
 
    ~Mesh();
 

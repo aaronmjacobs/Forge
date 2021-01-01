@@ -5,6 +5,7 @@
 #include "Graphics/Buffer.h"
 #include "Graphics/Memory.h"
 
+#include <array>
 #include <limits>
 
 // static
@@ -56,7 +57,7 @@ std::vector<vk::VertexInputAttributeDescription> Vertex::getAttributeDescription
    }
 }
 
-Mesh::Mesh(const GraphicsContext& graphicsContext, const std::vector<MeshSectionSourceData>& sourceData)
+Mesh::Mesh(const GraphicsContext& graphicsContext, std::span<const MeshSectionSourceData> sourceData)
    : GraphicsResource(graphicsContext)
 {
    vk::DeviceSize bufferSize = 0;
@@ -123,12 +124,12 @@ Mesh::Mesh(const GraphicsContext& graphicsContext, const std::vector<MeshSection
    device.unmapMemory(stagingDeviceMemory);
    mappedData = nullptr;
 
-   Buffer::CopyInfo copyInfo;
-   copyInfo.srcBuffer = stagingBuffer;
-   copyInfo.dstBuffer = buffer;
-   copyInfo.size = bufferSize;
+   std::array<Buffer::CopyInfo, 1> copyInfo;
+   copyInfo[0].srcBuffer = stagingBuffer;
+   copyInfo[0].dstBuffer = buffer;
+   copyInfo[0].size = bufferSize;
 
-   Buffer::copy(context, { copyInfo });
+   Buffer::copy(context, copyInfo);
 
    device.destroyBuffer(stagingBuffer);
    stagingBuffer = nullptr;
