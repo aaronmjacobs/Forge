@@ -6,7 +6,7 @@
 DepthShader::DepthShader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager)
    : GraphicsResource(graphicsContext)
 {
-   ShaderModuleHandle vertModuleHandle = resourceManager.loadShaderModule("Resources/Shaders/Depth.vert.spv", context);
+   ShaderModuleHandle vertModuleHandle = resourceManager.loadShaderModule("Resources/Shaders/Depth.vert.spv");
    const ShaderModule* vertShaderModule = resourceManager.getShaderModule(vertModuleHandle);
    if (!vertShaderModule)
    {

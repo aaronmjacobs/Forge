@@ -1,13 +1,12 @@
 #pragma once
 
-#include "Graphics/GraphicsContext.h"
-
-#include "Resources/ResourceManager.h"
+#include "Graphics/Vulkan.h"
 
 #include <memory>
 
+class GraphicsContext;
 class Renderer;
-class SimpleRenderPass;
+class ResourceManager;
 class Swapchain;
 class Window;
 
@@ -42,7 +41,7 @@ private:
    void initializeSyncObjects();
    void terminateSyncObjects();
 
-   ResourceManager resourceManager;
+   std::unique_ptr<ResourceManager> resourceManager;
 
    std::unique_ptr<Window> window;
    std::unique_ptr<GraphicsContext> context;

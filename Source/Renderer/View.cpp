@@ -1,5 +1,7 @@
 #include "Renderer/View.h"
 
+#include "Core/Math/MathUtils.h"
+
 #include "Graphics/DescriptorSetLayoutCache.h"
 
 #include <glm/gtc/matrix_transform.hpp>
@@ -33,11 +35,11 @@ View::View(const GraphicsContext& graphicsContext, vk::DescriptorPool descriptor
 
 void View::update()
 {
-   glm::mat4 worldToView = glm::lookAt(glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+   glm::mat4 worldToView = glm::lookAt(glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(0.0f, 0.0f, 0.0f), MathUtils::kUpVector);
 
    vk::Extent2D swapchainExtent = context.getSwapchain().getExtent();
    glm::mat4 viewToClip = glm::perspective(glm::radians(70.0f), static_cast<float>(swapchainExtent.width) / swapchainExtent.height, 0.1f, 10.0f);
-   viewToClip[1][1] *= -1.0f;
+   viewToClip[1][1] *= -1.0f; // In Vulkan, the clip space Y coordinates are inverted compared to OpenGL (which GLM was written for), so we flip the sign here
 
    ViewUniformData viewUniformData;
    viewUniformData.worldToClip = viewToClip * worldToView;

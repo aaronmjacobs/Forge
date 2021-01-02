@@ -11,5 +11,7 @@ using ShaderModuleHandle = ResourceManagerBase<ShaderModule>::Handle;
 class ShaderModuleResourceManager : public ResourceManagerBase<ShaderModule>
 {
 public:
-   ShaderModuleHandle load(const std::filesystem::path& path, const GraphicsContext& context);
+   ShaderModuleResourceManager(const GraphicsContext& graphicsContext);
+
+   ShaderModuleHandle load(const std::filesystem::path& path);
 };

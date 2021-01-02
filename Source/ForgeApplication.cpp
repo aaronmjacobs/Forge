@@ -2,9 +2,12 @@
 
 #include "Core/Assert.h"
 
+#include "Graphics/GraphicsContext.h"
 #include "Graphics/Swapchain.h"
 
 #include "Renderer/Renderer.h"
+
+#include "Resources/ResourceManager.h"
 
 #include "Platform/Window.h"
 
@@ -186,12 +189,12 @@ void ForgeApplication::terminateGlfw()
 void ForgeApplication::initializeVulkan()
 {
    context = std::make_unique<GraphicsContext>(*window);
+   resourceManager = std::make_unique<ResourceManager>(*context);
 }
 
 void ForgeApplication::terminateVulkan()
 {
-   resourceManager.clearAll();
-
+   resourceManager = nullptr;
    context = nullptr;
 }
 
@@ -209,7 +212,7 @@ void ForgeApplication::terminateSwapchain()
 
 void ForgeApplication::initializeRenderer()
 {
-   renderer = std::make_unique<Renderer>(*context, resourceManager);
+   renderer = std::make_unique<Renderer>(*context, *resourceManager);
 }
 
 void ForgeApplication::terminateRenderer()

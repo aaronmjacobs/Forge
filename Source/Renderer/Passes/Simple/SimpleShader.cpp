@@ -52,8 +52,8 @@ SimpleShader::SimpleShader(const GraphicsContext& graphicsContext, vk::Descripto
    : GraphicsResource(graphicsContext)
    , descriptorSet(graphicsContext, descriptorPool, getLayoutCreateInfo())
 {
-   ShaderModuleHandle vertModuleHandle = resourceManager.loadShaderModule("Resources/Shaders/Simple.vert.spv", context);
-   ShaderModuleHandle fragModuleHandle = resourceManager.loadShaderModule("Resources/Shaders/Simple.frag.spv", context);
+   ShaderModuleHandle vertModuleHandle = resourceManager.loadShaderModule("Resources/Shaders/Simple.vert.spv");
+   ShaderModuleHandle fragModuleHandle = resourceManager.loadShaderModule("Resources/Shaders/Simple.frag.spv");
 
    const ShaderModule* vertShaderModule = resourceManager.getShaderModule(vertModuleHandle);
    const ShaderModule* fragShaderModule = resourceManager.getShaderModule(fragModuleHandle);

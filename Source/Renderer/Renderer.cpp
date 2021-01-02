@@ -1,5 +1,7 @@
 #include "Renderer/Renderer.h"
 
+#include "Core/Math/MathUtils.h"
+
 #include "Graphics/Swapchain.h"
 #include "Graphics/Texture.h"
 
@@ -113,13 +115,16 @@ Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& reso
    }
 
    {
-      meshHandle = resourceManager.loadMesh("Resources/Meshes/Viking/viking_room.obj", context);
+      MeshLoadOptions meshLoadOptions;
+      meshLoadOptions.forwardAxis = MeshAxis::PositiveY;
+      meshLoadOptions.upAxis = MeshAxis::PositiveZ;
+      meshHandle = resourceManager.loadMesh("Resources/Meshes/Viking/viking_room.obj", meshLoadOptions);
       if (!meshHandle)
       {
          throw std::runtime_error(std::string("Failed to load mesh"));
       }
 
-      textureHandle = resourceManager.loadTexture("Resources/Meshes/Viking/viking_room.png", context);
+      textureHandle = resourceManager.loadTexture("Resources/Meshes/Viking/viking_room.png");
       if (!textureHandle)
       {
          throw std::runtime_error(std::string("Failed to load image"));
@@ -160,7 +165,7 @@ void Renderer::render(vk::CommandBuffer commandBuffer)
    ASSERT(mesh);
 
    float time = static_cast<float>(glfwGetTime());
-   glm::mat4 localToWorld = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f) * time, glm::vec3(0.0f, 0.0f, 1.0f));
+   glm::mat4 localToWorld = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f) * time, MathUtils::kUpVector);
 
    depthPass->render(commandBuffer, *view, *mesh, localToWorld);
    simpleRenderPass->render(commandBuffer, *view, *mesh, localToWorld);

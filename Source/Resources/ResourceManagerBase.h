@@ -8,6 +8,8 @@
 #include <optional>
 #include <utility>
 
+class GraphicsContext;
+
 namespace ResourceHelpers
 {
    std::optional<std::filesystem::path> makeCanonical(const std::filesystem::path& path);
@@ -18,6 +20,11 @@ class ResourceManagerBase
 {
 public:
    using Handle = typename GenerationalArray<std::unique_ptr<T>>::Handle;
+
+   ResourceManagerBase(const GraphicsContext& graphicsContext)
+      : context(graphicsContext)
+   {
+   }
 
    bool unload(Handle handle)
    {
@@ -84,6 +91,8 @@ protected:
 
       return {};
    }
+
+   const GraphicsContext& context;
 
 private:
    GenerationalArray<std::unique_ptr<T>> resources;

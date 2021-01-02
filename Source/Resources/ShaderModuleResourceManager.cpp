@@ -2,7 +2,12 @@
 
 #include <PlatformUtils/IOUtils.h>
 
-ShaderModuleHandle ShaderModuleResourceManager::load(const std::filesystem::path& path, const GraphicsContext& context)
+ShaderModuleResourceManager::ShaderModuleResourceManager(const GraphicsContext& graphicsContext)
+   : ResourceManagerBase(graphicsContext)
+{
+}
+
+ShaderModuleHandle ShaderModuleResourceManager::load(const std::filesystem::path& path)
 {
    if (std::optional<std::filesystem::path> canonicalPath = ResourceHelpers::makeCanonical(path))
    {

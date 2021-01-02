@@ -7,6 +7,13 @@
 class ResourceManager
 {
 public:
+   ResourceManager(const GraphicsContext& graphicsContext)
+      : meshResourceManager(graphicsContext)
+      , shaderModuleResourceManager(graphicsContext)
+      , textureResourceManager(graphicsContext)
+   {
+   }
+
    // All
    
    void unloadAll()
@@ -25,9 +32,9 @@ public:
    
    // Mesh
    
-   MeshHandle loadMesh(const std::filesystem::path& path, const GraphicsContext& context)
+   MeshHandle loadMesh(const std::filesystem::path& path, const MeshLoadOptions& loadOptions = {})
    {
-      return meshResourceManager.load(path, context);
+      return meshResourceManager.load(path, loadOptions);
    }
    
    bool unloadMesh(MeshHandle handle)
@@ -57,9 +64,9 @@ public:
    
    // ShaderModule
    
-   ShaderModuleHandle loadShaderModule(const std::filesystem::path& path, const GraphicsContext& context)
+   ShaderModuleHandle loadShaderModule(const std::filesystem::path& path)
    {
-      return shaderModuleResourceManager.load(path, context);
+      return shaderModuleResourceManager.load(path);
    }
    
    bool unloadShaderModule(ShaderModuleHandle handle)
@@ -89,9 +96,9 @@ public:
    
    // Texture
    
-   TextureHandle loadTexture(const std::filesystem::path& path, const GraphicsContext& context, const TextureProperties& properties = TextureResourceManager::getDefaultProperties(), const TextureInitialLayout& initialLayout = TextureResourceManager::getDefaultInitialLayout())
+   TextureHandle loadTexture(const std::filesystem::path& path, const TextureProperties& properties = TextureResourceManager::getDefaultProperties(), const TextureInitialLayout& initialLayout = TextureResourceManager::getDefaultInitialLayout())
    {
-      return textureResourceManager.load(path, context, properties, initialLayout);
+      return textureResourceManager.load(path, properties, initialLayout);
    }
    
    bool unloadTexture(TextureHandle handle)
