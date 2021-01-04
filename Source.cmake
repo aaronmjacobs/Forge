@@ -43,6 +43,9 @@ target_sources(${PROJECT_NAME} PRIVATE
    "${SRC_DIR}/Graphics/UniformBuffer.h"
    "${SRC_DIR}/Graphics/Vulkan.h"
 
+   "${SRC_DIR}/Platform/InputManager.cpp"
+   "${SRC_DIR}/Platform/InputManager.h"
+   "${SRC_DIR}/Platform/InputTypes.h"
    "${SRC_DIR}/Platform/Window.cpp"
    "${SRC_DIR}/Platform/Window.h"
 
