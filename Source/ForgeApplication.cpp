@@ -49,7 +49,7 @@ void ForgeApplication::run()
 
 void ForgeApplication::render()
 {
-   if (window->pollFramebufferResized())
+   if (framebufferSizeChanged)
    {
       if (!recreateSwapchain())
       {
@@ -144,11 +144,6 @@ void ForgeApplication::render()
 
 bool ForgeApplication::recreateSwapchain()
 {
-   context->getDevice().waitIdle();
-
-   terminateCommandBuffers(true);
-   terminateSwapchain();
-
    vk::Extent2D windowExtent = window->getExtent();
    while ((windowExtent.width == 0 || windowExtent.height == 0) && !window->shouldClose())
    {
@@ -161,9 +156,16 @@ bool ForgeApplication::recreateSwapchain()
       return false;
    }
 
+   context->getDevice().waitIdle();
+
+   terminateCommandBuffers(true);
+   terminateSwapchain();
+
    initializeSwapchain();
    renderer->onSwapchainRecreated();
    initializeCommandBuffers();
+
+   framebufferSizeChanged = false;
 
    return true;
 }
@@ -176,6 +178,31 @@ void ForgeApplication::initializeGlfw()
    }
 
    window = std::make_unique<Window>();
+
+   window->bindOnFramebufferSizeChanged([this](int width, int height)
+   {
+      framebufferSizeChanged = true;
+   });
+
+   window->bindOnWindowRefreshRequested([this]()
+   {
+      render();
+   });
+
+   {
+      static const char* kToggleFullscreenAction = "ToggleFullscreen";
+
+      std::array<KeyChord, 2> keys = { KeyChord(Key::F11), KeyChord(Key::Enter, KeyMod::Alt) };
+      window->getInputManager().createButtonMapping(kToggleFullscreenAction, keys, {}, {});
+
+      window->getInputManager().bindButtonMapping(kToggleFullscreenAction, [this](bool pressed)
+      {
+         if (pressed)
+         {
+            window->toggleFullscreen();
+         }
+      });
+   }
 }
 
 void ForgeApplication::terminateGlfw()

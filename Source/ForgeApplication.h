@@ -57,4 +57,6 @@ private:
    std::vector<vk::Fence> frameFences;
    std::vector<vk::Fence> swapchainFences;
    uint32_t frameIndex = 0;
+
+   bool framebufferSizeChanged = false;
 };
