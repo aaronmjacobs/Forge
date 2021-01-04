@@ -1,5 +1,7 @@
 #include "Platform/InputManager.h"
 
+#include "Core/Enum.h"
+
 #include <GLFW/glfw3.h>
 
 #include <glm/glm.hpp>
@@ -92,56 +94,48 @@ namespace
       }
    }
 
-   float applyDeadzone(float value, float endDeadzone, float centerDeadzone)
+   float applyDeadzone(float value, float lowerDeadzone, float upperDeadzone)
    {
-      ASSERT(endDeadzone >= 0.0f && endDeadzone < 1.0f);
-      ASSERT(centerDeadzone >= 0.0f && centerDeadzone < 1.0f);
-      ASSERT(endDeadzone + centerDeadzone < 1.0f);
+      ASSERT(lowerDeadzone >= 0.0f && lowerDeadzone < 1.0f);
+      ASSERT(upperDeadzone >= 0.0f && upperDeadzone < 1.0f);
+      ASSERT(lowerDeadzone + upperDeadzone < 1.0f);
 
-      if (value <= -1.0f + endDeadzone)
-      {
-         return -1.0f;
-      }
-      else if (value >= 1.0f - endDeadzone)
-      {
-         return 1.0f;
-      }
-      else if (centerDeadzone > 0.0f && value >= -centerDeadzone && value <= centerDeadzone)
+      if (value <= lowerDeadzone)
       {
          return 0.0f;
       }
+      else if (value >= 1.0f - upperDeadzone)
+      {
+         return 1.0f;
+      }
 
-      float scale = 1.0f / (1.0f - (endDeadzone + centerDeadzone));
-      float scaledValue = (glm::abs(value) - centerDeadzone) * scale;
+      float scale = 1.0f / (1.0f - (lowerDeadzone + upperDeadzone));
+      float scaledValue = (glm::clamp(value, lowerDeadzone, 1.0f - upperDeadzone) - lowerDeadzone) * scale;
 
-      return glm::clamp(scaledValue, 0.0f, 1.0f) * glm::sign(value);
+      return glm::clamp(scaledValue, 0.0f, 1.0f);
    }
 
-   float processAxisInput(GamepadAxis axis, float value)
+   glm::vec2 processStickInput(const glm::vec2& values)
    {
-      static const float kStickEndDeadzone = 0.01f;
-      static const float kStickCenterDeadzone = 0.1f;
+      static const float kStickLowerDeadzone = 0.1f;
+      static const float kStickUpperDeadzone = 0.01f;
 
-      static const float kTriggerEndDeadzone = 0.01f;
-      static const float kTriggerCenterDeadzone = 0.0f;
+      float length = glm::length(values);
+      float deadzonedLength = applyDeadzone(length, kStickLowerDeadzone, kStickUpperDeadzone);
 
-      bool isTrigger = axis == GamepadAxis::LeftTrigger || axis == GamepadAxis::RightTrigger;
-      bool isYAxis = axis == GamepadAxis::LeftY || axis == GamepadAxis::RightY;
+      glm::vec2 normalizedValues = glm::normalize(values);
+      glm::vec2 processedValues = normalizedValues * deadzonedLength;
+      processedValues.y *= -1.0f;
 
-      float endDeadzone = isTrigger ? kTriggerEndDeadzone : kStickEndDeadzone;
-      float centerDeadzone = isTrigger ? kTriggerCenterDeadzone : kStickCenterDeadzone;
-      float processedValue = applyDeadzone(value, endDeadzone, centerDeadzone);
+      return processedValues;
+   }
 
-      if (isTrigger)
-      {
-         processedValue = (processedValue + 1.0f) * 0.5f;
-      }
-      if (isYAxis)
-      {
-         processedValue *= -1.0f;
-      }
+   float processTriggerInput(float value)
+   {
+      static const float kTriggerLowerDeadzone = 0.0f;
+      static const float kTriggerUpperDeadzone = 0.01f;
 
-      return processedValue;
+      return applyDeadzone((value + 1.0f) * 0.5f, kTriggerLowerDeadzone, kTriggerUpperDeadzone);
    }
 
    std::optional<GamepadState> pollGamepadState(int gamepadId)
@@ -154,15 +148,20 @@ namespace
       {
          GamepadState gamepadState;
 
-         for (int i = 0; i < gamepadState.buttons.size(); ++i)
+         for (std::size_t i = 0; i < gamepadState.buttons.size(); ++i)
          {
             gamepadState.buttons[i] = glfwGamepadState.buttons[i] == GLFW_PRESS;
          }
 
-         for (int i = 0; i < gamepadState.axes.size(); ++i)
-         {
-            gamepadState.axes[i] = processAxisInput(static_cast<GamepadAxis>(i), glfwGamepadState.axes[i]);
-         }
+         glm::vec2 leftStickValues = processStickInput(glm::vec2(glfwGamepadState.axes[Enum::cast(GamepadAxis::LeftX)], glfwGamepadState.axes[Enum::cast(GamepadAxis::LeftY)]));
+         glm::vec2 rightStickValues = processStickInput(glm::vec2(glfwGamepadState.axes[Enum::cast(GamepadAxis::RightX)], glfwGamepadState.axes[Enum::cast(GamepadAxis::RightY)]));
+
+         gamepadState.axes[Enum::cast(GamepadAxis::LeftX)] = leftStickValues.x;
+         gamepadState.axes[Enum::cast(GamepadAxis::LeftY)] = leftStickValues.y;
+         gamepadState.axes[Enum::cast(GamepadAxis::RightX)] = rightStickValues.x;
+         gamepadState.axes[Enum::cast(GamepadAxis::RightY)] = rightStickValues.y;
+         gamepadState.axes[Enum::cast(GamepadAxis::LeftTrigger)] = processTriggerInput(glfwGamepadState.axes[Enum::cast(GamepadAxis::LeftTrigger)]);
+         gamepadState.axes[Enum::cast(GamepadAxis::RightTrigger)] = processTriggerInput(glfwGamepadState.axes[Enum::cast(GamepadAxis::RightTrigger)]);
 
          return gamepadState;
       }

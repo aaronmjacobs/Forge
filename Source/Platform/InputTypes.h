@@ -172,7 +172,7 @@ struct KeyAxisChord
 
    KeyAxisChord() = default;
 
-   KeyAxisChord(KeyChord initialKeyChord, bool initialInvert)
+   KeyAxisChord(KeyChord initialKeyChord, bool initialInvert = false)
       : keyChord(initialKeyChord)
       , invert(initialInvert)
    {
@@ -232,7 +232,7 @@ struct CursorAxisChord
 
    CursorAxisChord() = default;
 
-   CursorAxisChord(CursorAxis initialCursorAxis, bool initialInvert)
+   CursorAxisChord(CursorAxis initialCursorAxis, bool initialInvert = false)
       : cursorAxis(initialCursorAxis)
       , invert(initialInvert)
    {
@@ -275,7 +275,7 @@ struct GamepadButtonChord
 
    GamepadButtonChord() = default;
 
-   GamepadButtonChord(GamepadButton initialButton, int initialGamepadId)
+   GamepadButtonChord(GamepadButton initialButton, int initialGamepadId = 0)
       : button(initialButton)
       , gamepadId(initialGamepadId)
    {
@@ -305,7 +305,7 @@ struct GamepadAxisChord
 
    GamepadAxisChord() = default;
 
-   GamepadAxisChord(GamepadAxis initialAxis, int initialGamepadId, bool initialInvert)
+   GamepadAxisChord(GamepadAxis initialAxis, int initialGamepadId = 0, bool initialInvert = false)
       : axis(initialAxis)
       , gamepadId(initialGamepadId)
       , invert(initialInvert)
