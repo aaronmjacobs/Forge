@@ -18,6 +18,10 @@ set(BUILD_SHARED_LIBS OFF CACHE INTERNAL "Build package with shared libraries.")
 add_subdirectory("${LIB_DIR}/Boxer")
 target_link_libraries(${PROJECT_NAME} PUBLIC Boxer)
 
+# EnTT
+add_subdirectory("${LIB_DIR}/entt")
+target_link_libraries(${PROJECT_NAME} PUBLIC EnTT)
+
 # GLFW
 set(GLFW_BUILD_EXAMPLES OFF CACHE INTERNAL "Build the GLFW example programs")
 set(GLFW_BUILD_TESTS OFF CACHE INTERNAL "Build the GLFW test programs")
