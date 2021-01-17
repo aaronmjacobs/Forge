@@ -60,6 +60,7 @@ target_sources(${PROJECT_NAME} PRIVATE
    "${SRC_DIR}/Renderer/Passes/Simple/SimpleShader.h"
    "${SRC_DIR}/Renderer/Renderer.cpp"
    "${SRC_DIR}/Renderer/Renderer.h"
+   "${SRC_DIR}/Renderer/SceneRenderInfo.h"
    "${SRC_DIR}/Renderer/UniformData.h"
    "${SRC_DIR}/Renderer/View.cpp"
    "${SRC_DIR}/Renderer/View.h"
