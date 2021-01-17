@@ -75,6 +75,11 @@ target_sources(${PROJECT_NAME} PRIVATE
    "${SRC_DIR}/Resources/ShaderModuleResourceManager.h"
    "${SRC_DIR}/Resources/TextureResourceManager.cpp"
    "${SRC_DIR}/Resources/TextureResourceManager.h"
+
+   "${SRC_DIR}/Scene/Entity.cpp"
+   "${SRC_DIR}/Scene/Entity.h"
+   "${SRC_DIR}/Scene/Scene.cpp"
+   "${SRC_DIR}/Scene/Scene.h"
 )
 
 target_include_directories(${PROJECT_NAME} PUBLIC "${SRC_DIR}")
