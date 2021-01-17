@@ -22,32 +22,9 @@ struct Transform
    {
    }
 
-   Transform inverse() const
-   {
-      glm::quat inverseOrientation = glm::inverse(orientation);
-      glm::vec3 inverseScale = MathUtils::safeReciprocal(scale);
-      glm::vec3 inversePosition = inverseOrientation * (inverseScale * -position);
-
-      return Transform(inverseOrientation, inversePosition, inverseScale);
-   }
-
    glm::mat4 toMatrix() const
    {
       return glm::translate(position) * glm::toMat4(orientation) * glm::scale(scale);
-   }
-
-   void operator*=(const Transform& other)
-   {
-      orientation = other.orientation * orientation;
-      scale = other.scale * scale;
-      position = other.orientation * (other.scale * position) + other.position;
-   }
-
-   Transform operator*(const Transform& other) const
-   {
-      Transform result = *this;
-      result *= other;
-      return result;
    }
 
    glm::vec3 transformPosition(const glm::vec3& pos) const
@@ -64,4 +41,10 @@ struct Transform
    {
       return orientation * vector;
    }
+
+   Transform inverse() const;
+   Transform relativeTo(const Transform& other) const;
+
+   void operator*=(const Transform& other);
+   Transform operator*(const Transform& other) const;
 };

@@ -17,6 +17,7 @@ target_sources(${PROJECT_NAME} PRIVATE
    "${SRC_DIR}/Core/Math/Bounds.cpp"
    "${SRC_DIR}/Core/Math/Bounds.h"
    "${SRC_DIR}/Core/Math/MathUtils.h"
+   "${SRC_DIR}/Core/Math/Transform.cpp"
    "${SRC_DIR}/Core/Math/Transform.h"
 
    "${SRC_DIR}/Graphics/Buffer.cpp"
