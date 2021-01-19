@@ -1,9 +1,9 @@
 #include "Renderer/Renderer.h"
 
-#include "Core/Math/MathUtils.h"
-
 #include "Graphics/Swapchain.h"
 #include "Graphics/Texture.h"
+
+#include "Math/MathUtils.h"
 
 #include "Renderer/Passes/Depth/DepthPass.h"
 #include "Renderer/Passes/Simple/SimpleRenderPass.h"

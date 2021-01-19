@@ -14,11 +14,6 @@ target_sources(${PROJECT_NAME} PRIVATE
    "${SRC_DIR}/Core/Hash.h"
    "${SRC_DIR}/Core/Log.cpp"
    "${SRC_DIR}/Core/Log.h"
-   "${SRC_DIR}/Core/Math/Bounds.cpp"
-   "${SRC_DIR}/Core/Math/Bounds.h"
-   "${SRC_DIR}/Core/Math/MathUtils.h"
-   "${SRC_DIR}/Core/Math/Transform.cpp"
-   "${SRC_DIR}/Core/Math/Transform.h"
 
    "${SRC_DIR}/Graphics/Buffer.cpp"
    "${SRC_DIR}/Graphics/Buffer.h"
@@ -45,6 +40,12 @@ target_sources(${PROJECT_NAME} PRIVATE
    "${SRC_DIR}/Graphics/Texture.h"
    "${SRC_DIR}/Graphics/UniformBuffer.h"
    "${SRC_DIR}/Graphics/Vulkan.h"
+
+   "${SRC_DIR}/Math/Bounds.cpp"
+   "${SRC_DIR}/Math/Bounds.h"
+   "${SRC_DIR}/Math/MathUtils.h"
+   "${SRC_DIR}/Math/Transform.cpp"
+   "${SRC_DIR}/Math/Transform.h"
 
    "${SRC_DIR}/Platform/InputManager.cpp"
    "${SRC_DIR}/Platform/InputManager.h"

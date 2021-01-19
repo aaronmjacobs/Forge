@@ -1,7 +1,8 @@
 #include "Resources/MeshResourceManager.h"
 
 #include "Core/Enum.h"
-#include "Core/Math/MathUtils.h"
+
+#include "Math/MathUtils.h"
 
 #include "Resources/ResourceManager.h"
 

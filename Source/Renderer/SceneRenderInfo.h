@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Core/Math/Transform.h"
+#include "Math/Transform.h"
 
 #include <glm/glm.hpp>
 
