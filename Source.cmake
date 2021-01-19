@@ -85,6 +85,7 @@ target_sources(${PROJECT_NAME} PRIVATE
    "${SRC_DIR}/Resources/TextureResourceManager.cpp"
    "${SRC_DIR}/Resources/TextureResourceManager.h"
 
+   "${SRC_DIR}/Scene/Components/CameraComponent.h"
    "${SRC_DIR}/Scene/Components/MeshComponent.h"
    "${SRC_DIR}/Scene/Components/TransformComponent.cpp"
    "${SRC_DIR}/Scene/Components/TransformComponent.h"

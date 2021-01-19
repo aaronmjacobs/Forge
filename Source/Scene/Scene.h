@@ -4,12 +4,16 @@
 
 #include <entt/entity/registry.hpp>
 
+#include <memory>
+
 class Entity;
 
 class Scene
 {
 public:
    using TickDelegate = MulticastDelegate<void, float /* dt */>;
+
+   Scene();
 
    DelegateHandle addTickDelegate(TickDelegate::FuncType&& function);
    void removeTickDelegate(DelegateHandle handle);
@@ -41,6 +45,9 @@ public:
       return registry.view<const ComponentTypes...>().each(std::forward<Function>(function));
    }
 
+   Entity getActiveCamera() const;
+   void setActiveCamera(Entity newActiveCamera);
+
 private:
    friend class Entity;
 
@@ -49,4 +56,6 @@ private:
    TickDelegate tickDelegate;
    float time = 0.0f;
    float deltaTime = 0.0f;
+
+   std::unique_ptr<Entity> activeCamera;
 };

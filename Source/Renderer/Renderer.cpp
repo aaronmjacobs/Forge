@@ -155,7 +155,7 @@ Renderer::~Renderer()
 
 void Renderer::render(vk::CommandBuffer commandBuffer, const Scene& scene)
 {
-   view->update();
+   view->update(scene);
    SceneRenderInfo sceneRenderInfo = computeSceneRenderInfo(resourceManager, scene, *view);
 
    depthPass->render(commandBuffer, sceneRenderInfo);

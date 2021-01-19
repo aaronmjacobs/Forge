@@ -6,6 +6,8 @@
 
 #include <glm/glm.hpp>
 
+class Scene;
+
 struct ViewUniformData
 {
    alignas(16) glm::mat4 worldToClip;
@@ -19,7 +21,7 @@ public:
 
    View(const GraphicsContext& graphicsContext, vk::DescriptorPool descriptorPool);
 
-   void update();
+   void update(const Scene& scene);
    void updateDescriptorSets();
 
    vk::DescriptorBufferInfo getDescriptorBufferInfo(uint32_t frameIndex) const
