@@ -5,6 +5,7 @@
 #include "Graphics/Texture.h"
 
 #include "Renderer/Passes/Depth/DepthShader.h"
+#include "Renderer/SceneRenderInfo.h"
 #include "Renderer/UniformData.h"
 
 DepthPass::DepthPass(const GraphicsContext& graphicsContext, ResourceManager& resourceManager, const Texture& depthTexture)
@@ -22,7 +23,7 @@ DepthPass::~DepthPass()
    depthShader.reset();
 }
 
-void DepthPass::render(vk::CommandBuffer commandBuffer, const View& view, const Mesh& mesh, const glm::mat4& localToWorld)
+void DepthPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo)
 {
    std::array<vk::ClearValue, 2> clearValues = { vk::ClearDepthStencilValue(1.0f, 0) };
 
@@ -35,16 +36,19 @@ void DepthPass::render(vk::CommandBuffer commandBuffer, const View& view, const 
 
    commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline);
 
-   depthShader->bindDescriptorSets(commandBuffer, view, pipelineLayout);
+   depthShader->bindDescriptorSets(commandBuffer, sceneRenderInfo.view, pipelineLayout);
 
-   MeshUniformData meshUniformData;
-   meshUniformData.localToWorld = localToWorld;
-   commandBuffer.pushConstants<MeshUniformData>(pipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, meshUniformData);
-
-   for (uint32_t section = 0; section < mesh.getNumSections(); ++section)
+   for (const MeshRenderInfo& meshRenderInfo : sceneRenderInfo.meshes)
    {
-      mesh.bindBuffers(commandBuffer, section);
-      mesh.draw(commandBuffer, section);
+      MeshUniformData meshUniformData;
+      meshUniformData.localToWorld = meshRenderInfo.localToWorld;
+      commandBuffer.pushConstants<MeshUniformData>(pipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, meshUniformData);
+
+      for (uint32_t section = 0; section < meshRenderInfo.mesh.getNumSections(); ++section)
+      {
+         meshRenderInfo.mesh.bindBuffers(commandBuffer, section);
+         meshRenderInfo.mesh.draw(commandBuffer, section);
+      }
    }
 
    commandBuffer.endRenderPass();
@@ -54,12 +58,6 @@ void DepthPass::onSwapchainRecreated(const Texture& depthTexture)
 {
    terminateSwapchainDependentResources();
    initializeSwapchainDependentResources(depthTexture);
-}
-
-void DepthPass::updateDescriptorSets(const View& view)
-{
-   ASSERT(depthShader);
-   depthShader->updateDescriptorSets(view);
 }
 
 void DepthPass::initializeSwapchainDependentResources(const Texture& depthTexture)

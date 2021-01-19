@@ -2,6 +2,8 @@
 
 #include "Graphics/GraphicsResource.h"
 
+#include "Resources/ResourceTypes.h"
+
 #include <glm/glm.hpp>
 
 #include <span>
@@ -28,12 +30,15 @@ struct MeshSectionSourceData
 {
    std::vector<Vertex> vertices;
    std::vector<uint32_t> indices;
+   MaterialHandle materialHandle;
 };
 
 struct MeshSection
 {
+   vk::DeviceSize vertexOffset = 0;
    vk::DeviceSize indexOffset = 0;
    uint32_t numIndices = 0;
+   MaterialHandle materialHandle;
 };
 
 class Mesh : public GraphicsResource
@@ -46,6 +51,16 @@ public:
    uint32_t getNumSections() const
    {
       return static_cast<uint32_t>(sections.size());
+   }
+
+   MeshSection& getSection(uint32_t index)
+   {
+      return sections[index];
+   }
+
+   const MeshSection& getSection(uint32_t index) const
+   {
+      return sections[index];
    }
 
    void bindBuffers(vk::CommandBuffer commandBuffer, uint32_t section) const;

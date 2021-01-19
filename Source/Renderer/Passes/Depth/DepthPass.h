@@ -2,15 +2,14 @@
 
 #include "Graphics/GraphicsResource.h"
 
-#include <glm/glm.hpp>
+#include "Renderer/SceneRenderInfo.h"
 
 #include <memory>
 
 class DepthShader;
-class Mesh;
 class ResourceManager;
 class Texture;
-class View;
+struct SceneRenderInfo;
 
 class DepthPass : public GraphicsResource
 {
@@ -19,11 +18,9 @@ public:
 
    ~DepthPass();
 
-   void render(vk::CommandBuffer commandBuffer, const View& view, const Mesh& mesh, const glm::mat4& localToWorld);
+   void render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo);
 
    void onSwapchainRecreated(const Texture& depthTexture);
-
-   void updateDescriptorSets(const View& view);
 
 private:
    void initializeSwapchainDependentResources(const Texture& depthTexture);

@@ -19,24 +19,6 @@ DepthShader::DepthShader(const GraphicsContext& graphicsContext, ResourceManager
       .setPName("main");
 }
 
-void DepthShader::updateDescriptorSets(const View& view)
-{
-   for (uint32_t frameIndex = 0; frameIndex < GraphicsContext::kMaxFramesInFlight; ++frameIndex)
-   {
-      vk::DescriptorBufferInfo viewBufferInfo = view.getDescriptorBufferInfo(frameIndex);
-
-      vk::WriteDescriptorSet viewDescriptorWrite = vk::WriteDescriptorSet()
-         .setDstSet(view.getDescriptorSet().getSet(frameIndex))
-         .setDstBinding(0)
-         .setDstArrayElement(0)
-         .setDescriptorType(vk::DescriptorType::eUniformBuffer)
-         .setDescriptorCount(1)
-         .setPBufferInfo(&viewBufferInfo);
-
-      device.updateDescriptorSets({ viewDescriptorWrite }, {});
-   }
-}
-
 void DepthShader::bindDescriptorSets(vk::CommandBuffer commandBuffer, const View& view, vk::PipelineLayout pipelineLayout)
 {
    commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, 0, { view.getDescriptorSet().getCurrentSet() }, {});

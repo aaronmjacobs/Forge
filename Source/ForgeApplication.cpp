@@ -5,11 +5,15 @@
 #include "Graphics/GraphicsContext.h"
 #include "Graphics/Swapchain.h"
 
+#include "Platform/Window.h"
+
 #include "Renderer/Renderer.h"
 
 #include "Resources/ResourceManager.h"
 
-#include "Platform/Window.h"
+#include "Scene/Entity.h"
+#include "Scene/Components/MeshComponent.h"
+#include "Scene/Components/TransformComponent.h"
 
 #include <GLFW/glfw3.h>
 
@@ -24,6 +28,8 @@ ForgeApplication::ForgeApplication()
    initializeRenderer();
    initializeCommandBuffers();
    initializeSyncObjects();
+
+   loadScene();
 }
 
 ForgeApplication::~ForgeApplication()
@@ -38,9 +44,18 @@ ForgeApplication::~ForgeApplication()
 
 void ForgeApplication::run()
 {
+   double lastTime = glfwGetTime();
+
    while (!window->shouldClose())
    {
       window->pollEvents();
+
+      double time = glfwGetTime();
+      float dt = static_cast<float>(time - lastTime);
+      lastTime = time;
+
+      scene.tick(dt);
+
       render();
    }
 
@@ -101,7 +116,7 @@ void ForgeApplication::render()
          .setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
       commandBuffer.begin(commandBufferBeginInfo);
 
-      renderer->render(commandBuffer);
+      renderer->render(commandBuffer, scene);
 
       commandBuffer.end();
    }
@@ -324,4 +339,35 @@ void ForgeApplication::terminateSyncObjects()
       context->getDevice().destroySemaphore(imageAvailableSemaphore);
    }
    imageAvailableSemaphores.clear();
+}
+
+void ForgeApplication::loadScene()
+{
+   Entity entity = scene.createEntity();
+   MeshComponent& meshComponent = entity.createComponent<MeshComponent>();
+
+   MeshLoadOptions meshLoadOptions;
+   meshLoadOptions.forwardAxis = MeshAxis::PositiveY;
+   meshLoadOptions.upAxis = MeshAxis::PositiveZ;
+   meshComponent.meshHandle = resourceManager->loadMesh("Resources/Meshes/Viking/viking_room.obj", meshLoadOptions);
+
+   TextureMaterialParameter textureParameter;
+   textureParameter.name = "texture";
+   textureParameter.value = resourceManager->loadTexture("Resources/Meshes/Viking/viking_room.png");
+
+   MaterialParameters materialParameters;
+   materialParameters.textureParameters.push_back(textureParameter);
+
+   if (Mesh* mesh = resourceManager->getMesh(meshComponent.meshHandle))
+   {
+      mesh->getSection(0).materialHandle = resourceManager->loadMaterial(materialParameters);
+   }
+
+   entity.createComponent<TransformComponent>();
+
+   scene.addTickDelegate([entity](float dt) mutable
+   {
+      TransformComponent& transformComponent = entity.getComponent<TransformComponent>();
+      transformComponent.transform.orientation = glm::angleAxis(glm::radians(90.0f * dt), MathUtils::kUpVector) * transformComponent.transform.orientation;
+   });
 }

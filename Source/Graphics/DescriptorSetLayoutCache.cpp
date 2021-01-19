@@ -7,37 +7,37 @@ namespace std
 {
    size_t hash<vk::DescriptorSetLayoutBinding>::operator()(const vk::DescriptorSetLayoutBinding& value) const
    {
-      size_t seed = 0;
+      size_t hash = 0;
 
-      Hash::combine(seed, value.binding);
-      Hash::combine(seed, Enum::cast(value.descriptorType));
-      Hash::combine(seed, value.descriptorCount);
-      Hash::combine(seed, static_cast<vk::ShaderStageFlags::MaskType>(value.stageFlags));
+      Hash::combine(hash, value.binding);
+      Hash::combine(hash, Enum::cast(value.descriptorType));
+      Hash::combine(hash, value.descriptorCount);
+      Hash::combine(hash, static_cast<vk::ShaderStageFlags::MaskType>(value.stageFlags));
       if (value.pImmutableSamplers)
       {
          for (uint32_t i = 0; i < value.descriptorCount; ++i)
          {
-            Hash::combine(seed, value.pImmutableSamplers[i]);
+            Hash::combine(hash, value.pImmutableSamplers[i]);
          }
       }
 
-      return seed;
+      return hash;
    }
 
    size_t hash<vk::DescriptorSetLayoutCreateInfo>::operator()(const vk::DescriptorSetLayoutCreateInfo& value) const
    {
-      size_t seed = 0;
+      size_t hash = 0;
 
-      Hash::combine(seed, Enum::cast(value.sType));
-      Hash::combine(seed, value.pNext);
-      Hash::combine(seed, static_cast<vk::DescriptorSetLayoutCreateFlags::MaskType>(value.flags));
-      Hash::combine(seed, value.bindingCount);
+      Hash::combine(hash, Enum::cast(value.sType));
+      Hash::combine(hash, value.pNext);
+      Hash::combine(hash, static_cast<vk::DescriptorSetLayoutCreateFlags::MaskType>(value.flags));
+      Hash::combine(hash, value.bindingCount);
       for (uint32_t i = 0; i < value.bindingCount; ++i)
       {
-         Hash::combine(seed, value.pBindings[i]);
+         Hash::combine(hash, value.pBindings[i]);
       }
 
-      return seed;
+      return hash;
    }
 }
 

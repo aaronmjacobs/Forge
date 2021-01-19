@@ -2,6 +2,7 @@
 
 #include "Graphics/Texture.h"
 
+#include "Renderer/SimpleMaterial.h"
 #include "Renderer/UniformData.h"
 #include "Renderer/View.h"
 
@@ -33,24 +34,10 @@ namespace
       static const SimpleShaderStageData kStageData;
       return kStageData;
    }
-
-   const vk::DescriptorSetLayoutCreateInfo& getLayoutCreateInfo()
-   {
-      static const vk::DescriptorSetLayoutBinding kBinding = vk::DescriptorSetLayoutBinding()
-         .setBinding(0)
-         .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-         .setDescriptorCount(1)
-         .setStageFlags(vk::ShaderStageFlagBits::eFragment);
-
-      static const vk::DescriptorSetLayoutCreateInfo kCreateInfo = vk::DescriptorSetLayoutCreateInfo(vk::DescriptorSetLayoutCreateFlags(), 1, &kBinding);
-
-      return kCreateInfo;
-   }
 }
 
-SimpleShader::SimpleShader(const GraphicsContext& graphicsContext, vk::DescriptorPool descriptorPool, ResourceManager& resourceManager)
+SimpleShader::SimpleShader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager)
    : GraphicsResource(graphicsContext)
-   , descriptorSet(graphicsContext, descriptorPool, getLayoutCreateInfo())
 {
    ShaderModuleHandle vertModuleHandle = resourceManager.loadShaderModule("Resources/Shaders/Simple.vert.spv");
    ShaderModuleHandle fragModuleHandle = resourceManager.loadShaderModule("Resources/Shaders/Simple.frag.spv");
@@ -81,40 +68,9 @@ SimpleShader::SimpleShader(const GraphicsContext& graphicsContext, vk::Descripto
       .setPSpecializationInfo(&stageData.withoutTextureSpecializationInfo);
 }
 
-void SimpleShader::updateDescriptorSets(const View& view, const Texture& texture, vk::Sampler sampler)
+void SimpleShader::bindDescriptorSets(vk::CommandBuffer commandBuffer, const View& view, vk::PipelineLayout pipelineLayout, const Material& material)
 {
-   for (uint32_t frameIndex = 0; frameIndex < GraphicsContext::kMaxFramesInFlight; ++frameIndex)
-   {
-      vk::DescriptorBufferInfo viewBufferInfo = view.getDescriptorBufferInfo(frameIndex);
-
-      vk::DescriptorImageInfo imageInfo = vk::DescriptorImageInfo()
-         .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-         .setImageView(texture.getDefaultView())
-         .setSampler(sampler);
-
-      vk::WriteDescriptorSet viewDescriptorWrite = vk::WriteDescriptorSet()
-         .setDstSet(view.getDescriptorSet().getSet(frameIndex))
-         .setDstBinding(0)
-         .setDstArrayElement(0)
-         .setDescriptorType(vk::DescriptorType::eUniformBuffer)
-         .setDescriptorCount(1)
-         .setPBufferInfo(&viewBufferInfo);
-
-      vk::WriteDescriptorSet imageDescriptorWrite = vk::WriteDescriptorSet()
-         .setDstSet(descriptorSet.getSet(frameIndex))
-         .setDstBinding(0)
-         .setDstArrayElement(0)
-         .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-         .setDescriptorCount(1)
-         .setPImageInfo(&imageInfo);
-
-      device.updateDescriptorSets({ viewDescriptorWrite, imageDescriptorWrite }, {});
-   }
-}
-
-void SimpleShader::bindDescriptorSets(vk::CommandBuffer commandBuffer, const View& view, vk::PipelineLayout pipelineLayout)
-{
-   commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, 0, { view.getDescriptorSet().getCurrentSet(), descriptorSet.getCurrentSet() }, {});
+   commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, 0, { view.getDescriptorSet().getCurrentSet(), material.getDescriptorSet().getCurrentSet() }, {});
 }
 
 std::vector<vk::PipelineShaderStageCreateInfo> SimpleShader::getStages(bool withTexture) const
@@ -124,7 +80,7 @@ std::vector<vk::PipelineShaderStageCreateInfo> SimpleShader::getStages(bool with
 
 std::vector<vk::DescriptorSetLayout> SimpleShader::getSetLayouts() const
 {
-   return { View::getLayout(context), descriptorSet.getLayout() };
+   return { View::getLayout(context), SimpleMaterial::getLayout(context) };
 }
 
 std::vector<vk::PushConstantRange> SimpleShader::getPushConstantRanges() const

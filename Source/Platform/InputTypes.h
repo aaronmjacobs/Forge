@@ -325,12 +325,12 @@ namespace std
    {
       size_t operator()(const KeyChord& keyChord) const
       {
-         size_t seed = 0;
+         size_t hash = 0;
 
-         Hash::combine(seed, keyChord.key);
-         Hash::combine(seed, keyChord.mods);
+         Hash::combine(hash, keyChord.key);
+         Hash::combine(hash, keyChord.mods);
 
-         return seed;
+         return hash;
       }
    };
 
@@ -339,12 +339,12 @@ namespace std
    {
       size_t operator()(const KeyAxisChord& keyAxisChord) const
       {
-         size_t seed = 0;
+         size_t hash = 0;
 
-         Hash::combine(seed, keyAxisChord.keyChord);
-         Hash::combine(seed, keyAxisChord.invert);
+         Hash::combine(hash, keyAxisChord.keyChord);
+         Hash::combine(hash, keyAxisChord.invert);
 
-         return seed;
+         return hash;
       }
    };
 
@@ -353,12 +353,12 @@ namespace std
    {
       size_t operator()(const MouseButtonChord& mouseButtonChord) const
       {
-         size_t seed = 0;
+         size_t hash = 0;
 
-         Hash::combine(seed, mouseButtonChord.button);
-         Hash::combine(seed, mouseButtonChord.mods);
+         Hash::combine(hash, mouseButtonChord.button);
+         Hash::combine(hash, mouseButtonChord.mods);
 
-         return seed;
+         return hash;
       }
    };
 
@@ -367,12 +367,12 @@ namespace std
    {
       size_t operator()(const CursorAxisChord& cursorAxisChord) const
       {
-         size_t seed = 0;
+         size_t hash = 0;
 
-         Hash::combine(seed, cursorAxisChord.cursorAxis);
-         Hash::combine(seed, cursorAxisChord.invert);
+         Hash::combine(hash, cursorAxisChord.cursorAxis);
+         Hash::combine(hash, cursorAxisChord.invert);
 
-         return seed;
+         return hash;
       }
    };
 
@@ -381,12 +381,12 @@ namespace std
    {
       size_t operator()(const GamepadButtonChord& gamepadButtonChord) const
       {
-         size_t seed = 0;
+         size_t hash = 0;
 
-         Hash::combine(seed, gamepadButtonChord.button);
-         Hash::combine(seed, gamepadButtonChord.gamepadId);
+         Hash::combine(hash, gamepadButtonChord.button);
+         Hash::combine(hash, gamepadButtonChord.gamepadId);
 
-         return seed;
+         return hash;
       }
    };
 
@@ -395,13 +395,13 @@ namespace std
    {
       size_t operator()(const GamepadAxisChord& gamepadAxisChord) const
       {
-         size_t seed = 0;
+         size_t hash = 0;
 
-         Hash::combine(seed, gamepadAxisChord.axis);
-         Hash::combine(seed, gamepadAxisChord.gamepadId);
-         Hash::combine(seed, gamepadAxisChord.invert);
+         Hash::combine(hash, gamepadAxisChord.axis);
+         Hash::combine(hash, gamepadAxisChord.gamepadId);
+         Hash::combine(hash, gamepadAxisChord.invert);
 
-         return seed;
+         return hash;
       }
    };
 }

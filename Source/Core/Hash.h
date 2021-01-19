@@ -1,5 +1,7 @@
 #pragma once
 
+#include <glm/glm.hpp>
+
 #include <span>
 #include <utility>
 #include <vector>
@@ -7,10 +9,15 @@
 namespace Hash
 {
    template<typename T>
-   inline void combine(std::size_t& seed, const T& value)
+   inline std::size_t of(const T& value)
    {
-      std::hash<T> hasher;
-      seed ^= hasher(value) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+      return std::hash<T>{}(value);
+   }
+
+   template<typename T>
+   inline void combine(std::size_t& hash, const T& value)
+   {
+      hash ^= Hash::of(value) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
    }
 }
 
@@ -21,14 +28,14 @@ namespace std
    {
       size_t operator()(span<T> values) const
       {
-         size_t seed = values.size();
+         size_t hash = values.size();
 
          for (const auto& value : values)
          {
-            Hash::combine(seed, value);
+            Hash::combine(hash, value);
          }
 
-         return seed;
+         return hash;
       }
    };
 
@@ -38,9 +45,23 @@ namespace std
       size_t operator()(const vector<T>& values) const
       {
          span<const T> valuesSpan = values;
+         return Hash::of(valuesSpan);
+      }
+   };
 
-         hash<span<const T>> hasher;
-         return hasher(valuesSpan);
+   template<>
+   struct hash<glm::vec4>
+   {
+      size_t operator()(const glm::vec4& value) const
+      {
+         size_t hash = 0;
+
+         Hash::combine(hash, value.x);
+         Hash::combine(hash, value.y);
+         Hash::combine(hash, value.z);
+         Hash::combine(hash, value.w);
+
+         return hash;
       }
    };
 }

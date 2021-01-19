@@ -112,12 +112,15 @@ Mesh::Mesh(const GraphicsContext& graphicsContext, std::span<const MeshSectionSo
       std::size_t vertexDataSize = sectionData.vertices.size() * sizeof(Vertex);
       std::size_t indexDataSize = sectionData.indices.size() * sizeof(uint32_t);
 
+      meshSection.vertexOffset = mappedDataOffset;
       std::memcpy(static_cast<uint8_t*>(mappedData) + mappedDataOffset, sectionData.vertices.data(), vertexDataSize);
       mappedDataOffset += vertexDataSize;
 
       meshSection.indexOffset = mappedDataOffset;
       std::memcpy(static_cast<uint8_t*>(mappedData) + mappedDataOffset, sectionData.indices.data(), indexDataSize);
       mappedDataOffset += indexDataSize;
+
+      meshSection.materialHandle = sectionData.materialHandle;
 
       sections.push_back(meshSection);
    }
@@ -149,7 +152,7 @@ Mesh::~Mesh()
 
 void Mesh::bindBuffers(vk::CommandBuffer commandBuffer, uint32_t section) const
 {
-   commandBuffer.bindVertexBuffers(0, { buffer }, { 0 });
+   commandBuffer.bindVertexBuffers(0, { buffer }, { sections[section].vertexOffset });
    commandBuffer.bindIndexBuffer(buffer, sections[section].indexOffset, vk::IndexType::eUint32);
 }
 

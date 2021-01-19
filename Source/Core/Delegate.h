@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Core/Assert.h"
+#include "Core/Hash.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -44,8 +45,7 @@ namespace std
    {
       size_t operator()(const DelegateHandle& delegateHandle) const
       {
-         std::hash<uint64_t> hasher;
-         return hasher(delegateHandle.id);
+         return Hash::of(delegateHandle.id);
       }
    };
 }

@@ -12,26 +12,24 @@ class ResourceManager;
 class SimpleShader;
 class Texture;
 class View;
+struct SceneRenderInfo;
 
 class SimpleRenderPass : public GraphicsResource
 {
 public:
-   SimpleRenderPass(const GraphicsContext& graphicsContext, vk::DescriptorPool descriptorPool, ResourceManager& resourceManager, const Texture& colorTexture, const Texture& depthTexture);
+   SimpleRenderPass(const GraphicsContext& graphicsContext, ResourceManager& resourceManager, const Texture& colorTexture, const Texture& depthTexture);
 
    ~SimpleRenderPass();
 
-   void render(vk::CommandBuffer commandBuffer, const View& view, const Mesh& mesh, const glm::mat4& localToWorld);
+   void render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo);
 
    void onSwapchainRecreated(const Texture& colorTexture, const Texture& depthTexture);
-
-   void updateDescriptorSets(const View& view, const Texture& texture);
 
 private:
    void initializeSwapchainDependentResources(const Texture& colorTexture, const Texture& depthTexture);
    void terminateSwapchainDependentResources();
 
    std::unique_ptr<SimpleShader> simpleShader;
-   vk::Sampler sampler;
 
    vk::RenderPass renderPass;
 

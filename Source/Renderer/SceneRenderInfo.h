@@ -6,6 +6,7 @@
 
 #include <vector>
 
+class Material;
 class Mesh;
 class View;
 
@@ -15,6 +16,7 @@ struct MeshRenderInfo
    glm::mat4 localToWorld;
 
    std::vector<bool> visibilityMask;
+   std::vector<const Material*> materials;
    const Mesh& mesh;
 
    MeshRenderInfo(const Mesh& m, const Transform& t)

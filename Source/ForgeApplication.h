@@ -2,6 +2,8 @@
 
 #include "Graphics/Vulkan.h"
 
+#include "Scene/Scene.h"
+
 #include <memory>
 
 class GraphicsContext;
@@ -41,12 +43,15 @@ private:
    void initializeSyncObjects();
    void terminateSyncObjects();
 
+   void loadScene();
+
    std::unique_ptr<ResourceManager> resourceManager;
 
    std::unique_ptr<Window> window;
    std::unique_ptr<GraphicsContext> context;
    std::unique_ptr<Swapchain> swapchain;
 
+   Scene scene;
    std::unique_ptr<Renderer> renderer;
 
    vk::CommandPool commandPool;

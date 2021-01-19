@@ -3,26 +3,30 @@
 #include "Core/Containers/GenerationalArray.h"
 #include "Core/Containers/ReflectedMap.h"
 
+#include "Resources/ResourceTypes.h"
+
 #include <filesystem>
 #include <memory>
 #include <optional>
 #include <utility>
 
 class GraphicsContext;
+class ResourceManager;
 
 namespace ResourceHelpers
 {
    std::optional<std::filesystem::path> makeCanonical(const std::filesystem::path& path);
 }
 
-template<typename T>
+template<typename T, typename Identifier>
 class ResourceManagerBase
 {
 public:
-   using Handle = typename GenerationalArray<std::unique_ptr<T>>::Handle;
+   using Handle = ResourceHandle<T>;
 
-   ResourceManagerBase(const GraphicsContext& graphicsContext)
+   ResourceManagerBase(const GraphicsContext& graphicsContext, ResourceManager& owningResourceManager)
       : context(graphicsContext)
+      , resourceManager(owningResourceManager)
    {
    }
 
@@ -74,14 +78,14 @@ protected:
       return resources.emplace(std::make_unique<T>(std::forward<Args>(args)...));
    }
 
-   void cacheHandle(Handle handle, const std::string& canonicalPathString)
+   void cacheHandle(const Identifier& identifier, Handle handle)
    {
-      cache.add(handle, canonicalPathString);
+      cache.add(identifier, handle);
    }
 
-   std::optional<Handle> getCachedHandle(const std::string& canonicalPathString) const
+   std::optional<Handle> getCachedHandle(const Identifier& identifier) const
    {
-      if (const Handle* handle = cache.find(canonicalPathString))
+      if (const Handle* handle = cache.find(identifier))
       {
          if (resources.get(*handle) != nullptr)
          {
@@ -93,8 +97,9 @@ protected:
    }
 
    const GraphicsContext& context;
+   ResourceManager& resourceManager;
 
 private:
    GenerationalArray<std::unique_ptr<T>> resources;
-   ReflectedMap<Handle, std::string> cache;
+   ReflectedMap<Identifier, Handle> cache;
 };

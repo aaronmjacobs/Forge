@@ -5,13 +5,12 @@
 #include "Graphics/Texture.h"
 
 #include <filesystem>
+#include <string>
 
-using TextureHandle = ResourceManagerBase<Texture>::Handle;
-
-class TextureResourceManager : public ResourceManagerBase<Texture>
+class TextureResourceManager : public ResourceManagerBase<Texture, std::string>
 {
 public:
-   TextureResourceManager(const GraphicsContext& graphicsContext);
+   TextureResourceManager(const GraphicsContext& graphicsContext, ResourceManager& owningResourceManager);
 
    TextureHandle load(const std::filesystem::path& path, const TextureProperties& properties = getDefaultProperties(), const TextureInitialLayout& initialLayout = getDefaultInitialLayout());
 

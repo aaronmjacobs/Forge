@@ -5,16 +5,16 @@
 
 #include <vector>
 
+class Material;
 class Texture;
 class View;
 
 class SimpleShader : public GraphicsResource
 {
 public:
-   SimpleShader(const GraphicsContext& graphicsContext, vk::DescriptorPool descriptorPool, ResourceManager& resourceManager);
+   SimpleShader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager);
 
-   void updateDescriptorSets(const View& view, const Texture& texture, vk::Sampler sampler);
-   void bindDescriptorSets(vk::CommandBuffer commandBuffer, const View& view, vk::PipelineLayout pipelineLayout);
+   void bindDescriptorSets(vk::CommandBuffer commandBuffer, const View& view, vk::PipelineLayout pipelineLayout, const Material& material);
 
    std::vector<vk::PipelineShaderStageCreateInfo> getStages(bool withTexture) const;
    std::vector<vk::DescriptorSetLayout> getSetLayouts() const;
@@ -24,6 +24,4 @@ private:
    vk::PipelineShaderStageCreateInfo vertStageCreateInfo;
    vk::PipelineShaderStageCreateInfo fragStageCreateInfoWithTexture;
    vk::PipelineShaderStageCreateInfo fragStageCreateInfoWithoutTexture;
-
-   DescriptorSet descriptorSet;
 };

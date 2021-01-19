@@ -5,13 +5,12 @@
 #include "Graphics/ShaderModule.h"
 
 #include <filesystem>
+#include <string>
 
-using ShaderModuleHandle = ResourceManagerBase<ShaderModule>::Handle;
-
-class ShaderModuleResourceManager : public ResourceManagerBase<ShaderModule>
+class ShaderModuleResourceManager : public ResourceManagerBase<ShaderModule, std::string>
 {
 public:
-   ShaderModuleResourceManager(const GraphicsContext& graphicsContext);
+   ShaderModuleResourceManager(const GraphicsContext& graphicsContext, ResourceManager& owningResourceManager);
 
    ShaderModuleHandle load(const std::filesystem::path& path);
 };

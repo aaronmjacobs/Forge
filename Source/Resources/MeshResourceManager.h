@@ -5,6 +5,7 @@
 #include "Graphics/Mesh.h"
 
 #include <filesystem>
+#include <string>
 
 enum class MeshAxis
 {
@@ -22,12 +23,10 @@ struct MeshLoadOptions
    MeshAxis upAxis = MeshAxis::PositiveY;
 };
 
-using MeshHandle = ResourceManagerBase<Mesh>::Handle;
-
-class MeshResourceManager : public ResourceManagerBase<Mesh>
+class MeshResourceManager : public ResourceManagerBase<Mesh, std::string>
 {
 public:
-   MeshResourceManager(const GraphicsContext& graphicsContext);
+   MeshResourceManager(const GraphicsContext& graphicsContext, ResourceManager& owningResourceManager);
 
    MeshHandle load(const std::filesystem::path& path, const MeshLoadOptions& loadOptions = {});
 };

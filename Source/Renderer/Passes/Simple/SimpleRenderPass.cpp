@@ -5,31 +5,13 @@
 #include "Graphics/Texture.h"
 
 #include "Renderer/Passes/Simple/SimpleShader.h"
+#include "Renderer/SceneRenderInfo.h"
 #include "Renderer/UniformData.h"
 
-SimpleRenderPass::SimpleRenderPass(const GraphicsContext& graphicsContext, vk::DescriptorPool descriptorPool, ResourceManager& resourceManager, const Texture& colorTexture, const Texture& depthTexture)
+SimpleRenderPass::SimpleRenderPass(const GraphicsContext& graphicsContext, ResourceManager& resourceManager, const Texture& colorTexture, const Texture& depthTexture)
    : GraphicsResource(graphicsContext)
 {
-   simpleShader = std::make_unique<SimpleShader>(context, descriptorPool, resourceManager);
-
-   bool anisotropySupported = context.getPhysicalDeviceFeatures().samplerAnisotropy;
-   vk::SamplerCreateInfo samplerCreateInfo = vk::SamplerCreateInfo()
-      .setMagFilter(vk::Filter::eLinear)
-      .setMinFilter(vk::Filter::eLinear)
-      .setAddressModeU(vk::SamplerAddressMode::eRepeat)
-      .setAddressModeV(vk::SamplerAddressMode::eRepeat)
-      .setAddressModeW(vk::SamplerAddressMode::eRepeat)
-      .setBorderColor(vk::BorderColor::eIntOpaqueBlack)
-      .setAnisotropyEnable(anisotropySupported)
-      .setMaxAnisotropy(anisotropySupported ? 16.0f : 1.0f)
-      .setUnnormalizedCoordinates(false)
-      .setCompareEnable(false)
-      .setCompareOp(vk::CompareOp::eAlways)
-      .setMipmapMode(vk::SamplerMipmapMode::eLinear)
-      .setMipLodBias(0.0f)
-      .setMinLod(0.0f)
-      .setMaxLod(16.0f);
-   sampler = device.createSampler(samplerCreateInfo);
+   simpleShader = std::make_unique<SimpleShader>(context, resourceManager);
 
    initializeSwapchainDependentResources(colorTexture, depthTexture);
 }
@@ -38,12 +20,10 @@ SimpleRenderPass::~SimpleRenderPass()
 {
    terminateSwapchainDependentResources();
 
-   device.destroySampler(sampler);
-
    simpleShader.reset();
 }
 
-void SimpleRenderPass::render(vk::CommandBuffer commandBuffer, const View& view, const Mesh& mesh, const glm::mat4& localToWorld)
+void SimpleRenderPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo)
 {
    std::array<float, 4> clearColorValues = { 0.0f, 0.0f, 0.0f, 1.0f };
    std::array<vk::ClearValue, 2> clearValues = { vk::ClearColorValue(clearColorValues), vk::ClearDepthStencilValue(1.0f, 0) };
@@ -57,16 +37,22 @@ void SimpleRenderPass::render(vk::CommandBuffer commandBuffer, const View& view,
 
    commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline);
 
-   simpleShader->bindDescriptorSets(commandBuffer, view, pipelineLayout);
-
-   MeshUniformData meshUniformData;
-   meshUniformData.localToWorld = localToWorld;
-   commandBuffer.pushConstants<MeshUniformData>(pipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, meshUniformData);
-
-   for (uint32_t section = 0; section < mesh.getNumSections(); ++section)
+   for (const MeshRenderInfo& meshRenderInfo : sceneRenderInfo.meshes)
    {
-      mesh.bindBuffers(commandBuffer, section);
-      mesh.draw(commandBuffer, section);
+      MeshUniformData meshUniformData;
+      meshUniformData.localToWorld = meshRenderInfo.localToWorld;
+      commandBuffer.pushConstants<MeshUniformData>(pipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, meshUniformData);
+
+      for (uint32_t section = 0; section < meshRenderInfo.mesh.getNumSections(); ++section)
+      {
+         if (const Material* material = meshRenderInfo.materials[section])
+         {
+            simpleShader->bindDescriptorSets(commandBuffer, sceneRenderInfo.view, pipelineLayout, *material);
+
+            meshRenderInfo.mesh.bindBuffers(commandBuffer, section);
+            meshRenderInfo.mesh.draw(commandBuffer, section);
+         }
+      }
    }
 
    commandBuffer.endRenderPass();
@@ -76,12 +62,6 @@ void SimpleRenderPass::onSwapchainRecreated(const Texture& colorTexture, const T
 {
    terminateSwapchainDependentResources();
    initializeSwapchainDependentResources(colorTexture, depthTexture);
-}
-
-void SimpleRenderPass::updateDescriptorSets(const View& view, const Texture& texture)
-{
-   ASSERT(simpleShader);
-   simpleShader->updateDescriptorSets(view, texture, sampler);
 }
 
 void SimpleRenderPass::initializeSwapchainDependentResources(const Texture& colorTexture, const Texture& depthTexture)

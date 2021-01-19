@@ -3,6 +3,8 @@
 #include "Core/Enum.h"
 #include "Core/Math/MathUtils.h"
 
+#include "Resources/ResourceManager.h"
+
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
@@ -97,7 +99,43 @@ namespace
       return swizzle;
    }
 
-   MeshSectionSourceData processAssimpMesh(const aiMesh& assimpMesh, const glm::mat3& swizzle)
+   TextureHandle loadMaterialTexture(const aiMaterial& assimpMaterial, aiTextureType textureType, const std::filesystem::path& directory, ResourceManager& resourceManager)
+   {
+      if (assimpMaterial.GetTextureCount(textureType) > 0)
+      {
+         aiString textureName;
+         if (assimpMaterial.GetTexture(textureType, 0, &textureName) == aiReturn_SUCCESS)
+         {
+            std::filesystem::path texturePath = directory / textureName.C_Str();
+            return resourceManager.loadTexture(texturePath);
+         }
+      }
+
+      return TextureHandle();
+   }
+
+   MaterialHandle processAssimpMaterial(const aiMaterial& assimpMaterial, const std::filesystem::path& directory, ResourceManager& resourceManager)
+   {
+      TextureHandle diffuseTextureHandle = loadMaterialTexture(assimpMaterial, aiTextureType_DIFFUSE, directory, resourceManager);
+      TextureHandle specularTextureHandle = loadMaterialTexture(assimpMaterial, aiTextureType_SPECULAR, directory, resourceManager);
+      TextureHandle normalTextureHandle = loadMaterialTexture(assimpMaterial, aiTextureType_NORMALS, directory, resourceManager);
+      if (!normalTextureHandle)
+      {
+         normalTextureHandle = loadMaterialTexture(assimpMaterial, aiTextureType_HEIGHT, directory, resourceManager);
+      }
+
+      // TODO: Proper shading model
+      TextureMaterialParameter textureParameter;
+      textureParameter.name = "texture";
+      textureParameter.value = diffuseTextureHandle;
+
+      MaterialParameters materialParameters;
+      materialParameters.textureParameters.push_back(textureParameter);
+
+      return resourceManager.loadMaterial(materialParameters);
+   }
+
+   MeshSectionSourceData processAssimpMesh(const aiScene& assimpScene, const aiMesh& assimpMesh, const glm::mat3& swizzle, const std::filesystem::path& directory, ResourceManager& resourceManager)
    {
       MeshSectionSourceData sectionSourceData;
 
@@ -126,24 +164,29 @@ namespace
          }
       }
 
+      if (assimpMesh.mMaterialIndex < assimpScene.mNumMaterials && assimpScene.mMaterials[assimpMesh.mMaterialIndex])
+      {
+         sectionSourceData.materialHandle = processAssimpMaterial(*assimpScene.mMaterials[assimpMesh.mMaterialIndex], directory, resourceManager);
+      }
+
       return sectionSourceData;
    }
 
-   void processAssimpNode(std::vector<MeshSectionSourceData>& sourceData, const aiScene& assimpScene, const aiNode& assimpNode, const glm::mat3& swizzle)
+   void processAssimpNode(std::vector<MeshSectionSourceData>& sourceData, const aiScene& assimpScene, const aiNode& assimpNode, const glm::mat3& swizzle, const std::filesystem::path& directory, ResourceManager& resourceManager)
    {
       for (unsigned int i = 0; i < assimpNode.mNumMeshes; ++i)
       {
          const aiMesh& assimpMesh = *assimpScene.mMeshes[assimpNode.mMeshes[i]];
-         sourceData.push_back(processAssimpMesh(assimpMesh, swizzle));
+         sourceData.push_back(processAssimpMesh(assimpScene, assimpMesh, swizzle, directory, resourceManager));
       }
 
       for (unsigned int i = 0; i < assimpNode.mNumChildren; ++i)
       {
-         processAssimpNode(sourceData, assimpScene, *assimpNode.mChildren[i], swizzle);
+         processAssimpNode(sourceData, assimpScene, *assimpNode.mChildren[i], swizzle, directory, resourceManager);
       }
    }
 
-   std::vector<MeshSectionSourceData> loadMesh(const std::filesystem::path& path, const MeshLoadOptions& loadOptions)
+   std::vector<MeshSectionSourceData> loadMesh(const std::filesystem::path& path, const MeshLoadOptions& loadOptions, ResourceManager& resourceManager)
    {
       std::vector<MeshSectionSourceData> sourceData;
 
@@ -153,15 +196,16 @@ namespace
       const aiScene* assimpScene = importer.ReadFile(path.string().c_str(), flags);
       if (assimpScene && assimpScene->mRootNode && !(assimpScene->mFlags & AI_SCENE_FLAGS_INCOMPLETE))
       {
-         processAssimpNode(sourceData, *assimpScene, *assimpScene->mRootNode, getSwizzleMatrix(loadOptions));
+         std::filesystem::path directory = path.parent_path();
+         processAssimpNode(sourceData, *assimpScene, *assimpScene->mRootNode, getSwizzleMatrix(loadOptions), directory, resourceManager);
       }
 
       return sourceData;
    }
 }
 
-MeshResourceManager::MeshResourceManager(const GraphicsContext& graphicsContext)
-   : ResourceManagerBase(graphicsContext)
+MeshResourceManager::MeshResourceManager(const GraphicsContext& graphicsContext, ResourceManager& owningResourceManager)
+   : ResourceManagerBase(graphicsContext, owningResourceManager)
 {
 }
 
@@ -175,11 +219,11 @@ MeshHandle MeshResourceManager::load(const std::filesystem::path& path, const Me
          return *cachedHandle;
       }
 
-      std::vector<MeshSectionSourceData> sourceData = loadMesh(*canonicalPath, loadOptions);
+      std::vector<MeshSectionSourceData> sourceData = loadMesh(*canonicalPath, loadOptions, resourceManager);
       if (!sourceData.empty())
       {
          MeshHandle handle = emplaceResource(context, sourceData);
-         cacheHandle(handle, canonicalPathString);
+         cacheHandle(canonicalPathString, handle);
 
          return handle;
       }

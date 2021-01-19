@@ -37,8 +37,8 @@ namespace
    }
 }
 
-TextureResourceManager::TextureResourceManager(const GraphicsContext& graphicsContext)
-   : ResourceManagerBase(graphicsContext)
+TextureResourceManager::TextureResourceManager(const GraphicsContext& graphicsContext, ResourceManager& owningResourceManager)
+   : ResourceManagerBase(graphicsContext, owningResourceManager)
 {
 }
 
@@ -55,7 +55,7 @@ TextureHandle TextureResourceManager::load(const std::filesystem::path& path, co
       if (std::optional<LoadedImage> image = loadImage(*canonicalPath))
       {
          TextureHandle handle = emplaceResource(context, *image, properties, initialLayout);
-         cacheHandle(handle, canonicalPathString);
+         cacheHandle(canonicalPathString, handle);
 
          return handle;
       }

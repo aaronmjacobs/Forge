@@ -2,8 +2,8 @@
 
 #include <PlatformUtils/IOUtils.h>
 
-ShaderModuleResourceManager::ShaderModuleResourceManager(const GraphicsContext& graphicsContext)
-   : ResourceManagerBase(graphicsContext)
+ShaderModuleResourceManager::ShaderModuleResourceManager(const GraphicsContext& graphicsContext, ResourceManager& owningResourceManager)
+   : ResourceManagerBase(graphicsContext, owningResourceManager)
 {
 }
 
@@ -21,7 +21,7 @@ ShaderModuleHandle ShaderModuleResourceManager::load(const std::filesystem::path
       if (sourceData.has_value() && sourceData->size() > 0)
       {
          ShaderModuleHandle handle = emplaceResource(context, *sourceData);
-         cacheHandle(handle, canonicalPathString);
+         cacheHandle(canonicalPathString, handle);
 
          return handle;
       }

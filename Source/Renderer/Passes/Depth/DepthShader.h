@@ -11,7 +11,6 @@ class DepthShader : public GraphicsResource
 public:
    DepthShader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager);
 
-   void updateDescriptorSets(const View& view);
    void bindDescriptorSets(vk::CommandBuffer commandBuffer, const View& view, vk::PipelineLayout pipelineLayout);
 
    std::vector<vk::PipelineShaderStageCreateInfo> getStages() const;

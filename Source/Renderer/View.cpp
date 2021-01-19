@@ -46,3 +46,21 @@ void View::update()
 
    uniformBuffer.update(viewUniformData);
 }
+
+void View::updateDescriptorSets()
+{
+   for (uint32_t frameIndex = 0; frameIndex < GraphicsContext::kMaxFramesInFlight; ++frameIndex)
+   {
+      vk::DescriptorBufferInfo viewBufferInfo = getDescriptorBufferInfo(frameIndex);
+
+      vk::WriteDescriptorSet viewDescriptorWrite = vk::WriteDescriptorSet()
+         .setDstSet(descriptorSet.getSet(frameIndex))
+         .setDstBinding(0)
+         .setDstArrayElement(0)
+         .setDescriptorType(vk::DescriptorType::eUniformBuffer)
+         .setDescriptorCount(1)
+         .setPBufferInfo(&viewBufferInfo);
+
+      device.updateDescriptorSets({ viewDescriptorWrite }, {});
+   }
+}

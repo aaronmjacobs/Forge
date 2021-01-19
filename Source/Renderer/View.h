@@ -20,6 +20,7 @@ public:
    View(const GraphicsContext& graphicsContext, vk::DescriptorPool descriptorPool);
 
    void update();
+   void updateDescriptorSets();
 
    vk::DescriptorBufferInfo getDescriptorBufferInfo(uint32_t frameIndex) const
    {

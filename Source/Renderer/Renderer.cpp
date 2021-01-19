@@ -7,7 +7,12 @@
 
 #include "Renderer/Passes/Depth/DepthPass.h"
 #include "Renderer/Passes/Simple/SimpleRenderPass.h"
+#include "Renderer/SceneRenderInfo.h"
 #include "Renderer/View.h"
+
+#include "Scene/Components/MeshComponent.h"
+#include "Scene/Components/TransformComponent.h"
+#include "Scene/Scene.h"
 
 #include <GLFW/glfw3.h>
 
@@ -73,6 +78,31 @@ namespace
 
       return std::make_unique<Texture>(context, depthImageProperties, depthTextureProperties, depthInitialLayout);
    }
+
+   SceneRenderInfo computeSceneRenderInfo(const ResourceManager& resourceManager, const Scene& scene, const View& view)
+   {
+      SceneRenderInfo sceneRenderInfo(view);
+
+      scene.forEach<TransformComponent, MeshComponent>([&resourceManager, &sceneRenderInfo](const TransformComponent& transformComponent, const MeshComponent& meshComponent)
+      {
+         if (const Mesh* mesh = resourceManager.getMesh(meshComponent.meshHandle))
+         {
+            MeshRenderInfo info(*mesh, transformComponent.getAbsoluteTransform());
+
+            // TODO Visibility (frustum culling)
+
+            info.materials.reserve(mesh->getNumSections());
+            for (uint32_t section = 0; section < mesh->getNumSections(); ++section)
+            {
+               info.materials.push_back(resourceManager.getMaterial(mesh->getSection(section).materialHandle));
+            }
+
+            sceneRenderInfo.meshes.push_back(info);
+         }
+      });
+
+      return sceneRenderInfo;
+   }
 }
 
 Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& resourceManagerRef)
@@ -80,28 +110,22 @@ Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& reso
    , resourceManager(resourceManagerRef)
 {
    {
+      static const uint32_t kMaxUniformBuffers = 1;
+      static const uint32_t kMaxSets = 1; // TODO
+
       vk::DescriptorPoolSize uniformPoolSize = vk::DescriptorPoolSize()
          .setType(vk::DescriptorType::eUniformBuffer)
-         .setDescriptorCount(GraphicsContext::kMaxFramesInFlight);
-
-      vk::DescriptorPoolSize samplerPoolSize = vk::DescriptorPoolSize()
-         .setType(vk::DescriptorType::eCombinedImageSampler)
-         .setDescriptorCount(GraphicsContext::kMaxFramesInFlight);
-
-      std::array<vk::DescriptorPoolSize, 2> descriptorPoolSizes =
-      {
-         uniformPoolSize,
-         samplerPoolSize
-      };
+         .setDescriptorCount(kMaxUniformBuffers);
 
       vk::DescriptorPoolCreateInfo createInfo = vk::DescriptorPoolCreateInfo()
-         .setPoolSizes(descriptorPoolSizes)
-         .setMaxSets(GraphicsContext::kMaxFramesInFlight * 2);
+         .setPoolSizes(uniformPoolSize)
+         .setMaxSets(kMaxSets * GraphicsContext::kMaxFramesInFlight);
       descriptorPool = device.createDescriptorPool(createInfo);
    }
 
    {
       view = std::make_unique<View>(context, descriptorPool);
+      view->updateDescriptorSets();
    }
 
    {
@@ -111,40 +135,12 @@ Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& reso
 
    {
       depthPass = std::make_unique<DepthPass>(context, resourceManager, *depthTexture);
-      simpleRenderPass = std::make_unique<SimpleRenderPass>(context, descriptorPool, resourceManager, *colorTexture, *depthTexture);
-   }
-
-   {
-      MeshLoadOptions meshLoadOptions;
-      meshLoadOptions.forwardAxis = MeshAxis::PositiveY;
-      meshLoadOptions.upAxis = MeshAxis::PositiveZ;
-      meshHandle = resourceManager.loadMesh("Resources/Meshes/Viking/viking_room.obj", meshLoadOptions);
-      if (!meshHandle)
-      {
-         throw std::runtime_error(std::string("Failed to load mesh"));
-      }
-
-      textureHandle = resourceManager.loadTexture("Resources/Meshes/Viking/viking_room.png");
-      if (!textureHandle)
-      {
-         throw std::runtime_error(std::string("Failed to load image"));
-      }
-   }
-
-   {
-      depthPass->updateDescriptorSets(*view);
-      simpleRenderPass->updateDescriptorSets(*view, *resourceManager.getTexture(textureHandle));
+      simpleRenderPass = std::make_unique<SimpleRenderPass>(context, resourceManager, *colorTexture, *depthTexture);
    }
 }
 
 Renderer::~Renderer()
 {
-   resourceManager.unloadMesh(meshHandle);
-   meshHandle.reset();
-
-   resourceManager.unloadTexture(textureHandle);
-   textureHandle.reset();
-
    simpleRenderPass = nullptr;
    depthPass = nullptr;
 
@@ -157,18 +153,13 @@ Renderer::~Renderer()
    descriptorPool = nullptr;
 }
 
-void Renderer::render(vk::CommandBuffer commandBuffer)
+void Renderer::render(vk::CommandBuffer commandBuffer, const Scene& scene)
 {
    view->update();
+   SceneRenderInfo sceneRenderInfo = computeSceneRenderInfo(resourceManager, scene, *view);
 
-   const Mesh* mesh = resourceManager.getMesh(meshHandle);
-   ASSERT(mesh);
-
-   float time = static_cast<float>(glfwGetTime());
-   glm::mat4 localToWorld = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f) * time, MathUtils::kUpVector);
-
-   depthPass->render(commandBuffer, *view, *mesh, localToWorld);
-   simpleRenderPass->render(commandBuffer, *view, *mesh, localToWorld);
+   depthPass->render(commandBuffer, sceneRenderInfo);
+   simpleRenderPass->render(commandBuffer, sceneRenderInfo);
 }
 
 void Renderer::onSwapchainRecreated()

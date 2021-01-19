@@ -11,6 +11,7 @@
 #include <vector>
 
 class DepthPass;
+class Scene;
 class SimpleRenderPass;
 class Swapchain;
 class Texture;
@@ -23,7 +24,7 @@ public:
 
    ~Renderer();
 
-   void render(vk::CommandBuffer commandBuffer);
+   void render(vk::CommandBuffer commandBuffer, const Scene& scene);
 
    void onSwapchainRecreated();
 
@@ -39,7 +40,4 @@ private:
 
    std::unique_ptr<DepthPass> depthPass;
    std::unique_ptr<SimpleRenderPass> simpleRenderPass;
-
-   TextureHandle textureHandle;
-   MeshHandle meshHandle;
 };
