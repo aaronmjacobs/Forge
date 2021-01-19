@@ -21,6 +21,7 @@ struct MeshLoadOptions
 {
    MeshAxis forwardAxis = MeshAxis::NegativeZ;
    MeshAxis upAxis = MeshAxis::PositiveY;
+   float scale = 1.0f;
 };
 
 class MeshResourceManager : public ResourceManagerBase<Mesh, std::string>

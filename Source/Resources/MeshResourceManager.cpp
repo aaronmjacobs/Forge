@@ -93,9 +93,9 @@ namespace
       ASSERT(forwardIndex != upIndex && forwardIndex != rightIndex && upIndex != rightIndex);
 
       glm::mat3 swizzle(1.0f);
-      swizzle[forwardIndex] = MathUtils::kForwardVector * getSwizzleSign(loadOptions.forwardAxis);
-      swizzle[upIndex] = MathUtils::kUpVector * getSwizzleSign(loadOptions.upAxis);
-      swizzle[rightIndex] = MathUtils::kRightVector * getSwizzleSign(rightAxis);
+      swizzle[forwardIndex] = MathUtils::kForwardVector * getSwizzleSign(loadOptions.forwardAxis) * loadOptions.scale;
+      swizzle[upIndex] = MathUtils::kUpVector * getSwizzleSign(loadOptions.upAxis) * loadOptions.scale;
+      swizzle[rightIndex] = MathUtils::kRightVector * getSwizzleSign(rightAxis) * loadOptions.scale;
 
       return swizzle;
    }
