@@ -300,21 +300,21 @@ enum class GamepadAxis
 struct GamepadAxisChord
 {
    GamepadAxis axis = GamepadAxis::LeftX;
-   int gamepadId = -1;
    bool invert = false;
+   int gamepadId = -1;
 
    GamepadAxisChord() = default;
 
-   GamepadAxisChord(GamepadAxis initialAxis, int initialGamepadId = 0, bool initialInvert = false)
+   GamepadAxisChord(GamepadAxis initialAxis, bool initialInvert = false, int initialGamepadId = 0)
       : axis(initialAxis)
-      , gamepadId(initialGamepadId)
       , invert(initialInvert)
+      , gamepadId(initialGamepadId)
    {
    }
 
    bool operator==(const GamepadAxisChord& other) const
    {
-      return axis == other.axis && gamepadId == other.gamepadId && invert == other.invert;
+      return axis == other.axis && invert == other.invert && gamepadId == other.gamepadId;
    }
 };
 
@@ -398,8 +398,8 @@ namespace std
          size_t hash = 0;
 
          Hash::combine(hash, gamepadAxisChord.axis);
-         Hash::combine(hash, gamepadAxisChord.gamepadId);
          Hash::combine(hash, gamepadAxisChord.invert);
+         Hash::combine(hash, gamepadAxisChord.gamepadId);
 
          return hash;
       }
