@@ -27,6 +27,11 @@ struct Transform
       return glm::translate(position) * glm::toMat4(orientation) * glm::scale(scale);
    }
 
+   glm::quat transformOrientation(const glm::quat& ori) const
+   {
+      return orientation * ori;
+   }
+
    glm::vec3 transformPosition(const glm::vec3& pos) const
    {
       return orientation * (scale * pos) + position;
