@@ -40,10 +40,8 @@ public:
       return inputManager;
    }
 
-   void setCanConsumeCursorInput(bool consume)
-   {
-      canConsumeCursorInput = consume;
-   }
+   void setCanConsumeCursorInput(bool consume);
+   void releaseCursor();
 
    DelegateHandle bindOnFramebufferSizeChanged(FramebufferSizeChangedDelegate::FuncType&& function);
    void unbindOnFramebufferSizeChanged();
@@ -71,7 +69,7 @@ private:
    InputManager inputManager;
    bool hasFocus = false;
    bool consumeCursorInput = false;
-   bool canConsumeCursorInput = false;
+   bool canConsumeCursorInput = true;
 
    WindowBounds savedWindowBounds;
 

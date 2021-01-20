@@ -212,6 +212,21 @@ vk::Extent2D Window::getExtent() const
    return vk::Extent2D(static_cast<uint32_t>(std::max(width, 0)), static_cast<uint32_t>(std::max(height, 0)));
 }
 
+void Window::setCanConsumeCursorInput(bool consume)
+{
+   canConsumeCursorInput = consume;
+
+   if (!consume)
+   {
+      setConsumeCursorInput(consumeCursorInput);
+   }
+}
+
+void Window::releaseCursor()
+{
+   setConsumeCursorInput(false);
+}
+
 DelegateHandle Window::bindOnFramebufferSizeChanged(FramebufferSizeChangedDelegate::FuncType&& function)
 {
    return framebufferSizeChangedDelegate.bind(std::move(function));
@@ -288,17 +303,16 @@ void Window::onKeyEvent(int key, int scancode, int action, int mods)
 void Window::onMouseButtonEvent(int button, int action, int mods)
 {
    inputManager.onMouseButtonEvent(button, action, mods);
+
+   if (hasFocus && !consumeCursorInput)
+   {
+      setConsumeCursorInput(true);
+   }
 }
 
 void Window::onCursorPosChanged(double xPos, double yPos)
 {
    inputManager.onCursorPosChanged(xPos, yPos, consumeCursorInput);
-
-   if (hasFocus && !consumeCursorInput)
-   {
-      // Cursor is now within the window bounds
-      setConsumeCursorInput(true);
-   }
 }
 
 void Window::setConsumeCursorInput(bool consume)
