@@ -120,12 +120,9 @@ namespace
       static const float kStickLowerDeadzone = 0.1f;
       static const float kStickUpperDeadzone = 0.01f;
 
-      float length = glm::length(values);
-      float deadzonedLength = applyDeadzone(length, kStickLowerDeadzone, kStickUpperDeadzone);
-
-      glm::vec2 normalizedValues = glm::normalize(values);
-      glm::vec2 processedValues = normalizedValues * deadzonedLength;
-      processedValues.y *= -1.0f;
+      glm::vec2 processedValues;
+      processedValues.x = glm::smoothstep(0.0f, 1.0f, applyDeadzone(glm::abs(values.x), kStickLowerDeadzone, kStickUpperDeadzone)) * glm::sign(values.x);
+      processedValues.y = glm::smoothstep(0.0f, 1.0f, applyDeadzone(glm::abs(values.y), kStickLowerDeadzone, kStickUpperDeadzone)) * glm::sign(values.y) * -1.0f;
 
       return processedValues;
    }
