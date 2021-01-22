@@ -120,6 +120,7 @@ Mesh::Mesh(const GraphicsContext& graphicsContext, std::span<const MeshSectionSo
       std::memcpy(static_cast<uint8_t*>(mappedData) + mappedDataOffset, sectionData.indices.data(), indexDataSize);
       mappedDataOffset += indexDataSize;
 
+      meshSection.bounds = sectionData.bounds;
       meshSection.materialHandle = sectionData.materialHandle;
 
       sections.push_back(meshSection);

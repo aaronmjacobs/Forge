@@ -34,7 +34,39 @@ public:
       return descriptorSet;
    }
 
+   const glm::mat4& getWorldToView() const
+   {
+      return worldToView;
+   }
+
+   const glm::mat4& getViewToClip() const
+   {
+      return viewToClip;
+   }
+
+   const glm::mat4& getWorldToClip() const
+   {
+      return worldToClip;
+   }
+
+   const glm::vec3& getViewPosition() const
+   {
+      return viewPosition;
+   }
+
+   const glm::vec3& getViewDirection() const
+   {
+      return viewDirection;
+   }
+
 private:
    UniformBuffer<ViewUniformData> uniformBuffer;
    DescriptorSet descriptorSet;
+
+   glm::mat4 worldToView;
+   glm::mat4 viewToClip;
+   glm::mat4 worldToClip;
+
+   glm::vec3 viewPosition;
+   glm::vec3 viewDirection;
 };

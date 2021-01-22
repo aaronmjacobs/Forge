@@ -45,12 +45,15 @@ void SimpleRenderPass::render(vk::CommandBuffer commandBuffer, const SceneRender
 
       for (uint32_t section = 0; section < meshRenderInfo.mesh.getNumSections(); ++section)
       {
-         if (const Material* material = meshRenderInfo.materials[section])
+         if (meshRenderInfo.visibilityMask[section])
          {
-            simpleShader->bindDescriptorSets(commandBuffer, sceneRenderInfo.view, pipelineLayout, *material);
+            if (const Material* material = meshRenderInfo.materials[section])
+            {
+               simpleShader->bindDescriptorSets(commandBuffer, sceneRenderInfo.view, pipelineLayout, *material);
 
-            meshRenderInfo.mesh.bindBuffers(commandBuffer, section);
-            meshRenderInfo.mesh.draw(commandBuffer, section);
+               meshRenderInfo.mesh.bindBuffers(commandBuffer, section);
+               meshRenderInfo.mesh.draw(commandBuffer, section);
+            }
          }
       }
    }

@@ -2,6 +2,8 @@
 
 #include "Graphics/GraphicsResource.h"
 
+#include "Math/Bounds.h"
+
 #include "Resources/ResourceTypes.h"
 
 #include <glm/glm.hpp>
@@ -30,6 +32,7 @@ struct MeshSectionSourceData
 {
    std::vector<Vertex> vertices;
    std::vector<uint32_t> indices;
+   Bounds bounds;
    MaterialHandle materialHandle;
 };
 
@@ -38,6 +41,7 @@ struct MeshSection
    vk::DeviceSize vertexOffset = 0;
    vk::DeviceSize indexOffset = 0;
    uint32_t numIndices = 0;
+   Bounds bounds;
    MaterialHandle materialHandle;
 };
 

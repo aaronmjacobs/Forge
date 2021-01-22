@@ -74,11 +74,16 @@ void View::update(const Scene& scene)
 {
    ViewInfo viewInfo = getViewInfo(scene);
 
-   glm::mat4 worldToView = glm::lookAt(viewInfo.transform.position, viewInfo.transform.position + viewInfo.transform.getForwardVector(), MathUtils::kUpVector);
+   viewPosition = viewInfo.transform.position;
+   viewDirection = viewInfo.transform.getForwardVector();
+
+   worldToView = glm::lookAt(viewPosition, viewPosition + viewDirection, MathUtils::kUpVector);
 
    vk::Extent2D swapchainExtent = context.getSwapchain().getExtent();
-   glm::mat4 viewToClip = glm::perspective(glm::radians(viewInfo.fieldOfView), static_cast<float>(swapchainExtent.width) / swapchainExtent.height, viewInfo.nearPlane, viewInfo.farPlane);
+   viewToClip = glm::perspective(glm::radians(viewInfo.fieldOfView), static_cast<float>(swapchainExtent.width) / swapchainExtent.height, viewInfo.nearPlane, viewInfo.farPlane);
    viewToClip[1][1] *= -1.0f; // In Vulkan, the clip space Y coordinates are inverted compared to OpenGL (which GLM was written for), so we flip the sign here
+
+   worldToClip = viewToClip * worldToView;
 
    ViewUniformData viewUniformData;
    viewUniformData.worldToClip = viewToClip * worldToView;

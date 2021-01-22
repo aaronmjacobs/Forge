@@ -155,6 +155,10 @@ namespace
          sectionSourceData.vertices.reserve(assimpMesh.mNumVertices);
          bool hasTextureCoordinates = assimpMesh.mTextureCoords[0] && assimpMesh.mNumUVComponents[0] == 2;
 
+         glm::vec3 minPosition;
+         glm::vec3 maxPosition;
+         minPosition = maxPosition = swizzle * glm::vec3(assimpMesh.mVertices[0].x, assimpMesh.mVertices[0].y, assimpMesh.mVertices[0].z);
+
          for (unsigned int i = 0; i < assimpMesh.mNumVertices; ++i)
          {
             glm::vec3 position = swizzle * glm::vec3(assimpMesh.mVertices[i].x, assimpMesh.mVertices[i].y, assimpMesh.mVertices[i].z);
@@ -162,7 +166,13 @@ namespace
             glm::vec2 texCoord = hasTextureCoordinates ? glm::vec2(assimpMesh.mTextureCoords[0][i].x, assimpMesh.mTextureCoords[0][i].y) : glm::vec2(0.0f, 0.0f);
 
             sectionSourceData.vertices.push_back(Vertex(position, color, texCoord));
+
+            minPosition = glm::min(minPosition, position);
+            maxPosition = glm::max(maxPosition, position);
          }
+
+         std::array<glm::vec3, 2> points = { minPosition, maxPosition };
+         sectionSourceData.bounds = Bounds(points);
       }
 
       if (assimpMesh.mMaterialIndex < assimpScene.mNumMaterials && assimpScene.mMaterials[assimpMesh.mMaterialIndex])

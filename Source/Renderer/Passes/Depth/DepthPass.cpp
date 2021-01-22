@@ -46,8 +46,11 @@ void DepthPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& s
 
       for (uint32_t section = 0; section < meshRenderInfo.mesh.getNumSections(); ++section)
       {
-         meshRenderInfo.mesh.bindBuffers(commandBuffer, section);
-         meshRenderInfo.mesh.draw(commandBuffer, section);
+         if (meshRenderInfo.visibilityMask[section])
+         {
+            meshRenderInfo.mesh.bindBuffers(commandBuffer, section);
+            meshRenderInfo.mesh.draw(commandBuffer, section);
+         }
       }
    }
 

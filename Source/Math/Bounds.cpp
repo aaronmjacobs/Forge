@@ -2,8 +2,14 @@
 
 #include "Core/Assert.h"
 
-// static
-Bounds Bounds::fromPoints(std::span<const glm::vec3> points)
+Bounds::Bounds(const glm::vec3& centerPosition, const glm::vec3& extentVector)
+   : center(centerPosition)
+   , extent(extentVector)
+   , radius(glm::length(extentVector))
+{
+}
+
+Bounds::Bounds(std::span<const glm::vec3> points)
 {
    ASSERT(points.size() > 0);
 
@@ -16,10 +22,13 @@ Bounds Bounds::fromPoints(std::span<const glm::vec3> points)
       max = glm::max(max, point);
    }
 
-   Bounds bounds;
-   bounds.center = (min + max) * 0.5f;
-   bounds.extent = glm::abs(max - min) * 0.5f;
-   bounds.radius = glm::length(bounds.extent);
+   center = (min + max) * 0.5f;
+   extent = glm::abs(max - min) * 0.5f;
+   radius = glm::length(extent);
+}
 
-   return bounds;
+void Bounds::setExtent(const glm::vec3& extentVector)
+{
+   extent = extentVector;
+   radius = glm::length(extent);
 }
