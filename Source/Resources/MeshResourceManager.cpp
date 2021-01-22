@@ -14,6 +14,8 @@
 
 #include <PlatformUtils/IOUtils.h>
 
+#include <limits>
+
 namespace
 {
    glm::vec3 getMeshAxisVector(MeshAxis meshAxis)
@@ -93,9 +95,9 @@ namespace
       ASSERT(forwardIndex != upIndex && forwardIndex != rightIndex && upIndex != rightIndex);
 
       glm::mat3 swizzle(1.0f);
-      swizzle[forwardIndex] = MathUtils::kForwardVector * getSwizzleSign(loadOptions.forwardAxis) * loadOptions.scale;
-      swizzle[upIndex] = MathUtils::kUpVector * getSwizzleSign(loadOptions.upAxis) * loadOptions.scale;
-      swizzle[rightIndex] = MathUtils::kRightVector * getSwizzleSign(rightAxis) * loadOptions.scale;
+      swizzle[forwardIndex] = MathUtils::kForwardVector * getSwizzleSign(loadOptions.forwardAxis);
+      swizzle[upIndex] = MathUtils::kUpVector * getSwizzleSign(loadOptions.upAxis);
+      swizzle[rightIndex] = MathUtils::kRightVector * getSwizzleSign(rightAxis);
 
       return swizzle;
    }
@@ -118,12 +120,6 @@ namespace
    MaterialHandle processAssimpMaterial(const aiMaterial& assimpMaterial, const std::filesystem::path& directory, ResourceManager& resourceManager)
    {
       TextureHandle diffuseTextureHandle = loadMaterialTexture(assimpMaterial, aiTextureType_DIFFUSE, directory, resourceManager);
-      TextureHandle specularTextureHandle = loadMaterialTexture(assimpMaterial, aiTextureType_SPECULAR, directory, resourceManager);
-      TextureHandle normalTextureHandle = loadMaterialTexture(assimpMaterial, aiTextureType_NORMALS, directory, resourceManager);
-      if (!normalTextureHandle)
-      {
-         normalTextureHandle = loadMaterialTexture(assimpMaterial, aiTextureType_HEIGHT, directory, resourceManager);
-      }
 
       // TODO: Proper shading model
       TextureMaterialParameter textureParameter;
@@ -136,7 +132,7 @@ namespace
       return resourceManager.loadMaterial(materialParameters);
    }
 
-   MeshSectionSourceData processAssimpMesh(const aiScene& assimpScene, const aiMesh& assimpMesh, const glm::mat3& swizzle, const std::filesystem::path& directory, ResourceManager& resourceManager)
+   MeshSectionSourceData processAssimpMesh(const aiScene& assimpScene, const aiMesh& assimpMesh, const glm::mat3& swizzle, float scale, const std::filesystem::path& directory, ResourceManager& resourceManager)
    {
       MeshSectionSourceData sectionSourceData;
 
@@ -152,23 +148,49 @@ namespace
 
       if (assimpMesh.mNumVertices > 0)
       {
-         sectionSourceData.vertices.reserve(assimpMesh.mNumVertices);
+         sectionSourceData.vertices.resize(assimpMesh.mNumVertices);
          bool hasTextureCoordinates = assimpMesh.mTextureCoords[0] && assimpMesh.mNumUVComponents[0] == 2;
 
-         glm::vec3 minPosition;
-         glm::vec3 maxPosition;
-         minPosition = maxPosition = swizzle * glm::vec3(assimpMesh.mVertices[0].x, assimpMesh.mVertices[0].y, assimpMesh.mVertices[0].z);
+         glm::vec3 minPosition(std::numeric_limits<float>::max());
+         glm::vec3 maxPosition(std::numeric_limits<float>::lowest());
 
          for (unsigned int i = 0; i < assimpMesh.mNumVertices; ++i)
          {
-            glm::vec3 position = swizzle * glm::vec3(assimpMesh.mVertices[i].x, assimpMesh.mVertices[i].y, assimpMesh.mVertices[i].z);
-            glm::vec3 color(1.0f);
-            glm::vec2 texCoord = hasTextureCoordinates ? glm::vec2(assimpMesh.mTextureCoords[0][i].x, assimpMesh.mTextureCoords[0][i].y) : glm::vec2(0.0f, 0.0f);
+            Vertex& vertex = sectionSourceData.vertices[i];
 
-            sectionSourceData.vertices.push_back(Vertex(position, color, texCoord));
+            vertex.position = swizzle * glm::vec3(assimpMesh.mVertices[i].x, assimpMesh.mVertices[i].y, assimpMesh.mVertices[i].z) * scale;
 
-            minPosition = glm::min(minPosition, position);
-            maxPosition = glm::max(maxPosition, position);
+            if (assimpMesh.mNormals)
+            {
+               vertex.normal = swizzle * glm::vec3(assimpMesh.mNormals[i].x, assimpMesh.mNormals[i].y, assimpMesh.mNormals[i].z);
+            }
+
+            if (assimpMesh.mTangents)
+            {
+               vertex.tangent = swizzle * glm::vec3(assimpMesh.mTangents[i].x, assimpMesh.mTangents[i].y, assimpMesh.mTangents[i].z);
+            }
+
+            if (assimpMesh.mBitangents)
+            {
+               vertex.bitangent = swizzle * glm::vec3(assimpMesh.mBitangents[i].x, assimpMesh.mBitangents[i].y, assimpMesh.mBitangents[i].z);
+            }
+
+            if (assimpMesh.mColors[0])
+            {
+               vertex.color = glm::vec4(assimpMesh.mColors[0][i].r, assimpMesh.mColors[0][i].g, assimpMesh.mColors[0][i].b, assimpMesh.mColors[0][i].a);
+            }
+            else
+            {
+               vertex.color = glm::vec4(1.0f);
+            }
+
+            if (hasTextureCoordinates)
+            {
+               vertex.texCoord = glm::vec2(assimpMesh.mTextureCoords[0][i].x, assimpMesh.mTextureCoords[0][i].y);
+            }
+
+            minPosition = glm::min(minPosition, vertex.position);
+            maxPosition = glm::max(maxPosition, vertex.position);
          }
 
          std::array<glm::vec3, 2> points = { minPosition, maxPosition };
@@ -183,17 +205,17 @@ namespace
       return sectionSourceData;
    }
 
-   void processAssimpNode(std::vector<MeshSectionSourceData>& sourceData, const aiScene& assimpScene, const aiNode& assimpNode, const glm::mat3& swizzle, const std::filesystem::path& directory, ResourceManager& resourceManager)
+   void processAssimpNode(std::vector<MeshSectionSourceData>& sourceData, const aiScene& assimpScene, const aiNode& assimpNode, const glm::mat3& swizzle, float scale, const std::filesystem::path& directory, ResourceManager& resourceManager)
    {
       for (unsigned int i = 0; i < assimpNode.mNumMeshes; ++i)
       {
          const aiMesh& assimpMesh = *assimpScene.mMeshes[assimpNode.mMeshes[i]];
-         sourceData.push_back(processAssimpMesh(assimpScene, assimpMesh, swizzle, directory, resourceManager));
+         sourceData.push_back(processAssimpMesh(assimpScene, assimpMesh, swizzle, scale, directory, resourceManager));
       }
 
       for (unsigned int i = 0; i < assimpNode.mNumChildren; ++i)
       {
-         processAssimpNode(sourceData, assimpScene, *assimpNode.mChildren[i], swizzle, directory, resourceManager);
+         processAssimpNode(sourceData, assimpScene, *assimpNode.mChildren[i], swizzle, scale, directory, resourceManager);
       }
    }
 
@@ -201,14 +223,14 @@ namespace
    {
       std::vector<MeshSectionSourceData> sourceData;
 
-      unsigned int flags = aiProcess_JoinIdenticalVertices | aiProcess_Triangulate | aiProcess_FlipUVs;
+      unsigned int flags = aiProcess_CalcTangentSpace | aiProcess_JoinIdenticalVertices | aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs;
 
       Assimp::Importer importer;
       const aiScene* assimpScene = importer.ReadFile(path.string().c_str(), flags);
       if (assimpScene && assimpScene->mRootNode && !(assimpScene->mFlags & AI_SCENE_FLAGS_INCOMPLETE))
       {
          std::filesystem::path directory = path.parent_path();
-         processAssimpNode(sourceData, *assimpScene, *assimpScene->mRootNode, getSwizzleMatrix(loadOptions), directory, resourceManager);
+         processAssimpNode(sourceData, *assimpScene, *assimpScene->mRootNode, getSwizzleMatrix(loadOptions), loadOptions.scale, directory, resourceManager);
       }
 
       return sourceData;

@@ -47,9 +47,24 @@ std::vector<vk::VertexInputAttributeDescription> Vertex::getAttributeDescription
             .setLocation(1)
             .setBinding(0)
             .setFormat(vk::Format::eR32G32B32Sfloat)
-            .setOffset(offsetof(Vertex, color)),
+            .setOffset(offsetof(Vertex, normal)),
          vk::VertexInputAttributeDescription()
             .setLocation(2)
+            .setBinding(0)
+            .setFormat(vk::Format::eR32G32B32Sfloat)
+            .setOffset(offsetof(Vertex, tangent)),
+         vk::VertexInputAttributeDescription()
+            .setLocation(3)
+            .setBinding(0)
+            .setFormat(vk::Format::eR32G32B32Sfloat)
+            .setOffset(offsetof(Vertex, bitangent)),
+         vk::VertexInputAttributeDescription()
+            .setLocation(4)
+            .setBinding(0)
+            .setFormat(vk::Format::eR32G32B32A32Sfloat)
+            .setOffset(offsetof(Vertex, color)),
+         vk::VertexInputAttributeDescription()
+            .setLocation(5)
             .setBinding(0)
             .setFormat(vk::Format::eR32G32Sfloat)
             .setOffset(offsetof(Vertex, texCoord))

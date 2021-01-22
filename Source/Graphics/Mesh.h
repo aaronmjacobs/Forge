@@ -14,15 +14,11 @@
 struct Vertex
 {
    glm::vec3 position;
-   glm::vec3 color;
+   glm::vec3 normal;
+   glm::vec3 tangent;
+   glm::vec3 bitangent;
+   glm::vec4 color;
    glm::vec2 texCoord;
-
-   Vertex(const glm::vec3& initialPosition = glm::vec3(0.0f), const glm::vec3& initialColor = glm::vec3(0.0f), const glm::vec2& initialTexCoord = glm::vec2(0.0f))
-      : position(initialPosition)
-      , color(initialColor)
-      , texCoord(initialTexCoord)
-   {
-   }
 
    static std::vector<vk::VertexInputBindingDescription> getBindingDescriptions();
    static std::vector<vk::VertexInputAttributeDescription> getAttributeDescriptions(bool positionOnly);
