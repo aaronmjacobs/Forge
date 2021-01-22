@@ -441,6 +441,6 @@ void ForgeApplication::loadScene()
 
       MeshLoadOptions meshLoadOptions;
       meshLoadOptions.scale = 0.01f;
-      meshComponent.meshHandle = resourceManager->loadMesh("Resources/Meshes/Sponza/glTF/Sponza.gltf", meshLoadOptions);
+      meshComponent.meshHandle = resourceManager->loadMesh("Resources/Meshes/Sponza/Sponza.gltf", meshLoadOptions);
    }
 }
