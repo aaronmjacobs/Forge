@@ -12,6 +12,7 @@
 #include "Resources/ResourceManager.h"
 
 #include "Scene/Entity.h"
+#include "Scene/Components/CameraComponent.h"
 #include "Scene/Components/MeshComponent.h"
 #include "Scene/Components/TransformComponent.h"
 
@@ -19,6 +20,22 @@
 
 #include <array>
 #include <stdexcept>
+
+namespace
+{
+   namespace InputActions
+   {
+      const char* kToggleFullscreen = "ToggleFullscreen";
+      const char* kReleaseCursor = "ReleaseCursor";
+
+      const char* kMoveForward = "MoveForward";
+      const char* kMoveRight = "MoveRight";
+      const char* kMoveUp = "MoveUp";
+
+      const char* kLookRight = "LookRight";
+      const char* kLookUp = "LookUp";
+   }
+}
 
 ForgeApplication::ForgeApplication()
 {
@@ -204,19 +221,46 @@ void ForgeApplication::initializeGlfw()
       render();
    });
 
+   InputManager& inputManager = window->getInputManager();
+
    {
-      static const char* kToggleFullscreenAction = "ToggleFullscreen";
-
       std::array<KeyChord, 2> keys = { KeyChord(Key::F11), KeyChord(Key::Enter, KeyMod::Alt) };
-      window->getInputManager().createButtonMapping(kToggleFullscreenAction, keys, {}, {});
+      inputManager.createButtonMapping(InputActions::kToggleFullscreen, keys, {}, {});
 
-      window->getInputManager().bindButtonMapping(kToggleFullscreenAction, [this](bool pressed)
+      inputManager.bindButtonMapping(InputActions::kToggleFullscreen, [this](bool pressed)
       {
          if (pressed)
          {
             window->toggleFullscreen();
          }
       });
+
+      inputManager.createButtonMapping(InputActions::kReleaseCursor, KeyChord(Key::Escape), {}, {});
+
+      inputManager.bindButtonMapping(InputActions::kReleaseCursor, [this](bool pressed)
+      {
+         if (pressed)
+         {
+            window->releaseCursor();
+         }
+      });
+   }
+
+   {
+      std::array<KeyAxisChord, 2> moveForwardKeyAxes = { KeyAxisChord(KeyChord(Key::W), false), KeyAxisChord(KeyChord(Key::S), true) };
+      std::array<GamepadAxisChord, 1> moveForwardGamepadAxes = { GamepadAxisChord(GamepadAxis::LeftY, false) };
+      inputManager.createAxisMapping(InputActions::kMoveForward, moveForwardKeyAxes, {}, moveForwardGamepadAxes);
+
+      std::array<KeyAxisChord, 2> moveRightKeyAxes = { KeyAxisChord(KeyChord(Key::D), false), KeyAxisChord(KeyChord(Key::A), true) };
+      std::array<GamepadAxisChord, 1> moveRightGamepadAxes = { GamepadAxisChord(GamepadAxis::LeftX, false) };
+      inputManager.createAxisMapping(InputActions::kMoveRight, moveRightKeyAxes, {}, moveRightGamepadAxes);
+
+      std::array<KeyAxisChord, 2> moveUpKeyAxes = { KeyAxisChord(KeyChord(Key::Space), false), KeyAxisChord(KeyChord(Key::LeftControl), true) };
+      std::array<GamepadAxisChord, 2> moveUpGamepadAxes = { GamepadAxisChord(GamepadAxis::RightTrigger, false), GamepadAxisChord(GamepadAxis::LeftTrigger, true) };
+      inputManager.createAxisMapping(InputActions::kMoveUp, moveUpKeyAxes, {}, moveUpGamepadAxes);
+
+      inputManager.createAxisMapping(InputActions::kLookRight, {}, CursorAxisChord(CursorAxis::X), GamepadAxisChord(GamepadAxis::RightX));
+      inputManager.createAxisMapping(InputActions::kLookUp, {}, CursorAxisChord(CursorAxis::Y), GamepadAxisChord(GamepadAxis::RightY));
    }
 }
 
@@ -343,31 +387,60 @@ void ForgeApplication::terminateSyncObjects()
 
 void ForgeApplication::loadScene()
 {
-   Entity entity = scene.createEntity();
-   MeshComponent& meshComponent = entity.createComponent<MeshComponent>();
-
-   MeshLoadOptions meshLoadOptions;
-   meshLoadOptions.forwardAxis = MeshAxis::PositiveY;
-   meshLoadOptions.upAxis = MeshAxis::PositiveZ;
-   meshComponent.meshHandle = resourceManager->loadMesh("Resources/Meshes/Viking/viking_room.obj", meshLoadOptions);
-
-   TextureMaterialParameter textureParameter;
-   textureParameter.name = "texture";
-   textureParameter.value = resourceManager->loadTexture("Resources/Meshes/Viking/viking_room.png");
-
-   MaterialParameters materialParameters;
-   materialParameters.textureParameters.push_back(textureParameter);
-
-   if (Mesh* mesh = resourceManager->getMesh(meshComponent.meshHandle))
    {
-      mesh->getSection(0).materialHandle = resourceManager->loadMaterial(materialParameters);
+      static const float kCameraMoveSpeed = 3.0f;
+      static const float kCameraLookSpeed = 180.0f;
+
+      Entity cameraEntity = scene.createEntity();
+      scene.setActiveCamera(cameraEntity);
+
+      cameraEntity.createComponent<CameraComponent>();
+      Transform& transform = cameraEntity.createComponent<TransformComponent>().transform;
+      transform.orientation = glm::quat(glm::radians(glm::vec3(-10.0f, 0.0f, -70.0f)));
+      transform.position = glm::vec3(-6.0f, -0.8f, 2.0f);
+
+      InputManager& inputManager = window->getInputManager();
+
+      inputManager.bindAxisMapping(InputActions::kMoveForward, [this, cameraEntity](float value) mutable
+      {
+         Transform& cameraTransform = cameraEntity.getComponent<TransformComponent>().transform;
+         cameraTransform.translateBy(cameraTransform.getForwardVector() * value * kCameraMoveSpeed * scene.getDeltaTime());
+      });
+
+      inputManager.bindAxisMapping(InputActions::kMoveRight, [this, cameraEntity](float value) mutable
+      {
+         Transform& cameraTransform = cameraEntity.getComponent<TransformComponent>().transform;
+         cameraTransform.translateBy(cameraTransform.getRightVector() * value * kCameraMoveSpeed * scene.getDeltaTime());
+      });
+
+      inputManager.bindAxisMapping(InputActions::kMoveUp, [this, cameraEntity](float value) mutable
+      {
+         Transform& cameraTransform = cameraEntity.getComponent<TransformComponent>().transform;
+         cameraTransform.translateBy(cameraTransform.getUpVector() * value * kCameraMoveSpeed * scene.getDeltaTime());
+      });
+
+      inputManager.bindAxisMapping(InputActions::kLookRight, [this, cameraEntity](float value) mutable
+      {
+         Transform& cameraTransform = cameraEntity.getComponent<TransformComponent>().transform;
+         cameraTransform.rotateBy(glm::angleAxis(glm::radians(value * kCameraLookSpeed * scene.getDeltaTime()), -MathUtils::kUpVector));
+      });
+
+      inputManager.bindAxisMapping(InputActions::kLookUp, [this, cameraEntity](float value) mutable
+      {
+         Transform& cameraTransform = cameraEntity.getComponent<TransformComponent>().transform;
+         glm::vec3 euler = glm::degrees(glm::eulerAngles(cameraTransform.orientation));
+         euler.x = glm::clamp(euler.x + value * kCameraLookSpeed * 0.75f * scene.getDeltaTime(), -89.0f, 89.0f);
+         cameraTransform.orientation = glm::quat(glm::radians(euler));
+      });
    }
 
-   entity.createComponent<TransformComponent>();
-
-   scene.addTickDelegate([entity](float dt) mutable
    {
-      TransformComponent& transformComponent = entity.getComponent<TransformComponent>();
-      transformComponent.transform.orientation = glm::angleAxis(glm::radians(90.0f * dt), MathUtils::kUpVector) * transformComponent.transform.orientation;
-   });
+      Entity sponzaEntity = scene.createEntity();
+      sponzaEntity.createComponent<TransformComponent>();
+      MeshComponent& meshComponent = sponzaEntity.createComponent<MeshComponent>();
+
+      MeshLoadOptions meshLoadOptions;
+      meshLoadOptions.scale = 0.01f;
+      meshComponent.meshHandle = resourceManager->loadMesh("Resources/Meshes/Sponza/glTF/Sponza.gltf", meshLoadOptions);
+   }
 }
