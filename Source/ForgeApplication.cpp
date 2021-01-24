@@ -247,15 +247,15 @@ void ForgeApplication::initializeGlfw()
    }
 
    {
-      std::array<KeyAxisChord, 2> moveForwardKeyAxes = { KeyAxisChord(KeyChord(Key::W), false), KeyAxisChord(KeyChord(Key::S), true) };
+      std::array<KeyAxisChord, 2> moveForwardKeyAxes = { KeyAxisChord(Key::W, false), KeyAxisChord(Key::S, true) };
       std::array<GamepadAxisChord, 1> moveForwardGamepadAxes = { GamepadAxisChord(GamepadAxis::LeftY, false) };
       inputManager.createAxisMapping(InputActions::kMoveForward, moveForwardKeyAxes, {}, moveForwardGamepadAxes);
 
-      std::array<KeyAxisChord, 2> moveRightKeyAxes = { KeyAxisChord(KeyChord(Key::D), false), KeyAxisChord(KeyChord(Key::A), true) };
+      std::array<KeyAxisChord, 2> moveRightKeyAxes = { KeyAxisChord(Key::D, false), KeyAxisChord(Key::A, true) };
       std::array<GamepadAxisChord, 1> moveRightGamepadAxes = { GamepadAxisChord(GamepadAxis::LeftX, false) };
       inputManager.createAxisMapping(InputActions::kMoveRight, moveRightKeyAxes, {}, moveRightGamepadAxes);
 
-      std::array<KeyAxisChord, 2> moveUpKeyAxes = { KeyAxisChord(KeyChord(Key::Space), false), KeyAxisChord(KeyChord(Key::LeftControl), true) };
+      std::array<KeyAxisChord, 2> moveUpKeyAxes = { KeyAxisChord(Key::Space, false), KeyAxisChord(Key::LeftControl, true) };
       std::array<GamepadAxisChord, 2> moveUpGamepadAxes = { GamepadAxisChord(GamepadAxis::RightTrigger, false), GamepadAxisChord(GamepadAxis::LeftTrigger, true) };
       inputManager.createAxisMapping(InputActions::kMoveUp, moveUpKeyAxes, {}, moveUpGamepadAxes);
 

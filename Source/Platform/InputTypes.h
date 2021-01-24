@@ -144,6 +144,11 @@ namespace KeyMod
       Alt = GLFW_MOD_ALT,
       Super = GLFW_MOD_SUPER
    };
+
+   inline bool matches(Enum current, Enum other)
+   {
+      return (current & other) == current;
+   }
 }
 
 struct KeyChord
@@ -163,25 +168,39 @@ struct KeyChord
    {
       return key == other.key && mods == other.mods;
    }
+
+   bool matches(const KeyChord& other) const
+   {
+      return key == other.key && KeyMod::matches(mods, other.mods);
+   }
+
+   using EnumType = Key;
 };
 
 struct KeyAxisChord
 {
-   KeyChord keyChord;
+   Key key = Key::Unknown;
    bool invert = false;
 
    KeyAxisChord() = default;
 
-   KeyAxisChord(KeyChord initialKeyChord, bool initialInvert = false)
-      : keyChord(initialKeyChord)
+   KeyAxisChord(Key initialKey, bool initialInvert = false)
+      : key(initialKey)
       , invert(initialInvert)
    {
    }
 
    bool operator==(const KeyAxisChord& other) const
    {
-      return keyChord == other.keyChord && invert == other.invert;
+      return key == other.key && invert == other.invert;
    }
+
+   bool matches(const KeyAxisChord& other) const
+   {
+      return *this == other;
+   }
+
+   using EnumType = Key;
 };
 
 enum class MouseButton
@@ -217,6 +236,13 @@ struct MouseButtonChord
    {
       return button == other.button && mods == other.mods;
    }
+
+   bool matches(const MouseButtonChord& other) const
+   {
+      return button == other.button && KeyMod::matches(mods, other.mods);
+   }
+
+   using EnumType = MouseButton;
 };
 
 enum class CursorAxis
@@ -227,21 +253,28 @@ enum class CursorAxis
 
 struct CursorAxisChord
 {
-   CursorAxis cursorAxis;
+   CursorAxis axis = CursorAxis::X;
    bool invert = false;
 
    CursorAxisChord() = default;
 
-   CursorAxisChord(CursorAxis initialCursorAxis, bool initialInvert = false)
-      : cursorAxis(initialCursorAxis)
+   CursorAxisChord(CursorAxis initialAxis, bool initialInvert = false)
+      : axis(initialAxis)
       , invert(initialInvert)
    {
    }
 
    bool operator==(const CursorAxisChord& other) const
    {
-      return cursorAxis == other.cursorAxis && invert == other.invert;
+      return axis == other.axis && invert == other.invert;
    }
+
+   bool matches(const CursorAxisChord& other) const
+   {
+      return axis == other.axis && invert == other.invert;
+   }
+
+   using EnumType = CursorAxis;
 };
 
 enum class GamepadButton
@@ -285,6 +318,13 @@ struct GamepadButtonChord
    {
       return button == other.button && gamepadId == other.gamepadId;
    }
+
+   bool matches(const GamepadButtonChord& other) const
+   {
+      return *this == other;
+   }
+
+   using EnumType = GamepadButton;
 };
 
 enum class GamepadAxis
@@ -316,6 +356,13 @@ struct GamepadAxisChord
    {
       return axis == other.axis && invert == other.invert && gamepadId == other.gamepadId;
    }
+
+   bool matches(const GamepadAxisChord& other) const
+   {
+      return *this == other;
+   }
+
+   using EnumType = GamepadAxis;
 };
 
 namespace std
@@ -341,7 +388,7 @@ namespace std
       {
          size_t hash = 0;
 
-         Hash::combine(hash, keyAxisChord.keyChord);
+         Hash::combine(hash, keyAxisChord.key);
          Hash::combine(hash, keyAxisChord.invert);
 
          return hash;
@@ -369,7 +416,7 @@ namespace std
       {
          size_t hash = 0;
 
-         Hash::combine(hash, cursorAxisChord.cursorAxis);
+         Hash::combine(hash, cursorAxisChord.axis);
          Hash::combine(hash, cursorAxisChord.invert);
 
          return hash;

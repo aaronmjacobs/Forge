@@ -10,30 +10,60 @@
 
 namespace
 {
-   template<typename KeyType>
-   void createMapping(InputMappings<KeyType>& mappings, const KeyType& value, std::string_view action)
+   Key getKeyEnum(const KeyChord& chord)
    {
-      auto mappingLocation = mappings.find(value);
+      return chord.key;
+   }
 
-      if (mappingLocation == mappings.end())
-      {
-         auto pair = mappings.emplace(value, std::vector<std::string>());
-         mappingLocation = pair.first;
-      }
+   Key getKeyEnum(const KeyAxisChord& chord)
+   {
+      return chord.key;
+   }
 
-      std::vector<std::string>& actions = mappingLocation->second;
-      actions.emplace_back(action);
+   MouseButton getKeyEnum(const MouseButtonChord& chord)
+   {
+      return chord.button;
+   }
+
+   CursorAxis getKeyEnum(const CursorAxisChord& chord)
+   {
+      return chord.axis;
+   }
+
+   GamepadButton getKeyEnum(const GamepadButtonChord& chord)
+   {
+      return chord.button;
+   }
+
+   GamepadAxis getKeyEnum(const GamepadAxisChord& chord)
+   {
+      return chord.axis;
    }
 
    template<typename KeyType>
-   void destroyMapping(InputMappings<KeyType>& mappings, std::string_view action)
+   void createMapping(InputMappings<KeyType>& mappings, const KeyType& value, std::string_view actionName)
+   {
+      auto mappingLocation = mappings.find(getKeyEnum(value));
+
+      if (mappingLocation == mappings.end())
+      {
+         auto pair = mappings.emplace(getKeyEnum(value), std::vector<InputAction<KeyType>>());
+         mappingLocation = pair.first;
+      }
+
+      std::vector<InputAction<KeyType>>& actions = mappingLocation->second;
+      actions.emplace_back(value, actionName);
+   }
+
+   template<typename KeyType>
+   void destroyMapping(InputMappings<KeyType>& mappings, std::string_view actionName)
    {
       for (auto it = mappings.begin(); it != mappings.end();)
       {
-         std::vector<std::string>& actions = it->second;
-         actions.erase(std::remove_if(actions.begin(), actions.end(), [action](const std::string& act)
+         std::vector<InputAction<KeyType>>& actions = it->second;
+         actions.erase(std::remove_if(actions.begin(), actions.end(), [actionName](const InputAction<KeyType>& action)
          {
-            return act == action;
+            return action.name == actionName;
          }), actions.end());
 
          if (actions.empty())
@@ -78,17 +108,20 @@ namespace
    template<typename KeyType, typename DelegateType, typename ValueType>
    void broadcastEvent(const InputMappings<KeyType>& mappings, const InputBindings<DelegateType>& bindings, KeyType key, ValueType value)
    {
-      auto mapingLocation = mappings.find(key);
+      auto mapingLocation = mappings.find(getKeyEnum(key));
       if (mapingLocation != mappings.end())
       {
          const auto& actions = mapingLocation->second;
-         for (const std::string& action : actions)
+         for (const InputAction<KeyType>& action : actions)
          {
-            auto bindingLocation = bindings.find(action);
-            if (bindingLocation != bindings.end())
+            if (action.key.matches(key))
             {
-               const auto& delegate = bindingLocation->second;
-               delegate.broadcast(value);
+               auto bindingLocation = bindings.find(action.name);
+               if (bindingLocation != bindings.end())
+               {
+                  const auto& delegate = bindingLocation->second;
+                  delegate.broadcast(value);
+               }
             }
          }
       }
@@ -165,12 +198,6 @@ namespace
 
       return {};
    }
-}
-
-void InputManager::init(double cursorX, double cursorY)
-{
-   lastCursorX = cursorX;
-   lastCursorY = cursorY;
 }
 
 DelegateHandle InputManager::addKeyDelegate(KeyDelegate::FuncType&& function)
@@ -329,14 +356,22 @@ void InputManager::unbindAxisMapping(DelegateHandle handle)
    unbindMapping(axisBindings, handle);
 }
 
+bool InputManager::isKeyHeld(Key key) const
+{
+   return heldKeys.contains(key);
+}
+
+void InputManager::init(double cursorX, double cursorY)
+{
+   lastCursorX = cursorX;
+   lastCursorY = cursorY;
+}
+
 void InputManager::onKeyEvent(int key, int scancode, int action, int mods)
 {
    if (action != GLFW_REPEAT)
    {
-      KeyChord keyChord;
-      keyChord.key = static_cast<Key>(key);
-      keyChord.mods = static_cast<KeyMod::Enum>(mods);
-
+      KeyChord keyChord(static_cast<Key>(key), static_cast<KeyMod::Enum>(mods));
       bool pressed = action == GLFW_PRESS;
 
       keyDelegate.broadcast(keyChord, pressed);
@@ -345,21 +380,18 @@ void InputManager::onKeyEvent(int key, int scancode, int action, int mods)
 
       if (pressed)
       {
-         heldKeys.insert(keyChord);
+         heldKeys.insert(keyChord.key);
       }
       else
       {
-         heldKeys.erase(keyChord);
+         heldKeys.erase(keyChord.key);
       }
    }
 }
 
 void InputManager::onMouseButtonEvent(int button, int action, int mods)
 {
-   MouseButtonChord mouseButtonChord;
-   mouseButtonChord.button = static_cast<MouseButton>(button);
-   mouseButtonChord.mods = static_cast<KeyMod::Enum>(mods);
-
+   MouseButtonChord mouseButtonChord(static_cast<MouseButton>(button), static_cast<KeyMod::Enum>(mods));
    bool pressed = action == GLFW_PRESS;
 
    mouseButtonDelegate.broadcast(mouseButtonChord, pressed);
@@ -378,8 +410,7 @@ void InputManager::onCursorPosChanged(double xPos, double yPos, bool broadcast)
       float xDiff = static_cast<float>((xPos - lastCursorX) * kMouseSensitivity);
       float yDiff = static_cast<float>((lastCursorY - yPos) * kMouseSensitivity);
 
-      CursorAxisChord xAxisChord;
-      xAxisChord.cursorAxis = CursorAxis::X;
+      CursorAxisChord xAxisChord(CursorAxis::X);
 
       xAxisChord.invert = false;
       broadcastEvent(cursorAxisMappings, axisBindings, xAxisChord, xDiff);
@@ -387,8 +418,7 @@ void InputManager::onCursorPosChanged(double xPos, double yPos, bool broadcast)
       xAxisChord.invert = true;
       broadcastEvent(cursorAxisMappings, axisBindings, xAxisChord, -xDiff);
 
-      CursorAxisChord yAxisChord;
-      yAxisChord.cursorAxis = CursorAxis::Y;
+      CursorAxisChord yAxisChord(CursorAxis::Y);
 
       yAxisChord.invert = false;
       broadcastEvent(cursorAxisMappings, axisBindings, yAxisChord, yDiff);
@@ -403,10 +433,9 @@ void InputManager::onCursorPosChanged(double xPos, double yPos, bool broadcast)
 
 void InputManager::pollEvents()
 {
-   for (const KeyChord& heldKey : heldKeys)
+   for (const Key& heldKey : heldKeys)
    {
-      KeyAxisChord keyAxisChord;
-      keyAxisChord.keyChord = heldKey;
+      KeyAxisChord keyAxisChord(heldKey);
 
       keyAxisChord.invert = false;
       broadcastEvent(keyAxisMappings, axisBindings, keyAxisChord, 1.0f);

@@ -13,7 +13,21 @@
 #include <unordered_set>
 
 template<typename KeyType>
-using InputMappings = std::unordered_map<KeyType, std::vector<std::string>>;
+struct InputAction
+{
+   KeyType key;
+   std::string name;
+
+   InputAction() = default;
+   InputAction(const KeyType& initialKey, std::string_view initialName)
+      : key(initialKey)
+      , name(initialName)
+   {
+   }
+};
+
+template<typename KeyType>
+using InputMappings = std::unordered_map<typename KeyType::EnumType, std::vector<InputAction<KeyType>>>;
 
 template<typename DelegateType>
 using InputBindings = std::unordered_map<std::string, DelegateType>;
@@ -69,6 +83,10 @@ public:
    DelegateHandle bindAxisMapping(std::string_view action, AxisInputDelegate::FuncType&& function);
    void unbindAxisMapping(DelegateHandle handle);
 
+   // Query
+
+   bool isKeyHeld(Key key) const;
+
 private:
    friend class Window;
 
@@ -97,7 +115,7 @@ private:
    InputBindings<ButtonInputDelegate> buttonBindings;
    InputBindings<AxisInputDelegate> axisBindings;
 
-   std::unordered_set<KeyChord> heldKeys;
+   std::unordered_set<Key> heldKeys;
 
    double lastCursorX = 0.0;
    double lastCursorY = 0.0;
