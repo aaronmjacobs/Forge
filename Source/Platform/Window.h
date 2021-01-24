@@ -70,6 +70,7 @@ private:
    bool hasFocus = false;
    bool consumeCursorInput = false;
    bool canConsumeCursorInput = true;
+   bool ignoreNextCursorPosChange = false;
 
    WindowBounds savedWindowBounds;
 

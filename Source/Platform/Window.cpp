@@ -190,6 +190,8 @@ void Window::toggleFullscreen()
          }
       }
    }
+
+   ignoreNextCursorPosChange = true;
 }
 
 vk::SurfaceKHR Window::createSurface(vk::Instance instance)
@@ -304,7 +306,7 @@ void Window::onMouseButtonEvent(int button, int action, int mods)
 {
    inputManager.onMouseButtonEvent(button, action, mods);
 
-   if (hasFocus && !consumeCursorInput)
+   if (!consumeCursorInput)
    {
       setConsumeCursorInput(true);
    }
@@ -312,11 +314,17 @@ void Window::onMouseButtonEvent(int button, int action, int mods)
 
 void Window::onCursorPosChanged(double xPos, double yPos)
 {
-   inputManager.onCursorPosChanged(xPos, yPos, consumeCursorInput);
+   inputManager.onCursorPosChanged(xPos, yPos, consumeCursorInput && !ignoreNextCursorPosChange);
+   ignoreNextCursorPosChange = false;
 }
 
 void Window::setConsumeCursorInput(bool consume)
 {
    consumeCursorInput = consume && canConsumeCursorInput;
    glfwSetInputMode(glfwWindow, GLFW_CURSOR, consumeCursorInput ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
+
+   if (consumeCursorInput)
+   {
+      ignoreNextCursorPosChange = true;
+   }
 }
