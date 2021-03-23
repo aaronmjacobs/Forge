@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Core/Assert.h"
-#include "Core/Hash.h"
 #include "Core/Log.h"
 
 #include <cstdint>
@@ -43,8 +42,7 @@ public:
 
    std::size_t hash() const
    {
-      uint32_t value = (version << 24) | index;
-      return Hash::of(value);
+      return (index << 8) | version;
    }
 
 private:
