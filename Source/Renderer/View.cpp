@@ -50,7 +50,7 @@ const vk::DescriptorSetLayoutCreateInfo& View::getLayoutCreateInfo()
       .setBinding(0)
       .setDescriptorType(vk::DescriptorType::eUniformBuffer)
       .setDescriptorCount(1)
-      .setStageFlags(vk::ShaderStageFlagBits::eVertex);
+      .setStageFlags(vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment);
 
    static const vk::DescriptorSetLayoutCreateInfo kCreateInfo = vk::DescriptorSetLayoutCreateInfo(vk::DescriptorSetLayoutCreateFlags(), 1, &kBinding);
 
@@ -87,6 +87,8 @@ void View::update(const Scene& scene)
 
    ViewUniformData viewUniformData;
    viewUniformData.worldToClip = viewToClip * worldToView;
+   viewUniformData.position = glm::vec4(viewPosition.x, viewPosition.y, viewPosition.z, 1.0f);
+   viewUniformData.direction = glm::vec4(viewDirection.x, viewDirection.y, viewDirection.z, 0.0f);
 
    uniformBuffer.update(viewUniformData);
 }

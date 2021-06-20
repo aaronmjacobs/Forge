@@ -221,6 +221,15 @@ namespace
          return -1;
       }
 
+      vk::PhysicalDeviceFeatures2 features2;
+      vk::PhysicalDeviceVulkan12Features vulkan12Features;
+      features2.setPNext(&vulkan12Features);
+      physicalDevice.getFeatures2(&features2);
+      if (!vulkan12Features.uniformBufferStandardLayout)
+      {
+         return -1;
+      }
+
       int score = 0;
 
       vk::PhysicalDeviceProperties properties = physicalDevice.getProperties();

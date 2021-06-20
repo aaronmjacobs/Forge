@@ -11,6 +11,7 @@
 #include <vector>
 
 class DepthPass;
+class ForwardRenderPass;
 class Scene;
 class SimpleRenderPass;
 class Swapchain;
@@ -39,5 +40,5 @@ private:
    std::unique_ptr<Texture> depthTexture;
 
    std::unique_ptr<DepthPass> depthPass;
-   std::unique_ptr<SimpleRenderPass> simpleRenderPass;
+   std::unique_ptr<ForwardRenderPass> forwardRenderPass;
 };

@@ -130,9 +130,9 @@ public:
 
    // Texture
 
-   TextureHandle loadTexture(const std::filesystem::path& path, const TextureProperties& properties = TextureResourceManager::getDefaultProperties(), const TextureInitialLayout& initialLayout = TextureResourceManager::getDefaultInitialLayout())
+   TextureHandle loadTexture(const std::filesystem::path& path, const TextureLoadOptions& loadOptions = {}, const TextureProperties& properties = TextureResourceManager::getDefaultProperties(), const TextureInitialLayout& initialLayout = TextureResourceManager::getDefaultInitialLayout())
    {
-      return textureResourceManager.load(path, properties, initialLayout);
+      return textureResourceManager.load(path, loadOptions, properties, initialLayout);
    }
 
    bool unloadTexture(TextureHandle handle)

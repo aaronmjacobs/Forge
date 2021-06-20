@@ -9,7 +9,7 @@
 
 namespace
 {
-   std::optional<LoadedImage> loadImage(const std::filesystem::path& path)
+   std::optional<LoadedImage> loadImage(const std::filesystem::path& path, const TextureLoadOptions& loadOptions)
    {
       if (std::optional<std::vector<uint8_t>> imageData = IOUtils::readBinaryFile(path))
       {
@@ -25,7 +25,7 @@ namespace
             loadedImage.data.reset(pixelData);
             loadedImage.size = static_cast<vk::DeviceSize>(textureWidth * textureHeight * STBI_rgb_alpha);
 
-            loadedImage.properties.format = vk::Format::eR8G8B8A8Srgb;
+            loadedImage.properties.format = loadOptions.sRGB ? vk::Format::eR8G8B8A8Srgb : vk::Format::eR8G8B8A8Unorm;
             loadedImage.properties.width = static_cast<uint32_t>(textureWidth);
             loadedImage.properties.height = static_cast<uint32_t>(textureHeight);
 
@@ -42,7 +42,7 @@ TextureResourceManager::TextureResourceManager(const GraphicsContext& graphicsCo
 {
 }
 
-TextureHandle TextureResourceManager::load(const std::filesystem::path& path, const TextureProperties& properties, const TextureInitialLayout& initialLayout)
+TextureHandle TextureResourceManager::load(const std::filesystem::path& path, const TextureLoadOptions& loadOptions, const TextureProperties& properties, const TextureInitialLayout& initialLayout)
 {
    if (std::optional<std::filesystem::path> canonicalPath = ResourceHelpers::makeCanonical(path))
    {
@@ -52,7 +52,7 @@ TextureHandle TextureResourceManager::load(const std::filesystem::path& path, co
          return *cachedHandle;
       }
 
-      if (std::optional<LoadedImage> image = loadImage(*canonicalPath))
+      if (std::optional<LoadedImage> image = loadImage(*canonicalPath, loadOptions))
       {
          TextureHandle handle = emplaceResource(context, *image, properties, initialLayout);
          cacheHandle(canonicalPathString, handle);

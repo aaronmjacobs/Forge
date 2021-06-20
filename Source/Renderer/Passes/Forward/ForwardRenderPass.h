@@ -2,6 +2,8 @@
 
 #include "Graphics/GraphicsResource.h"
 
+#include "Renderer/Passes/Forward/ForwardLighting.h"
+
 #include <glm/glm.hpp>
 
 #include <memory>
@@ -9,16 +11,16 @@
 
 class Mesh;
 class ResourceManager;
-class SimpleShader;
+class ForwardShader;
 class Texture;
 class View;
 struct SceneRenderInfo;
 
-class SimpleRenderPass : public GraphicsResource
+class ForwardRenderPass : public GraphicsResource
 {
 public:
-   SimpleRenderPass(const GraphicsContext& graphicsContext, ResourceManager& resourceManager, const Texture& colorTexture, const Texture& depthTexture);
-   ~SimpleRenderPass();
+   ForwardRenderPass(const GraphicsContext& graphicsContext, vk::DescriptorPool descriptorPool, ResourceManager& resourceManager, const Texture& colorTexture, const Texture& depthTexture);
+   ~ForwardRenderPass();
 
    void render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo);
 
@@ -28,7 +30,8 @@ private:
    void initializeSwapchainDependentResources(const Texture& colorTexture, const Texture& depthTexture);
    void terminateSwapchainDependentResources();
 
-   std::unique_ptr<SimpleShader> simpleShader;
+   std::unique_ptr<ForwardShader> forwardShader;
+   ForwardLighting lighting;
 
    vk::RenderPass renderPass;
 

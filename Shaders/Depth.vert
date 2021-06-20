@@ -12,5 +12,6 @@ layout(location = 0) in vec3 inPosition;
 
 void main()
 {
-   gl_Position = view.worldToClip * mesh.localToWorld * vec4(inPosition, 1.0);
+   vec4 worldPosition = mesh.localToWorld * vec4(inPosition, 1.0);
+   gl_Position = view.worldToClip * worldPosition;
 }

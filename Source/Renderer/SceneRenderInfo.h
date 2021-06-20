@@ -27,10 +27,40 @@ struct MeshRenderInfo
    }
 };
 
+struct LightRenderInfo
+{
+   glm::vec3 color;
+};
+
+struct PointLightRenderInfo : public LightRenderInfo
+{
+   glm::vec3 position;
+   float radius = 0.0f;
+};
+
+struct SpotLightRenderInfo : public LightRenderInfo
+{
+   glm::vec3 position;
+   glm::vec3 direction;
+   float radius = 0.0f;
+   float beamAngle = 0.0f;
+   float cutoffAngle = 0.0f;
+};
+
+struct DirectionalLightRenderInfo : public LightRenderInfo
+{
+   glm::vec3 direction;
+};
+
 struct SceneRenderInfo
 {
    const View& view;
+
    std::vector<MeshRenderInfo> meshes;
+
+   std::vector<PointLightRenderInfo> pointLights;
+   std::vector<SpotLightRenderInfo> spotLights;
+   std::vector<DirectionalLightRenderInfo> directionalLights;
 
    SceneRenderInfo(const View& v)
       : view(v)

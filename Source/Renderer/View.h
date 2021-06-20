@@ -11,6 +11,8 @@ class Scene;
 struct ViewUniformData
 {
    alignas(16) glm::mat4 worldToClip;
+   alignas(16) glm::vec4 position;
+   alignas(16) glm::vec4 direction;
 };
 
 class View : public GraphicsResource

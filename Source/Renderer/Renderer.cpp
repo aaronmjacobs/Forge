@@ -6,10 +6,11 @@
 #include "Math/MathUtils.h"
 
 #include "Renderer/Passes/Depth/DepthPass.h"
-#include "Renderer/Passes/Simple/SimpleRenderPass.h"
+#include "Renderer/Passes/Forward/ForwardRenderPass.h"
 #include "Renderer/SceneRenderInfo.h"
 #include "Renderer/View.h"
 
+#include "Scene/Components/LightComponent.h"
 #include "Scene/Components/MeshComponent.h"
 #include "Scene/Components/TransformComponent.h"
 #include "Scene/Scene.h"
@@ -119,15 +120,25 @@ namespace
       return true;
    }
 
-   bool frustumCull(const Bounds& bounds, const std::array<glm::vec4, 6>& frustumPlanes)
+   bool frustumCull(const glm::vec3& position, float radius, const std::array<glm::vec4, 6>& frustumPlanes)
    {
-      // First check if the bounding sphere is completely outside of any of the planes
       for (const glm::vec4& plane : frustumPlanes)
       {
-         if (signedPlaneDist(bounds.getCenter(), plane) < -bounds.getRadius())
+         if (signedPlaneDist(position, plane) < -radius)
          {
             return true;
          }
+      }
+
+      return false;
+   }
+
+   bool frustumCull(const Bounds& bounds, const std::array<glm::vec4, 6>& frustumPlanes)
+   {
+      // First check if the bounding sphere is completely outside of any of the planes
+      if (frustumCull(bounds.getCenter(), bounds.getRadius(), frustumPlanes))
+      {
+         return true;
       }
 
       // Next, check the bounding box
@@ -194,6 +205,48 @@ namespace
          }
       });
 
+      scene.forEach<TransformComponent, PointLightComponent>([&sceneRenderInfo, &frustumPlanes](const TransformComponent& transformComponent, const PointLightComponent& pointLightComponent)
+      {
+         PointLightRenderInfo info;
+         info.color = pointLightComponent.getColor();
+         info.position = transformComponent.getAbsoluteTransform().position;
+         info.radius = pointLightComponent.getRadius();
+
+         bool visible = !frustumCull(info.position, info.radius, frustumPlanes);
+         if (visible)
+         {
+            sceneRenderInfo.pointLights.push_back(info);
+         }
+      });
+
+      scene.forEach<TransformComponent, SpotLightComponent>([&sceneRenderInfo, &frustumPlanes](const TransformComponent& transformComponent, const SpotLightComponent& spotLightComponent)
+      {
+         Transform transform = transformComponent.getAbsoluteTransform();
+
+         SpotLightRenderInfo info;
+         info.color = spotLightComponent.getColor();
+         info.position = transform.position;
+         info.direction = transform.getForwardVector();
+         info.radius = spotLightComponent.getRadius();
+         info.beamAngle = spotLightComponent.getBeamAngle();
+         info.cutoffAngle = spotLightComponent.getCutoffAngle();
+
+         bool visible = !frustumCull(info.position, info.radius, frustumPlanes); // TODO More accurate culling
+         if (visible)
+         {
+            sceneRenderInfo.spotLights.push_back(info);
+         }
+      });
+
+      scene.forEach<TransformComponent, DirectionalLightComponent>([&sceneRenderInfo, &frustumPlanes](const TransformComponent& transformComponent, const DirectionalLightComponent& directionalLightComponent)
+      {
+         DirectionalLightRenderInfo info;
+         info.color = directionalLightComponent.getColor();
+         info.direction = transformComponent.getAbsoluteTransform().getForwardVector();
+
+         sceneRenderInfo.directionalLights.push_back(info);
+      });
+
       return sceneRenderInfo;
    }
 }
@@ -203,8 +256,8 @@ Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& reso
    , resourceManager(resourceManagerRef)
 {
    {
-      static const uint32_t kMaxUniformBuffers = 1;
-      static const uint32_t kMaxSets = 1; // TODO
+      static const uint32_t kMaxUniformBuffers = 2;
+      static const uint32_t kMaxSets = 2; // TODO
 
       vk::DescriptorPoolSize uniformPoolSize = vk::DescriptorPoolSize()
          .setType(vk::DescriptorType::eUniformBuffer)
@@ -228,13 +281,13 @@ Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& reso
 
    {
       depthPass = std::make_unique<DepthPass>(context, resourceManager, *depthTexture);
-      simpleRenderPass = std::make_unique<SimpleRenderPass>(context, resourceManager, *colorTexture, *depthTexture);
+      forwardRenderPass = std::make_unique<ForwardRenderPass>(context, descriptorPool, resourceManager, *colorTexture, *depthTexture);
    }
 }
 
 Renderer::~Renderer()
 {
-   simpleRenderPass = nullptr;
+   forwardRenderPass = nullptr;
    depthPass = nullptr;
 
    depthTexture = nullptr;
@@ -252,7 +305,7 @@ void Renderer::render(vk::CommandBuffer commandBuffer, const Scene& scene)
    SceneRenderInfo sceneRenderInfo = computeSceneRenderInfo(resourceManager, scene, *view);
 
    depthPass->render(commandBuffer, sceneRenderInfo);
-   simpleRenderPass->render(commandBuffer, sceneRenderInfo);
+   forwardRenderPass->render(commandBuffer, sceneRenderInfo);
 }
 
 void Renderer::onSwapchainRecreated()
@@ -261,5 +314,5 @@ void Renderer::onSwapchainRecreated()
    depthTexture = createDepthTexture(context);
 
    depthPass->onSwapchainRecreated(*depthTexture);
-   simpleRenderPass->onSwapchainRecreated(*colorTexture, *depthTexture);
+   forwardRenderPass->onSwapchainRecreated(*colorTexture, *depthTexture);
 }

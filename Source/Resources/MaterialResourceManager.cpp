@@ -2,7 +2,7 @@
 
 #include "Core/Hash.h"
 
-#include "Renderer/SimpleMaterial.h"
+#include "Renderer/PhongMaterial.h"
 
 #include "Resources/ResourceManager.h"
 
@@ -138,15 +138,24 @@ MaterialHandle MaterialResourceManager::load(const MaterialParameters& parameter
 
 std::unique_ptr<Material> MaterialResourceManager::createMaterial(const MaterialParameters& parameters) const
 {
+   const Texture* diffuseTexture = nullptr;
+   const Texture* normalTexture = nullptr;
+
    for (const TextureMaterialParameter& textureMaterialParameter : parameters.textureParameters)
    {
-      if (textureMaterialParameter.name == "texture")
+      if (textureMaterialParameter.name == PhongMaterial::kDiffuseTextureParameterName)
       {
-         if (const Texture* texture = resourceManager.getTexture(textureMaterialParameter.value))
-         {
-            return std::make_unique<SimpleMaterial>(context, descriptorPool, *texture, sampler);
-         }
+         diffuseTexture = resourceManager.getTexture(textureMaterialParameter.value);
       }
+      else if (textureMaterialParameter.name == PhongMaterial::kNormalTextureParameterName)
+      {
+         normalTexture = resourceManager.getTexture(textureMaterialParameter.value);
+      }
+   }
+
+   if (diffuseTexture && normalTexture)
+   {
+      return std::make_unique<PhongMaterial>(context, descriptorPool, sampler, *diffuseTexture, *normalTexture);
    }
 
    return nullptr;

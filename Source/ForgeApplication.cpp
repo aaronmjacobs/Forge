@@ -13,6 +13,7 @@
 
 #include "Scene/Entity.h"
 #include "Scene/Components/CameraComponent.h"
+#include "Scene/Components/LightComponent.h"
 #include "Scene/Components/MeshComponent.h"
 #include "Scene/Components/TransformComponent.h"
 
@@ -225,7 +226,8 @@ void ForgeApplication::initializeGlfw()
 
    {
       std::array<KeyChord, 2> keys = { KeyChord(Key::F11), KeyChord(Key::Enter, KeyMod::Alt) };
-      inputManager.createButtonMapping(InputActions::kToggleFullscreen, keys, {}, {});
+      std::array<GamepadButtonChord, 1> gamepadButtons = { GamepadButtonChord(GamepadButton::Start) };
+      inputManager.createButtonMapping(InputActions::kToggleFullscreen, keys, {}, gamepadButtons);
 
       inputManager.bindButtonMapping(InputActions::kToggleFullscreen, [this](bool pressed)
       {
@@ -442,5 +444,32 @@ void ForgeApplication::loadScene()
       MeshLoadOptions meshLoadOptions;
       meshLoadOptions.scale = 0.01f;
       meshComponent.meshHandle = resourceManager->loadMesh("Resources/Meshes/Sponza/Sponza.gltf", meshLoadOptions);
+   }
+
+   {
+      Entity directionalLightEntity = scene.createEntity();
+
+      TransformComponent& transformComponent = directionalLightEntity.createComponent<TransformComponent>();
+      transformComponent.transform.orientation = glm::angleAxis(glm::radians(-80.0f), MathUtils::kRightVector);
+
+      DirectionalLightComponent& directionalLightComponent = directionalLightEntity.createComponent<DirectionalLightComponent>();
+      directionalLightComponent.setColor(glm::vec3(0.75f));
+   }
+
+   {
+      Entity pointLightEntity = scene.createEntity();
+
+      pointLightEntity.createComponent<TransformComponent>();
+
+      PointLightComponent& pointLightComponent = pointLightEntity.createComponent<PointLightComponent>();
+      pointLightComponent.setRadius(100.0f);
+
+      scene.addTickDelegate([this, pointLightEntity](float dt) mutable
+      {
+         float time = scene.getTime();
+
+         TransformComponent& transformComponent = pointLightEntity.getComponent<TransformComponent>();
+         transformComponent.transform.position = glm::vec3(glm::sin(time) * 5.0f, glm::cos(time * 0.7f) * 2.0f, glm::sin(time * 1.1f) * 2.0f + 3.0f);
+      });
    }
 }

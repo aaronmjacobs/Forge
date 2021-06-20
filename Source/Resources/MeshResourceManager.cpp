@@ -4,6 +4,8 @@
 
 #include "Math/MathUtils.h"
 
+#include "Renderer/PhongMaterial.h"
+
 #include "Resources/ResourceManager.h"
 
 #include <assimp/Importer.hpp>
@@ -102,7 +104,7 @@ namespace
       return swizzle;
    }
 
-   TextureHandle loadMaterialTexture(const aiMaterial& assimpMaterial, aiTextureType textureType, const std::filesystem::path& directory, ResourceManager& resourceManager)
+   TextureHandle loadMaterialTexture(const aiMaterial& assimpMaterial, aiTextureType textureType, bool sRGB, const std::filesystem::path& directory, ResourceManager& resourceManager)
    {
       if (assimpMaterial.GetTextureCount(textureType) > 0)
       {
@@ -110,7 +112,9 @@ namespace
          if (assimpMaterial.GetTexture(textureType, 0, &textureName) == aiReturn_SUCCESS)
          {
             std::filesystem::path texturePath = directory / textureName.C_Str();
-            return resourceManager.loadTexture(texturePath);
+            TextureLoadOptions loadOptions;
+            loadOptions.sRGB = sRGB;
+            return resourceManager.loadTexture(texturePath, loadOptions);
          }
       }
 
@@ -119,15 +123,20 @@ namespace
 
    MaterialHandle processAssimpMaterial(const aiMaterial& assimpMaterial, const std::filesystem::path& directory, ResourceManager& resourceManager)
    {
-      TextureHandle diffuseTextureHandle = loadMaterialTexture(assimpMaterial, aiTextureType_DIFFUSE, directory, resourceManager);
+      TextureHandle diffuseTextureHandle = loadMaterialTexture(assimpMaterial, aiTextureType_DIFFUSE, true, directory, resourceManager);
+      TextureHandle normalTextureHandle = loadMaterialTexture(assimpMaterial, aiTextureType_NORMALS, false, directory, resourceManager);
 
-      // TODO: Proper shading model
-      TextureMaterialParameter textureParameter;
-      textureParameter.name = "texture";
-      textureParameter.value = diffuseTextureHandle;
+      TextureMaterialParameter diffuseParameter;
+      diffuseParameter.name = PhongMaterial::kDiffuseTextureParameterName;
+      diffuseParameter.value = diffuseTextureHandle;
+
+      TextureMaterialParameter normalParameter;
+      normalParameter.name = PhongMaterial::kNormalTextureParameterName;
+      normalParameter.value = normalTextureHandle;
 
       MaterialParameters materialParameters;
-      materialParameters.textureParameters.push_back(textureParameter);
+      materialParameters.textureParameters.push_back(diffuseParameter);
+      materialParameters.textureParameters.push_back(normalParameter);
 
       return resourceManager.loadMaterial(materialParameters);
    }
