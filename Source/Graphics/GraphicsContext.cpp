@@ -179,10 +179,17 @@ namespace
          VK_KHR_SWAPCHAIN_EXTENSION_NAME
       };
 
+      static const std::array<const char*, 2> kOptionalDeviceExtensions =
+      {
+         "VK_KHR_portability_subset", // For MoltenVK
+         VK_KHR_UNIFORM_BUFFER_STANDARD_LAYOUT_EXTENSION_NAME
+      };
+
       std::vector<const char*> deviceExtensions;
-      deviceExtensions.reserve(kRequiredDeviceExtensions.size());
+      deviceExtensions.reserve(kRequiredDeviceExtensions.size() + kOptionalDeviceExtensions.size());
 
       std::vector<vk::ExtensionProperties> deviceExtensionProperties = physicalDevice.enumerateDeviceExtensionProperties();
+
       for (const char* requiredDeviceExtension : kRequiredDeviceExtensions)
       {
          if (hasExtensionProperty(deviceExtensionProperties, requiredDeviceExtension))
@@ -195,14 +202,23 @@ namespace
          }
       }
 
+      for (const char* optionalDeviceExtension : kOptionalDeviceExtensions)
+      {
+         if (hasExtensionProperty(deviceExtensionProperties, optionalDeviceExtension))
+         {
+            deviceExtensions.push_back(optionalDeviceExtension);
+         }
+      }
+
       return deviceExtensions;
    }
 
    int getPhysicalDeviceScore(vk::PhysicalDevice physicalDevice, vk::SurfaceKHR surface)
    {
+      std::vector<const char*> deviceExtensions;
       try
       {
-         getDeviceExtensions(physicalDevice);
+         deviceExtensions = getDeviceExtensions(physicalDevice);
       }
       catch (const std::runtime_error&)
       {
@@ -221,18 +237,30 @@ namespace
          return -1;
       }
 
-      vk::PhysicalDeviceFeatures2 features2;
-      vk::PhysicalDeviceVulkan12Features vulkan12Features;
-      features2.setPNext(&vulkan12Features);
-      physicalDevice.getFeatures2(&features2);
-      if (!vulkan12Features.uniformBufferStandardLayout)
+      vk::PhysicalDeviceProperties properties = physicalDevice.getProperties();
+
+      if (properties.apiVersion >= VK_API_VERSION_1_2)
       {
-         return -1;
+         vk::PhysicalDeviceFeatures2 features2;
+         vk::PhysicalDeviceVulkan12Features vulkan12Features;
+         features2.setPNext(&vulkan12Features);
+         physicalDevice.getFeatures2(&features2);
+
+         if (!vulkan12Features.uniformBufferStandardLayout)
+         {
+            return -1;
+         }
+      }
+      else
+      {
+         if (std::find(deviceExtensions.begin(), deviceExtensions.end(), VK_KHR_UNIFORM_BUFFER_STANDARD_LAYOUT_EXTENSION_NAME) == deviceExtensions.end())
+         {
+            return -1;
+         }
       }
 
       int score = 0;
 
-      vk::PhysicalDeviceProperties properties = physicalDevice.getProperties();
       switch (properties.deviceType)
       {
       case vk::PhysicalDeviceType::eOther:
@@ -323,7 +351,7 @@ GraphicsContext::GraphicsContext(Window& window)
       .setApplicationVersion(VK_MAKE_VERSION(FORGE_VERSION_MAJOR, FORGE_VERSION_MINOR, FORGE_VERSION_PATCH))
       .setPEngineName(FORGE_PROJECT_NAME)
       .setEngineVersion(VK_MAKE_VERSION(FORGE_VERSION_MAJOR, FORGE_VERSION_MINOR, FORGE_VERSION_PATCH))
-      .setApiVersion(VK_API_VERSION_1_1);
+      .setApiVersion(VK_API_VERSION_1_2);
 
    std::vector<const char*> extensions = getExtensions();
    std::vector<const char*> layers = getLayers();

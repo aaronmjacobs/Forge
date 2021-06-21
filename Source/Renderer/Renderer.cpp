@@ -261,7 +261,7 @@ Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& reso
 
       vk::DescriptorPoolSize uniformPoolSize = vk::DescriptorPoolSize()
          .setType(vk::DescriptorType::eUniformBuffer)
-         .setDescriptorCount(kMaxUniformBuffers);
+         .setDescriptorCount(kMaxUniformBuffers * GraphicsContext::kMaxFramesInFlight);
 
       vk::DescriptorPoolCreateInfo createInfo = vk::DescriptorPoolCreateInfo()
          .setPoolSizes(uniformPoolSize)
