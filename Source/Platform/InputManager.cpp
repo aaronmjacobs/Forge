@@ -401,7 +401,7 @@ void InputManager::onMouseButtonEvent(int button, int action, int mods)
 
 void InputManager::onCursorPosChanged(double xPos, double yPos, bool broadcast)
 {
-   static const double kMouseSensitivity = 0.05;
+   static const double kMouseSensitivity = 0.2;
 
    if (broadcast)
    {

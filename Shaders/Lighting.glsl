@@ -31,17 +31,18 @@ struct LightingParams
 
 float calcAttenuation(vec3 toLight, float radius)
 {
-   const float kMinLightBrightness = 0.01;
-
-   float multiplier = 1.0 / (radius * radius * kMinLightBrightness);
    float squaredDist = dot(toLight, toLight);
+   float squaredFalloff = (1.0 / (1.0 + squaredDist));
 
-   return 1.0 / (1.0 + squaredDist * multiplier);
+   float dist = sqrt(squaredDist);
+   float linearFalloff = 1.0 - clamp(dist / radius, 0.0, 1.0);
+
+   return squaredFalloff * linearFalloff;
 }
 
 vec3 calcAmbient(vec3 lightColor, vec3 diffuseColor)
 {
-   return lightColor * diffuseColor * 0.2;
+   return lightColor * diffuseColor * 0.1;
 }
 
 vec3 calcDiffuse(vec3 lightColor, vec3 diffuseColor, vec3 surfaceNormal, vec3 toLightDirection)

@@ -453,7 +453,7 @@ void ForgeApplication::loadScene()
       transformComponent.transform.orientation = glm::angleAxis(glm::radians(-80.0f), MathUtils::kRightVector);
 
       DirectionalLightComponent& directionalLightComponent = directionalLightEntity.createComponent<DirectionalLightComponent>();
-      directionalLightComponent.setColor(glm::vec3(0.75f));
+      directionalLightComponent.setColor(glm::vec3(0.05f));
    }
 
    {
@@ -462,7 +462,8 @@ void ForgeApplication::loadScene()
       pointLightEntity.createComponent<TransformComponent>();
 
       PointLightComponent& pointLightComponent = pointLightEntity.createComponent<PointLightComponent>();
-      pointLightComponent.setRadius(100.0f);
+      pointLightComponent.setColor(glm::vec3(5.0f));
+      pointLightComponent.setRadius(30.0f);
 
       scene.addTickDelegate([this, pointLightEntity](float dt) mutable
       {
