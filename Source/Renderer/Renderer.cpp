@@ -212,10 +212,13 @@ namespace
          info.position = transformComponent.getAbsoluteTransform().position;
          info.radius = pointLightComponent.getRadius();
 
-         bool visible = !frustumCull(info.position, info.radius, frustumPlanes);
-         if (visible)
+         if (info.radius > 0.0f && glm::length2(info.color) > 0.0f)
          {
-            sceneRenderInfo.pointLights.push_back(info);
+            bool visible = !frustumCull(info.position, info.radius, frustumPlanes);
+            if (visible)
+            {
+               sceneRenderInfo.pointLights.push_back(info);
+            }
          }
       });
 
@@ -231,10 +234,13 @@ namespace
          info.beamAngle = spotLightComponent.getBeamAngle();
          info.cutoffAngle = spotLightComponent.getCutoffAngle();
 
-         bool visible = !frustumCull(info.position, info.radius, frustumPlanes); // TODO More accurate culling
-         if (visible)
+         if (info.radius > 0.0f && glm::length2(info.color) > 0.0f)
          {
-            sceneRenderInfo.spotLights.push_back(info);
+            bool visible = !frustumCull(info.position, info.radius, frustumPlanes); // TODO More accurate culling
+            if (visible)
+            {
+               sceneRenderInfo.spotLights.push_back(info);
+            }
          }
       });
 
@@ -244,7 +250,10 @@ namespace
          info.color = directionalLightComponent.getColor();
          info.direction = transformComponent.getAbsoluteTransform().getForwardVector();
 
-         sceneRenderInfo.directionalLights.push_back(info);
+         if (glm::length2(info.color) > 0.0f)
+         {
+            sceneRenderInfo.directionalLights.push_back(info);
+         }
       });
 
       return sceneRenderInfo;
