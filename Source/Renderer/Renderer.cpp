@@ -231,12 +231,15 @@ namespace
          info.position = transform.position;
          info.direction = transform.getForwardVector();
          info.radius = spotLightComponent.getRadius();
-         info.beamAngle = spotLightComponent.getBeamAngle();
-         info.cutoffAngle = spotLightComponent.getCutoffAngle();
+         info.beamAngle = glm::radians(spotLightComponent.getBeamAngle());
+         info.cutoffAngle = glm::radians(spotLightComponent.getCutoffAngle());
 
          if (info.radius > 0.0f && glm::length2(info.color) > 0.0f)
          {
-            bool visible = !frustumCull(info.position, info.radius, frustumPlanes); // TODO More accurate culling
+            float halfRadius = info.radius * 0.5f;
+            glm::vec3 center = info.position + info.direction * halfRadius;
+
+            bool visible = !frustumCull(center, halfRadius, frustumPlanes);
             if (visible)
             {
                sceneRenderInfo.spotLights.push_back(info);

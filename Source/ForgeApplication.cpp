@@ -462,7 +462,7 @@ void ForgeApplication::loadScene()
       pointLightEntity.createComponent<TransformComponent>();
 
       PointLightComponent& pointLightComponent = pointLightEntity.createComponent<PointLightComponent>();
-      pointLightComponent.setColor(glm::vec3(5.0f));
+      pointLightComponent.setColor(glm::vec3(0.1f, 0.3f, 0.8f) * 5.0f);
       pointLightComponent.setRadius(30.0f);
 
       scene.addTickDelegate([this, pointLightEntity](float dt) mutable
@@ -471,6 +471,23 @@ void ForgeApplication::loadScene()
 
          TransformComponent& transformComponent = pointLightEntity.getComponent<TransformComponent>();
          transformComponent.transform.position = glm::vec3(glm::sin(time) * 5.0f, glm::cos(time * 0.7f) * 2.0f, glm::sin(time * 1.1f) * 2.0f + 3.0f);
+      });
+   }
+
+   {
+      Entity spotLightEntity = scene.createEntity();
+      spotLightEntity.createComponent<TransformComponent>();
+
+      SpotLightComponent& spotLightComponent = spotLightEntity.createComponent<SpotLightComponent>();
+      spotLightComponent.setColor(glm::vec3(0.8f, 0.1f, 0.3f) * 10.0f);
+      spotLightComponent.setRadius(10.0f);
+
+      scene.addTickDelegate([this, spotLightEntity](float dt) mutable
+      {
+         float time = scene.getTime();
+
+         TransformComponent& transformComponent = spotLightEntity.getComponent<TransformComponent>();
+         transformComponent.transform.position = glm::vec3(glm::cos(time * 0.6f) * 8.0f, glm::sin(time * 0.3f) - 0.5f, glm::cos(time * 1.3f) * 2.0f + 2.0f);
       });
    }
 }
