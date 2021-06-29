@@ -20,6 +20,8 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+#include <span>
+
 namespace
 {
    vk::SampleCountFlagBits getMaxSampleCount(const GraphicsContext& context)
@@ -107,7 +109,7 @@ namespace
       return plane.x * point.x + plane.y * point.y + plane.z * point.z + plane.w;
    }
 
-   bool outside(const std::array<glm::vec3, 8>& points, const glm::vec4& plane)
+   bool outside(std::span<glm::vec3> points, const glm::vec4& plane)
    {
       for (const glm::vec3& point : points)
       {
@@ -133,9 +135,22 @@ namespace
       return false;
    }
 
+   bool frustumCull(std::span<glm::vec3> points, const std::array<glm::vec4, 6>& frustumPlanes)
+   {
+      for (const glm::vec4& plane : frustumPlanes)
+      {
+         if (outside(points, plane))
+         {
+            return true;
+         }
+      }
+
+      return false;
+   }
+
    bool frustumCull(const Bounds& bounds, const std::array<glm::vec4, 6>& frustumPlanes)
    {
-      // First check if the bounding sphere is completely outside of any of the planes
+      // First check the bounding sphere
       if (frustumCull(bounds.getCenter(), bounds.getRadius(), frustumPlanes))
       {
          return true;
@@ -155,12 +170,9 @@ namespace
          glm::vec3(max.x, max.y, min.z),
          glm::vec3(max.x, max.y, max.z)
       };
-      for (const glm::vec4& plane : frustumPlanes)
+      if (frustumCull(corners, frustumPlanes))
       {
-         if (outside(corners, plane))
-         {
-            return true;
-         }
+         return true;
       }
 
       return false;
@@ -236,10 +248,19 @@ namespace
 
          if (info.radius > 0.0f && glm::length2(info.color) > 0.0f)
          {
-            float halfRadius = info.radius * 0.5f;
-            glm::vec3 center = info.position + info.direction * halfRadius;
+            glm::vec3 end = info.position + info.direction * info.radius;
+            float endWidth = glm::tan(info.cutoffAngle) * info.radius;
 
-            bool visible = !frustumCull(center, halfRadius, frustumPlanes);
+            std::array<glm::vec3, 5> points =
+            {
+               info.position, // Origin of the light
+               end + transform.getUpVector() * endWidth, // End top
+               end - transform.getUpVector() * endWidth, // End bottom
+               end + transform.getRightVector() * endWidth, // End right
+               end - transform.getRightVector() * endWidth, // End left
+            };
+
+            bool visible = !frustumCull(points, frustumPlanes);
             if (visible)
             {
                sceneRenderInfo.spotLights.push_back(info);
