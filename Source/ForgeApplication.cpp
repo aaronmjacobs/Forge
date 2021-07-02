@@ -447,6 +447,16 @@ void ForgeApplication::loadScene()
    }
 
    {
+      Entity bunnyEntity = scene.createEntity();
+      TransformComponent& transformComponent = bunnyEntity.createComponent<TransformComponent>();
+      transformComponent.transform.position = glm::vec3(0.0f, 1.0f, 0.0f);
+      transformComponent.transform.scaleBy(glm::vec3(5.0f));
+
+      MeshComponent& meshComponent = bunnyEntity.createComponent<MeshComponent>();
+      meshComponent.meshHandle = resourceManager->loadMesh("Resources/Meshes/Bunny.obj");
+   }
+
+   {
       Entity directionalLightEntity = scene.createEntity();
 
       TransformComponent& transformComponent = directionalLightEntity.createComponent<TransformComponent>();
