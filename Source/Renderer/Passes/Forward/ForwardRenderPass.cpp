@@ -36,10 +36,9 @@ void ForwardRenderPass::render(vk::CommandBuffer commandBuffer, const SceneRende
       .setClearValues(clearValues);
    commandBuffer.beginRenderPass(renderPassBeginInfo, vk::SubpassContents::eInline);
 
-   commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline);
-
    lighting.update(sceneRenderInfo);
 
+   vk::Pipeline lastPipeline;
    for (const MeshRenderInfo& meshRenderInfo : sceneRenderInfo.meshes)
    {
       MeshUniformData meshUniformData;
@@ -52,6 +51,13 @@ void ForwardRenderPass::render(vk::CommandBuffer commandBuffer, const SceneRende
          {
             if (const Material* material = meshRenderInfo.materials[section])
             {
+               vk::Pipeline desiredPipeline = meshRenderInfo.mesh.getSection(section).hasValidTexCoords ? pipelineWithTextures : pipelineWithoutTextures;
+               if (desiredPipeline != lastPipeline)
+               {
+                  commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, desiredPipeline);
+                  lastPipeline = desiredPipeline;
+               }
+
                forwardShader->bindDescriptorSets(commandBuffer, pipelineLayout, sceneRenderInfo.view, lighting, *material);
 
                meshRenderInfo.mesh.bindBuffers(commandBuffer, section);
@@ -204,7 +210,6 @@ void ForwardRenderPass::initializeSwapchainDependentResources(const Texture& col
          .setLogicOpEnable(false)
          .setAttachments(colorBlendAttachmentState);
 
-      std::vector<vk::PipelineShaderStageCreateInfo> shaderStages = forwardShader->getStages();
       std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = forwardShader->getSetLayouts();
       std::vector<vk::PushConstantRange> pushConstantRanges = forwardShader->getPushConstantRanges();
       vk::PipelineLayoutCreateInfo pipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo()
@@ -212,8 +217,10 @@ void ForwardRenderPass::initializeSwapchainDependentResources(const Texture& col
          .setPushConstantRanges(pushConstantRanges);
       pipelineLayout = device.createPipelineLayout(pipelineLayoutCreateInfo);
 
-      vk::GraphicsPipelineCreateInfo graphicsPipelineCreateInfo = vk::GraphicsPipelineCreateInfo()
-         .setStages(shaderStages)
+      std::vector<vk::PipelineShaderStageCreateInfo> shaderStagesWithTextures = forwardShader->getStages(true);
+      std::vector<vk::PipelineShaderStageCreateInfo> shaderStagesWithoutTextures = forwardShader->getStages(false);
+      vk::GraphicsPipelineCreateInfo graphicsPipelineCreateInfoWithTextures = vk::GraphicsPipelineCreateInfo()
+         .setStages(shaderStagesWithTextures)
          .setPVertexInputState(&vertexInputCreateInfo)
          .setPInputAssemblyState(&inputAssemblyCreateInfo)
          .setPViewportState(&viewportStateCreateInfo)
@@ -228,7 +235,11 @@ void ForwardRenderPass::initializeSwapchainDependentResources(const Texture& col
          .setBasePipelineHandle(nullptr)
          .setBasePipelineIndex(-1);
 
-      pipeline = device.createGraphicsPipeline(nullptr, graphicsPipelineCreateInfo).value;
+      vk::GraphicsPipelineCreateInfo graphicsPipelineCreateInfoWithoutTextures = graphicsPipelineCreateInfoWithTextures;
+      graphicsPipelineCreateInfoWithoutTextures.setStages(shaderStagesWithoutTextures);
+
+      pipelineWithTextures = device.createGraphicsPipeline(nullptr, graphicsPipelineCreateInfoWithTextures).value;
+      pipelineWithoutTextures = device.createGraphicsPipeline(nullptr, graphicsPipelineCreateInfoWithoutTextures).value;
    }
 
    {
@@ -266,10 +277,15 @@ void ForwardRenderPass::terminateSwapchainDependentResources()
    }
    framebuffers.clear();
 
-   if (pipeline)
+   if (pipelineWithTextures)
    {
-      device.destroyPipeline(pipeline);
-      pipeline = nullptr;
+      device.destroyPipeline(pipelineWithTextures);
+      pipelineWithTextures = nullptr;
+   }
+   if (pipelineWithoutTextures)
+   {
+      device.destroyPipeline(pipelineWithoutTextures);
+      pipelineWithoutTextures = nullptr;
    }
    if (pipelineLayout)
    {

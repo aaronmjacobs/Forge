@@ -3,6 +3,8 @@
 
 #include "View.glsl"
 
+layout(constant_id = 0) const bool kWithTextures = false;
+
 layout(push_constant) uniform Mesh
 {
     mat4 localToWorld;
@@ -16,8 +18,9 @@ layout(location = 4) in vec4 inColor;
 layout(location = 5) in vec2 inTexCoord;
 
 layout(location = 0) out vec3 outPosition;
-layout(location = 1) out vec2 outTexCoord;
-layout(location = 2) out mat3 outTBN;
+layout(location = 1) out vec3 outColor;
+layout(location = 2) out vec2 outTexCoord;
+layout(location = 3) out mat3 outTBN;
 
 void main()
 {
@@ -25,10 +28,24 @@ void main()
    gl_Position = view.worldToClip * worldPosition;
    outPosition = worldPosition.xyz;
 
-   outTexCoord = inTexCoord;
+   outColor = inColor.rgb;
 
-   vec3 t = normalize(vec3(mesh.localToWorld * vec4(inTangent, 0.0)));
-   vec3 b = normalize(vec3(mesh.localToWorld * vec4(inBitangent, 0.0)));
-   vec3 n = normalize(vec3(mesh.localToWorld * vec4(inNormal, 0.0)));
-   outTBN = mat3(t, b, n);
+   if (kWithTextures)
+   {
+      outTexCoord = inTexCoord;
+
+      vec3 t = normalize(vec3(mesh.localToWorld * vec4(inTangent, 0.0)));
+      vec3 b = normalize(vec3(mesh.localToWorld * vec4(inBitangent, 0.0)));
+      vec3 n = normalize(vec3(mesh.localToWorld * vec4(inNormal, 0.0)));
+      outTBN = mat3(t, b, n);
+   }
+   else
+   {
+      outTexCoord = vec2(0.0);
+
+      vec3 t = vec3(0.0);
+      vec3 b = vec3(0.0);
+      vec3 n = normalize(vec3(mesh.localToWorld * vec4(inNormal, 0.0)));
+      outTBN = mat3(t, b, n);
+   }
 }

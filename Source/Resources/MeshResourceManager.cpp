@@ -104,27 +104,30 @@ namespace
       return swizzle;
    }
 
-   TextureHandle loadMaterialTexture(const aiMaterial& assimpMaterial, aiTextureType textureType, bool sRGB, const std::filesystem::path& directory, ResourceManager& resourceManager)
+   TextureHandle loadMaterialTexture(const aiMaterial& assimpMaterial, aiTextureType textureType, const std::filesystem::path& directory, ResourceManager& resourceManager)
    {
+      std::filesystem::path texturePath;
+
       if (assimpMaterial.GetTextureCount(textureType) > 0)
       {
          aiString textureName;
          if (assimpMaterial.GetTexture(textureType, 0, &textureName) == aiReturn_SUCCESS)
          {
-            std::filesystem::path texturePath = directory / textureName.C_Str();
-            TextureLoadOptions loadOptions;
-            loadOptions.sRGB = sRGB;
-            return resourceManager.loadTexture(texturePath, loadOptions);
+            texturePath = directory / textureName.C_Str();
          }
       }
 
-      return TextureHandle();
+      TextureLoadOptions loadOptions;
+      loadOptions.sRGB = textureType != aiTextureType_NORMALS;
+      loadOptions.fallbackDefaultTextureType = textureType == aiTextureType_NORMALS ? DefaultTextureType::NormalMap : DefaultTextureType::White;
+
+      return resourceManager.loadTexture(texturePath, loadOptions);
    }
 
    MaterialHandle processAssimpMaterial(const aiMaterial& assimpMaterial, const std::filesystem::path& directory, ResourceManager& resourceManager)
    {
-      TextureHandle diffuseTextureHandle = loadMaterialTexture(assimpMaterial, aiTextureType_DIFFUSE, true, directory, resourceManager);
-      TextureHandle normalTextureHandle = loadMaterialTexture(assimpMaterial, aiTextureType_NORMALS, false, directory, resourceManager);
+      TextureHandle diffuseTextureHandle = loadMaterialTexture(assimpMaterial, aiTextureType_DIFFUSE, directory, resourceManager);
+      TextureHandle normalTextureHandle = loadMaterialTexture(assimpMaterial, aiTextureType_NORMALS, directory, resourceManager);
 
       TextureMaterialParameter diffuseParameter;
       diffuseParameter.name = PhongMaterial::kDiffuseTextureParameterName;
@@ -159,6 +162,7 @@ namespace
       {
          sectionSourceData.vertices.resize(assimpMesh.mNumVertices);
          bool hasTextureCoordinates = assimpMesh.mTextureCoords[0] && assimpMesh.mNumUVComponents[0] == 2;
+         sectionSourceData.hasValidTexCoords = hasTextureCoordinates;
 
          glm::vec3 minPosition(std::numeric_limits<float>::max());
          glm::vec3 maxPosition(std::numeric_limits<float>::lowest());

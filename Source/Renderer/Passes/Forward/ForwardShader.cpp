@@ -7,6 +7,36 @@
 #include "Renderer/UniformData.h"
 #include "Renderer/View.h"
 
+namespace
+{
+   struct ForwardShaderStageData
+   {
+      std::array<vk::SpecializationMapEntry, 1> specializationMapEntries =
+      {
+         vk::SpecializationMapEntry()
+            .setConstantID(0)
+            .setOffset(0)
+            .setSize(sizeof(VkBool32))
+      };
+
+      std::array<VkBool32, 1> withTexturesSpecializationData = { true };
+      std::array<VkBool32, 1> withoutTexturesSpecializationData = { false };
+
+      vk::SpecializationInfo withTextureSpecializationInfo = vk::SpecializationInfo()
+         .setMapEntries(specializationMapEntries)
+         .setData<VkBool32>(withTexturesSpecializationData);
+      vk::SpecializationInfo withoutTexturesSpecializationInfo = vk::SpecializationInfo()
+         .setMapEntries(specializationMapEntries)
+         .setData<VkBool32>(withoutTexturesSpecializationData);
+   };
+
+   const ForwardShaderStageData& getStageData()
+   {
+      static const ForwardShaderStageData kStageData;
+      return kStageData;
+   }
+}
+
 ForwardShader::ForwardShader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager)
    : GraphicsResource(graphicsContext)
 {
@@ -20,15 +50,31 @@ ForwardShader::ForwardShader(const GraphicsContext& graphicsContext, ResourceMan
       throw std::runtime_error(std::string("Failed to load shader"));
    }
 
-   vertStageCreateInfo = vk::PipelineShaderStageCreateInfo()
+   const ForwardShaderStageData& stageData = getStageData();
+
+   vertStageCreateInfoWithTextures = vk::PipelineShaderStageCreateInfo()
       .setStage(vk::ShaderStageFlagBits::eVertex)
       .setModule(vertShaderModule->getShaderModule())
-      .setPName("main");
+      .setPName("main")
+      .setPSpecializationInfo(&stageData.withTextureSpecializationInfo);
 
-   fragStageCreateInfo = vk::PipelineShaderStageCreateInfo()
+   vertStageCreateInfoWithoutTextures = vk::PipelineShaderStageCreateInfo()
+      .setStage(vk::ShaderStageFlagBits::eVertex)
+      .setModule(vertShaderModule->getShaderModule())
+      .setPName("main")
+      .setPSpecializationInfo(&stageData.withoutTexturesSpecializationInfo);
+
+   fragStageCreateInfoWithTextures = vk::PipelineShaderStageCreateInfo()
       .setStage(vk::ShaderStageFlagBits::eFragment)
       .setModule(fragShaderModule->getShaderModule())
-      .setPName("main");
+      .setPName("main")
+      .setPSpecializationInfo(&stageData.withTextureSpecializationInfo);
+
+   fragStageCreateInfoWithoutTextures = vk::PipelineShaderStageCreateInfo()
+      .setStage(vk::ShaderStageFlagBits::eFragment)
+      .setModule(fragShaderModule->getShaderModule())
+      .setPName("main")
+      .setPSpecializationInfo(&stageData.withoutTexturesSpecializationInfo);
 }
 
 void ForwardShader::bindDescriptorSets(vk::CommandBuffer commandBuffer, vk::PipelineLayout pipelineLayout, const View& view, const ForwardLighting& lighting, const Material& material)
@@ -36,9 +82,9 @@ void ForwardShader::bindDescriptorSets(vk::CommandBuffer commandBuffer, vk::Pipe
    commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, 0, { view.getDescriptorSet().getCurrentSet(), lighting.getDescriptorSet().getCurrentSet(), material.getDescriptorSet().getCurrentSet() }, {});
 }
 
-std::vector<vk::PipelineShaderStageCreateInfo> ForwardShader::getStages() const
+std::vector<vk::PipelineShaderStageCreateInfo> ForwardShader::getStages(bool withTextures) const
 {
-   return { vertStageCreateInfo, fragStageCreateInfo };
+   return { withTextures ? vertStageCreateInfoWithTextures : vertStageCreateInfoWithoutTextures, withTextures ? fragStageCreateInfoWithTextures : fragStageCreateInfoWithoutTextures };
 }
 
 std::vector<vk::DescriptorSetLayout> ForwardShader::getSetLayouts() const

@@ -5,6 +5,8 @@
 #include "Lighting.glsl"
 #include "View.glsl"
 
+layout(constant_id = 0) const bool kWithTextures = false;
+
 layout(std430, set = 1, binding = 0) uniform Lights
 {
 	SpotLight spotLights[8];
@@ -20,21 +22,32 @@ layout(set = 2, binding = 0) uniform sampler2D diffuseTexture;
 layout(set = 2, binding = 1) uniform sampler2D normalTexture;
 
 layout(location = 0) in vec3 inPosition;
-layout(location = 1) in vec2 inTexCoord;
-layout(location = 2) in mat3 inTBN;
+layout(location = 1) in vec3 inColor;
+layout(location = 2) in vec2 inTexCoord;
+layout(location = 3) in mat3 inTBN;
 
 layout(location = 0) out vec4 outColor;
 
 void main()
 {
-	vec3 tangentSpaceNormal = texture(normalTexture, inTexCoord).rgb * 2.0 - 1.0;
-
 	LightingParams lightingParams;
-	lightingParams.diffuseColor = texture(diffuseTexture, inTexCoord).rgb;
+
+	if (kWithTextures)
+	{
+		lightingParams.diffuseColor = inColor * texture(diffuseTexture, inTexCoord).rgb;
+
+		vec3 tangentSpaceNormal = texture(normalTexture, inTexCoord).rgb * 2.0 - 1.0;
+		lightingParams.surfaceNormal = normalize(inTBN * tangentSpaceNormal);
+	}
+	else
+	{
+		lightingParams.diffuseColor = inColor;
+		lightingParams.surfaceNormal = normalize(inTBN[2]);
+	}
+
 	lightingParams.specularColor = vec3(0.5);
 	lightingParams.shininess = 30.0;
 	lightingParams.surfacePosition = inPosition;
-	lightingParams.surfaceNormal = normalize(inTBN * tangentSpaceNormal);
 	lightingParams.cameraPosition = view.position.xyz;
 
 	vec3 color = vec3(0.0);

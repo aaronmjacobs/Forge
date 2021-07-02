@@ -36,7 +36,8 @@ private:
    vk::RenderPass renderPass;
 
    vk::PipelineLayout pipelineLayout;
-   vk::Pipeline pipeline;
+   vk::Pipeline pipelineWithTextures;
+   vk::Pipeline pipelineWithoutTextures;
 
    std::vector<vk::Framebuffer> framebuffers;
 };

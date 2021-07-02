@@ -124,6 +124,8 @@ Mesh::Mesh(const GraphicsContext& graphicsContext, std::span<const MeshSectionSo
       ASSERT(sectionData.indices.size() <= std::numeric_limits<uint32_t>::max());
       meshSection.numIndices = static_cast<uint32_t>(sectionData.indices.size());
 
+      meshSection.hasValidTexCoords = sectionData.hasValidTexCoords;
+
       std::size_t vertexDataSize = sectionData.vertices.size() * sizeof(Vertex);
       std::size_t indexDataSize = sectionData.indices.size() * sizeof(uint32_t);
 

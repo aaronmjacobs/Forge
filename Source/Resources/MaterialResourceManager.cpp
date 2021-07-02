@@ -80,8 +80,8 @@ namespace std
 MaterialResourceManager::MaterialResourceManager(const GraphicsContext& graphicsContext, ResourceManager& owningResourceManager)
    : ResourceManagerBase(graphicsContext, owningResourceManager)
 {
-   static const uint32_t kMaxImages = 48; // TODO
-   static const uint32_t kMaxSets = 24; // TODO
+   static const uint32_t kMaxImages = 100; // TODO
+   static const uint32_t kMaxSets = 50; // TODO
 
    vk::DescriptorPoolSize samplerPoolSize = vk::DescriptorPoolSize()
       .setType(vk::DescriptorType::eCombinedImageSampler)

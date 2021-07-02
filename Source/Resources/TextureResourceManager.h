@@ -7,9 +7,18 @@
 #include <filesystem>
 #include <string>
 
+enum class DefaultTextureType
+{
+   None,
+   Black,
+   White,
+   NormalMap
+};
+
 struct TextureLoadOptions
 {
    bool sRGB = true;
+   DefaultTextureType fallbackDefaultTextureType = DefaultTextureType::None;
 };
 
 class TextureResourceManager : public ResourceManagerBase<Texture, std::string>
@@ -19,6 +28,15 @@ public:
 
    TextureHandle load(const std::filesystem::path& path, const TextureLoadOptions& loadOptions = {}, const TextureProperties & properties = getDefaultProperties(), const TextureInitialLayout & initialLayout = getDefaultInitialLayout());
 
+   TextureHandle getDefault(DefaultTextureType type) const;
+
    static TextureProperties getDefaultProperties();
    static TextureInitialLayout getDefaultInitialLayout();
+
+protected:
+   void createDefaultTextures();
+
+   TextureHandle defaultBlackTextureHandle;
+   TextureHandle defaultWhiteTextureHandle;
+   TextureHandle defaultNormalMapTextureHandle;
 };

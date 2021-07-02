@@ -4,6 +4,8 @@
 
 #include <PlatformUtils/IOUtils.h>
 
+#include <glm/glm.hpp>
+
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
@@ -35,11 +37,36 @@ namespace
 
       return {};
    }
+
+   LoadedImage createDefaultImage(const GraphicsContext& context, const glm::vec4& color)
+   {
+      static const auto to8Bit = [](float value)
+      {
+         return static_cast<uint8_t>(glm::clamp(value, 0.0f, 1.0f) * 255.0f + 0.5f);
+      };
+
+      LoadedImage loadedImage;
+
+      uint8_t* pixelData = static_cast<uint8_t*>(STBI_MALLOC(4));
+      pixelData[0] = to8Bit(color.r);
+      pixelData[1] = to8Bit(color.g);
+      pixelData[2] = to8Bit(color.b);
+      pixelData[3] = to8Bit(color.a);
+      loadedImage.data.reset(pixelData);
+      loadedImage.size = static_cast<vk::DeviceSize>(4);
+
+      loadedImage.properties.format = vk::Format::eR8G8B8A8Unorm;
+      loadedImage.properties.width = 1;
+      loadedImage.properties.height = 1;
+
+      return loadedImage;
+   }
 }
 
 TextureResourceManager::TextureResourceManager(const GraphicsContext& graphicsContext, ResourceManager& owningResourceManager)
    : ResourceManagerBase(graphicsContext, owningResourceManager)
 {
+   createDefaultTextures();
 }
 
 TextureHandle TextureResourceManager::load(const std::filesystem::path& path, const TextureLoadOptions& loadOptions, const TextureProperties& properties, const TextureInitialLayout& initialLayout)
@@ -61,7 +88,30 @@ TextureHandle TextureResourceManager::load(const std::filesystem::path& path, co
       }
    }
 
-   return TextureHandle();
+   return getDefault(loadOptions.fallbackDefaultTextureType);
+}
+
+TextureHandle TextureResourceManager::getDefault(DefaultTextureType type) const
+{
+   TextureHandle handle;
+   switch (type)
+   {
+   case DefaultTextureType::None:
+      break;
+   case DefaultTextureType::Black:
+      handle = defaultBlackTextureHandle;
+      break;
+   case DefaultTextureType::White:
+      handle = defaultWhiteTextureHandle;
+      break;
+   case DefaultTextureType::NormalMap:
+      handle = defaultNormalMapTextureHandle;
+      break;
+   default:
+      break;
+   }
+
+   return handle;
 }
 
 // static
@@ -83,4 +133,20 @@ TextureInitialLayout TextureResourceManager::getDefaultInitialLayout()
    defaultInitialLayout.memoryBarrierFlags = TextureMemoryBarrierFlags(vk::AccessFlagBits::eShaderRead, vk::PipelineStageFlagBits::eFragmentShader);
 
    return defaultInitialLayout;
+}
+
+void TextureResourceManager::createDefaultTextures()
+{
+   LoadedImage defaultBlackImage = createDefaultImage(context, glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
+   LoadedImage defaultWhiteImage = createDefaultImage(context, glm::vec4(1.0f, 1.0f, 1.0f, 1.0f));
+   LoadedImage defaultNormalMapImage = createDefaultImage(context, glm::vec4(0.5f, 0.5f, 1.0f, 1.0f));
+
+   TextureProperties defaultTextureProperties = getDefaultProperties();
+   defaultTextureProperties.generateMipMaps = false;
+
+   TextureInitialLayout defaultTextureInitialLayout = getDefaultInitialLayout();
+
+   defaultBlackTextureHandle = emplaceResource(context, defaultBlackImage, defaultTextureProperties, defaultTextureInitialLayout);
+   defaultWhiteTextureHandle = emplaceResource(context, defaultWhiteImage, defaultTextureProperties, defaultTextureInitialLayout);
+   defaultNormalMapTextureHandle = emplaceResource(context, defaultNormalMapImage, defaultTextureProperties, defaultTextureInitialLayout);
 }
