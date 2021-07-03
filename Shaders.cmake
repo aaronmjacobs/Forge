@@ -9,8 +9,6 @@ set(SHADER_SOURCE_FILES
    "${SHADER_DIR}/Depth.vert"
    "${SHADER_DIR}/Forward.frag"
    "${SHADER_DIR}/Forward.vert"
-   "${SHADER_DIR}/Simple.frag"
-   "${SHADER_DIR}/Simple.vert"
 )
 
 find_program(GLSLC glslc)
