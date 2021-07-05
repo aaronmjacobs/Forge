@@ -43,14 +43,16 @@ void DepthPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& s
    {
       if (!meshRenderInfo.visibleOpaqueSections.empty())
       {
+         ASSERT(meshRenderInfo.mesh);
+
          MeshUniformData meshUniformData;
          meshUniformData.localToWorld = meshRenderInfo.localToWorld;
          commandBuffer.pushConstants<MeshUniformData>(pipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, meshUniformData);
 
          for (uint32_t section : meshRenderInfo.visibleOpaqueSections)
          {
-            meshRenderInfo.mesh.bindBuffers(commandBuffer, section);
-            meshRenderInfo.mesh.draw(commandBuffer, section);
+            meshRenderInfo.mesh->bindBuffers(commandBuffer, section);
+            meshRenderInfo.mesh->draw(commandBuffer, section);
          }
       }
    }

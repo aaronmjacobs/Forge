@@ -247,26 +247,28 @@ void ForwardRenderPass::renderMeshes(vk::CommandBuffer commandBuffer, const Scen
       const std::vector<uint32_t>& sections = translucency ? meshRenderInfo.visibleTranslucentSections : meshRenderInfo.visibleOpaqueSections;
       if (!sections.empty())
       {
+         ASSERT(meshRenderInfo.mesh);
+
          MeshUniformData meshUniformData;
          meshUniformData.localToWorld = meshRenderInfo.localToWorld;
          commandBuffer.pushConstants<MeshUniformData>(pipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, meshUniformData);
 
          for (uint32_t section : sections)
          {
-            if (const Material* material = meshRenderInfo.materials[section])
+            const Material* material = meshRenderInfo.materials[section];
+            ASSERT(material);
+
+            vk::Pipeline desiredPipeline = selectPipeline(meshRenderInfo.mesh->getSection(section), *material);
+            if (desiredPipeline != lastPipeline)
             {
-               vk::Pipeline desiredPipeline = selectPipeline(meshRenderInfo.mesh.getSection(section), *material);
-               if (desiredPipeline != lastPipeline)
-               {
-                  commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, desiredPipeline);
-                  lastPipeline = desiredPipeline;
-               }
-
-               forwardShader->bindDescriptorSets(commandBuffer, pipelineLayout, sceneRenderInfo.view, lighting, *material);
-
-               meshRenderInfo.mesh.bindBuffers(commandBuffer, section);
-               meshRenderInfo.mesh.draw(commandBuffer, section);
+               commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, desiredPipeline);
+               lastPipeline = desiredPipeline;
             }
+
+            forwardShader->bindDescriptorSets(commandBuffer, pipelineLayout, sceneRenderInfo.view, lighting, *material);
+
+            meshRenderInfo.mesh->bindBuffers(commandBuffer, section);
+            meshRenderInfo.mesh->draw(commandBuffer, section);
          }
       }
    }

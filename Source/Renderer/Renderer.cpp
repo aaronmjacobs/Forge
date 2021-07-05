@@ -20,6 +20,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+#include <algorithm>
 #include <span>
 
 namespace
@@ -229,6 +230,14 @@ namespace
                sceneRenderInfo.meshes.push_back(info);
             }
          }
+      });
+
+      std::sort(sceneRenderInfo.meshes.begin(), sceneRenderInfo.meshes.end(), [viewPosition = view.getViewPosition()](const MeshRenderInfo& first, const MeshRenderInfo& second)
+      {
+         float firstSquaredDistance = glm::distance2(first.transform.position, viewPosition);
+         float secondSquaredDistance = glm::distance2(second.transform.position, viewPosition);
+
+         return firstSquaredDistance > secondSquaredDistance;
       });
 
       scene.forEach<TransformComponent, PointLightComponent>([&sceneRenderInfo, &frustumPlanes](const TransformComponent& transformComponent, const PointLightComponent& pointLightComponent)

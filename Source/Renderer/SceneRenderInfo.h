@@ -18,10 +18,10 @@ struct MeshRenderInfo
    std::vector<uint32_t> visibleOpaqueSections;
    std::vector<uint32_t> visibleTranslucentSections;
    std::vector<const Material*> materials;
-   const Mesh& mesh;
+   const Mesh* mesh = nullptr;
 
    MeshRenderInfo(const Mesh& m, const Transform& t)
-      : mesh(m)
+      : mesh(&m)
       , transform(t)
       , localToWorld(t.toMatrix())
    {
