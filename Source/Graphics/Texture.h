@@ -13,6 +13,7 @@ struct ImageProperties
    uint32_t width = 1;
    uint32_t height = 1;
    uint32_t depth = 1;
+   bool hasAlpha = false;
 };
 
 struct TextureProperties

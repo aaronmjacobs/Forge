@@ -15,7 +15,8 @@ struct MeshRenderInfo
    Transform transform;
    glm::mat4 localToWorld;
 
-   std::vector<bool> visibilityMask;
+   std::vector<uint32_t> visibleOpaqueSections;
+   std::vector<uint32_t> visibleTranslucentSections;
    std::vector<const Material*> materials;
    const Mesh& mesh;
 

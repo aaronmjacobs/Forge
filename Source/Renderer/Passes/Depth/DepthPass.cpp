@@ -1,6 +1,7 @@
 #include "Renderer/Passes/Depth/DepthPass.h"
 
 #include "Graphics/Mesh.h"
+#include "Graphics/Pipeline.h"
 #include "Graphics/Swapchain.h"
 #include "Graphics/Texture.h"
 
@@ -40,13 +41,13 @@ void DepthPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& s
 
    for (const MeshRenderInfo& meshRenderInfo : sceneRenderInfo.meshes)
    {
-      MeshUniformData meshUniformData;
-      meshUniformData.localToWorld = meshRenderInfo.localToWorld;
-      commandBuffer.pushConstants<MeshUniformData>(pipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, meshUniformData);
-
-      for (uint32_t section = 0; section < meshRenderInfo.mesh.getNumSections(); ++section)
+      if (!meshRenderInfo.visibleOpaqueSections.empty())
       {
-         if (meshRenderInfo.visibilityMask[section])
+         MeshUniformData meshUniformData;
+         meshUniformData.localToWorld = meshRenderInfo.localToWorld;
+         commandBuffer.pushConstants<MeshUniformData>(pipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, meshUniformData);
+
+         for (uint32_t section : meshRenderInfo.visibleOpaqueSections)
          {
             meshRenderInfo.mesh.bindBuffers(commandBuffer, section);
             meshRenderInfo.mesh.draw(commandBuffer, section);
@@ -103,52 +104,6 @@ void DepthPass::initializeSwapchainDependentResources(const Texture& depthTextur
    }
 
    {
-      std::vector<vk::VertexInputBindingDescription> vertexBindingDescriptions = Vertex::getBindingDescriptions();
-      std::vector<vk::VertexInputAttributeDescription> vertexAttributeDescriptions = Vertex::getAttributeDescriptions(true);
-      vk::PipelineVertexInputStateCreateInfo vertexInputCreateInfo = vk::PipelineVertexInputStateCreateInfo()
-         .setVertexBindingDescriptions(vertexBindingDescriptions)
-         .setVertexAttributeDescriptions(vertexAttributeDescriptions);
-
-      vk::PipelineInputAssemblyStateCreateInfo inputAssemblyCreateInfo = vk::PipelineInputAssemblyStateCreateInfo()
-         .setTopology(vk::PrimitiveTopology::eTriangleList);
-
-      vk::Viewport viewport = vk::Viewport()
-         .setX(0.0f)
-         .setY(0.0f)
-         .setWidth(static_cast<float>(swapchainExtent.width))
-         .setHeight(static_cast<float>(swapchainExtent.height))
-         .setMinDepth(0.0f)
-         .setMaxDepth(1.0f);
-
-      vk::Rect2D scissor = vk::Rect2D()
-         .setExtent(swapchainExtent);
-
-      vk::PipelineViewportStateCreateInfo viewportStateCreateInfo = vk::PipelineViewportStateCreateInfo()
-         .setViewports(viewport)
-         .setScissors(scissor);
-
-      vk::PipelineRasterizationStateCreateInfo rasterizationStateCreateInfo = vk::PipelineRasterizationStateCreateInfo()
-         .setPolygonMode(vk::PolygonMode::eFill)
-         .setLineWidth(1.0f)
-         .setCullMode(vk::CullModeFlagBits::eBack)
-         .setFrontFace(vk::FrontFace::eCounterClockwise);
-
-      vk::PipelineMultisampleStateCreateInfo multisampleStateCreateInfo = vk::PipelineMultisampleStateCreateInfo()
-         .setRasterizationSamples(depthTexture.getTextureProperties().sampleCount)
-         .setSampleShadingEnable(true)
-         .setMinSampleShading(0.2f);
-
-      vk::PipelineDepthStencilStateCreateInfo depthStencilCreateInfo = vk::PipelineDepthStencilStateCreateInfo()
-         .setDepthTestEnable(true)
-         .setDepthWriteEnable(true)
-         .setDepthCompareOp(vk::CompareOp::eLess)
-         .setDepthBoundsTestEnable(false)
-         .setStencilTestEnable(false);
-
-      vk::PipelineColorBlendStateCreateInfo colorBlendStateCreateInfo = vk::PipelineColorBlendStateCreateInfo()
-         .setLogicOpEnable(false);
-
-      std::vector<vk::PipelineShaderStageCreateInfo> shaderStages = depthShader->getStages();
       std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = depthShader->getSetLayouts();
       std::vector<vk::PushConstantRange> pushConstantRanges = depthShader->getPushConstantRanges();
       vk::PipelineLayoutCreateInfo pipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo()
@@ -156,23 +111,8 @@ void DepthPass::initializeSwapchainDependentResources(const Texture& depthTextur
          .setPushConstantRanges(pushConstantRanges);
       pipelineLayout = device.createPipelineLayout(pipelineLayoutCreateInfo);
 
-      vk::GraphicsPipelineCreateInfo graphicsPipelineCreateInfo = vk::GraphicsPipelineCreateInfo()
-         .setStages(shaderStages)
-         .setPVertexInputState(&vertexInputCreateInfo)
-         .setPInputAssemblyState(&inputAssemblyCreateInfo)
-         .setPViewportState(&viewportStateCreateInfo)
-         .setPRasterizationState(&rasterizationStateCreateInfo)
-         .setPMultisampleState(&multisampleStateCreateInfo)
-         .setPDepthStencilState(&depthStencilCreateInfo)
-         .setPColorBlendState(&colorBlendStateCreateInfo)
-         .setPDynamicState(nullptr)
-         .setLayout(pipelineLayout)
-         .setRenderPass(renderPass)
-         .setSubpass(0)
-         .setBasePipelineHandle(nullptr)
-         .setBasePipelineIndex(-1);
-
-      pipeline = device.createGraphicsPipeline(nullptr, graphicsPipelineCreateInfo).value;
+      PipelineData pipelineData(context, pipelineLayout, renderPass, depthShader->getStages(), {}, depthTexture.getTextureProperties().sampleCount);
+      pipeline = device.createGraphicsPipeline(nullptr, pipelineData.getCreateInfo()).value;
    }
 
    {

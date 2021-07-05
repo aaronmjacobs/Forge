@@ -42,6 +42,11 @@ const std::string PhongMaterial::kNormalTextureParameterName = "normal";
 PhongMaterial::PhongMaterial(const GraphicsContext& graphicsContext, vk::DescriptorPool descriptorPool, vk::Sampler sampler, const Texture& diffuseTexture, const Texture& normalTexture)
    : Material(graphicsContext, descriptorPool, getLayoutCreateInfo())
 {
+   if (diffuseTexture.getImageProperties().hasAlpha)
+   {
+      blendMode = BlendMode::Translucent;
+   }
+
    std::array<vk::DescriptorImageInfo, GraphicsContext::kMaxFramesInFlight * 2> imageInfo;
    std::array<vk::WriteDescriptorSet, GraphicsContext::kMaxFramesInFlight * 2> descriptorWrites;
    for (uint32_t frameIndex = 0; frameIndex < GraphicsContext::kMaxFramesInFlight; ++frameIndex)

@@ -1,12 +1,21 @@
 #include "Renderer/Passes/Forward/ForwardRenderPass.h"
 
 #include "Graphics/Mesh.h"
+#include "Graphics/Pipeline.h"
 #include "Graphics/Swapchain.h"
 #include "Graphics/Texture.h"
 
 #include "Renderer/Passes/Forward/ForwardShader.h"
 #include "Renderer/SceneRenderInfo.h"
 #include "Renderer/UniformData.h"
+
+namespace
+{
+   uint32_t getForwardPipelineIndex(bool withTextures, bool withBlending)
+   {
+      return (withTextures ? 0b01 : 0b00) | (withBlending ? 0b10 : 0b00);
+   }
+}
 
 ForwardRenderPass::ForwardRenderPass(const GraphicsContext& graphicsContext, vk::DescriptorPool descriptorPool, ResourceManager& resourceManager, const Texture& colorTexture, const Texture& depthTexture)
    : GraphicsResource(graphicsContext)
@@ -38,34 +47,8 @@ void ForwardRenderPass::render(vk::CommandBuffer commandBuffer, const SceneRende
 
    lighting.update(sceneRenderInfo);
 
-   vk::Pipeline lastPipeline;
-   for (const MeshRenderInfo& meshRenderInfo : sceneRenderInfo.meshes)
-   {
-      MeshUniformData meshUniformData;
-      meshUniformData.localToWorld = meshRenderInfo.localToWorld;
-      commandBuffer.pushConstants<MeshUniformData>(pipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, meshUniformData);
-
-      for (uint32_t section = 0; section < meshRenderInfo.mesh.getNumSections(); ++section)
-      {
-         if (meshRenderInfo.visibilityMask[section])
-         {
-            if (const Material* material = meshRenderInfo.materials[section])
-            {
-               vk::Pipeline desiredPipeline = meshRenderInfo.mesh.getSection(section).hasValidTexCoords ? pipelineWithTextures : pipelineWithoutTextures;
-               if (desiredPipeline != lastPipeline)
-               {
-                  commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, desiredPipeline);
-                  lastPipeline = desiredPipeline;
-               }
-
-               forwardShader->bindDescriptorSets(commandBuffer, pipelineLayout, sceneRenderInfo.view, lighting, *material);
-
-               meshRenderInfo.mesh.bindBuffers(commandBuffer, section);
-               meshRenderInfo.mesh.draw(commandBuffer, section);
-            }
-         }
-      }
-   }
+   renderMeshes<false>(commandBuffer, sceneRenderInfo);
+   renderMeshes<true>(commandBuffer, sceneRenderInfo);
 
    commandBuffer.endRenderPass();
 }
@@ -160,56 +143,6 @@ void ForwardRenderPass::initializeSwapchainDependentResources(const Texture& col
    }
 
    {
-      std::vector<vk::VertexInputBindingDescription> vertexBindingDescriptions = Vertex::getBindingDescriptions();
-      std::vector<vk::VertexInputAttributeDescription> vertexAttributeDescriptions = Vertex::getAttributeDescriptions(false);
-      vk::PipelineVertexInputStateCreateInfo vertexInputCreateInfo = vk::PipelineVertexInputStateCreateInfo()
-         .setVertexBindingDescriptions(vertexBindingDescriptions)
-         .setVertexAttributeDescriptions(vertexAttributeDescriptions);
-
-      vk::PipelineInputAssemblyStateCreateInfo inputAssemblyCreateInfo = vk::PipelineInputAssemblyStateCreateInfo()
-         .setTopology(vk::PrimitiveTopology::eTriangleList);
-
-      vk::Viewport viewport = vk::Viewport()
-         .setX(0.0f)
-         .setY(0.0f)
-         .setWidth(static_cast<float>(swapchainExtent.width))
-         .setHeight(static_cast<float>(swapchainExtent.height))
-         .setMinDepth(0.0f)
-         .setMaxDepth(1.0f);
-
-      vk::Rect2D scissor = vk::Rect2D()
-         .setExtent(swapchainExtent);
-
-      vk::PipelineViewportStateCreateInfo viewportStateCreateInfo = vk::PipelineViewportStateCreateInfo()
-         .setViewports(viewport)
-         .setScissors(scissor);
-
-      vk::PipelineRasterizationStateCreateInfo rasterizationStateCreateInfo = vk::PipelineRasterizationStateCreateInfo()
-         .setPolygonMode(vk::PolygonMode::eFill)
-         .setLineWidth(1.0f)
-         .setCullMode(vk::CullModeFlagBits::eBack)
-         .setFrontFace(vk::FrontFace::eCounterClockwise);
-
-      vk::PipelineMultisampleStateCreateInfo multisampleStateCreateInfo = vk::PipelineMultisampleStateCreateInfo()
-         .setRasterizationSamples(isMultisampled ? colorTexture.getTextureProperties().sampleCount : vk::SampleCountFlagBits::e1)
-         .setSampleShadingEnable(true)
-         .setMinSampleShading(0.2f);
-
-      vk::PipelineColorBlendAttachmentState colorBlendAttachmentState = vk::PipelineColorBlendAttachmentState()
-         .setColorWriteMask(vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA)
-         .setBlendEnable(false);
-
-      vk::PipelineDepthStencilStateCreateInfo depthStencilCreateInfo = vk::PipelineDepthStencilStateCreateInfo()
-         .setDepthTestEnable(true)
-         .setDepthWriteEnable(false)
-         .setDepthCompareOp(vk::CompareOp::eEqual)
-         .setDepthBoundsTestEnable(false)
-         .setStencilTestEnable(false);
-
-      vk::PipelineColorBlendStateCreateInfo colorBlendStateCreateInfo = vk::PipelineColorBlendStateCreateInfo()
-         .setLogicOpEnable(false)
-         .setAttachments(colorBlendAttachmentState);
-
       std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = forwardShader->getSetLayouts();
       std::vector<vk::PushConstantRange> pushConstantRanges = forwardShader->getPushConstantRanges();
       vk::PipelineLayoutCreateInfo pipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo()
@@ -217,29 +150,35 @@ void ForwardRenderPass::initializeSwapchainDependentResources(const Texture& col
          .setPushConstantRanges(pushConstantRanges);
       pipelineLayout = device.createPipelineLayout(pipelineLayoutCreateInfo);
 
-      std::vector<vk::PipelineShaderStageCreateInfo> shaderStagesWithTextures = forwardShader->getStages(true);
       std::vector<vk::PipelineShaderStageCreateInfo> shaderStagesWithoutTextures = forwardShader->getStages(false);
-      vk::GraphicsPipelineCreateInfo graphicsPipelineCreateInfoWithTextures = vk::GraphicsPipelineCreateInfo()
-         .setStages(shaderStagesWithTextures)
-         .setPVertexInputState(&vertexInputCreateInfo)
-         .setPInputAssemblyState(&inputAssemblyCreateInfo)
-         .setPViewportState(&viewportStateCreateInfo)
-         .setPRasterizationState(&rasterizationStateCreateInfo)
-         .setPMultisampleState(&multisampleStateCreateInfo)
-         .setPDepthStencilState(&depthStencilCreateInfo)
-         .setPColorBlendState(&colorBlendStateCreateInfo)
-         .setPDynamicState(nullptr)
-         .setLayout(pipelineLayout)
-         .setRenderPass(renderPass)
-         .setSubpass(0)
-         .setBasePipelineHandle(nullptr)
-         .setBasePipelineIndex(-1);
+      std::vector<vk::PipelineShaderStageCreateInfo> shaderStagesWithTextures = forwardShader->getStages(true);
 
-      vk::GraphicsPipelineCreateInfo graphicsPipelineCreateInfoWithoutTextures = graphicsPipelineCreateInfoWithTextures;
-      graphicsPipelineCreateInfoWithoutTextures.setStages(shaderStagesWithoutTextures);
+      vk::PipelineColorBlendAttachmentState colorBlendDisabledAttachmentState = vk::PipelineColorBlendAttachmentState()
+         .setColorWriteMask(vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA)
+         .setBlendEnable(false);
+      vk::PipelineColorBlendAttachmentState colorBlendEnabledAttachmentState = vk::PipelineColorBlendAttachmentState()
+         .setColorWriteMask(vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA)
+         .setBlendEnable(true)
+         .setSrcColorBlendFactor(vk::BlendFactor::eSrcAlpha)
+         .setDstColorBlendFactor(vk::BlendFactor::eOneMinusSrcAlpha)
+         .setColorBlendOp(vk::BlendOp::eAdd)
+         .setSrcAlphaBlendFactor(vk::BlendFactor::eOne)
+         .setDstAlphaBlendFactor(vk::BlendFactor::eZero)
+         .setAlphaBlendOp(vk::BlendOp::eAdd);
+      std::vector<vk::PipelineColorBlendAttachmentState> colorBlendDisabledAttachments = { colorBlendDisabledAttachmentState };
+      std::vector<vk::PipelineColorBlendAttachmentState> colorBlendEnabledAttachments = { colorBlendEnabledAttachmentState };
 
-      pipelineWithTextures = device.createGraphicsPipeline(nullptr, graphicsPipelineCreateInfoWithTextures).value;
-      pipelineWithoutTextures = device.createGraphicsPipeline(nullptr, graphicsPipelineCreateInfoWithoutTextures).value;
+      PipelineData pipelineData(context, pipelineLayout, renderPass, shaderStagesWithoutTextures, colorBlendDisabledAttachments, colorTexture.getTextureProperties().sampleCount);
+      pipelines[getForwardPipelineIndex(false, false)] = device.createGraphicsPipeline(nullptr, pipelineData.getCreateInfo()).value;
+
+      pipelineData.setShaderStages(shaderStagesWithTextures);
+      pipelines[getForwardPipelineIndex(true, false)] = device.createGraphicsPipeline(nullptr, pipelineData.getCreateInfo()).value;
+
+      pipelineData.setColorBlendAttachmentStates(colorBlendEnabledAttachments);
+      pipelines[getForwardPipelineIndex(true, true)] = device.createGraphicsPipeline(nullptr, pipelineData.getCreateInfo()).value;
+
+      pipelineData.setShaderStages(shaderStagesWithoutTextures);
+      pipelines[getForwardPipelineIndex(false, true)] = device.createGraphicsPipeline(nullptr, pipelineData.getCreateInfo()).value;
    }
 
    {
@@ -277,16 +216,15 @@ void ForwardRenderPass::terminateSwapchainDependentResources()
    }
    framebuffers.clear();
 
-   if (pipelineWithTextures)
+   for (vk::Pipeline& pipeline : pipelines)
    {
-      device.destroyPipeline(pipelineWithTextures);
-      pipelineWithTextures = nullptr;
+      if (pipeline)
+      {
+         device.destroyPipeline(pipeline);
+         pipeline = nullptr;
+      }
    }
-   if (pipelineWithoutTextures)
-   {
-      device.destroyPipeline(pipelineWithoutTextures);
-      pipelineWithoutTextures = nullptr;
-   }
+
    if (pipelineLayout)
    {
       device.destroyPipelineLayout(pipelineLayout);
@@ -298,4 +236,43 @@ void ForwardRenderPass::terminateSwapchainDependentResources()
       device.destroyRenderPass(renderPass);
       renderPass = nullptr;
    }
+}
+
+template<bool translucency>
+void ForwardRenderPass::renderMeshes(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo)
+{
+   vk::Pipeline lastPipeline;
+   for (const MeshRenderInfo& meshRenderInfo : sceneRenderInfo.meshes)
+   {
+      const std::vector<uint32_t>& sections = translucency ? meshRenderInfo.visibleTranslucentSections : meshRenderInfo.visibleOpaqueSections;
+      if (!sections.empty())
+      {
+         MeshUniformData meshUniformData;
+         meshUniformData.localToWorld = meshRenderInfo.localToWorld;
+         commandBuffer.pushConstants<MeshUniformData>(pipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, meshUniformData);
+
+         for (uint32_t section : sections)
+         {
+            if (const Material* material = meshRenderInfo.materials[section])
+            {
+               vk::Pipeline desiredPipeline = selectPipeline(meshRenderInfo.mesh.getSection(section), *material);
+               if (desiredPipeline != lastPipeline)
+               {
+                  commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, desiredPipeline);
+                  lastPipeline = desiredPipeline;
+               }
+
+               forwardShader->bindDescriptorSets(commandBuffer, pipelineLayout, sceneRenderInfo.view, lighting, *material);
+
+               meshRenderInfo.mesh.bindBuffers(commandBuffer, section);
+               meshRenderInfo.mesh.draw(commandBuffer, section);
+            }
+         }
+      }
+   }
+}
+
+vk::Pipeline ForwardRenderPass::selectPipeline(const MeshSection& meshSection, const Material& material) const
+{
+   return pipelines[getForwardPipelineIndex(meshSection.hasValidTexCoords, material.getBlendMode() == BlendMode::Translucent)];
 }

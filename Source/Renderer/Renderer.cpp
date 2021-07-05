@@ -196,18 +196,32 @@ namespace
             MeshRenderInfo info(*mesh, transformComponent.getAbsoluteTransform());
 
             bool anyVisible = false;
-            info.visibilityMask.resize(mesh->getNumSections());
             info.materials.resize(mesh->getNumSections());
 
             for (uint32_t section = 0; section < mesh->getNumSections(); ++section)
             {
                const MeshSection& meshSection = mesh->getSection(section);
 
-               bool visible = !frustumCull(transformBounds(meshSection.bounds, info.transform), frustumPlanes);
-               anyVisible |= visible;
+               if (const Material* material = resourceManager.getMaterial(meshSection.materialHandle))
+               {
+                  bool visible = !frustumCull(transformBounds(meshSection.bounds, info.transform), frustumPlanes);
+                  if (visible)
+                  {
+                     anyVisible = true;
 
-               info.visibilityMask[section] = visible;
-               info.materials[section] = resourceManager.getMaterial(meshSection.materialHandle);
+                     BlendMode blendMode = material->getBlendMode();
+                     if (blendMode == BlendMode::Opaque)
+                     {
+                        info.visibleOpaqueSections.push_back(section);
+                     }
+                     else if (blendMode == BlendMode::Translucent)
+                     {
+                        info.visibleTranslucentSections.push_back(section);
+                     }
+
+                     info.materials[section] = material;
+                  }
+               }
             }
 
             if (anyVisible)

@@ -9,23 +9,25 @@
 #include <limits>
 
 // static
-std::vector<vk::VertexInputBindingDescription> Vertex::getBindingDescriptions()
+const std::vector<vk::VertexInputBindingDescription>& Vertex::getBindingDescriptions()
 {
-   return
+   static std::vector<vk::VertexInputBindingDescription> bindingDescriptions =
    {
       vk::VertexInputBindingDescription()
       .setBinding(0)
       .setStride(sizeof(Vertex))
       .setInputRate(vk::VertexInputRate::eVertex)
    };
+
+   return bindingDescriptions;
 }
 
 // static
-std::vector<vk::VertexInputAttributeDescription> Vertex::getAttributeDescriptions(bool positionOnly)
+const std::vector<vk::VertexInputAttributeDescription>& Vertex::getAttributeDescriptions(bool positionOnly)
 {
    if (positionOnly)
    {
-      return
+      static std::vector<vk::VertexInputAttributeDescription> positionOnlyAttributeDescriptions =
       {
          vk::VertexInputAttributeDescription()
             .setLocation(0)
@@ -33,10 +35,12 @@ std::vector<vk::VertexInputAttributeDescription> Vertex::getAttributeDescription
             .setFormat(vk::Format::eR32G32B32Sfloat)
             .setOffset(offsetof(Vertex, position))
       };
+
+      return positionOnlyAttributeDescriptions;
    }
    else
    {
-      return
+      static std::vector<vk::VertexInputAttributeDescription> defaultAttributeDescriptions =
       {
          vk::VertexInputAttributeDescription()
             .setLocation(0)
@@ -69,6 +73,8 @@ std::vector<vk::VertexInputAttributeDescription> Vertex::getAttributeDescription
             .setFormat(vk::Format::eR32G32Sfloat)
             .setOffset(offsetof(Vertex, texCoord))
       };
+
+      return defaultAttributeDescriptions;
    }
 }
 

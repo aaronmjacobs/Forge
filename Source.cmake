@@ -32,6 +32,8 @@ target_sources(${PROJECT_NAME} PRIVATE
    "${SRC_DIR}/Graphics/Memory.h"
    "${SRC_DIR}/Graphics/Mesh.cpp"
    "${SRC_DIR}/Graphics/Mesh.h"
+   "${SRC_DIR}/Graphics/Pipeline.cpp"
+   "${SRC_DIR}/Graphics/Pipeline.h"
    "${SRC_DIR}/Graphics/ShaderModule.cpp"
    "${SRC_DIR}/Graphics/ShaderModule.h"
    "${SRC_DIR}/Graphics/Swapchain.cpp"

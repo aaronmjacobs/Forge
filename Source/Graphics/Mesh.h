@@ -20,8 +20,8 @@ struct Vertex
    glm::vec4 color;
    glm::vec2 texCoord;
 
-   static std::vector<vk::VertexInputBindingDescription> getBindingDescriptions();
-   static std::vector<vk::VertexInputAttributeDescription> getAttributeDescriptions(bool positionOnly);
+   static const std::vector<vk::VertexInputBindingDescription>& getBindingDescriptions();
+   static const std::vector<vk::VertexInputAttributeDescription>& getAttributeDescriptions(bool positionOnly);
 };
 
 struct MeshSectionSourceData

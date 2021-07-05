@@ -18,7 +18,7 @@ layout(location = 4) in vec4 inColor;
 layout(location = 5) in vec2 inTexCoord;
 
 layout(location = 0) out vec3 outPosition;
-layout(location = 1) out vec3 outColor;
+layout(location = 1) out vec4 outColor;
 layout(location = 2) out vec2 outTexCoord;
 layout(location = 3) out mat3 outTBN;
 
@@ -28,7 +28,7 @@ void main()
    gl_Position = view.worldToClip * worldPosition;
    outPosition = worldPosition.xyz;
 
-   outColor = inColor.rgb;
+   outColor = inColor;
 
    if (kWithTextures)
    {

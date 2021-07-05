@@ -6,14 +6,17 @@
 
 #include <glm/glm.hpp>
 
+#include <array>
 #include <memory>
 #include <vector>
 
+class Material;
 class Mesh;
 class ResourceManager;
 class ForwardShader;
 class Texture;
 class View;
+struct MeshSection;
 struct SceneRenderInfo;
 
 class ForwardRenderPass : public GraphicsResource
@@ -30,14 +33,18 @@ private:
    void initializeSwapchainDependentResources(const Texture& colorTexture, const Texture& depthTexture);
    void terminateSwapchainDependentResources();
 
+   template<bool translucency>
+   void renderMeshes(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo);
+
+   vk::Pipeline selectPipeline(const MeshSection& meshSection, const Material& material) const;
+
    std::unique_ptr<ForwardShader> forwardShader;
    ForwardLighting lighting;
 
    vk::RenderPass renderPass;
 
    vk::PipelineLayout pipelineLayout;
-   vk::Pipeline pipelineWithTextures;
-   vk::Pipeline pipelineWithoutTextures;
+   std::array<vk::Pipeline, 4> pipelines;
 
    std::vector<vk::Framebuffer> framebuffers;
 };

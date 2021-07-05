@@ -30,6 +30,7 @@ namespace
             loadedImage.properties.format = loadOptions.sRGB ? vk::Format::eR8G8B8A8Srgb : vk::Format::eR8G8B8A8Unorm;
             loadedImage.properties.width = static_cast<uint32_t>(textureWidth);
             loadedImage.properties.height = static_cast<uint32_t>(textureHeight);
+            loadedImage.properties.hasAlpha = textureChannels == 4;
 
             return loadedImage;
          }

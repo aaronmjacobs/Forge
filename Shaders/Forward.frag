@@ -22,7 +22,7 @@ layout(set = 2, binding = 0) uniform sampler2D diffuseTexture;
 layout(set = 2, binding = 1) uniform sampler2D normalTexture;
 
 layout(location = 0) in vec3 inPosition;
-layout(location = 1) in vec3 inColor;
+layout(location = 1) in vec4 inColor;
 layout(location = 2) in vec2 inTexCoord;
 layout(location = 3) in mat3 inTBN;
 
@@ -32,16 +32,21 @@ void main()
 {
 	LightingParams lightingParams;
 
+	float alpha = 1.0;
 	if (kWithTextures)
 	{
-		lightingParams.diffuseColor = inColor * texture(diffuseTexture, inTexCoord).rgb;
+		vec4 diffuseSample = texture(diffuseTexture, inTexCoord);
+		lightingParams.diffuseColor = inColor.rgb * diffuseSample.rgb;
+		alpha = inColor.a * diffuseSample.a;
 
 		vec3 tangentSpaceNormal = texture(normalTexture, inTexCoord).rgb * 2.0 - 1.0;
 		lightingParams.surfaceNormal = normalize(inTBN * tangentSpaceNormal);
 	}
 	else
 	{
-		lightingParams.diffuseColor = inColor;
+		lightingParams.diffuseColor = inColor.rgb;
+		alpha = inColor.a;
+
 		lightingParams.surfaceNormal = normalize(inTBN[2]);
 	}
 
@@ -67,5 +72,5 @@ void main()
 		color += calcSpotLighting(spotLights[i], lightingParams);
 	}
 
-	outColor = vec4(color, 1.0);
+	outColor = vec4(color, alpha);
 }
