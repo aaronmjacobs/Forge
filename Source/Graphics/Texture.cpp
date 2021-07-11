@@ -164,6 +164,20 @@ void Texture::transitionLayout(vk::ImageLayout newLayout, const TextureMemoryBar
    }
 }
 
+TextureInfo Texture::getInfo() const
+{
+   TextureInfo info;
+
+   info.format = imageProperties.format;
+   info.extent.width = imageProperties.width;
+   info.extent.height = imageProperties.height;
+   info.sampleCount = textureProperties.sampleCount;
+   info.view = defaultView;
+   info.isSwapchainTexture = false;
+
+   return info;
+}
+
 void Texture::createImage()
 {
    ASSERT(!image && !memory);

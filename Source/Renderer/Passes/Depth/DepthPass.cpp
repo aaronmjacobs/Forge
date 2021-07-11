@@ -9,18 +9,18 @@
 #include "Renderer/SceneRenderInfo.h"
 #include "Renderer/UniformData.h"
 
-DepthPass::DepthPass(const GraphicsContext& graphicsContext, ResourceManager& resourceManager, const Texture& depthTexture)
-   : GraphicsResource(graphicsContext)
+DepthPass::DepthPass(const GraphicsContext& graphicsContext, ResourceManager& resourceManager)
+   : RenderPass(graphicsContext)
 {
-   depthShader = std::make_unique<DepthShader>(context, resourceManager);
+   clearDepth = true;
+   clearColor = false;
+   pipelines.resize(1);
 
-   initializeSwapchainDependentResources(depthTexture);
+   depthShader = std::make_unique<DepthShader>(context, resourceManager);
 }
 
 DepthPass::~DepthPass()
 {
-   terminateSwapchainDependentResources();
-
    depthShader.reset();
 }
 
@@ -29,13 +29,13 @@ void DepthPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& s
    std::array<vk::ClearValue, 2> clearValues = { vk::ClearDepthStencilValue(1.0f, 0) };
 
    vk::RenderPassBeginInfo renderPassBeginInfo = vk::RenderPassBeginInfo()
-      .setRenderPass(renderPass)
-      .setFramebuffer(framebuffer)
+      .setRenderPass(getRenderPass())
+      .setFramebuffer(getCurrentFramebuffer())
       .setRenderArea(vk::Rect2D(vk::Offset2D(0, 0), context.getSwapchain().getExtent()))
       .setClearValues(clearValues);
    commandBuffer.beginRenderPass(renderPassBeginInfo, vk::SubpassContents::eInline);
 
-   commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline);
+   commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, pipelines[0]);
 
    depthShader->bindDescriptorSets(commandBuffer, sceneRenderInfo.view, pipelineLayout);
 
@@ -60,100 +60,30 @@ void DepthPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& s
    commandBuffer.endRenderPass();
 }
 
-void DepthPass::onSwapchainRecreated(const Texture& depthTexture)
+void DepthPass::initializePipelines(vk::SampleCountFlagBits sampleCount)
 {
-   terminateSwapchainDependentResources();
-   initializeSwapchainDependentResources(depthTexture);
+   std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = depthShader->getSetLayouts();
+   std::vector<vk::PushConstantRange> pushConstantRanges = depthShader->getPushConstantRanges();
+   vk::PipelineLayoutCreateInfo pipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo()
+      .setSetLayouts(descriptorSetLayouts)
+      .setPushConstantRanges(pushConstantRanges);
+   pipelineLayout = device.createPipelineLayout(pipelineLayoutCreateInfo);
+
+   PipelineData pipelineData(context, pipelineLayout, getRenderPass(), depthShader->getStages(), {}, sampleCount);
+   pipelines[0] = device.createGraphicsPipeline(nullptr, pipelineData.getCreateInfo()).value;
 }
 
-void DepthPass::initializeSwapchainDependentResources(const Texture& depthTexture)
+std::vector<vk::SubpassDependency> DepthPass::getSubpassDependencies() const
 {
-   vk::Extent2D swapchainExtent = context.getSwapchain().getExtent();
+   std::vector<vk::SubpassDependency> subpassDependencies;
 
-   {
-      vk::AttachmentDescription depthAttachment = vk::AttachmentDescription()
-         .setFormat(depthTexture.getImageProperties().format)
-         .setSamples(depthTexture.getTextureProperties().sampleCount)
-         .setLoadOp(vk::AttachmentLoadOp::eClear)
-         .setStoreOp(vk::AttachmentStoreOp::eStore)
-         .setStencilLoadOp(vk::AttachmentLoadOp::eClear)
-         .setStencilStoreOp(vk::AttachmentStoreOp::eStore)
-         .setInitialLayout(vk::ImageLayout::eUndefined)
-         .setFinalLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
+   subpassDependencies.push_back(vk::SubpassDependency()
+      .setSrcSubpass(VK_SUBPASS_EXTERNAL)
+      .setDstSubpass(0)
+      .setSrcStageMask(vk::PipelineStageFlagBits::eEarlyFragmentTests | vk::PipelineStageFlagBits::eLateFragmentTests)
+      .setSrcAccessMask(vk::AccessFlagBits::eDepthStencilAttachmentWrite)
+      .setDstStageMask(vk::PipelineStageFlagBits::eEarlyFragmentTests | vk::PipelineStageFlagBits::eLateFragmentTests)
+      .setDstAccessMask(vk::AccessFlagBits::eDepthStencilAttachmentRead | vk::AccessFlagBits::eDepthStencilAttachmentWrite));
 
-      vk::AttachmentReference depthAttachmentReference = vk::AttachmentReference()
-         .setAttachment(0)
-         .setLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
-
-      vk::SubpassDescription subpassDescription = vk::SubpassDescription()
-         .setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
-         .setPDepthStencilAttachment(&depthAttachmentReference);
-
-      vk::SubpassDependency subpassDependency = vk::SubpassDependency()
-         .setSrcSubpass(VK_SUBPASS_EXTERNAL)
-         .setDstSubpass(0)
-         .setSrcStageMask(vk::PipelineStageFlagBits::eEarlyFragmentTests | vk::PipelineStageFlagBits::eLateFragmentTests)
-         .setSrcAccessMask(vk::AccessFlagBits::eDepthStencilAttachmentWrite)
-         .setDstStageMask(vk::PipelineStageFlagBits::eEarlyFragmentTests | vk::PipelineStageFlagBits::eLateFragmentTests)
-         .setDstAccessMask(vk::AccessFlagBits::eDepthStencilAttachmentRead | vk::AccessFlagBits::eDepthStencilAttachmentWrite);
-
-      vk::RenderPassCreateInfo renderPassCreateInfo = vk::RenderPassCreateInfo()
-         .setAttachments(depthAttachment)
-         .setSubpasses(subpassDescription)
-         .setDependencies(subpassDependency);
-
-      renderPass = device.createRenderPass(renderPassCreateInfo);
-   }
-
-   {
-      std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = depthShader->getSetLayouts();
-      std::vector<vk::PushConstantRange> pushConstantRanges = depthShader->getPushConstantRanges();
-      vk::PipelineLayoutCreateInfo pipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo()
-         .setSetLayouts(descriptorSetLayouts)
-         .setPushConstantRanges(pushConstantRanges);
-      pipelineLayout = device.createPipelineLayout(pipelineLayoutCreateInfo);
-
-      PipelineData pipelineData(context, pipelineLayout, renderPass, depthShader->getStages(), {}, depthTexture.getTextureProperties().sampleCount);
-      pipeline = device.createGraphicsPipeline(nullptr, pipelineData.getCreateInfo()).value;
-   }
-
-   {
-      std::array<vk::ImageView, 1> attachments = { depthTexture.getDefaultView() };
-
-      vk::FramebufferCreateInfo framebufferCreateInfo = vk::FramebufferCreateInfo()
-         .setRenderPass(renderPass)
-         .setAttachments(attachments)
-         .setWidth(swapchainExtent.width)
-         .setHeight(swapchainExtent.height)
-         .setLayers(1);
-
-      framebuffer = device.createFramebuffer(framebufferCreateInfo);
-   }
+   return subpassDependencies;
 }
-
-void DepthPass::terminateSwapchainDependentResources()
-{
-   if (framebuffer)
-   {
-      device.destroyFramebuffer(framebuffer);
-      framebuffer = nullptr;
-   }
-
-   if (pipeline)
-   {
-      device.destroyPipeline(pipeline);
-      pipeline = nullptr;
-   }
-   if (pipelineLayout)
-   {
-      device.destroyPipelineLayout(pipelineLayout);
-      pipelineLayout = nullptr;
-   }
-
-   if (renderPass)
-   {
-      device.destroyRenderPass(renderPass);
-      renderPass = nullptr;
-   }
-}
-

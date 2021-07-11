@@ -60,6 +60,10 @@ PipelineData::PipelineData(const GraphicsContext& context, vk::PipelineLayout la
       .setLogicOpEnable(false)
       .setAttachments(colorBlendAttachmentStates);
 
+   dynamicStates = { vk::DynamicState::eScissor, vk::DynamicState::eViewport };
+   dynamicStateCreateInfo = vk::PipelineDynamicStateCreateInfo()
+      .setDynamicStates(dynamicStates);
+
    graphicsPipelineCreateInfo = vk::GraphicsPipelineCreateInfo()
       .setStages(shaderStageCreateInfo)
       .setPVertexInputState(&vertexInputStateCreateInfo)
@@ -69,7 +73,7 @@ PipelineData::PipelineData(const GraphicsContext& context, vk::PipelineLayout la
       .setPMultisampleState(&multisampleStateCreateInfo)
       .setPDepthStencilState(&depthStencilStateCreateInfo)
       .setPColorBlendState(&colorBlendStateCreateInfo)
-      .setPDynamicState(nullptr)
+      .setPDynamicState(&dynamicStateCreateInfo)
       .setLayout(layout)
       .setRenderPass(renderPass)
       .setSubpass(0)
@@ -130,5 +134,5 @@ void PipelineData::updatePointers()
       .setPMultisampleState(&multisampleStateCreateInfo)
       .setPDepthStencilState(&depthStencilStateCreateInfo)
       .setPColorBlendState(&colorBlendStateCreateInfo)
-      .setPDynamicState(nullptr);
+      .setPDynamicState(&dynamicStateCreateInfo);
 }

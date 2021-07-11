@@ -6,7 +6,7 @@
 #include "Math/MathUtils.h"
 
 #include "Renderer/Passes/Depth/DepthPass.h"
-#include "Renderer/Passes/Forward/ForwardRenderPass.h"
+#include "Renderer/Passes/Forward/ForwardPass.h"
 #include "Renderer/SceneRenderInfo.h"
 #include "Renderer/View.h"
 
@@ -331,19 +331,16 @@ Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& reso
    }
 
    {
-      colorTexture = createColorTexture(context);
-      depthTexture = createDepthTexture(context);
+      depthPass = std::make_unique<DepthPass>(context, resourceManager);
+      forwardPass = std::make_unique<ForwardPass>(context, descriptorPool, resourceManager);
    }
 
-   {
-      depthPass = std::make_unique<DepthPass>(context, resourceManager, *depthTexture);
-      forwardRenderPass = std::make_unique<ForwardRenderPass>(context, descriptorPool, resourceManager, *colorTexture, *depthTexture);
-   }
+   onSwapchainRecreated();
 }
 
 Renderer::~Renderer()
 {
-   forwardRenderPass = nullptr;
+   forwardPass = nullptr;
    depthPass = nullptr;
 
    depthTexture = nullptr;
@@ -357,11 +354,27 @@ Renderer::~Renderer()
 
 void Renderer::render(vk::CommandBuffer commandBuffer, const Scene& scene)
 {
+   vk::Extent2D swapchainExtent = context.getSwapchain().getExtent();
+
+   vk::Viewport viewport = vk::Viewport()
+      .setX(0.0f)
+      .setY(0.0f)
+      .setWidth(static_cast<float>(swapchainExtent.width))
+      .setHeight(static_cast<float>(swapchainExtent.height))
+      .setMinDepth(0.0f)
+      .setMaxDepth(1.0f);
+   commandBuffer.setViewport(0, viewport);
+
+   vk::Rect2D scissor = vk::Rect2D()
+      .setOffset(vk::Offset2D(0, 0))
+      .setExtent(swapchainExtent);
+   commandBuffer.setScissor(0, scissor);
+
    view->update(scene);
    SceneRenderInfo sceneRenderInfo = computeSceneRenderInfo(resourceManager, scene, *view);
 
    depthPass->render(commandBuffer, sceneRenderInfo);
-   forwardRenderPass->render(commandBuffer, sceneRenderInfo);
+   forwardPass->render(commandBuffer, sceneRenderInfo);
 }
 
 void Renderer::onSwapchainRecreated()
@@ -369,6 +382,36 @@ void Renderer::onSwapchainRecreated()
    colorTexture = createColorTexture(context);
    depthTexture = createDepthTexture(context);
 
-   depthPass->onSwapchainRecreated(*depthTexture);
-   forwardRenderPass->onSwapchainRecreated(*colorTexture, *depthTexture);
+   updateRenderPassAttachments();
+}
+
+void Renderer::updateRenderPassAttachments()
+{
+   {
+      RenderPassAttachments depthPassAttachments;
+      depthPassAttachments.depthInfo = depthTexture->getInfo();
+
+      depthPass->updateAttachments(depthPassAttachments);
+   }
+
+   {
+      std::vector<TextureInfo> colorInfo;
+      std::vector<TextureInfo> resolveInfo;
+      if (colorTexture->getInfo().sampleCount == vk::SampleCountFlagBits::e1)
+      {
+         colorInfo.push_back(context.getSwapchain().getTextureInfo());
+      }
+      else
+      {
+         colorInfo.push_back(colorTexture->getInfo());
+         resolveInfo.push_back(context.getSwapchain().getTextureInfo());
+      }
+
+      RenderPassAttachments forwardPassAttachments;
+      forwardPassAttachments.depthInfo = depthTexture->getInfo();
+      forwardPassAttachments.colorInfo = colorInfo;
+      forwardPassAttachments.resolveInfo = resolveInfo;
+
+      forwardPass->updateAttachments(forwardPassAttachments);
+   }
 }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Graphics/GraphicsResource.h"
+#include "Graphics/Texture.h"
 
 #include <vector>
 
@@ -49,6 +50,8 @@ public:
    {
       return imageViews;
    }
+
+   TextureInfo getTextureInfo() const;
 
 private:
    vk::Format format;

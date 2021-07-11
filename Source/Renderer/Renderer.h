@@ -11,7 +11,7 @@
 #include <vector>
 
 class DepthPass;
-class ForwardRenderPass;
+class ForwardPass;
 class Scene;
 class SimpleRenderPass;
 class Swapchain;
@@ -30,6 +30,8 @@ public:
    void onSwapchainRecreated();
 
 private:
+   void updateRenderPassAttachments();
+
    ResourceManager& resourceManager;
 
    vk::DescriptorPool descriptorPool;
@@ -40,5 +42,5 @@ private:
    std::unique_ptr<Texture> depthTexture;
 
    std::unique_ptr<DepthPass> depthPass;
-   std::unique_ptr<ForwardRenderPass> forwardRenderPass;
+   std::unique_ptr<ForwardPass> forwardPass;
 };

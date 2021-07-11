@@ -14,6 +14,7 @@ protected:
 
    std::vector<vk::PipelineShaderStageCreateInfo> shaderStageCreateInfo;
    std::vector<vk::PipelineColorBlendAttachmentState> colorBlendAttachmentStates;
+   std::vector<vk::DynamicState> dynamicStates;
 
    vk::PipelineVertexInputStateCreateInfo vertexInputStateCreateInfo;
    vk::PipelineInputAssemblyStateCreateInfo inputAssemblyStateCreateInfo;
@@ -22,6 +23,7 @@ protected:
    vk::PipelineMultisampleStateCreateInfo multisampleStateCreateInfo;
    vk::PipelineDepthStencilStateCreateInfo depthStencilStateCreateInfo;
    vk::PipelineColorBlendStateCreateInfo colorBlendStateCreateInfo;
+   vk::PipelineDynamicStateCreateInfo dynamicStateCreateInfo;
 
    vk::GraphicsPipelineCreateInfo graphicsPipelineCreateInfo;
 };

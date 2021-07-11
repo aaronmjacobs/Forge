@@ -145,3 +145,16 @@ Swapchain::~Swapchain()
 
    device.destroySwapchainKHR(swapchainKHR);
 }
+
+TextureInfo Swapchain::getTextureInfo() const
+{
+   TextureInfo info;
+
+   info.format = format;
+   info.extent = extent;
+   info.sampleCount = vk::SampleCountFlagBits::e1;
+   info.view = nullptr;
+   info.isSwapchainTexture = true;
+
+   return info;
+}
