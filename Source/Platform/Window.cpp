@@ -123,6 +123,8 @@ Window::Window()
       throw std::runtime_error("Failed to create window");
    }
 
+   glfwSetWindowSizeLimits(glfwWindow, 640, 360, GLFW_DONT_CARE, GLFW_DONT_CARE);
+
    setConsumeCursorInput(true);
 
    double cursorX = 0.0;
