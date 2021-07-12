@@ -28,6 +28,7 @@ public:
    void render(vk::CommandBuffer commandBuffer, const Scene& scene);
 
    void onSwapchainRecreated();
+   void toggleMSAA();
 
 private:
    void updateRenderPassAttachments();
@@ -43,4 +44,6 @@ private:
 
    std::unique_ptr<DepthPass> depthPass;
    std::unique_ptr<ForwardPass> forwardPass;
+
+   bool enableMSAA = false;
 };

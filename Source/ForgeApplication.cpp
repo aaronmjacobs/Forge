@@ -29,6 +29,8 @@ namespace
       const char* kToggleFullscreen = "ToggleFullscreen";
       const char* kReleaseCursor = "ReleaseCursor";
 
+      const char* kToggleMSAA = "ToggleMSAA";
+
       const char* kMoveForward = "MoveForward";
       const char* kMoveRight = "MoveRight";
       const char* kMoveUp = "MoveUp";
@@ -301,6 +303,16 @@ void ForgeApplication::terminateSwapchain()
 void ForgeApplication::initializeRenderer()
 {
    renderer = std::make_unique<Renderer>(*context, *resourceManager);
+
+   InputManager& inputManager = window->getInputManager();
+   inputManager.createButtonMapping(InputActions::kToggleMSAA, KeyChord(Key::M), {}, {});
+   inputManager.bindButtonMapping(InputActions::kToggleMSAA, [this](bool pressed)
+   {
+      if (pressed && renderer)
+      {
+         renderer->toggleMSAA();
+      }
+   });
 }
 
 void ForgeApplication::terminateRenderer()

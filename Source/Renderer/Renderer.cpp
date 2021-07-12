@@ -40,7 +40,7 @@ namespace
       return vk::SampleCountFlagBits::e1;
    }
 
-   std::unique_ptr<Texture> createColorTexture(const GraphicsContext& context)
+   std::unique_ptr<Texture> createColorTexture(const GraphicsContext& context, bool enableMSAA)
    {
       const Swapchain& swapchain = context.getSwapchain();
 
@@ -50,7 +50,7 @@ namespace
       colorImageProperties.height = swapchain.getExtent().height;
 
       TextureProperties colorTextureProperties;
-      colorTextureProperties.sampleCount = getMaxSampleCount(context);
+      colorTextureProperties.sampleCount = enableMSAA ? getMaxSampleCount(context) : vk::SampleCountFlagBits::e1;
       colorTextureProperties.usage = vk::ImageUsageFlagBits::eTransientAttachment | vk::ImageUsageFlagBits::eColorAttachment;
       colorTextureProperties.aspects = vk::ImageAspectFlagBits::eColor;
 
@@ -61,7 +61,7 @@ namespace
       return std::make_unique<Texture>(context, colorImageProperties, colorTextureProperties, colorInitialLayout);
    }
 
-   std::unique_ptr<Texture> createDepthTexture(const GraphicsContext& context)
+   std::unique_ptr<Texture> createDepthTexture(const GraphicsContext& context, bool enableMSAA)
    {
       const Swapchain& swapchain = context.getSwapchain();
 
@@ -72,7 +72,7 @@ namespace
       depthImageProperties.height = swapchain.getExtent().height;
 
       TextureProperties depthTextureProperties;
-      depthTextureProperties.sampleCount = getMaxSampleCount(context);
+      depthTextureProperties.sampleCount = enableMSAA ? getMaxSampleCount(context) : vk::SampleCountFlagBits::e1;
       depthTextureProperties.usage = vk::ImageUsageFlagBits::eDepthStencilAttachment;
       depthTextureProperties.aspects = vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil;
 
@@ -379,10 +379,16 @@ void Renderer::render(vk::CommandBuffer commandBuffer, const Scene& scene)
 
 void Renderer::onSwapchainRecreated()
 {
-   colorTexture = createColorTexture(context);
-   depthTexture = createDepthTexture(context);
+   colorTexture = createColorTexture(context, enableMSAA);
+   depthTexture = createDepthTexture(context, enableMSAA);
 
    updateRenderPassAttachments();
+}
+
+void Renderer::toggleMSAA()
+{
+   enableMSAA = !enableMSAA;
+   onSwapchainRecreated();
 }
 
 void Renderer::updateRenderPassAttachments()
