@@ -3,6 +3,7 @@
 #include "Core/Assert.h"
 
 #include "Graphics/Buffer.h"
+#include "Graphics/DebugUtils.h"
 #include "Graphics/Memory.h"
 
 #include <array>
@@ -184,3 +185,13 @@ void Mesh::draw(vk::CommandBuffer commandBuffer, uint32_t section) const
 {
    commandBuffer.drawIndexed(sections[section].numIndices, 1, 0, 0, 0);
 }
+
+#if FORGE_DEBUG
+void Mesh::setName(std::string_view newName)
+{
+   GraphicsResource::setName(newName);
+
+   NAME_OBJECT(buffer, name + " Mesh Buffer");
+   NAME_OBJECT(deviceMemory, name + " Mesh Buffer Memory");
+}
+#endif // FORGE_DEBUG

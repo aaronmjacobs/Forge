@@ -3,23 +3,26 @@
 #include "Core/Assert.h"
 
 #include "Graphics/Buffer.h"
+#include "Graphics/DebugUtils.h"
 #include "Graphics/GraphicsContext.h"
 #include "Graphics/Memory.h"
 #include "Graphics/Swapchain.h"
 
 #include <cstring>
-#include <utility>
 
 template<typename DataType>
 class UniformBuffer : public GraphicsResource
 {
 public:
    UniformBuffer(const GraphicsContext& context);
-
    ~UniformBuffer();
 
    void update(const DataType& data);
    vk::DescriptorBufferInfo getDescriptorBufferInfo(uint32_t frameIndex) const;
+
+#if FORGE_DEBUG
+   void setName(std::string_view newName) override;
+#endif // FORGE_DEBUG
 
 private:
    static vk::DeviceSize getPaddedDataSize(const GraphicsContext& context)
@@ -75,3 +78,14 @@ inline vk::DescriptorBufferInfo UniformBuffer<DataType>::getDescriptorBufferInfo
       .setOffset(static_cast<vk::DeviceSize>(getPaddedDataSize(context) * frameIndex))
       .setRange(sizeof(DataType));
 }
+
+#if FORGE_DEBUG
+template<typename DataType>
+inline void UniformBuffer<DataType>::setName(std::string_view newName)
+{
+   GraphicsResource::setName(newName);
+
+   NAME_OBJECT(buffer, name + " Uniform Buffer");
+   NAME_OBJECT(memory, name + " Uniform Buffer Memory");
+}
+#endif // FORGE_DEBUG

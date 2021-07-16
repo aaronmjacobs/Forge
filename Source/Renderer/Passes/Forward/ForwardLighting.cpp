@@ -1,8 +1,9 @@
 #include "Renderer/Passes/Forward/ForwardLighting.h"
 
+#include "Graphics/DebugUtils.h"
 #include "Graphics/DescriptorSetLayoutCache.h"
+
 #include "Renderer/SceneRenderInfo.h"
-#include "Scene/Components/LightComponent.h"
 
 // static
 const vk::DescriptorSetLayoutCreateInfo& ForwardLighting::getLayoutCreateInfo()
@@ -29,6 +30,9 @@ ForwardLighting::ForwardLighting(const GraphicsContext& graphicsContext, vk::Des
    , uniformBuffer(graphicsContext)
    , descriptorSet(graphicsContext, descriptorPool, getLayoutCreateInfo())
 {
+   NAME_OBJECT(uniformBuffer, "Forward Lighting");
+   NAME_OBJECT(descriptorSet, "Forward Lighting");
+
    updateDescriptorSets();
 }
 

@@ -16,6 +16,10 @@ class ResourceManager;
 namespace ResourceHelpers
 {
    std::optional<std::filesystem::path> makeCanonical(const std::filesystem::path& path);
+
+#if FORGE_DEBUG
+   std::string getName(const std::filesystem::path& path);
+#endif // FORGE_DEBUG
 }
 
 template<typename T, typename Identifier>

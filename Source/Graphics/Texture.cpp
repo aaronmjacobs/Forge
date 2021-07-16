@@ -4,12 +4,12 @@
 
 #include "Graphics/Buffer.h"
 #include "Graphics/Command.h"
+#include "Graphics/DebugUtils.h"
 #include "Graphics/Memory.h"
 
 #include "Resources/LoadedImage.h"
 
 #include <cmath>
-#include <utility>
 
 namespace
 {
@@ -177,6 +177,17 @@ TextureInfo Texture::getInfo() const
 
    return info;
 }
+
+#if FORGE_DEBUG
+void Texture::setName(std::string_view newName)
+{
+   GraphicsResource::setName(newName);
+
+   NAME_OBJECT(image, name);
+   NAME_OBJECT(memory, name + " Memory");
+   NAME_OBJECT(defaultView, name + " Default View");
+}
+#endif // FORGE_DEBUG
 
 void Texture::createImage()
 {

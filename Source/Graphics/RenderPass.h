@@ -21,16 +21,21 @@ public:
 
    void updateAttachments(const RenderPassAttachments& passAttachments);
 
+#if FORGE_DEBUG
+   void setName(std::string_view newName) override;
+#endif // FORGE_DEBUG
+
 protected:
-   virtual void initializePipelines(vk::SampleCountFlagBits sampleCount) = 0;
    void initializeRenderPass(const RenderPassAttachments& passAttachments);
+   virtual void initializePipelines(vk::SampleCountFlagBits sampleCount) = 0;
    void initializeFramebuffers(const RenderPassAttachments& passAttachments);
 
    void terminateRenderPass();
-   void terminateFramebuffers();
    void terminatePipelines();
+   void terminateFramebuffers();
 
    virtual std::vector<vk::SubpassDependency> getSubpassDependencies() const = 0;
+   virtual void postUpdateAttachments() {}
 
    vk::RenderPass getRenderPass() const { return renderPass; }
    vk::Framebuffer getCurrentFramebuffer() const;

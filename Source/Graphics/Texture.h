@@ -98,6 +98,10 @@ public:
 
    TextureInfo getInfo() const;
 
+#if FORGE_DEBUG
+   void setName(std::string_view newName) override;
+#endif // FORGE_DEBUG
+
 private:
    void createImage();
    void copyBufferToImage(vk::Buffer buffer);

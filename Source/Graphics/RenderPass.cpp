@@ -1,5 +1,6 @@
 #include "Graphics/RenderPass.h"
 
+#include "Graphics/DebugUtils.h"
 #include "Graphics/Swapchain.h"
 
 namespace
@@ -169,7 +170,29 @@ void RenderPass::updateAttachments(const RenderPassAttachments& passAttachments)
    }
 
    lastPassAttachments = passAttachments;
+
+   postUpdateAttachments();
 }
+
+#if FORGE_DEBUG
+void RenderPass::setName(std::string_view newName)
+{
+   GraphicsResource::setName(newName);
+
+   NAME_OBJECT(pipelineLayout, name + " Pipeline Layout");
+   NAME_OBJECT(renderPass, name + " Render Pass");
+
+   for (std::size_t i = 0; i < framebuffers.size(); ++i)
+   {
+      NAME_OBJECT(framebuffers[i], name + " Framebuffer " + std::to_string(i));
+   }
+
+   for (std::size_t i = 0; i < pipelines.size(); ++i)
+   {
+      NAME_OBJECT(pipelines[i], name + " Pipeline " + std::to_string(i));
+   }
+}
+#endif // FORGE_DEBUG
 
 void RenderPass::initializeRenderPass(const RenderPassAttachments& passAttachments)
 {
@@ -345,18 +368,6 @@ void RenderPass::terminateRenderPass()
    }
 }
 
-void RenderPass::terminateFramebuffers()
-{
-   for (vk::Framebuffer framebuffer : framebuffers)
-   {
-      if (framebuffer)
-      {
-         device.destroyFramebuffer(framebuffer);
-      }
-   }
-   framebuffers.clear();
-}
-
 void RenderPass::terminatePipelines()
 {
    for (vk::Pipeline& pipeline : pipelines)
@@ -373,6 +384,18 @@ void RenderPass::terminatePipelines()
       device.destroyPipelineLayout(pipelineLayout);
       pipelineLayout = nullptr;
    }
+}
+
+void RenderPass::terminateFramebuffers()
+{
+   for (vk::Framebuffer framebuffer : framebuffers)
+   {
+      if (framebuffer)
+      {
+         device.destroyFramebuffer(framebuffer);
+      }
+   }
+   framebuffers.clear();
 }
 
 vk::Framebuffer RenderPass::getCurrentFramebuffer() const

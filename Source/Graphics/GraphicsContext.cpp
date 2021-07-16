@@ -2,6 +2,7 @@
 
 #include "Core/Log.h"
 
+#include "Graphics/DebugUtils.h"
 #include "Graphics/DescriptorSetLayoutCache.h"
 #include "Graphics/Swapchain.h"
 
@@ -423,6 +424,10 @@ GraphicsContext::GraphicsContext(Window& window)
    transientCommandPool = device.createCommandPool(commandPoolCreateInfo);
 
    layoutCache = std::make_unique<DescriptorSetLayoutCache>(*this);
+
+#if FORGE_DEBUG
+   DebugUtils::GetDynamicLoader().init(instance, device);
+#endif // FORGE_DEBUG
 }
 
 GraphicsContext::~GraphicsContext()

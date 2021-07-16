@@ -2,6 +2,7 @@
 
 #include "Core/Assert.h"
 
+#include "Graphics/DebugUtils.h"
 #include "Graphics/GraphicsContext.h"
 #include "Graphics/Swapchain.h"
 
@@ -30,6 +31,7 @@ namespace
       const char* kReleaseCursor = "ReleaseCursor";
 
       const char* kToggleMSAA = "ToggleMSAA";
+      const char* kToggleLabels = "ToggleLabels";
 
       const char* kMoveForward = "MoveForward";
       const char* kMoveRight = "MoveRight";
@@ -305,6 +307,7 @@ void ForgeApplication::initializeRenderer()
    renderer = std::make_unique<Renderer>(*context, *resourceManager);
 
    InputManager& inputManager = window->getInputManager();
+
    inputManager.createButtonMapping(InputActions::kToggleMSAA, KeyChord(Key::M), {}, {});
    inputManager.bindButtonMapping(InputActions::kToggleMSAA, [this](bool pressed)
    {
@@ -313,6 +316,17 @@ void ForgeApplication::initializeRenderer()
          renderer->toggleMSAA();
       }
    });
+
+#if FORGE_DEBUG
+   inputManager.createButtonMapping(InputActions::kToggleLabels, KeyChord(Key::L), {}, {});
+   inputManager.bindButtonMapping(InputActions::kToggleLabels, [](bool pressed)
+   {
+      if (pressed)
+      {
+         DebugUtils::SetLabelsEnabled(!DebugUtils::AreLabelsEnabled());
+      }
+   });
+#endif // FORGE_DEBUG
 }
 
 void ForgeApplication::terminateRenderer()

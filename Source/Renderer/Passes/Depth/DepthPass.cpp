@@ -1,5 +1,6 @@
 #include "Renderer/Passes/Depth/DepthPass.h"
 
+#include "Graphics/DebugUtils.h"
 #include "Graphics/Mesh.h"
 #include "Graphics/Pipeline.h"
 #include "Graphics/Swapchain.h"
@@ -10,7 +11,7 @@
 #include "Renderer/UniformData.h"
 
 DepthPass::DepthPass(const GraphicsContext& graphicsContext, ResourceManager& resourceManager)
-   : RenderPass(graphicsContext)
+   : SceneRenderPass(graphicsContext)
 {
    clearDepth = true;
    clearColor = false;
@@ -26,6 +27,8 @@ DepthPass::~DepthPass()
 
 void DepthPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo)
 {
+   SCOPED_LABEL("Depth pass");
+
    std::array<vk::ClearValue, 2> clearValues = { vk::ClearDepthStencilValue(1.0f, 0) };
 
    vk::RenderPassBeginInfo renderPassBeginInfo = vk::RenderPassBeginInfo()
@@ -35,30 +38,21 @@ void DepthPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& s
       .setClearValues(clearValues);
    commandBuffer.beginRenderPass(renderPassBeginInfo, vk::SubpassContents::eInline);
 
-   commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, pipelines[0]);
-
    depthShader->bindDescriptorSets(commandBuffer, sceneRenderInfo.view, pipelineLayout);
 
-   for (const MeshRenderInfo& meshRenderInfo : sceneRenderInfo.meshes)
-   {
-      if (!meshRenderInfo.visibleOpaqueSections.empty())
-      {
-         ASSERT(meshRenderInfo.mesh);
-
-         MeshUniformData meshUniformData;
-         meshUniformData.localToWorld = meshRenderInfo.localToWorld;
-         commandBuffer.pushConstants<MeshUniformData>(pipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, meshUniformData);
-
-         for (uint32_t section : meshRenderInfo.visibleOpaqueSections)
-         {
-            meshRenderInfo.mesh->bindBuffers(commandBuffer, section);
-            meshRenderInfo.mesh->draw(commandBuffer, section);
-         }
-      }
-   }
+   renderMeshes<BlendMode::Opaque>(commandBuffer, sceneRenderInfo);
 
    commandBuffer.endRenderPass();
 }
+
+#if FORGE_DEBUG
+void DepthPass::setName(std::string_view newName)
+{
+   SceneRenderPass::setName(newName);
+
+   NAME_OBJECT(pipelines[0], name + " Pipeline");
+}
+#endif // FORGE_DEBUG
 
 void DepthPass::initializePipelines(vk::SampleCountFlagBits sampleCount)
 {
@@ -86,4 +80,9 @@ std::vector<vk::SubpassDependency> DepthPass::getSubpassDependencies() const
       .setDstAccessMask(vk::AccessFlagBits::eDepthStencilAttachmentRead | vk::AccessFlagBits::eDepthStencilAttachmentWrite));
 
    return subpassDependencies;
+}
+
+void DepthPass::postUpdateAttachments()
+{
+   NAME_OBJECT(*this, "Depth Pass");
 }

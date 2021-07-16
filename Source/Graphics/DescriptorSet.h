@@ -9,11 +9,6 @@ class DescriptorSet : public GraphicsResource
 public:
    DescriptorSet(const GraphicsContext& graphicsContext, vk::DescriptorPool descriptorPool, const vk::DescriptorSetLayoutCreateInfo& createInfo);
 
-   vk::DescriptorSetLayout getLayout() const
-   {
-      return layout;
-   }
-
    vk::DescriptorSet getSet(uint32_t frameIndex) const
    {
       return sets[frameIndex];
@@ -24,8 +19,10 @@ public:
       return getSet(context.getFrameIndex());
    }
 
+#if FORGE_DEBUG
+   void setName(std::string_view newName) override;
+#endif // FORGE_DEBUG
+
 private:
-   vk::DescriptorPool pool;
-   vk::DescriptorSetLayout layout;
    std::vector<vk::DescriptorSet> sets;
 };

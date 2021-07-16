@@ -23,6 +23,13 @@ ShaderModuleHandle ShaderModuleResourceManager::load(const std::filesystem::path
          ShaderModuleHandle handle = emplaceResource(context, *sourceData);
          cacheHandle(canonicalPathString, handle);
 
+#if FORGE_DEBUG
+         if (ShaderModule* shaderModule = get(handle))
+         {
+            shaderModule->setName(ResourceHelpers::getName(*canonicalPath));
+         }
+#endif // FORGE_DEBUG
+
          return handle;
       }
    }

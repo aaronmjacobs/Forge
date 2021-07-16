@@ -1,5 +1,6 @@
 #include "Renderer/Renderer.h"
 
+#include "Graphics/DebugUtils.h"
 #include "Graphics/Swapchain.h"
 #include "Graphics/Texture.h"
 
@@ -354,22 +355,29 @@ Renderer::~Renderer()
 
 void Renderer::render(vk::CommandBuffer commandBuffer, const Scene& scene)
 {
+   SCOPED_LABEL("Scene");
+
    vk::Extent2D swapchainExtent = context.getSwapchain().getExtent();
 
-   vk::Viewport viewport = vk::Viewport()
-      .setX(0.0f)
-      .setY(0.0f)
-      .setWidth(static_cast<float>(swapchainExtent.width))
-      .setHeight(static_cast<float>(swapchainExtent.height))
-      .setMinDepth(0.0f)
-      .setMaxDepth(1.0f);
-   commandBuffer.setViewport(0, viewport);
+   {
+      SCOPED_LABEL("Set viewport");
 
-   vk::Rect2D scissor = vk::Rect2D()
-      .setOffset(vk::Offset2D(0, 0))
-      .setExtent(swapchainExtent);
-   commandBuffer.setScissor(0, scissor);
+      vk::Viewport viewport = vk::Viewport()
+         .setX(0.0f)
+         .setY(0.0f)
+         .setWidth(static_cast<float>(swapchainExtent.width))
+         .setHeight(static_cast<float>(swapchainExtent.height))
+         .setMinDepth(0.0f)
+         .setMaxDepth(1.0f);
+      commandBuffer.setViewport(0, viewport);
 
+      vk::Rect2D scissor = vk::Rect2D()
+         .setOffset(vk::Offset2D(0, 0))
+         .setExtent(swapchainExtent);
+      commandBuffer.setScissor(0, scissor);
+   }
+
+   INLINE_LABEL("Update view");
    view->update(scene);
    SceneRenderInfo sceneRenderInfo = computeSceneRenderInfo(resourceManager, scene, *view);
 
@@ -381,6 +389,9 @@ void Renderer::onSwapchainRecreated()
 {
    colorTexture = createColorTexture(context, enableMSAA);
    depthTexture = createDepthTexture(context, enableMSAA);
+
+   NAME_OBJECT(*colorTexture, "Color Texture");
+   NAME_OBJECT(*depthTexture, "Depth Texture");
 
    updateRenderPassAttachments();
 }

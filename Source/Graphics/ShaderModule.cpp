@@ -2,6 +2,8 @@
 
 #include "Core/Assert.h"
 
+#include "Graphics/DebugUtils.h"
+
 ShaderModule::ShaderModule(const GraphicsContext& graphicsContext, std::span<const uint8_t> code)
    : GraphicsResource(graphicsContext)
 {
@@ -19,3 +21,12 @@ ShaderModule::~ShaderModule()
    ASSERT(shaderModule);
    device.destroyShaderModule(shaderModule);
 }
+
+#if FORGE_DEBUG
+void ShaderModule::setName(std::string_view newName)
+{
+   GraphicsResource::setName(newName);
+
+   NAME_OBJECT(shaderModule, name);
+}
+#endif // FORGE_DEBUG

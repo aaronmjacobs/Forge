@@ -1,5 +1,6 @@
 #include "Renderer/Passes/Forward/ForwardPass.h"
 
+#include "Graphics/DebugUtils.h"
 #include "Graphics/Mesh.h"
 #include "Graphics/Pipeline.h"
 #include "Graphics/Swapchain.h"
@@ -18,7 +19,7 @@ namespace
 }
 
 ForwardPass::ForwardPass(const GraphicsContext& graphicsContext, vk::DescriptorPool descriptorPool, ResourceManager& resourceManager)
-   : RenderPass(graphicsContext)
+   : SceneRenderPass(graphicsContext)
    , lighting(graphicsContext, descriptorPool)
 {
    clearDepth = false;
@@ -35,6 +36,8 @@ ForwardPass::~ForwardPass()
 
 void ForwardPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo)
 {
+   SCOPED_LABEL("Forward pass");
+
    std::array<float, 4> clearColorValues = { 0.0f, 0.0f, 0.0f, 1.0f };
    std::array<vk::ClearValue, 2> clearValues = { vk::ClearDepthStencilValue(1.0f, 0), vk::ClearColorValue(clearColorValues) };
 
@@ -45,13 +48,33 @@ void ForwardPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo&
       .setClearValues(clearValues);
    commandBuffer.beginRenderPass(renderPassBeginInfo, vk::SubpassContents::eInline);
 
+   INLINE_LABEL("Update lighting");
    lighting.update(sceneRenderInfo);
 
-   renderMeshes<false>(commandBuffer, sceneRenderInfo);
-   renderMeshes<true>(commandBuffer, sceneRenderInfo);
+   {
+      SCOPED_LABEL("Opaque");
+      renderMeshes<BlendMode::Opaque>(commandBuffer, sceneRenderInfo);
+   }
+
+   {
+      SCOPED_LABEL("Translucent");
+      renderMeshes<BlendMode::Translucent>(commandBuffer, sceneRenderInfo);
+   }
 
    commandBuffer.endRenderPass();
 }
+
+#if FORGE_DEBUG
+void ForwardPass::setName(std::string_view newName)
+{
+   SceneRenderPass::setName(newName);
+
+   NAME_OBJECT(pipelines[getForwardPipelineIndex(false, false)], name + " Pipeline (Without Textures, Without Blending)");
+   NAME_OBJECT(pipelines[getForwardPipelineIndex(true, false)], name + " Pipeline (With Textures, Without Blending)");
+   NAME_OBJECT(pipelines[getForwardPipelineIndex(true, true)], name + " Pipeline (With Textures, With Blending)");
+   NAME_OBJECT(pipelines[getForwardPipelineIndex(false, true)], name + " Pipeline (Without Textures, With Blending)");
+}
+#endif // FORGE_DEBUG
 
 void ForwardPass::initializePipelines(vk::SampleCountFlagBits sampleCount)
 {
@@ -108,40 +131,16 @@ std::vector<vk::SubpassDependency> ForwardPass::getSubpassDependencies() const
    return subpassDependencies;
 }
 
-template<bool translucency>
-void ForwardPass::renderMeshes(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo)
+void ForwardPass::postUpdateAttachments()
 {
-   vk::Pipeline lastPipeline;
-   for (const MeshRenderInfo& meshRenderInfo : sceneRenderInfo.meshes)
-   {
-      const std::vector<uint32_t>& sections = translucency ? meshRenderInfo.visibleTranslucentSections : meshRenderInfo.visibleOpaqueSections;
-      if (!sections.empty())
-      {
-         ASSERT(meshRenderInfo.mesh);
+   NAME_OBJECT(*this, "Forward Pass");
+}
 
-         MeshUniformData meshUniformData;
-         meshUniformData.localToWorld = meshRenderInfo.localToWorld;
-         commandBuffer.pushConstants<MeshUniformData>(pipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, meshUniformData);
+void ForwardPass::renderMesh(vk::CommandBuffer commandBuffer, const View& view, const Mesh& mesh, uint32_t section, const Material& material)
+{
+   forwardShader->bindDescriptorSets(commandBuffer, pipelineLayout, view, lighting, material);
 
-         for (uint32_t section : sections)
-         {
-            const Material* material = meshRenderInfo.materials[section];
-            ASSERT(material);
-
-            vk::Pipeline desiredPipeline = selectPipeline(meshRenderInfo.mesh->getSection(section), *material);
-            if (desiredPipeline != lastPipeline)
-            {
-               commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, desiredPipeline);
-               lastPipeline = desiredPipeline;
-            }
-
-            forwardShader->bindDescriptorSets(commandBuffer, pipelineLayout, sceneRenderInfo.view, lighting, *material);
-
-            meshRenderInfo.mesh->bindBuffers(commandBuffer, section);
-            meshRenderInfo.mesh->draw(commandBuffer, section);
-         }
-      }
-   }
+   SceneRenderPass::renderMesh(commandBuffer, view, mesh, section, material);
 }
 
 vk::Pipeline ForwardPass::selectPipeline(const MeshSection& meshSection, const Material& material) const

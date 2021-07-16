@@ -155,7 +155,13 @@ std::unique_ptr<Material> MaterialResourceManager::createMaterial(const Material
 
    if (diffuseTexture && normalTexture)
    {
-      return std::make_unique<PhongMaterial>(context, descriptorPool, sampler, *diffuseTexture, *normalTexture);
+      std::unique_ptr<Material> material = std::make_unique<PhongMaterial>(context, descriptorPool, sampler, *diffuseTexture, *normalTexture);
+
+#if FORGE_DEBUG
+      material->setName("Phong Material (Diffuse = " + diffuseTexture->getName() + ", Normal = " + normalTexture->getName() + ")");
+#endif // FORGE_DEBUG
+
+      return material;
    }
 
    return nullptr;

@@ -25,7 +25,6 @@ class DescriptorSetLayoutCache : public GraphicsResource
 {
 public:
    DescriptorSetLayoutCache(const GraphicsContext& graphicsContext);
-
    ~DescriptorSetLayoutCache();
 
    vk::DescriptorSetLayout getLayout(const vk::DescriptorSetLayoutCreateInfo& createInfo);

@@ -1,5 +1,6 @@
 #include "Renderer/View.h"
 
+#include "Graphics/DebugUtils.h"
 #include "Graphics/DescriptorSetLayoutCache.h"
 
 #include "Math/MathUtils.h"
@@ -68,6 +69,8 @@ View::View(const GraphicsContext& graphicsContext, vk::DescriptorPool descriptor
    , uniformBuffer(graphicsContext)
    , descriptorSet(graphicsContext, descriptorPool, getLayoutCreateInfo())
 {
+   NAME_OBJECT(uniformBuffer, "View");
+   NAME_OBJECT(descriptorSet, "View");
 }
 
 void View::update(const Scene& scene)
