@@ -69,7 +69,7 @@ public:
    ~Texture();
 
    vk::ImageView createView(vk::ImageViewType viewType) const;
-   void transitionLayout(vk::ImageLayout newLayout, const TextureMemoryBarrierFlags& srcMemoryBarrierFlags, const TextureMemoryBarrierFlags& dstMemoryBarrierFlags);
+   void transitionLayout(vk::CommandBuffer commandBuffer, vk::ImageLayout newLayout, const TextureMemoryBarrierFlags& srcMemoryBarrierFlags, const TextureMemoryBarrierFlags& dstMemoryBarrierFlags);
 
    vk::ImageView getDefaultView() const
    {

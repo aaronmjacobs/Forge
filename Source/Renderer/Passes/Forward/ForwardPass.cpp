@@ -103,7 +103,7 @@ void ForwardPass::initializePipelines(vk::SampleCountFlagBits sampleCount)
    std::vector<vk::PipelineColorBlendAttachmentState> colorBlendDisabledAttachments = { colorBlendDisabledAttachmentState };
    std::vector<vk::PipelineColorBlendAttachmentState> colorBlendEnabledAttachments = { colorBlendEnabledAttachmentState };
 
-   PipelineData pipelineData(context, pipelineLayout, getRenderPass(), shaderStagesWithoutTextures, colorBlendDisabledAttachments, sampleCount);
+   PipelineData pipelineData(context, pipelineLayout, getRenderPass(), PipelinePassType::Mesh, shaderStagesWithoutTextures, colorBlendDisabledAttachments, sampleCount);
    pipelines[getForwardPipelineIndex(false, false)] = device.createGraphicsPipeline(nullptr, pipelineData.getCreateInfo()).value;
 
    pipelineData.setShaderStages(shaderStagesWithTextures);

@@ -10,6 +10,8 @@ set(SHADER_SOURCE_FILES
    "${SHADER_DIR}/Depth.vert"
    "${SHADER_DIR}/Forward.frag"
    "${SHADER_DIR}/Forward.vert"
+   "${SHADER_DIR}/Tonemap.frag"
+   "${SHADER_DIR}/Screen.vert"
 )
 
 find_program(GLSLC glslc)

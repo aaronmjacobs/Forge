@@ -1,5 +1,7 @@
 #include "Graphics/Swapchain.h"
 
+#include "Graphics/DebugUtils.h"
+
 namespace
 {
    vk::SurfaceFormatKHR chooseSurfaceFormat(const std::vector<vk::SurfaceFormatKHR>& formats)
@@ -130,9 +132,14 @@ Swapchain::Swapchain(const GraphicsContext& graphicsContext, vk::Extent2D desire
    images = context.getDevice().getSwapchainImagesKHR(swapchainKHR);
 
    imageViews.reserve(images.size());
+   uint32_t index = 0;
    for (vk::Image image : images)
    {
       imageViews.push_back(createImageView(context, image, format));
+
+      NAME_OBJECT(images[index], "Swapchain Image " + std::to_string(index));
+      NAME_OBJECT(imageViews[index], "Swapchain Image View " + std::to_string(index));
+      ++index;
    }
 }
 

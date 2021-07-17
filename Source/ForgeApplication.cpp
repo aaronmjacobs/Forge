@@ -498,7 +498,7 @@ void ForgeApplication::loadScene()
       pointLightEntity.createComponent<TransformComponent>();
 
       PointLightComponent& pointLightComponent = pointLightEntity.createComponent<PointLightComponent>();
-      pointLightComponent.setColor(glm::vec3(0.1f, 0.3f, 0.8f) * 5.0f);
+      pointLightComponent.setColor(glm::vec3(0.1f, 0.3f, 0.8f) * 20.0f);
       pointLightComponent.setRadius(30.0f);
 
       scene.addTickDelegate([this, pointLightEntity](float dt) mutable
@@ -515,7 +515,7 @@ void ForgeApplication::loadScene()
       spotLightEntity.createComponent<TransformComponent>();
 
       SpotLightComponent& spotLightComponent = spotLightEntity.createComponent<SpotLightComponent>();
-      spotLightComponent.setColor(glm::vec3(0.8f, 0.1f, 0.3f) * 10.0f);
+      spotLightComponent.setColor(glm::vec3(0.8f, 0.1f, 0.3f) * 30.0f);
       spotLightComponent.setRadius(10.0f);
 
       scene.addTickDelegate([this, spotLightEntity](float dt) mutable

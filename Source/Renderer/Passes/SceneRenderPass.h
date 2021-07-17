@@ -63,6 +63,12 @@ protected:
       mesh.draw(commandBuffer, section);
    }
 
+   void renderScreenMesh(vk::CommandBuffer commandBuffer, vk::Pipeline pipeline)
+   {
+      commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline);
+      commandBuffer.draw(3, 1, 0, 0);
+   }
+
    vk::Pipeline selectPipeline(const MeshSection& meshSection, const Material& material) const
    {
       return nullptr;

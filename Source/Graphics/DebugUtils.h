@@ -60,6 +60,7 @@ namespace DebugUtils
 #  define INLINE_COLORED_LABEL(label_name, color_value) DebugUtils::InsertInlineLabel(commandBuffer, label_name, color_value)
 
 #  define NAME_OBJECT(object_variable, object_name) DebugUtils::setObjectName(device, object_variable, object_name)
+#  define NAME_POINTER(object_pointer, object_name) do { if (object_pointer) { NAME_OBJECT(*object_pointer, object_name); } } while(0)
 
 #else
 
@@ -70,5 +71,6 @@ namespace DebugUtils
 #  define INLINE_COLORED_LABEL(label_name, color_value) FORGE_NO_OP
 
 #  define NAME_OBJECT(object_variable, object_name) FORGE_NO_OP
+#  define NAME_POINTER(object_pointer, object_name) FORGE_NO_OP
 
 #endif

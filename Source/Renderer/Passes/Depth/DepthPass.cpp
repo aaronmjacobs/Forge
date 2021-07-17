@@ -63,7 +63,7 @@ void DepthPass::initializePipelines(vk::SampleCountFlagBits sampleCount)
       .setPushConstantRanges(pushConstantRanges);
    pipelineLayout = device.createPipelineLayout(pipelineLayoutCreateInfo);
 
-   PipelineData pipelineData(context, pipelineLayout, getRenderPass(), depthShader->getStages(), {}, sampleCount);
+   PipelineData pipelineData(context, pipelineLayout, getRenderPass(), PipelinePassType::Mesh, depthShader->getStages(), {}, sampleCount);
    pipelines[0] = device.createGraphicsPipeline(nullptr, pipelineData.getCreateInfo()).value;
 }
 

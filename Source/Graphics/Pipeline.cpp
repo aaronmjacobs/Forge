@@ -6,7 +6,7 @@
 
 #include <utility>
 
-PipelineData::PipelineData(const GraphicsContext& context, vk::PipelineLayout layout, vk::RenderPass renderPass, std::vector<vk::PipelineShaderStageCreateInfo> shaderStages, std::vector<vk::PipelineColorBlendAttachmentState> colorBlendStates, vk::SampleCountFlagBits sampleCount)
+PipelineData::PipelineData(const GraphicsContext& context, vk::PipelineLayout layout, vk::RenderPass renderPass, PipelinePassType passType, std::vector<vk::PipelineShaderStageCreateInfo> shaderStages, std::vector<vk::PipelineColorBlendAttachmentState> colorBlendStates, vk::SampleCountFlagBits sampleCount)
 {
    vk::Extent2D swapchainExtent = context.getSwapchain().getExtent();
 
@@ -27,9 +27,12 @@ PipelineData::PipelineData(const GraphicsContext& context, vk::PipelineLayout la
    bool hasColorOutput = !colorBlendAttachmentStates.empty();
    const std::vector<vk::VertexInputBindingDescription>& vertexBindingDescriptions = Vertex::getBindingDescriptions();
    const std::vector<vk::VertexInputAttributeDescription>& vertexAttributeDescriptions = Vertex::getAttributeDescriptions(!hasColorOutput);
-   vertexInputStateCreateInfo = vk::PipelineVertexInputStateCreateInfo()
-      .setVertexBindingDescriptions(vertexBindingDescriptions)
-      .setVertexAttributeDescriptions(vertexAttributeDescriptions);
+   if (passType == PipelinePassType::Mesh)
+   {
+      vertexInputStateCreateInfo = vk::PipelineVertexInputStateCreateInfo()
+         .setVertexBindingDescriptions(vertexBindingDescriptions)
+         .setVertexAttributeDescriptions(vertexAttributeDescriptions);
+   }
 
    inputAssemblyStateCreateInfo = vk::PipelineInputAssemblyStateCreateInfo()
       .setTopology(vk::PrimitiveTopology::eTriangleList);
@@ -50,7 +53,7 @@ PipelineData::PipelineData(const GraphicsContext& context, vk::PipelineLayout la
       .setMinSampleShading(0.2f);
 
    depthStencilStateCreateInfo = vk::PipelineDepthStencilStateCreateInfo()
-      .setDepthTestEnable(true)
+      .setDepthTestEnable(passType == PipelinePassType::Mesh)
       .setDepthWriteEnable(!hasColorOutput)
       .setDepthCompareOp(hasColorOutput ? vk::CompareOp::eLessOrEqual : vk::CompareOp::eLess)
       .setDepthBoundsTestEnable(false)

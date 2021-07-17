@@ -16,6 +16,7 @@ class Scene;
 class SimpleRenderPass;
 class Swapchain;
 class Texture;
+class TonemapPass;
 class View;
 
 class Renderer : public GraphicsResource
@@ -39,11 +40,13 @@ private:
 
    std::unique_ptr<View> view;
 
-   std::unique_ptr<Texture> colorTexture;
    std::unique_ptr<Texture> depthTexture;
+   std::unique_ptr<Texture> hdrColorTexture;
+   std::unique_ptr<Texture> hdrResolveTexture;
 
    std::unique_ptr<DepthPass> depthPass;
    std::unique_ptr<ForwardPass> forwardPass;
+   std::unique_ptr<TonemapPass> tonemapPass;
 
    bool enableMSAA = false;
 };

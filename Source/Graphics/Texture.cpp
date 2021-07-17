@@ -73,7 +73,7 @@ Texture::Texture(const GraphicsContext& graphicsContext, const ImageProperties& 
    createImage();
    defaultView = createView(getDefaultViewType(imageProperties));
 
-   transitionLayout(initialLayout.layout, TextureMemoryBarrierFlags(vk::AccessFlags(), vk::PipelineStageFlagBits::eTopOfPipe), initialLayout.memoryBarrierFlags);
+   transitionLayout(nullptr, initialLayout.layout, TextureMemoryBarrierFlags(vk::AccessFlags(), vk::PipelineStageFlagBits::eTopOfPipe), initialLayout.memoryBarrierFlags);
 }
 
 Texture::Texture(const GraphicsContext& graphicsContext, const LoadedImage& loadedImage, const TextureProperties& textureProps, const TextureInitialLayout& initialLayout)
@@ -98,7 +98,7 @@ Texture::Texture(const GraphicsContext& graphicsContext, const LoadedImage& load
    }
    else
    {
-      transitionLayout(initialLayout.layout, TextureMemoryBarrierFlags(vk::AccessFlagBits::eTransferWrite, vk::PipelineStageFlagBits::eTransfer), initialLayout.memoryBarrierFlags);
+      transitionLayout(nullptr, initialLayout.layout, TextureMemoryBarrierFlags(vk::AccessFlagBits::eTransferWrite, vk::PipelineStageFlagBits::eTransfer), initialLayout.memoryBarrierFlags);
    }
 }
 
@@ -132,12 +132,10 @@ vk::ImageView Texture::createView(vk::ImageViewType viewType) const
    return device.createImageView(createInfo);
 }
 
-void Texture::transitionLayout(vk::ImageLayout newLayout, const TextureMemoryBarrierFlags& srcMemoryBarrierFlags, const TextureMemoryBarrierFlags& dstMemoryBarrierFlags)
+void Texture::transitionLayout(vk::CommandBuffer commandBuffer, vk::ImageLayout newLayout, const TextureMemoryBarrierFlags& srcMemoryBarrierFlags, const TextureMemoryBarrierFlags& dstMemoryBarrierFlags)
 {
    if (layout != newLayout)
    {
-      vk::CommandBuffer commandBuffer = Command::beginSingle(context);
-
       vk::ImageSubresourceRange subresourceRange = vk::ImageSubresourceRange()
          .setAspectMask(textureProperties.aspects)
          .setBaseMipLevel(0)
@@ -156,9 +154,19 @@ void Texture::transitionLayout(vk::ImageLayout newLayout, const TextureMemoryBar
          .setSrcAccessMask(srcMemoryBarrierFlags.accessMask)
          .setDstAccessMask(dstMemoryBarrierFlags.accessMask);
 
+      bool singleCommandBuffer = false;
+      if (!commandBuffer)
+      {
+         singleCommandBuffer = true;
+         commandBuffer = Command::beginSingle(context);
+      }
+
       commandBuffer.pipelineBarrier(srcMemoryBarrierFlags.stageMask, dstMemoryBarrierFlags.stageMask, vk::DependencyFlags(), nullptr, nullptr, { barrier });
 
-      Command::endSingle(context, commandBuffer);
+      if (singleCommandBuffer)
+      {
+         Command::endSingle(context, commandBuffer);
+      }
 
       layout = newLayout;
    }
@@ -242,7 +250,7 @@ void Texture::copyBufferToImage(vk::Buffer buffer)
 
 void Texture::stageAndCopyImage(const LoadedImage& loadedImage)
 {
-   transitionLayout(vk::ImageLayout::eTransferDstOptimal, TextureMemoryBarrierFlags(vk::AccessFlags(), vk::PipelineStageFlagBits::eTopOfPipe), TextureMemoryBarrierFlags(vk::AccessFlagBits::eTransferWrite, vk::PipelineStageFlagBits::eTransfer));
+   transitionLayout(nullptr, vk::ImageLayout::eTransferDstOptimal, TextureMemoryBarrierFlags(vk::AccessFlags(), vk::PipelineStageFlagBits::eTopOfPipe), TextureMemoryBarrierFlags(vk::AccessFlagBits::eTransferWrite, vk::PipelineStageFlagBits::eTransfer));
 
    vk::Buffer stagingBuffer;
    vk::DeviceMemory stagingBufferMemory;

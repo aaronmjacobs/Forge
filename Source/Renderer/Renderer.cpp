@@ -8,6 +8,7 @@
 
 #include "Renderer/Passes/Depth/DepthPass.h"
 #include "Renderer/Passes/Forward/ForwardPass.h"
+#include "Renderer/Passes/PostProcess/Tonemap/TonemapPass.h"
 #include "Renderer/SceneRenderInfo.h"
 #include "Renderer/View.h"
 
@@ -41,18 +42,26 @@ namespace
       return vk::SampleCountFlagBits::e1;
    }
 
-   std::unique_ptr<Texture> createColorTexture(const GraphicsContext& context, bool enableMSAA)
+   std::unique_ptr<Texture> createColorTexture(const GraphicsContext& context, vk::Format format, bool canBeSampled, bool enableMSAA)
    {
       const Swapchain& swapchain = context.getSwapchain();
 
       ImageProperties colorImageProperties;
-      colorImageProperties.format = swapchain.getFormat();
+      colorImageProperties.format = format;
       colorImageProperties.width = swapchain.getExtent().width;
       colorImageProperties.height = swapchain.getExtent().height;
 
       TextureProperties colorTextureProperties;
       colorTextureProperties.sampleCount = enableMSAA ? getMaxSampleCount(context) : vk::SampleCountFlagBits::e1;
-      colorTextureProperties.usage = vk::ImageUsageFlagBits::eTransientAttachment | vk::ImageUsageFlagBits::eColorAttachment;
+      colorTextureProperties.usage = vk::ImageUsageFlagBits::eColorAttachment;
+      if (canBeSampled)
+      {
+         colorTextureProperties.usage |= vk::ImageUsageFlagBits::eSampled;
+      }
+      else
+      {
+         colorTextureProperties.usage |= vk::ImageUsageFlagBits::eTransientAttachment;
+      }
       colorTextureProperties.aspects = vk::ImageAspectFlagBits::eColor;
 
       TextureInitialLayout colorInitialLayout;
@@ -314,7 +323,7 @@ Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& reso
 {
    {
       static const uint32_t kMaxUniformBuffers = 2;
-      static const uint32_t kMaxSets = 2; // TODO
+      static const uint32_t kMaxSets = 3; // TODO
 
       vk::DescriptorPoolSize uniformPoolSize = vk::DescriptorPoolSize()
          .setType(vk::DescriptorType::eUniformBuffer)
@@ -334,6 +343,7 @@ Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& reso
    {
       depthPass = std::make_unique<DepthPass>(context, resourceManager);
       forwardPass = std::make_unique<ForwardPass>(context, descriptorPool, resourceManager);
+      tonemapPass = std::make_unique<TonemapPass>(context, descriptorPool, resourceManager);
    }
 
    onSwapchainRecreated();
@@ -341,11 +351,13 @@ Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& reso
 
 Renderer::~Renderer()
 {
-   forwardPass = nullptr;
    depthPass = nullptr;
+   forwardPass = nullptr;
+   tonemapPass = nullptr;
 
    depthTexture = nullptr;
-   colorTexture = nullptr;
+   hdrColorTexture = nullptr;
+   hdrResolveTexture = nullptr;
 
    view = nullptr;
 
@@ -383,15 +395,25 @@ void Renderer::render(vk::CommandBuffer commandBuffer, const Scene& scene)
 
    depthPass->render(commandBuffer, sceneRenderInfo);
    forwardPass->render(commandBuffer, sceneRenderInfo);
+   tonemapPass->render(commandBuffer, hdrResolveTexture ? *hdrResolveTexture : *hdrColorTexture);
 }
 
 void Renderer::onSwapchainRecreated()
 {
-   colorTexture = createColorTexture(context, enableMSAA);
    depthTexture = createDepthTexture(context, enableMSAA);
+   hdrColorTexture = createColorTexture(context, vk::Format::eR16G16B16A16Sfloat, !enableMSAA, enableMSAA);
+   if (enableMSAA)
+   {
+      hdrResolveTexture = createColorTexture(context, vk::Format::eR16G16B16A16Sfloat, true, false);
+   }
+   else
+   {
+      hdrResolveTexture = nullptr;
+   }
 
-   NAME_OBJECT(*colorTexture, "Color Texture");
-   NAME_OBJECT(*depthTexture, "Depth Texture");
+   NAME_POINTER(depthTexture, "Depth Texture");
+   NAME_POINTER(hdrColorTexture, "HDR Color Texture");
+   NAME_POINTER(hdrResolveTexture, "HDR Resolve Texture");
 
    updateRenderPassAttachments();
 }
@@ -412,23 +434,21 @@ void Renderer::updateRenderPassAttachments()
    }
 
    {
-      std::vector<TextureInfo> colorInfo;
-      std::vector<TextureInfo> resolveInfo;
-      if (colorTexture->getInfo().sampleCount == vk::SampleCountFlagBits::e1)
-      {
-         colorInfo.push_back(context.getSwapchain().getTextureInfo());
-      }
-      else
-      {
-         colorInfo.push_back(colorTexture->getInfo());
-         resolveInfo.push_back(context.getSwapchain().getTextureInfo());
-      }
-
       RenderPassAttachments forwardPassAttachments;
       forwardPassAttachments.depthInfo = depthTexture->getInfo();
-      forwardPassAttachments.colorInfo = colorInfo;
-      forwardPassAttachments.resolveInfo = resolveInfo;
+      forwardPassAttachments.colorInfo = { hdrColorTexture->getInfo() };
+      if (hdrResolveTexture)
+      {
+         forwardPassAttachments.resolveInfo = { hdrResolveTexture->getInfo() };
+      }
 
       forwardPass->updateAttachments(forwardPassAttachments);
+   }
+
+   {
+      RenderPassAttachments tonemapPassAttachments;
+      tonemapPassAttachments.colorInfo = { context.getSwapchain().getTextureInfo() };
+
+      tonemapPass->updateAttachments(tonemapPassAttachments);
    }
 }

@@ -6,6 +6,12 @@
 
 class GraphicsContext;
 
+enum class PipelinePassType
+{
+   Mesh,
+   Screen
+};
+
 class PipelineDataBase
 {
 protected:
@@ -31,7 +37,7 @@ protected:
 class PipelineData : public PipelineDataBase
 {
 public:
-   PipelineData(const GraphicsContext& context, vk::PipelineLayout layout, vk::RenderPass renderPass, std::vector<vk::PipelineShaderStageCreateInfo> shaderStages, std::vector<vk::PipelineColorBlendAttachmentState> colorBlendStates, vk::SampleCountFlagBits sampleCount);
+   PipelineData(const GraphicsContext& context, vk::PipelineLayout layout, vk::RenderPass renderPass, PipelinePassType passType, std::vector<vk::PipelineShaderStageCreateInfo> shaderStages, std::vector<vk::PipelineColorBlendAttachmentState> colorBlendStates, vk::SampleCountFlagBits sampleCount);
    PipelineData(const PipelineData& other);
    PipelineData(PipelineData&& other);
 
