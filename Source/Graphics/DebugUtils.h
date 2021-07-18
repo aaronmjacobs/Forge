@@ -6,7 +6,11 @@
 
 #  include "Graphics/GraphicsResource.h"
 
-#  include <bit>
+#  if defined(__cpp_lib_bit_cast)
+#     include <bit>
+#  else
+#     include <cstring>
+#  endif
 #  include <string>
 #  include <type_traits>
 
@@ -17,16 +21,24 @@ namespace DebugUtils
    bool AreLabelsEnabled();
    void SetLabelsEnabled(bool enabled);
 
-   template<typename ObjectType>
-   void setObjectName(vk::Device device, ObjectType& object, const char* name) requires std::is_base_of<GraphicsResource, ObjectType>::value
+   template<typename ObjectType, std::enable_if_t<std::is_base_of<GraphicsResource, ObjectType>::value, int*> = nullptr>
+   void setObjectName(vk::Device device, ObjectType& object, const char* name)
    {
       object.setName(name);
    }
 
-   template<typename ObjectType>
-   void setObjectName(vk::Device device, ObjectType& object, const char* name) requires !std::is_base_of<GraphicsResource, ObjectType>::value
+   template<typename ObjectType, std::enable_if_t<!std::is_base_of<GraphicsResource, ObjectType>::value, int*> = nullptr>
+   void setObjectName(vk::Device device, ObjectType& object, const char* name)
    {
-      vk::DebugUtilsObjectNameInfoEXT nameInfo(ObjectType::objectType, std::bit_cast<uint64_t>(object), name);
+      uint64_t handle = 0;
+#if defined(__cpp_lib_bit_cast)
+      handle = std::bit_cast<uint64_t>(object);
+#else
+      static_assert(sizeof(handle) == sizeof(object), "Trying to set name for object of invalid type");
+      std::memcpy(&handle, &object, sizeof(handle));
+#endif
+
+      vk::DebugUtilsObjectNameInfoEXT nameInfo(ObjectType::objectType, handle, name);
       device.setDebugUtilsObjectNameEXT(nameInfo, GetDynamicLoader());
    }
 
