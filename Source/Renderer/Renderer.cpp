@@ -323,14 +323,21 @@ Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& reso
 {
    {
       static const uint32_t kMaxUniformBuffers = 2;
+      static const uint32_t kMaxImages = 1; // TODO
       static const uint32_t kMaxSets = 3; // TODO
 
       vk::DescriptorPoolSize uniformPoolSize = vk::DescriptorPoolSize()
          .setType(vk::DescriptorType::eUniformBuffer)
          .setDescriptorCount(kMaxUniformBuffers * GraphicsContext::kMaxFramesInFlight);
 
+      vk::DescriptorPoolSize samplerPoolSize = vk::DescriptorPoolSize()
+         .setType(vk::DescriptorType::eCombinedImageSampler)
+         .setDescriptorCount(kMaxImages * GraphicsContext::kMaxFramesInFlight);
+
+      std::array<vk::DescriptorPoolSize, 2> poolSizes = { uniformPoolSize, samplerPoolSize };
+
       vk::DescriptorPoolCreateInfo createInfo = vk::DescriptorPoolCreateInfo()
-         .setPoolSizes(uniformPoolSize)
+         .setPoolSizes(poolSizes)
          .setMaxSets(kMaxSets * GraphicsContext::kMaxFramesInFlight);
       descriptorPool = device.createDescriptorPool(createInfo);
    }
