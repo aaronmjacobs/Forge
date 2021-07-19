@@ -6,7 +6,6 @@
 #include "Graphics/DebugUtils.h"
 #include "Graphics/GraphicsContext.h"
 #include "Graphics/Memory.h"
-#include "Graphics/Swapchain.h"
 
 #include <cstring>
 

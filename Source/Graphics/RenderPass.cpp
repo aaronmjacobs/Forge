@@ -292,7 +292,7 @@ void RenderPass::initializeFramebuffers(const RenderPassAttachments& passAttachm
    const std::vector<vk::ImageView>& swapchainImageViews = context.getSwapchain().getImageViews();
    for (uint32_t i = 0; i < numFramebuffers; ++i)
    {
-      std::optional<vk::Extent2D> framebufferExtent;
+      std::optional<vk::Extent2D> newFramebufferExtent;
 
       std::vector<vk::ImageView> attachments;
       attachments.reserve((passAttachments.depthInfo ? 1 : 0) + passAttachments.colorInfo.size() + passAttachments.resolveInfo.size());
@@ -303,7 +303,7 @@ void RenderPass::initializeFramebuffers(const RenderPassAttachments& passAttachm
          ASSERT(passAttachments.depthInfo->view);
          attachments.push_back(passAttachments.depthInfo->view);
 
-         framebufferExtent = vk::Extent2D(passAttachments.depthInfo->extent);
+         newFramebufferExtent = vk::Extent2D(passAttachments.depthInfo->extent);
       }
 
       for (const TextureInfo& colorInfo : passAttachments.colorInfo)
@@ -313,16 +313,16 @@ void RenderPass::initializeFramebuffers(const RenderPassAttachments& passAttachm
             ASSERT(hasSwapchainAttachment);
             attachments.push_back(swapchainImageViews[i]);
 
-            ASSERT(!framebufferExtent || framebufferExtent.value() == swapchainExtent);
-            framebufferExtent = swapchainExtent;
+            ASSERT(!newFramebufferExtent || newFramebufferExtent.value() == swapchainExtent);
+            newFramebufferExtent = swapchainExtent;
          }
          else
          {
             ASSERT(colorInfo.view);
             attachments.push_back(colorInfo.view);
 
-            ASSERT(!framebufferExtent || framebufferExtent.value() == colorInfo.extent);
-            framebufferExtent = colorInfo.extent;
+            ASSERT(!newFramebufferExtent || newFramebufferExtent.value() == colorInfo.extent);
+            newFramebufferExtent = colorInfo.extent;
          }
       }
 
@@ -333,25 +333,27 @@ void RenderPass::initializeFramebuffers(const RenderPassAttachments& passAttachm
             ASSERT(hasSwapchainAttachment);
             attachments.push_back(swapchainImageViews[i]);
 
-            ASSERT(!framebufferExtent || framebufferExtent.value() == swapchainExtent);
-            framebufferExtent = swapchainExtent;
+            ASSERT(!newFramebufferExtent || newFramebufferExtent.value() == swapchainExtent);
+            newFramebufferExtent = swapchainExtent;
          }
          else
          {
             ASSERT(resolveInfo.view);
             attachments.push_back(resolveInfo.view);
 
-            ASSERT(!framebufferExtent || framebufferExtent.value() == resolveInfo.extent);
-            framebufferExtent = resolveInfo.extent;
+            ASSERT(!newFramebufferExtent || newFramebufferExtent.value() == resolveInfo.extent);
+            newFramebufferExtent = resolveInfo.extent;
          }
       }
 
-      ASSERT(framebufferExtent.has_value());
+      ASSERT(newFramebufferExtent.has_value());
+      framebufferExtent = newFramebufferExtent.value();
+
       vk::FramebufferCreateInfo framebufferCreateInfo = vk::FramebufferCreateInfo()
          .setRenderPass(renderPass)
          .setAttachments(attachments)
-         .setWidth(framebufferExtent->width)
-         .setHeight(framebufferExtent->height)
+         .setWidth(framebufferExtent.width)
+         .setHeight(framebufferExtent.height)
          .setLayers(1);
 
       ASSERT(!framebuffers[i]);

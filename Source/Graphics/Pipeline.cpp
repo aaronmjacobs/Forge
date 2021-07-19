@@ -2,24 +2,21 @@
 
 #include "Graphics/Mesh.h"
 #include "Graphics/GraphicsContext.h"
-#include "Graphics/Swapchain.h"
 
 #include <utility>
 
 PipelineData::PipelineData(const GraphicsContext& context, vk::PipelineLayout layout, vk::RenderPass renderPass, PipelinePassType passType, std::vector<vk::PipelineShaderStageCreateInfo> shaderStages, std::vector<vk::PipelineColorBlendAttachmentState> colorBlendStates, vk::SampleCountFlagBits sampleCount)
 {
-   vk::Extent2D swapchainExtent = context.getSwapchain().getExtent();
-
    viewport = vk::Viewport()
       .setX(0.0f)
       .setY(0.0f)
-      .setWidth(static_cast<float>(swapchainExtent.width))
-      .setHeight(static_cast<float>(swapchainExtent.height))
+      .setWidth(1.0f)
+      .setHeight(1.0f)
       .setMinDepth(0.0f)
       .setMaxDepth(1.0f);
 
    scissor = vk::Rect2D()
-      .setExtent(swapchainExtent);
+      .setExtent(vk::Extent2D(1, 1));
 
    shaderStageCreateInfo = std::move(shaderStages);
    colorBlendAttachmentStates = std::move(colorBlendStates);

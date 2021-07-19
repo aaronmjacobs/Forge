@@ -39,6 +39,7 @@ protected:
 
    vk::RenderPass getRenderPass() const { return renderPass; }
    vk::Framebuffer getCurrentFramebuffer() const;
+   vk::Extent2D getFramebufferExtent() const { return framebufferExtent; }
 
    vk::PipelineLayout pipelineLayout;
    std::vector<vk::Pipeline> pipelines;
@@ -49,6 +50,7 @@ protected:
 private:
    vk::RenderPass renderPass;
    std::vector<vk::Framebuffer> framebuffers;
+   vk::Extent2D framebufferExtent;
 
    RenderPassAttachments lastPassAttachments;
    bool hasSwapchainAttachment = false;

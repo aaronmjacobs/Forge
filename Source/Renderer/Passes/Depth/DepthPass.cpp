@@ -3,7 +3,6 @@
 #include "Graphics/DebugUtils.h"
 #include "Graphics/Mesh.h"
 #include "Graphics/Pipeline.h"
-#include "Graphics/Swapchain.h"
 #include "Graphics/Texture.h"
 
 #include "Renderer/Passes/Depth/DepthShader.h"
@@ -34,7 +33,7 @@ void DepthPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& s
    vk::RenderPassBeginInfo renderPassBeginInfo = vk::RenderPassBeginInfo()
       .setRenderPass(getRenderPass())
       .setFramebuffer(getCurrentFramebuffer())
-      .setRenderArea(vk::Rect2D(vk::Offset2D(0, 0), context.getSwapchain().getExtent()))
+      .setRenderArea(vk::Rect2D(vk::Offset2D(0, 0), getFramebufferExtent()))
       .setClearValues(clearValues);
    commandBuffer.beginRenderPass(renderPassBeginInfo, vk::SubpassContents::eInline);
 

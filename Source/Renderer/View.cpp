@@ -2,6 +2,7 @@
 
 #include "Graphics/DebugUtils.h"
 #include "Graphics/DescriptorSetLayoutCache.h"
+#include "Graphics/Swapchain.h"
 
 #include "Math/MathUtils.h"
 
