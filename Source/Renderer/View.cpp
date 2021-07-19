@@ -6,42 +6,53 @@
 
 #include "Math/MathUtils.h"
 
-#include "Scene/Components/CameraComponent.h"
-#include "Scene/Components/TransformComponent.h"
-#include "Scene/Scene.h"
-
+#include <glm/gtc/epsilon.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
 namespace
 {
-   struct ViewInfo
+   glm::vec3 computeViewDirection(const ViewInfo& viewInfo)
    {
-      Transform transform;
-      float fieldOfView = 70.0f;
-      float nearPlane = 0.1f;
-      float farPlane = 100.0f;
-   };
-
-   ViewInfo getViewInfo(const Scene& scene)
-   {
-      ViewInfo viewInfo;
-
-      if (Entity cameraEntity = scene.getActiveCamera())
+      if (viewInfo.projectionMode == ProjectionMode::Perspective)
       {
-         if (const TransformComponent* transformComponent = cameraEntity.tryGetComponent<TransformComponent>())
+         switch (viewInfo.perspectiveInfo.direction)
          {
-            viewInfo.transform = transformComponent->getAbsoluteTransform();
-         }
-
-         if (const CameraComponent* cameraComponent = cameraEntity.tryGetComponent<CameraComponent>())
-         {
-            viewInfo.fieldOfView = cameraComponent->fieldOfView;
-            viewInfo.nearPlane = cameraComponent->nearPlane;
-            viewInfo.farPlane = cameraComponent->farPlane;
+         case PerspectiveDirection::Forward:
+            return MathUtils::kForwardVector;
+         case PerspectiveDirection::Backward:
+            return -MathUtils::kForwardVector;
+         case PerspectiveDirection::Right:
+            return MathUtils::kRightVector;
+         case PerspectiveDirection::Left:
+            return -MathUtils::kRightVector;
+         case PerspectiveDirection::Up:
+            return MathUtils::kUpVector;
+         case PerspectiveDirection::Down:
+            return -MathUtils::kUpVector;
+         default:
+            break;
          }
       }
 
-      return viewInfo;
+      return viewInfo.transform.getForwardVector();
+   }
+
+   glm::mat4 computeViewToClip(const ViewInfo& viewInfo)
+   {
+      glm::mat4 viewToClip;
+
+      if (viewInfo.projectionMode == ProjectionMode::Orthographic)
+      {
+         viewToClip = glm::ortho(-viewInfo.orthographicInfo.width, viewInfo.orthographicInfo.width, -viewInfo.orthographicInfo.height, viewInfo.orthographicInfo.height, -viewInfo.orthographicInfo.depth, viewInfo.orthographicInfo.depth);
+      }
+      else
+      {
+         viewToClip = glm::perspective(glm::radians(viewInfo.perspectiveInfo.fieldOfView), viewInfo.perspectiveInfo.aspectRatio, viewInfo.perspectiveInfo.nearPlane, viewInfo.perspectiveInfo.farPlane);
+      }
+
+      viewToClip[1][1] *= -1.0f; // In Vulkan, the clip space Y coordinates are inverted compared to OpenGL (which GLM was written for), so we flip the sign here
+
+      return viewToClip;
    }
 }
 
@@ -70,23 +81,17 @@ View::View(const GraphicsContext& graphicsContext, vk::DescriptorPool descriptor
    , uniformBuffer(graphicsContext)
    , descriptorSet(graphicsContext, descriptorPool, getLayoutCreateInfo())
 {
-   NAME_OBJECT(uniformBuffer, "View");
-   NAME_OBJECT(descriptorSet, "View");
+   updateDescriptorSets();
 }
 
-void View::update(const Scene& scene)
+void View::update(const ViewInfo& viewInfo)
 {
-   ViewInfo viewInfo = getViewInfo(scene);
-
    viewPosition = viewInfo.transform.position;
-   viewDirection = viewInfo.transform.getForwardVector();
+   viewDirection = computeViewDirection(viewInfo);
 
-   worldToView = glm::lookAt(viewPosition, viewPosition + viewDirection, MathUtils::kUpVector);
-
-   vk::Extent2D swapchainExtent = context.getSwapchain().getExtent();
-   viewToClip = glm::perspective(glm::radians(viewInfo.fieldOfView), static_cast<float>(swapchainExtent.width) / swapchainExtent.height, viewInfo.nearPlane, viewInfo.farPlane);
-   viewToClip[1][1] *= -1.0f; // In Vulkan, the clip space Y coordinates are inverted compared to OpenGL (which GLM was written for), so we flip the sign here
-
+   glm::vec3 upVector = glm::all(glm::epsilonEqual(viewDirection, MathUtils::kUpVector, MathUtils::kKindaSmallNumber)) ? -MathUtils::kForwardVector : MathUtils::kUpVector;
+   worldToView = glm::lookAt(viewPosition, viewPosition + viewDirection, upVector);
+   viewToClip = computeViewToClip(viewInfo);
    worldToClip = viewToClip * worldToView;
 
    ViewUniformData viewUniformData;
@@ -96,6 +101,17 @@ void View::update(const Scene& scene)
 
    uniformBuffer.update(viewUniformData);
 }
+
+
+#if FORGE_DEBUG
+void View::setName(std::string_view newName)
+{
+   GraphicsResource::setName(newName);
+
+   NAME_OBJECT(uniformBuffer, name);
+   NAME_OBJECT(descriptorSet, name);
+}
+#endif // FORGE_DEBUG
 
 void View::updateDescriptorSets()
 {

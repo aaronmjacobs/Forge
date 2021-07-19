@@ -12,9 +12,11 @@
 #include "Renderer/SceneRenderInfo.h"
 #include "Renderer/View.h"
 
+#include "Scene/Components/CameraComponent.h"
 #include "Scene/Components/LightComponent.h"
 #include "Scene/Components/MeshComponent.h"
 #include "Scene/Components/TransformComponent.h"
+#include "Scene/Entity.h"
 #include "Scene/Scene.h"
 
 #include <GLFW/glfw3.h>
@@ -27,6 +29,33 @@
 
 namespace
 {
+   ViewInfo computeActiveCameraViewInfo(const GraphicsContext& context, const Scene& scene)
+   {
+      ViewInfo viewInfo;
+
+      vk::Extent2D swapchainExtent = context.getSwapchain().getExtent();
+      viewInfo.projectionMode = ProjectionMode::Perspective;
+      viewInfo.perspectiveInfo.direction = PerspectiveDirection::FromTransform;
+      viewInfo.perspectiveInfo.aspectRatio = static_cast<float>(swapchainExtent.width) / swapchainExtent.height;
+
+      if (Entity cameraEntity = scene.getActiveCamera())
+      {
+         if (const TransformComponent* transformComponent = cameraEntity.tryGetComponent<TransformComponent>())
+         {
+            viewInfo.transform = transformComponent->getAbsoluteTransform();
+         }
+
+         if (const CameraComponent* cameraComponent = cameraEntity.tryGetComponent<CameraComponent>())
+         {
+            viewInfo.perspectiveInfo.fieldOfView = cameraComponent->fieldOfView;
+            viewInfo.perspectiveInfo.nearPlane = cameraComponent->nearPlane;
+            viewInfo.perspectiveInfo.farPlane = cameraComponent->farPlane;
+         }
+      }
+
+      return viewInfo;
+   }
+
    vk::SampleCountFlagBits getMaxSampleCount(const GraphicsContext& context)
    {
       const vk::PhysicalDeviceLimits& limits = context.getPhysicalDeviceProperties().limits;
@@ -344,7 +373,7 @@ Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& reso
 
    {
       view = std::make_unique<View>(context, descriptorPool);
-      view->updateDescriptorSets();
+      NAME_POINTER(view, "Main View");
    }
 
    {
@@ -397,7 +426,8 @@ void Renderer::render(vk::CommandBuffer commandBuffer, const Scene& scene)
    }
 
    INLINE_LABEL("Update view");
-   view->update(scene);
+   ViewInfo activeCameraViewInfo = computeActiveCameraViewInfo(context, scene);
+   view->update(activeCameraViewInfo);
    SceneRenderInfo sceneRenderInfo = computeSceneRenderInfo(resourceManager, scene, *view);
 
    depthPass->render(commandBuffer, sceneRenderInfo);
