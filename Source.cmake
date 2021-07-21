@@ -15,6 +15,7 @@ target_sources(${PROJECT_NAME} PRIVATE
    "${SRC_DIR}/Core/Log.cpp"
    "${SRC_DIR}/Core/Log.h"
    "${SRC_DIR}/Core/Macros.h"
+   "${SRC_DIR}/Core/Types.h"
 
    "${SRC_DIR}/Graphics/Buffer.cpp"
    "${SRC_DIR}/Graphics/Buffer.h"
