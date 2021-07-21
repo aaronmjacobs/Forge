@@ -23,6 +23,8 @@ target_sources(${PROJECT_NAME} PRIVATE
    "${SRC_DIR}/Graphics/Command.h"
    "${SRC_DIR}/Graphics/DebugUtils.cpp"
    "${SRC_DIR}/Graphics/DebugUtils.h"
+   "${SRC_DIR}/Graphics/DelayedObjectDestroyer.cpp"
+   "${SRC_DIR}/Graphics/DelayedObjectDestroyer.h"
    "${SRC_DIR}/Graphics/DescriptorSet.cpp"
    "${SRC_DIR}/Graphics/DescriptorSet.h"
    "${SRC_DIR}/Graphics/DescriptorSetLayoutCache.cpp"

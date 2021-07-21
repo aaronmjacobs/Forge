@@ -4,6 +4,7 @@
 
 #include "Graphics/DebugUtils.h"
 #include "Graphics/DescriptorSetLayoutCache.h"
+#include "Graphics/DelayedObjectDestroyer.h"
 #include "Graphics/Swapchain.h"
 
 #include "Platform/Window.h"
@@ -424,6 +425,7 @@ GraphicsContext::GraphicsContext(Window& window)
    transientCommandPool = device.createCommandPool(commandPoolCreateInfo);
 
    layoutCache = std::make_unique<DescriptorSetLayoutCache>(*this);
+   delayedObjectDestroyer = std::make_unique<DelayedObjectDestroyer>(*this);
 
 #if FORGE_DEBUG
    DebugUtils::GetDynamicLoader().init(instance, device);
@@ -432,6 +434,7 @@ GraphicsContext::GraphicsContext(Window& window)
 
 GraphicsContext::~GraphicsContext()
 {
+   delayedObjectDestroyer = nullptr;
    layoutCache = nullptr;
 
    device.destroyCommandPool(transientCommandPool);
@@ -451,4 +454,19 @@ void GraphicsContext::setSwapchainIndex(uint32_t index)
 {
    ASSERT(swapchain && index < swapchain->getImageCount());
    swapchainIndex = index;
+}
+
+void GraphicsContext::setFrameIndex(uint32_t index)
+{
+   ASSERT(index < kMaxFramesInFlight);
+   frameIndex = index;
+
+   ASSERT(delayedObjectDestroyer);
+   delayedObjectDestroyer->onFrameIndexUpdate();
+}
+
+void GraphicsContext::delayedDestroy(uint64_t handle, vk::ObjectType type) const
+{
+   ASSERT(delayedObjectDestroyer);
+   delayedObjectDestroyer->delayedDestroy(handle, type);
 }

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Core/Types.h"
+
 #include "Graphics/Vulkan.h"
 
 #include <memory>
@@ -7,6 +9,7 @@
 #include <set>
 
 class DescriptorSetLayoutCache;
+class DelayedObjectDestroyer;
 class Swapchain;
 class Window;
 
@@ -106,10 +109,7 @@ public:
       return frameIndex;
    }
 
-   void setFrameIndex(uint32_t index)
-   {
-      frameIndex = index;
-   }
+   void setFrameIndex(uint32_t index);
 
    DescriptorSetLayoutCache& getLayoutCache() const
    {
@@ -117,7 +117,16 @@ public:
       return *layoutCache;
    }
 
+   template<typename T>
+   void delayedDestroy(T&& object) const
+   {
+      delayedDestroy(Types::bit_cast<uint64_t>(object), T::objectType);
+      object = nullptr;
+   }
+
 private:
+   void delayedDestroy(uint64_t handle, vk::ObjectType type) const;
+
    vk::Instance instance;
    vk::SurfaceKHR surface;
 
@@ -139,6 +148,7 @@ private:
    uint32_t frameIndex = 0;
 
    std::unique_ptr<DescriptorSetLayoutCache> layoutCache;
+   std::unique_ptr<DelayedObjectDestroyer> delayedObjectDestroyer;
 
 #if FORGE_DEBUG
    VkDebugUtilsMessengerEXT debugMessenger = nullptr;
