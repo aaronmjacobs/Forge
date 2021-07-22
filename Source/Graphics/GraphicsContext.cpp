@@ -470,3 +470,9 @@ void GraphicsContext::delayedDestroy(uint64_t handle, vk::ObjectType type) const
    ASSERT(delayedObjectDestroyer);
    delayedObjectDestroyer->delayedDestroy(handle, type);
 }
+
+void GraphicsContext::delayedFree(uint64_t pool, uint64_t handle, vk::ObjectType type) const
+{
+   ASSERT(delayedObjectDestroyer);
+   delayedObjectDestroyer->delayedFree(pool, handle, type);
+}

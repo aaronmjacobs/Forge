@@ -124,8 +124,23 @@ public:
       object = nullptr;
    }
 
+   template<typename T>
+   void delayedFree(T&& object) const
+   {
+      delayedFree(0, Types::bit_cast<uint64_t>(object), T::objectType);
+      object = nullptr;
+   }
+
+   template<typename T, typename U>
+   void delayedFree(U pool, T&& object) const
+   {
+      delayedFree(Types::bit_cast<uint64_t>(pool), Types::bit_cast<uint64_t>(object), T::objectType);
+      object = nullptr;
+   }
+
 private:
    void delayedDestroy(uint64_t handle, vk::ObjectType type) const;
+   void delayedFree(uint64_t pool, uint64_t handle, vk::ObjectType type) const;
 
    vk::Instance instance;
    vk::SurfaceKHR surface;
