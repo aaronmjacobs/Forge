@@ -8,6 +8,7 @@
 #include "Graphics/Memory.h"
 
 #include <cstring>
+#include <utility>
 
 template<typename DataType>
 class UniformBuffer : public GraphicsResource
@@ -52,10 +53,10 @@ inline UniformBuffer<DataType>::~UniformBuffer()
    device.unmapMemory(memory);
 
    ASSERT(buffer);
-   device.destroyBuffer(buffer);
+   context.delayedDestroy(std::move(buffer));
 
    ASSERT(memory);
-   device.freeMemory(memory);
+   context.delayedFree(std::move(memory));
 }
 
 template<typename DataType>

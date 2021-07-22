@@ -4,6 +4,8 @@
 
 #include "Graphics/DebugUtils.h"
 
+#include <utility>
+
 ShaderModule::ShaderModule(const GraphicsContext& graphicsContext, std::span<const uint8_t> code)
    : GraphicsResource(graphicsContext)
 {
@@ -19,7 +21,7 @@ ShaderModule::ShaderModule(const GraphicsContext& graphicsContext, std::span<con
 ShaderModule::~ShaderModule()
 {
    ASSERT(shaderModule);
-   device.destroyShaderModule(shaderModule);
+   context.delayedDestroy(std::move(shaderModule));
 }
 
 #if FORGE_DEBUG

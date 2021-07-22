@@ -8,6 +8,7 @@
 
 #include <array>
 #include <limits>
+#include <utility>
 
 // static
 const std::vector<vk::VertexInputBindingDescription>& Vertex::getBindingDescriptions()
@@ -169,10 +170,10 @@ Mesh::Mesh(const GraphicsContext& graphicsContext, std::span<const MeshSectionSo
 Mesh::~Mesh()
 {
    ASSERT(buffer);
-   device.destroyBuffer(buffer);
+   context.delayedDestroy(std::move(buffer));
 
    ASSERT(deviceMemory);
-   device.freeMemory(deviceMemory);
+   context.delayedFree(std::move(deviceMemory));
 }
 
 void Mesh::bindBuffers(vk::CommandBuffer commandBuffer, uint32_t section) const

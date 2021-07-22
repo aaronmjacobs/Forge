@@ -58,7 +58,7 @@ namespace
          DESTROY_OBJECT_TYPE_CASE(vk::ObjectType::eSamplerYcbcrConversion);
          DESTROY_OBJECT_TYPE_CASE(vk::ObjectType::eDescriptorUpdateTemplate);
       default:
-         ASSERT(false, "Invalid object type: %s", vk::to_string(managedObject.type));
+         ASSERT(false, "Invalid object type: %s", vk::to_string(managedObject.type).c_str());
          break;
       }
 #undef DESTROY_OBJECT_TYPE_CASE

@@ -10,6 +10,7 @@
 #include "Resources/LoadedImage.h"
 
 #include <cmath>
+#include <utility>
 
 namespace
 {
@@ -105,13 +106,13 @@ Texture::Texture(const GraphicsContext& graphicsContext, const LoadedImage& load
 Texture::~Texture()
 {
    ASSERT(defaultView);
-   device.destroyImageView(defaultView);
+   context.delayedDestroy(std::move(defaultView));
 
    ASSERT(image);
-   device.destroyImage(image);
+   context.delayedDestroy(std::move(image));
 
    ASSERT(memory);
-   device.freeMemory(memory);
+   context.delayedFree(std::move(memory));
 }
 
 vk::ImageView Texture::createView(vk::ImageViewType viewType) const

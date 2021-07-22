@@ -3,6 +3,8 @@
 #include "Graphics/DebugUtils.h"
 #include "Graphics/Swapchain.h"
 
+#include <utility>
+
 namespace
 {
    bool attachmentCountsMatch(const RenderPassAttachments& first, const RenderPassAttachments& second)
@@ -365,8 +367,7 @@ void RenderPass::terminateRenderPass()
 {
    if (renderPass)
    {
-      device.destroyRenderPass(renderPass);
-      renderPass = nullptr;
+      context.delayedDestroy(std::move(renderPass));
    }
 }
 
@@ -376,15 +377,13 @@ void RenderPass::terminatePipelines()
    {
       if (pipeline)
       {
-         device.destroyPipeline(pipeline);
-         pipeline = nullptr;
+         context.delayedDestroy(std::move(pipeline));
       }
    }
 
    if (pipelineLayout)
    {
-      device.destroyPipelineLayout(pipelineLayout);
-      pipelineLayout = nullptr;
+      context.delayedDestroy(std::move(pipelineLayout));
    }
 }
 
@@ -394,7 +393,7 @@ void RenderPass::terminateFramebuffers()
    {
       if (framebuffer)
       {
-         device.destroyFramebuffer(framebuffer);
+         context.delayedDestroy(std::move(framebuffer));
       }
    }
    framebuffers.clear();
