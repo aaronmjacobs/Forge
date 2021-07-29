@@ -7,100 +7,16 @@
 
 namespace
 {
-   bool attachmentCountsMatch(const RenderPassAttachments& first, const RenderPassAttachments& second)
-   {
-      return first.depthInfo.has_value() == second.depthInfo.has_value()
-         && first.colorInfo.size() == second.colorInfo.size()
-         && first.resolveInfo.size() == second.resolveInfo.size();
-   }
-
-   template<typename T>
-   bool attachmentPropertiesMatch(const RenderPassAttachments& first, const RenderPassAttachments& second, const T& comparator)
-   {
-      ASSERT(first.depthInfo.has_value() == second.depthInfo.has_value());
-      if (first.depthInfo.has_value())
-      {
-         if (!comparator(first.depthInfo.value(), second.depthInfo.value()))
-         {
-            return false;
-         }
-      }
-
-      ASSERT(first.colorInfo.size() == second.colorInfo.size());
-      for (uint32_t i = 0; i < first.colorInfo.size(); ++i)
-      {
-         if (!comparator(first.colorInfo[i], second.colorInfo[i]))
-         {
-            return false;
-         }
-      }
-
-      ASSERT(first.resolveInfo.size() == second.resolveInfo.size());
-      for (uint32_t i = 0; i < first.resolveInfo.size(); ++i)
-      {
-         if (!comparator(first.resolveInfo[i], second.resolveInfo[i]))
-         {
-            return false;
-         }
-      }
-
-      return true;
-   }
-
-   bool swapchainAttachmentsMatch(const RenderPassAttachments& first, const RenderPassAttachments& second)
-   {
-      static const auto infoMatches = [](const TextureInfo& firstInfo, const TextureInfo& secondInfo)
-      {
-         return firstInfo.isSwapchainTexture == secondInfo.isSwapchainTexture;
-      };
-
-      return attachmentPropertiesMatch(first, second, infoMatches);
-   }
-
-   bool formatsAndSampleCountsMatch(const RenderPassAttachments& first, const RenderPassAttachments& second)
-   {
-      static const auto infoMatches = [](const TextureInfo& firstInfo, const TextureInfo& secondInfo)
-      {
-         return firstInfo.format == secondInfo.format && firstInfo.sampleCount == secondInfo.sampleCount;
-      };
-
-      return attachmentPropertiesMatch(first, second, infoMatches);
-   }
-
-   bool viewsAndExtentsMatch(const RenderPassAttachments& first, const RenderPassAttachments& second)
-   {
-      static const auto infoMatches = [](const TextureInfo& firstInfo, const TextureInfo& secondInfo)
-      {
-         return firstInfo.view == secondInfo.view && firstInfo.extent == secondInfo.extent;
-      };
-
-      return attachmentPropertiesMatch(first, second, infoMatches);
-   }
-
-   void determineUpdateRequirements(const RenderPassAttachments& lastPassAttachments, const RenderPassAttachments& newPassAttachments, bool& updateRenderPassAndPipelines, bool& updateFrambuffers)
-   {
-      if (attachmentCountsMatch(lastPassAttachments, newPassAttachments) && swapchainAttachmentsMatch(lastPassAttachments, newPassAttachments))
-      {
-         updateRenderPassAndPipelines = !formatsAndSampleCountsMatch(lastPassAttachments, newPassAttachments);
-         updateFrambuffers = !viewsAndExtentsMatch(lastPassAttachments, newPassAttachments);
-      }
-      else
-      {
-         updateRenderPassAndPipelines = true;
-         updateFrambuffers = true;
-      }
-   }
-
-   std::optional<vk::SampleCountFlagBits> getSampleCountForAttachments(const RenderPassAttachments& passAttachments)
+   std::optional<vk::SampleCountFlagBits> getSampleCount(const BasicAttachmentInfo& info)
    {
       std::optional<vk::SampleCountFlagBits> sampleCount;
 
-      if (passAttachments.depthInfo.has_value())
+      if (info.depthInfo.has_value())
       {
-         sampleCount = passAttachments.depthInfo->sampleCount;
+         sampleCount = info.depthInfo->sampleCount;
       }
 
-      for (const TextureInfo& colorInfo : passAttachments.colorInfo)
+      for (const BasicTextureInfo& colorInfo : info.colorInfo)
       {
          ASSERT(!sampleCount.has_value() || sampleCount.value() == colorInfo.sampleCount);
          sampleCount = colorInfo.sampleCount;
@@ -108,28 +24,17 @@ namespace
 
       return sampleCount;
    }
-
-   bool attachmentsReferenceSwapchain(const RenderPassAttachments& passAttachments)
-   {
-      for (const TextureInfo& colorInfo : passAttachments.colorInfo)
-      {
-         if (colorInfo.isSwapchainTexture)
-         {
-            return true;
-         }
-      }
-
-      for (const TextureInfo& resolveInfo : passAttachments.resolveInfo)
-      {
-         if (resolveInfo.isSwapchainTexture)
-         {
-            return true;
-         }
-      }
-
-      return false;
-   }
 }
+
+FramebufferHandle FramebufferHandle::create()
+{
+   FramebufferHandle handle;
+   handle.id = ++counter;
+
+   return handle;
+}
+
+uint64_t FramebufferHandle::counter = 0;
 
 RenderPass::RenderPass(const GraphicsContext& graphicsContext)
    : GraphicsResource(graphicsContext)
@@ -138,42 +43,46 @@ RenderPass::RenderPass(const GraphicsContext& graphicsContext)
 
 RenderPass::~RenderPass()
 {
-   terminateFramebuffers();
+   framebufferMap.clear();
    terminatePipelines();
    terminateRenderPass();
 }
 
-void RenderPass::updateAttachments(const RenderPassAttachments& passAttachments)
+void RenderPass::updateAttachmentSetup(const BasicAttachmentInfo& setup)
 {
-   bool updateRenderPassAndPipelines = false;
-   bool updateFrambuffers = false;
-   determineUpdateRequirements(lastPassAttachments, passAttachments, updateRenderPassAndPipelines, updateFrambuffers);
+   framebufferMap.clear();
+   terminatePipelines();
+   terminateRenderPass();
 
-   if (updateFrambuffers)
+   attachmentSetup = setup;
+
+   initializeRenderPass();
+   initializePipelines(getSampleCount(attachmentSetup).value_or(vk::SampleCountFlagBits::e1));
+
+#if FORGE_DEBUG
+   setName(getName());
+#endif // FORGE_DEBUG
+}
+
+FramebufferHandle RenderPass::createFramebuffer(const AttachmentInfo& attachmentInfo)
+{
+   ASSERT(attachmentSetup == attachmentInfo.asBasic());
+
+   FramebufferHandle handle = FramebufferHandle::create();
+   auto result = framebufferMap.emplace(handle, Framebuffer(context, renderPass, attachmentInfo));
+
+   NAME_OBJECT(result.first->second, name + " Framebuffer " + std::to_string(result.first->first.getId()));
+
+   return handle;
+}
+
+void RenderPass::destroyFramebuffer(FramebufferHandle& handle)
+{
+   std::size_t numErased = framebufferMap.erase(handle);
+   if (numErased > 0)
    {
-      terminateFramebuffers();
+      handle.invalidate();
    }
-   if (updateRenderPassAndPipelines)
-   {
-      terminatePipelines();
-      terminateRenderPass();
-   }
-
-   if (updateRenderPassAndPipelines)
-   {
-      vk::SampleCountFlagBits newSampleCount = getSampleCountForAttachments(passAttachments).value_or(vk::SampleCountFlagBits::e1);
-
-      initializeRenderPass(passAttachments);
-      initializePipelines(newSampleCount);
-   }
-   if (updateFrambuffers)
-   {
-      initializeFramebuffers(passAttachments);
-   }
-
-   lastPassAttachments = passAttachments;
-
-   postUpdateAttachments();
 }
 
 #if FORGE_DEBUG
@@ -184,9 +93,9 @@ void RenderPass::setName(std::string_view newName)
    NAME_OBJECT(pipelineLayout, name + " Pipeline Layout");
    NAME_OBJECT(renderPass, name + " Render Pass");
 
-   for (std::size_t i = 0; i < framebuffers.size(); ++i)
+   for (auto& pair : framebufferMap)
    {
-      NAME_OBJECT(framebuffers[i], name + " Framebuffer " + std::to_string(i));
+      NAME_OBJECT(pair.second, name + " Framebuffer " + std::to_string(pair.first.getId()));
    }
 
    for (std::size_t i = 0; i < pipelines.size(); ++i)
@@ -196,18 +105,20 @@ void RenderPass::setName(std::string_view newName)
 }
 #endif // FORGE_DEBUG
 
-void RenderPass::initializeRenderPass(const RenderPassAttachments& passAttachments)
+void RenderPass::initializeRenderPass()
 {
+   ASSERT(!renderPass);
+
    std::vector<vk::AttachmentDescription> attachments;
    vk::SubpassDescription subpassDescription = vk::SubpassDescription()
       .setPipelineBindPoint(vk::PipelineBindPoint::eGraphics);
 
    std::optional<vk::AttachmentReference> depthAttachmentReference;
-   if (passAttachments.depthInfo)
+   if (attachmentSetup.depthInfo)
    {
       vk::AttachmentDescription depthAttachment = vk::AttachmentDescription()
-         .setFormat(passAttachments.depthInfo->format)
-         .setSamples(passAttachments.depthInfo->sampleCount)
+         .setFormat(attachmentSetup.depthInfo->format)
+         .setSamples(attachmentSetup.depthInfo->sampleCount)
          .setLoadOp(clearDepth ? vk::AttachmentLoadOp::eClear : vk::AttachmentLoadOp::eLoad)
          .setStoreOp(vk::AttachmentStoreOp::eStore)
          .setStencilLoadOp(clearDepth ? vk::AttachmentLoadOp::eClear : vk::AttachmentLoadOp::eLoad)
@@ -224,7 +135,7 @@ void RenderPass::initializeRenderPass(const RenderPassAttachments& passAttachmen
    }
 
    std::vector<vk::AttachmentReference> colorAttachmentReferences;
-   for (const TextureInfo& colorInfo : passAttachments.colorInfo)
+   for (const BasicTextureInfo& colorInfo : attachmentSetup.colorInfo)
    {
       vk::AttachmentDescription colorAttachment = vk::AttachmentDescription()
          .setFormat(colorInfo.format)
@@ -249,7 +160,7 @@ void RenderPass::initializeRenderPass(const RenderPassAttachments& passAttachmen
    }
 
    std::vector<vk::AttachmentReference> resolveAttachmentReferences;
-   for (const TextureInfo& resolveInfo : passAttachments.resolveInfo)
+   for (const BasicTextureInfo& resolveInfo : attachmentSetup.resolveInfo)
    {
       vk::AttachmentDescription resolveAttachment = vk::AttachmentDescription()
          .setFormat(resolveInfo.format)
@@ -283,86 +194,6 @@ void RenderPass::initializeRenderPass(const RenderPassAttachments& passAttachmen
    renderPass = device.createRenderPass(renderPassCreateInfo);
 }
 
-void RenderPass::initializeFramebuffers(const RenderPassAttachments& passAttachments)
-{
-   vk::Extent2D swapchainExtent = context.getSwapchain().getExtent();
-
-   hasSwapchainAttachment = attachmentsReferenceSwapchain(passAttachments);
-   uint32_t numFramebuffers = hasSwapchainAttachment ? context.getSwapchain().getImageCount() : 1;
-   framebuffers.resize(numFramebuffers);
-
-   const std::vector<vk::ImageView>& swapchainImageViews = context.getSwapchain().getImageViews();
-   for (uint32_t i = 0; i < numFramebuffers; ++i)
-   {
-      std::optional<vk::Extent2D> newFramebufferExtent;
-
-      std::vector<vk::ImageView> attachments;
-      attachments.reserve((passAttachments.depthInfo ? 1 : 0) + passAttachments.colorInfo.size() + passAttachments.resolveInfo.size());
-
-      if (passAttachments.depthInfo)
-      {
-         ASSERT(!passAttachments.depthInfo->isSwapchainTexture);
-         ASSERT(passAttachments.depthInfo->view);
-         attachments.push_back(passAttachments.depthInfo->view);
-
-         newFramebufferExtent = vk::Extent2D(passAttachments.depthInfo->extent);
-      }
-
-      for (const TextureInfo& colorInfo : passAttachments.colorInfo)
-      {
-         if (colorInfo.isSwapchainTexture)
-         {
-            ASSERT(hasSwapchainAttachment);
-            attachments.push_back(swapchainImageViews[i]);
-
-            ASSERT(!newFramebufferExtent || newFramebufferExtent.value() == swapchainExtent);
-            newFramebufferExtent = swapchainExtent;
-         }
-         else
-         {
-            ASSERT(colorInfo.view);
-            attachments.push_back(colorInfo.view);
-
-            ASSERT(!newFramebufferExtent || newFramebufferExtent.value() == colorInfo.extent);
-            newFramebufferExtent = colorInfo.extent;
-         }
-      }
-
-      for (const TextureInfo& resolveInfo : passAttachments.resolveInfo)
-      {
-         if (resolveInfo.isSwapchainTexture)
-         {
-            ASSERT(hasSwapchainAttachment);
-            attachments.push_back(swapchainImageViews[i]);
-
-            ASSERT(!newFramebufferExtent || newFramebufferExtent.value() == swapchainExtent);
-            newFramebufferExtent = swapchainExtent;
-         }
-         else
-         {
-            ASSERT(resolveInfo.view);
-            attachments.push_back(resolveInfo.view);
-
-            ASSERT(!newFramebufferExtent || newFramebufferExtent.value() == resolveInfo.extent);
-            newFramebufferExtent = resolveInfo.extent;
-         }
-      }
-
-      ASSERT(newFramebufferExtent.has_value());
-      framebufferExtent = newFramebufferExtent.value();
-
-      vk::FramebufferCreateInfo framebufferCreateInfo = vk::FramebufferCreateInfo()
-         .setRenderPass(renderPass)
-         .setAttachments(attachments)
-         .setWidth(framebufferExtent.width)
-         .setHeight(framebufferExtent.height)
-         .setLayers(1);
-
-      ASSERT(!framebuffers[i]);
-      framebuffers[i] = device.createFramebuffer(framebufferCreateInfo);
-   }
-}
-
 void RenderPass::terminateRenderPass()
 {
    if (renderPass)
@@ -387,19 +218,44 @@ void RenderPass::terminatePipelines()
    }
 }
 
-void RenderPass::terminateFramebuffers()
+void RenderPass::beginRenderPass(vk::CommandBuffer commandBuffer, const Framebuffer& framebuffer, std::span<vk::ClearValue> clearValues)
 {
-   for (vk::Framebuffer framebuffer : framebuffers)
-   {
-      if (framebuffer)
-      {
-         context.delayedDestroy(std::move(framebuffer));
-      }
-   }
-   framebuffers.clear();
+   vk::Rect2D renderArea(vk::Offset2D(0, 0), framebuffer.getExtent());
+
+   vk::RenderPassBeginInfo renderPassBeginInfo = vk::RenderPassBeginInfo()
+      .setRenderPass(getRenderPass())
+      .setFramebuffer(framebuffer.getCurrentFramebuffer())
+      .setRenderArea(renderArea)
+      .setClearValueCount(static_cast<uint32_t>(clearValues.size()))
+      .setPClearValues(clearValues.data());
+   commandBuffer.beginRenderPass(renderPassBeginInfo, vk::SubpassContents::eInline);
+
+   setViewport(commandBuffer, renderArea);
 }
 
-vk::Framebuffer RenderPass::getCurrentFramebuffer() const
+void RenderPass::endRenderPass(vk::CommandBuffer commandBuffer)
 {
-   return framebuffers[hasSwapchainAttachment ? context.getSwapchainIndex() : 0];
+   commandBuffer.endRenderPass();
+}
+
+void RenderPass::setViewport(vk::CommandBuffer commandBuffer, const vk::Rect2D& rect)
+{
+   SCOPED_LABEL("Set viewport");
+
+   vk::Viewport viewport = vk::Viewport()
+      .setX(static_cast<float>(rect.offset.x))
+      .setY(static_cast<float>(rect.offset.y))
+      .setWidth(static_cast<float>(rect.extent.width))
+      .setHeight(static_cast<float>(rect.extent.height))
+      .setMinDepth(0.0f)
+      .setMaxDepth(1.0f);
+   commandBuffer.setViewport(0, viewport);
+
+   commandBuffer.setScissor(0, rect);
+}
+
+const Framebuffer* RenderPass::getFramebuffer(FramebufferHandle handle) const
+{
+   auto location = framebufferMap.find(handle);
+   return location == framebufferMap.end() ? nullptr : &location->second;
 }

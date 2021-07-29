@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Graphics/GraphicsResource.h"
-#include "Graphics/Texture.h"
+#include "Graphics/TextureInfo.h"
 
 #include <vector>
 

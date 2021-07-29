@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Graphics/GraphicsResource.h"
+#include "Graphics/RenderPass.h"
 #include "Graphics/UniformBuffer.h"
 
 #include "Renderer/UniformData.h"
@@ -23,7 +24,6 @@ class Renderer : public GraphicsResource
 {
 public:
    Renderer(const GraphicsContext& graphicsContext, ResourceManager& resourceManagerRef);
-
    ~Renderer();
 
    void render(vk::CommandBuffer commandBuffer, const Scene& scene);
@@ -32,9 +32,11 @@ public:
    void toggleMSAA();
 
 private:
-   void updateRenderPassAttachments();
+   void updateSwapchainDependentFramebuffers();
 
    ResourceManager& resourceManager;
+
+   vk::Format depthStencilFormat = vk::Format::eUndefined;
 
    vk::DescriptorPool descriptorPool;
 
@@ -44,9 +46,13 @@ private:
    std::unique_ptr<Texture> hdrColorTexture;
    std::unique_ptr<Texture> hdrResolveTexture;
 
-   std::unique_ptr<DepthPass> depthPass;
+   std::unique_ptr<DepthPass> prePass;
    std::unique_ptr<ForwardPass> forwardPass;
    std::unique_ptr<TonemapPass> tonemapPass;
+
+   FramebufferHandle prePassFramebufferHandle;
+   FramebufferHandle forwardPassFramebufferHandle;
+   FramebufferHandle tonemapPassFramebufferHandle;
 
    bool enableMSAA = false;
 };

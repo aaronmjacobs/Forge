@@ -17,7 +17,8 @@ DescriptorSet::DescriptorSet(const GraphicsContext& graphicsContext, vk::Descrip
       .setDescriptorPool(descriptorPool)
       .setSetLayouts(layouts);
 
-   sets = device.allocateDescriptorSets(allocateInfo);
+   vk::Result result = device.allocateDescriptorSets(&allocateInfo, sets.data());
+   ASSERT(result == vk::Result::eSuccess);
 }
 
 #if FORGE_DEBUG

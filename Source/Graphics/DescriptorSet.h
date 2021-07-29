@@ -2,7 +2,7 @@
 
 #include "Graphics/GraphicsResource.h"
 
-#include <vector>
+#include <array>
 
 class DescriptorSet : public GraphicsResource
 {
@@ -24,5 +24,5 @@ public:
 #endif // FORGE_DEBUG
 
 private:
-   std::vector<vk::DescriptorSet> sets;
+   std::array<vk::DescriptorSet, GraphicsContext::kMaxFramesInFlight> sets;
 };

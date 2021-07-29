@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Graphics/GraphicsResource.h"
+#include "Graphics/TextureInfo.h"
 
 #include <span>
 
@@ -43,16 +44,6 @@ struct TextureInitialLayout
 {
    vk::ImageLayout layout = vk::ImageLayout::eUndefined;
    TextureMemoryBarrierFlags memoryBarrierFlags;
-};
-
-struct TextureInfo
-{
-   vk::Format format = vk::Format::eUndefined;
-   vk::Extent2D extent;
-   vk::SampleCountFlagBits sampleCount = vk::SampleCountFlagBits::e1;
-
-   vk::ImageView view;
-   bool isSwapchainTexture = false;
 };
 
 class Texture : public GraphicsResource

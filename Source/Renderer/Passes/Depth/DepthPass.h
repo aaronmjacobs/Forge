@@ -14,7 +14,7 @@ public:
    DepthPass(const GraphicsContext& graphicsContext, ResourceManager& resourceManager);
    ~DepthPass();
 
-   void render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo);
+   void render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, FramebufferHandle framebufferHandle);
 
 #if FORGE_DEBUG
    void setName(std::string_view newName) override;
@@ -25,7 +25,6 @@ protected:
 
    void initializePipelines(vk::SampleCountFlagBits sampleCount) override;
    std::vector<vk::SubpassDependency> getSubpassDependencies() const override;
-   void postUpdateAttachments() override;
 
    vk::Pipeline selectPipeline(const MeshSection& meshSection, const Material& material) const
    {

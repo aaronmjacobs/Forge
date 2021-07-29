@@ -42,9 +42,16 @@ TonemapPass::~TonemapPass()
    tonemapShader.reset();
 }
 
-void TonemapPass::render(vk::CommandBuffer commandBuffer, Texture& hdrColorTexture)
+void TonemapPass::render(vk::CommandBuffer commandBuffer, FramebufferHandle framebufferHandle, Texture& hdrColorTexture)
 {
-   SCOPED_LABEL("Tonemap pass");
+   SCOPED_LABEL(getName());
+
+   const Framebuffer* framebuffer = getFramebuffer(framebufferHandle);
+   if (!framebuffer)
+   {
+      ASSERT(false);
+      return;
+   }
 
    {
       TextureMemoryBarrierFlags srcMemoryBarrierFlags(vk::AccessFlagBits::eColorAttachmentWrite, vk::PipelineStageFlagBits::eColorAttachmentOutput);
@@ -55,12 +62,7 @@ void TonemapPass::render(vk::CommandBuffer commandBuffer, Texture& hdrColorTextu
    std::array<float, 4> clearColorValues = { 0.0f, 0.0f, 0.0f, 1.0f };
    std::array<vk::ClearValue, 1> clearValues = { vk::ClearColorValue(clearColorValues) };
 
-   vk::RenderPassBeginInfo renderPassBeginInfo = vk::RenderPassBeginInfo()
-      .setRenderPass(getRenderPass())
-      .setFramebuffer(getCurrentFramebuffer())
-      .setRenderArea(vk::Rect2D(vk::Offset2D(0, 0), getFramebufferExtent()))
-      .setClearValues(clearValues);
-   commandBuffer.beginRenderPass(renderPassBeginInfo, vk::SubpassContents::eInline);
+   beginRenderPass(commandBuffer, *framebuffer, clearValues);
 
    vk::DescriptorImageInfo imageInfo = vk::DescriptorImageInfo()
       .setImageLayout(hdrColorTexture.getLayout())
@@ -78,7 +80,7 @@ void TonemapPass::render(vk::CommandBuffer commandBuffer, Texture& hdrColorTextu
    tonemapShader->bindDescriptorSets(commandBuffer, pipelineLayout, descriptorSet);
    renderScreenMesh(commandBuffer, pipelines[0]);
 
-   commandBuffer.endRenderPass();
+   endRenderPass(commandBuffer);
 
    {
       TextureMemoryBarrierFlags srcMemoryBarrierFlags(vk::AccessFlagBits::eShaderRead, vk::PipelineStageFlagBits::eFragmentShader);
@@ -124,9 +126,4 @@ std::vector<vk::SubpassDependency> TonemapPass::getSubpassDependencies() const
       .setDstAccessMask(vk::AccessFlagBits::eColorAttachmentRead | vk::AccessFlagBits::eColorAttachmentWrite));
 
    return subpassDependencies;
-}
-
-void TonemapPass::postUpdateAttachments()
-{
-   NAME_OBJECT(*this, "Tonemap Pass");
 }

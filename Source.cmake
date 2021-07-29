@@ -29,6 +29,8 @@ target_sources(${PROJECT_NAME} PRIVATE
    "${SRC_DIR}/Graphics/DescriptorSet.h"
    "${SRC_DIR}/Graphics/DescriptorSetLayoutCache.cpp"
    "${SRC_DIR}/Graphics/DescriptorSetLayoutCache.h"
+   "${SRC_DIR}/Graphics/Framebuffer.cpp"
+   "${SRC_DIR}/Graphics/Framebuffer.h"
    "${SRC_DIR}/Graphics/GraphicsContext.cpp"
    "${SRC_DIR}/Graphics/GraphicsContext.h"
    "${SRC_DIR}/Graphics/GraphicsResource.h"
@@ -48,6 +50,8 @@ target_sources(${PROJECT_NAME} PRIVATE
    "${SRC_DIR}/Graphics/Swapchain.h"
    "${SRC_DIR}/Graphics/Texture.cpp"
    "${SRC_DIR}/Graphics/Texture.h"
+   "${SRC_DIR}/Graphics/TextureInfo.cpp"
+   "${SRC_DIR}/Graphics/TextureInfo.h"
    "${SRC_DIR}/Graphics/UniformBuffer.h"
    "${SRC_DIR}/Graphics/Vulkan.h"
 
@@ -86,6 +90,7 @@ target_sources(${PROJECT_NAME} PRIVATE
    "${SRC_DIR}/Renderer/UniformData.h"
    "${SRC_DIR}/Renderer/View.cpp"
    "${SRC_DIR}/Renderer/View.h"
+   "${SRC_DIR}/Renderer/ViewInfo.h"
 
    "${SRC_DIR}/Resources/LoadedImage.cpp"
    "${SRC_DIR}/Resources/LoadedImage.h"

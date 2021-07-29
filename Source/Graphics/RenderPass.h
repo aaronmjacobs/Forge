@@ -1,45 +1,98 @@
 #pragma once
 
-#include "Graphics/GraphicsResource.h"
-#include "Graphics/Texture.h"
+#include "Core/Hash.h"
 
-#include <optional>
+#include "Graphics/Framebuffer.h"
+#include "Graphics/GraphicsResource.h"
+#include "Graphics/TextureInfo.h"
+
+#include <span>
+#include <unordered_map>
 #include <vector>
 
-struct RenderPassAttachments
+class FramebufferHandle
 {
-   std::optional<TextureInfo> depthInfo;
-   std::vector<TextureInfo> colorInfo;
-   std::vector<TextureInfo> resolveInfo;
+public:
+   static FramebufferHandle create();
+
+   void invalidate()
+   {
+      id = 0;
+   }
+
+   bool isValid() const
+   {
+      return id != 0;
+   }
+
+   uint64_t getId() const
+   {
+      return id;
+   }
+
+   explicit operator bool() const
+   {
+      return isValid();
+   }
+
+   bool operator==(const FramebufferHandle& other) const
+   {
+      return id == other.id;
+   }
+
+   std::size_t hash() const
+   {
+      return Hash::of(id);
+   }
+
+private:
+   static uint64_t counter;
+
+   uint64_t id = 0;
 };
+
+namespace std
+{
+   template<>
+   struct hash<FramebufferHandle>
+   {
+      size_t operator()(const FramebufferHandle& value) const
+      {
+         return value.hash();
+      }
+   };
+}
 
 class RenderPass : public GraphicsResource
 {
 public:
    RenderPass(const GraphicsContext& graphicsContext);
-   virtual ~RenderPass();
+   ~RenderPass();
 
-   void updateAttachments(const RenderPassAttachments& passAttachments);
+   void updateAttachmentSetup(const BasicAttachmentInfo& setup);
+
+   FramebufferHandle createFramebuffer(const AttachmentInfo& attachmentInfo);
+   void destroyFramebuffer(FramebufferHandle& handle);
 
 #if FORGE_DEBUG
    void setName(std::string_view newName) override;
 #endif // FORGE_DEBUG
 
 protected:
-   void initializeRenderPass(const RenderPassAttachments& passAttachments);
+   void initializeRenderPass();
    virtual void initializePipelines(vk::SampleCountFlagBits sampleCount) = 0;
-   void initializeFramebuffers(const RenderPassAttachments& passAttachments);
 
    void terminateRenderPass();
    void terminatePipelines();
-   void terminateFramebuffers();
 
    virtual std::vector<vk::SubpassDependency> getSubpassDependencies() const = 0;
-   virtual void postUpdateAttachments() {}
+
+   void beginRenderPass(vk::CommandBuffer commandBuffer, const Framebuffer& framebuffer, std::span<vk::ClearValue> clearValues);
+   void endRenderPass(vk::CommandBuffer commandBuffer);
+   void setViewport(vk::CommandBuffer commandBuffer, const vk::Rect2D& rect);
 
    vk::RenderPass getRenderPass() const { return renderPass; }
-   vk::Framebuffer getCurrentFramebuffer() const;
-   vk::Extent2D getFramebufferExtent() const { return framebufferExtent; }
+   const Framebuffer* getFramebuffer(FramebufferHandle handle) const;
 
    vk::PipelineLayout pipelineLayout;
    std::vector<vk::Pipeline> pipelines;
@@ -49,9 +102,7 @@ protected:
 
 private:
    vk::RenderPass renderPass;
-   std::vector<vk::Framebuffer> framebuffers;
-   vk::Extent2D framebufferExtent;
+   std::unordered_map<FramebufferHandle, Framebuffer> framebufferMap;
 
-   RenderPassAttachments lastPassAttachments;
-   bool hasSwapchainAttachment = false;
+   BasicAttachmentInfo attachmentSetup;
 };

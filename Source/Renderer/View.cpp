@@ -102,7 +102,6 @@ void View::update(const ViewInfo& viewInfo)
    uniformBuffer.update(viewUniformData);
 }
 
-
 #if FORGE_DEBUG
 void View::setName(std::string_view newName)
 {

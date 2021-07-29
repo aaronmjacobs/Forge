@@ -27,10 +27,13 @@ namespace DebugUtils
    template<typename ObjectType, std::enable_if_t<!std::is_base_of<GraphicsResource, ObjectType>::value, int*> = nullptr>
    void setObjectName(vk::Device device, ObjectType& object, const char* name)
    {
-      uint64_t handle = Types::bit_cast<uint64_t>(object);
+      if (object)
+      {
+         uint64_t handle = Types::bit_cast<uint64_t>(object);
 
-      vk::DebugUtilsObjectNameInfoEXT nameInfo(ObjectType::objectType, handle, name);
-      device.setDebugUtilsObjectNameEXT(nameInfo, GetDynamicLoader());
+         vk::DebugUtilsObjectNameInfoEXT nameInfo(ObjectType::objectType, handle, name);
+         device.setDebugUtilsObjectNameEXT(nameInfo, GetDynamicLoader());
+      }
    }
 
    template<typename ObjectType>

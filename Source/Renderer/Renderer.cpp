@@ -100,15 +100,12 @@ namespace
       return std::make_unique<Texture>(context, colorImageProperties, colorTextureProperties, colorInitialLayout);
    }
 
-   std::unique_ptr<Texture> createDepthTexture(const GraphicsContext& context, bool enableMSAA)
+   std::unique_ptr<Texture> createDepthTexture(const GraphicsContext& context, vk::Format format, vk::Extent2D extent, bool enableMSAA)
    {
-      const Swapchain& swapchain = context.getSwapchain();
-
       ImageProperties depthImageProperties;
-      std::array<vk::Format, 5> depthFormats = { vk::Format::eD24UnormS8Uint, vk::Format::eD32SfloatS8Uint, vk::Format::eD16UnormS8Uint, vk::Format::eD32Sfloat, vk::Format::eD16Unorm };
-      depthImageProperties.format = Texture::findSupportedFormat(context, depthFormats, vk::ImageTiling::eOptimal, vk::FormatFeatureFlagBits::eDepthStencilAttachment);
-      depthImageProperties.width = swapchain.getExtent().width;
-      depthImageProperties.height = swapchain.getExtent().height;
+      depthImageProperties.format = format;
+      depthImageProperties.width = extent.width;
+      depthImageProperties.height = extent.height;
 
       TextureProperties depthTextureProperties;
       depthTextureProperties.sampleCount = enableMSAA ? getMaxSampleCount(context) : vk::SampleCountFlagBits::e1;
@@ -223,7 +220,7 @@ namespace
       return Bounds(transform.transformPosition(bounds.getCenter()), transform.transformVector(bounds.getExtent()));
    }
 
-   SceneRenderInfo computeSceneRenderInfo(const ResourceManager& resourceManager, const Scene& scene, const View& view)
+   SceneRenderInfo computeSceneRenderInfo(const ResourceManager& resourceManager, const Scene& scene, const View& view, bool includeLights)
    {
       SceneRenderInfo sceneRenderInfo(view);
 
@@ -279,68 +276,71 @@ namespace
          return firstSquaredDistance > secondSquaredDistance;
       });
 
-      scene.forEach<TransformComponent, PointLightComponent>([&sceneRenderInfo, &frustumPlanes](const TransformComponent& transformComponent, const PointLightComponent& pointLightComponent)
+      if (includeLights)
       {
-         PointLightRenderInfo info;
-         info.color = pointLightComponent.getColor();
-         info.position = transformComponent.getAbsoluteTransform().position;
-         info.radius = pointLightComponent.getRadius();
-
-         if (info.radius > 0.0f && glm::length2(info.color) > 0.0f)
+         scene.forEach<TransformComponent, PointLightComponent>([&sceneRenderInfo, &frustumPlanes](const TransformComponent& transformComponent, const PointLightComponent& pointLightComponent)
          {
-            bool visible = !frustumCull(info.position, info.radius, frustumPlanes);
-            if (visible)
+            PointLightRenderInfo info;
+            info.color = pointLightComponent.getColor();
+            info.position = transformComponent.getAbsoluteTransform().position;
+            info.radius = pointLightComponent.getRadius();
+
+            if (info.radius > 0.0f && glm::length2(info.color) > 0.0f)
             {
-               sceneRenderInfo.pointLights.push_back(info);
+               bool visible = !frustumCull(info.position, info.radius, frustumPlanes);
+               if (visible)
+               {
+                  sceneRenderInfo.pointLights.push_back(info);
+               }
             }
-         }
-      });
+         });
 
-      scene.forEach<TransformComponent, SpotLightComponent>([&sceneRenderInfo, &frustumPlanes](const TransformComponent& transformComponent, const SpotLightComponent& spotLightComponent)
-      {
-         Transform transform = transformComponent.getAbsoluteTransform();
-
-         SpotLightRenderInfo info;
-         info.color = spotLightComponent.getColor();
-         info.position = transform.position;
-         info.direction = transform.getForwardVector();
-         info.radius = spotLightComponent.getRadius();
-         info.beamAngle = glm::radians(spotLightComponent.getBeamAngle());
-         info.cutoffAngle = glm::radians(spotLightComponent.getCutoffAngle());
-
-         if (info.radius > 0.0f && glm::length2(info.color) > 0.0f)
+         scene.forEach<TransformComponent, SpotLightComponent>([&sceneRenderInfo, &frustumPlanes](const TransformComponent& transformComponent, const SpotLightComponent& spotLightComponent)
          {
-            glm::vec3 end = info.position + info.direction * info.radius;
-            float endWidth = glm::tan(info.cutoffAngle) * info.radius;
+            Transform transform = transformComponent.getAbsoluteTransform();
 
-            std::array<glm::vec3, 5> points =
-            {
-               info.position, // Origin of the light
-               end + transform.getUpVector() * endWidth, // End top
-               end - transform.getUpVector() * endWidth, // End bottom
-               end + transform.getRightVector() * endWidth, // End right
-               end - transform.getRightVector() * endWidth, // End left
-            };
+            SpotLightRenderInfo info;
+            info.color = spotLightComponent.getColor();
+            info.position = transform.position;
+            info.direction = transform.getForwardVector();
+            info.radius = spotLightComponent.getRadius();
+            info.beamAngle = glm::radians(spotLightComponent.getBeamAngle());
+            info.cutoffAngle = glm::radians(spotLightComponent.getCutoffAngle());
 
-            bool visible = !frustumCull(points, frustumPlanes);
-            if (visible)
+            if (info.radius > 0.0f && glm::length2(info.color) > 0.0f)
             {
-               sceneRenderInfo.spotLights.push_back(info);
+               glm::vec3 end = info.position + info.direction * info.radius;
+               float endWidth = glm::tan(info.cutoffAngle) * info.radius;
+
+               std::array<glm::vec3, 5> points =
+               {
+                  info.position, // Origin of the light
+                  end + transform.getUpVector() * endWidth, // End top
+                  end - transform.getUpVector() * endWidth, // End bottom
+                  end + transform.getRightVector() * endWidth, // End right
+                  end - transform.getRightVector() * endWidth, // End left
+               };
+
+               bool visible = !frustumCull(points, frustumPlanes);
+               if (visible)
+               {
+                  sceneRenderInfo.spotLights.push_back(info);
+               }
             }
-         }
-      });
+         });
 
-      scene.forEach<TransformComponent, DirectionalLightComponent>([&sceneRenderInfo, &frustumPlanes](const TransformComponent& transformComponent, const DirectionalLightComponent& directionalLightComponent)
-      {
-         DirectionalLightRenderInfo info;
-         info.color = directionalLightComponent.getColor();
-         info.direction = transformComponent.getAbsoluteTransform().getForwardVector();
-
-         if (glm::length2(info.color) > 0.0f)
+         scene.forEach<TransformComponent, DirectionalLightComponent>([&sceneRenderInfo, &frustumPlanes](const TransformComponent& transformComponent, const DirectionalLightComponent& directionalLightComponent)
          {
-            sceneRenderInfo.directionalLights.push_back(info);
-         }
-      });
+            DirectionalLightRenderInfo info;
+            info.color = directionalLightComponent.getColor();
+            info.direction = transformComponent.getAbsoluteTransform().getForwardVector();
+
+            if (glm::length2(info.color) > 0.0f)
+            {
+               sceneRenderInfo.directionalLights.push_back(info);
+            }
+         });
+      }
 
       return sceneRenderInfo;
    }
@@ -351,9 +351,14 @@ Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& reso
    , resourceManager(resourceManagerRef)
 {
    {
-      static const uint32_t kMaxUniformBuffers = 2;
+      std::array<vk::Format, 5> depthFormats = { vk::Format::eD24UnormS8Uint, vk::Format::eD32SfloatS8Uint, vk::Format::eD16UnormS8Uint, vk::Format::eD32Sfloat, vk::Format::eD16Unorm };
+      depthStencilFormat = Texture::findSupportedFormat(context, depthFormats, vk::ImageTiling::eOptimal, vk::FormatFeatureFlagBits::eDepthStencilAttachment);
+   }
+
+   {
+      static const uint32_t kMaxUniformBuffers = 3;
       static const uint32_t kMaxImages = 1; // TODO
-      static const uint32_t kMaxSets = 3; // TODO
+      static const uint32_t kMaxSets = 4; // TODO
 
       vk::DescriptorPoolSize uniformPoolSize = vk::DescriptorPoolSize()
          .setType(vk::DescriptorType::eUniformBuffer)
@@ -377,9 +382,14 @@ Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& reso
    }
 
    {
-      depthPass = std::make_unique<DepthPass>(context, resourceManager);
+      prePass = std::make_unique<DepthPass>(context, resourceManager);
+      NAME_POINTER(prePass, "Pre Pass");
+
       forwardPass = std::make_unique<ForwardPass>(context, descriptorPool, resourceManager);
+      NAME_POINTER(forwardPass, "Forward Pass");
+
       tonemapPass = std::make_unique<TonemapPass>(context, descriptorPool, resourceManager);
+      NAME_POINTER(tonemapPass, "Tonemap Pass");
    }
 
    onSwapchainRecreated();
@@ -387,7 +397,7 @@ Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& reso
 
 Renderer::~Renderer()
 {
-   depthPass = nullptr;
+   prePass = nullptr;
    forwardPass = nullptr;
    tonemapPass = nullptr;
 
@@ -405,39 +415,20 @@ void Renderer::render(vk::CommandBuffer commandBuffer, const Scene& scene)
 {
    SCOPED_LABEL("Scene");
 
-   vk::Extent2D swapchainExtent = context.getSwapchain().getExtent();
-
-   {
-      SCOPED_LABEL("Set viewport");
-
-      vk::Viewport viewport = vk::Viewport()
-         .setX(0.0f)
-         .setY(0.0f)
-         .setWidth(static_cast<float>(swapchainExtent.width))
-         .setHeight(static_cast<float>(swapchainExtent.height))
-         .setMinDepth(0.0f)
-         .setMaxDepth(1.0f);
-      commandBuffer.setViewport(0, viewport);
-
-      vk::Rect2D scissor = vk::Rect2D()
-         .setOffset(vk::Offset2D(0, 0))
-         .setExtent(swapchainExtent);
-      commandBuffer.setScissor(0, scissor);
-   }
-
-   INLINE_LABEL("Update view");
+   INLINE_LABEL("Update main view");
    ViewInfo activeCameraViewInfo = computeActiveCameraViewInfo(context, scene);
    view->update(activeCameraViewInfo);
-   SceneRenderInfo sceneRenderInfo = computeSceneRenderInfo(resourceManager, scene, *view);
 
-   depthPass->render(commandBuffer, sceneRenderInfo);
-   forwardPass->render(commandBuffer, sceneRenderInfo);
-   tonemapPass->render(commandBuffer, hdrResolveTexture ? *hdrResolveTexture : *hdrColorTexture);
+   SceneRenderInfo sceneRenderInfo = computeSceneRenderInfo(resourceManager, scene, *view, true);
+
+   prePass->render(commandBuffer, sceneRenderInfo, prePassFramebufferHandle);
+   forwardPass->render(commandBuffer, sceneRenderInfo, forwardPassFramebufferHandle);
+   tonemapPass->render(commandBuffer, tonemapPassFramebufferHandle, hdrResolveTexture ? *hdrResolveTexture : *hdrColorTexture);
 }
 
 void Renderer::onSwapchainRecreated()
 {
-   depthTexture = createDepthTexture(context, enableMSAA);
+   depthTexture = createDepthTexture(context, depthStencilFormat, context.getSwapchain().getExtent(), enableMSAA);
    hdrColorTexture = createColorTexture(context, vk::Format::eR16G16B16A16Sfloat, !enableMSAA, enableMSAA);
    if (enableMSAA)
    {
@@ -452,7 +443,7 @@ void Renderer::onSwapchainRecreated()
    NAME_POINTER(hdrColorTexture, "HDR Color Texture");
    NAME_POINTER(hdrResolveTexture, "HDR Resolve Texture");
 
-   updateRenderPassAttachments();
+   updateSwapchainDependentFramebuffers();
 }
 
 void Renderer::toggleMSAA()
@@ -461,31 +452,34 @@ void Renderer::toggleMSAA()
    onSwapchainRecreated();
 }
 
-void Renderer::updateRenderPassAttachments()
+void Renderer::updateSwapchainDependentFramebuffers()
 {
    {
-      RenderPassAttachments depthPassAttachments;
-      depthPassAttachments.depthInfo = depthTexture->getInfo();
+      AttachmentInfo prePassInfo;
+      prePassInfo.depthInfo = depthTexture->getInfo();
 
-      depthPass->updateAttachments(depthPassAttachments);
+      prePass->updateAttachmentSetup(prePassInfo.asBasic());
+      prePassFramebufferHandle = prePass->createFramebuffer(prePassInfo);
    }
 
    {
-      RenderPassAttachments forwardPassAttachments;
-      forwardPassAttachments.depthInfo = depthTexture->getInfo();
-      forwardPassAttachments.colorInfo = { hdrColorTexture->getInfo() };
+      AttachmentInfo forwardInfo;
+      forwardInfo.depthInfo = depthTexture->getInfo();
+      forwardInfo.colorInfo = { hdrColorTexture->getInfo() };
       if (hdrResolveTexture)
       {
-         forwardPassAttachments.resolveInfo = { hdrResolveTexture->getInfo() };
+         forwardInfo.resolveInfo = { hdrResolveTexture->getInfo() };
       }
 
-      forwardPass->updateAttachments(forwardPassAttachments);
+      forwardPass->updateAttachmentSetup(forwardInfo.asBasic());
+      forwardPassFramebufferHandle = forwardPass->createFramebuffer(forwardInfo);
    }
 
    {
-      RenderPassAttachments tonemapPassAttachments;
-      tonemapPassAttachments.colorInfo = { context.getSwapchain().getTextureInfo() };
+      AttachmentInfo tonemapInfo;
+      tonemapInfo.colorInfo = { context.getSwapchain().getTextureInfo() };
 
-      tonemapPass->updateAttachments(tonemapPassAttachments);
+      tonemapPass->updateAttachmentSetup(tonemapInfo.asBasic());
+      tonemapPassFramebufferHandle = tonemapPass->createFramebuffer(tonemapInfo);
    }
 }

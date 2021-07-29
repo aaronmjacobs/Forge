@@ -33,19 +33,21 @@ ForwardPass::~ForwardPass()
    forwardShader.reset();
 }
 
-void ForwardPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo)
+void ForwardPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, FramebufferHandle framebufferHandle)
 {
-   SCOPED_LABEL("Forward pass");
+   SCOPED_LABEL(getName());
+
+   const Framebuffer* framebuffer = getFramebuffer(framebufferHandle);
+   if (!framebuffer)
+   {
+      ASSERT(false);
+      return;
+   }
 
    std::array<float, 4> clearColorValues = { 0.0f, 0.0f, 0.0f, 1.0f };
    std::array<vk::ClearValue, 2> clearValues = { vk::ClearDepthStencilValue(1.0f, 0), vk::ClearColorValue(clearColorValues) };
 
-   vk::RenderPassBeginInfo renderPassBeginInfo = vk::RenderPassBeginInfo()
-      .setRenderPass(getRenderPass())
-      .setFramebuffer(getCurrentFramebuffer())
-      .setRenderArea(vk::Rect2D(vk::Offset2D(0, 0), getFramebufferExtent()))
-      .setClearValues(clearValues);
-   commandBuffer.beginRenderPass(renderPassBeginInfo, vk::SubpassContents::eInline);
+   beginRenderPass(commandBuffer, *framebuffer, clearValues);
 
    INLINE_LABEL("Update lighting");
    lighting.update(sceneRenderInfo);
@@ -60,7 +62,7 @@ void ForwardPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo&
       renderMeshes<BlendMode::Translucent>(commandBuffer, sceneRenderInfo);
    }
 
-   commandBuffer.endRenderPass();
+   endRenderPass(commandBuffer);
 }
 
 #if FORGE_DEBUG
@@ -128,11 +130,6 @@ std::vector<vk::SubpassDependency> ForwardPass::getSubpassDependencies() const
       .setDstAccessMask(vk::AccessFlagBits::eColorAttachmentRead | vk::AccessFlagBits::eColorAttachmentWrite));
 
    return subpassDependencies;
-}
-
-void ForwardPass::postUpdateAttachments()
-{
-   NAME_OBJECT(*this, "Forward Pass");
 }
 
 void ForwardPass::renderMesh(vk::CommandBuffer commandBuffer, const View& view, const Mesh& mesh, uint32_t section, const Material& material)

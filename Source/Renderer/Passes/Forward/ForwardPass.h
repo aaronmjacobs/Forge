@@ -14,7 +14,7 @@ public:
    ForwardPass(const GraphicsContext& graphicsContext, vk::DescriptorPool descriptorPool, ResourceManager& resourceManager);
    ~ForwardPass();
 
-   void render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo);
+   void render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, FramebufferHandle framebufferHandle);
 
 #if FORGE_DEBUG
    void setName(std::string_view newName) override;
@@ -25,7 +25,6 @@ protected:
 
    void initializePipelines(vk::SampleCountFlagBits sampleCount) override;
    std::vector<vk::SubpassDependency> getSubpassDependencies() const override;
-   void postUpdateAttachments() override;
 
    void renderMesh(vk::CommandBuffer commandBuffer, const View& view, const Mesh& mesh, uint32_t section, const Material& material);
    vk::Pipeline selectPipeline(const MeshSection& meshSection, const Material& material) const;

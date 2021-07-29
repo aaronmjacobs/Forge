@@ -16,7 +16,7 @@ public:
    TonemapPass(const GraphicsContext& graphicsContext, vk::DescriptorPool descriptorPool, ResourceManager& resourceManager);
    ~TonemapPass();
 
-   void render(vk::CommandBuffer commandBuffer, Texture& hdrColorTexture);
+   void render(vk::CommandBuffer commandBuffer, FramebufferHandle framebufferHandle, Texture& hdrColorTexture);
 
 #if FORGE_DEBUG
    void setName(std::string_view newName) override;
@@ -27,7 +27,6 @@ protected:
 
    void initializePipelines(vk::SampleCountFlagBits sampleCount) override;
    std::vector<vk::SubpassDependency> getSubpassDependencies() const override;
-   void postUpdateAttachments() override;
 
 private:
    std::unique_ptr<TonemapShader> tonemapShader;

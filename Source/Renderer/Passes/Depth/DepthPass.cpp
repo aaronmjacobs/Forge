@@ -24,24 +24,25 @@ DepthPass::~DepthPass()
    depthShader.reset();
 }
 
-void DepthPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo)
+void DepthPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, FramebufferHandle framebufferHandle)
 {
-   SCOPED_LABEL("Depth pass");
+   SCOPED_LABEL(getName());
+
+   const Framebuffer* framebuffer = getFramebuffer(framebufferHandle);
+   if (!framebuffer)
+   {
+      ASSERT(false);
+      return;
+   }
 
    std::array<vk::ClearValue, 2> clearValues = { vk::ClearDepthStencilValue(1.0f, 0) };
-
-   vk::RenderPassBeginInfo renderPassBeginInfo = vk::RenderPassBeginInfo()
-      .setRenderPass(getRenderPass())
-      .setFramebuffer(getCurrentFramebuffer())
-      .setRenderArea(vk::Rect2D(vk::Offset2D(0, 0), getFramebufferExtent()))
-      .setClearValues(clearValues);
-   commandBuffer.beginRenderPass(renderPassBeginInfo, vk::SubpassContents::eInline);
+   beginRenderPass(commandBuffer, *framebuffer, clearValues);
 
    depthShader->bindDescriptorSets(commandBuffer, sceneRenderInfo.view, pipelineLayout);
 
    renderMeshes<BlendMode::Opaque>(commandBuffer, sceneRenderInfo);
 
-   commandBuffer.endRenderPass();
+   endRenderPass(commandBuffer);
 }
 
 #if FORGE_DEBUG
@@ -79,9 +80,4 @@ std::vector<vk::SubpassDependency> DepthPass::getSubpassDependencies() const
       .setDstAccessMask(vk::AccessFlagBits::eDepthStencilAttachmentRead | vk::AccessFlagBits::eDepthStencilAttachmentWrite));
 
    return subpassDependencies;
-}
-
-void DepthPass::postUpdateAttachments()
-{
-   NAME_OBJECT(*this, "Depth Pass");
 }
