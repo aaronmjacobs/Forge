@@ -13,8 +13,6 @@
 
 namespace DebugUtils
 {
-   vk::DispatchLoaderDynamic& GetDynamicLoader();
-
    bool AreLabelsEnabled();
    void SetLabelsEnabled(bool enabled);
 
@@ -32,7 +30,7 @@ namespace DebugUtils
          uint64_t handle = Types::bit_cast<uint64_t>(object);
 
          vk::DebugUtilsObjectNameInfoEXT nameInfo(ObjectType::objectType, handle, name);
-         device.setDebugUtilsObjectNameEXT(nameInfo, GetDynamicLoader());
+         device.setDebugUtilsObjectNameEXT(nameInfo, GraphicsContext::GetDynamicLoader());
       }
    }
 

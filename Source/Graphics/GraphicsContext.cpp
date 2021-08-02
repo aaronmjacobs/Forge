@@ -183,7 +183,7 @@ namespace
 
       static const std::array<const char*, 2> kOptionalDeviceExtensions =
       {
-         "VK_KHR_portability_subset", // For MoltenVK
+         VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME, // For MoltenVK
          VK_KHR_UNIFORM_BUFFER_STANDARD_LAYOUT_EXTENSION_NAME
       };
 
@@ -346,6 +346,15 @@ std::optional<QueueFamilyIndices> QueueFamilyIndices::get(vk::PhysicalDevice phy
    return {};
 }
 
+// static
+const vk::DispatchLoaderDynamic& GraphicsContext::GetDynamicLoader()
+{
+   return dispatchLoaderDynamic;
+}
+
+// static
+vk::DispatchLoaderDynamic GraphicsContext::dispatchLoaderDynamic;
+
 GraphicsContext::GraphicsContext(Window& window)
 {
    vk::ApplicationInfo applicationInfo = vk::ApplicationInfo()
@@ -369,6 +378,7 @@ GraphicsContext::GraphicsContext(Window& window)
 #endif // FORGE_DEBUG
 
    instance = vk::createInstance(createInfo);
+   dispatchLoaderDynamic.init(instance, vk::Device());
 
 #if FORGE_DEBUG
    debugMessenger = createDebugMessenger(instance);
@@ -407,13 +417,26 @@ GraphicsContext::GraphicsContext(Window& window)
    deviceFeatures.setSamplerAnisotropy(physicalDeviceFeatures.samplerAnisotropy);
    deviceFeatures.setSampleRateShading(true);
 
+   void* deviceCreateInfoNext = nullptr;
+   vk::PhysicalDevicePortabilitySubsetFeaturesKHR portabilityFeatures;
+   if (std::find(deviceExtensions.begin(), deviceExtensions.end(), VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME) != deviceExtensions.end())
+   {
+      vk::PhysicalDeviceFeatures2 physicalDeviceFeatures2;
+      physicalDeviceFeatures2.setPNext(&portabilityFeatures);
+
+      physicalDevice.getFeatures2(&physicalDeviceFeatures2);
+      deviceCreateInfoNext = &portabilityFeatures;
+   }
+
    vk::DeviceCreateInfo deviceCreateInfo = vk::DeviceCreateInfo()
       .setQueueCreateInfos(deviceQueueCreateInfos)
       .setPEnabledLayerNames(layers)
       .setPEnabledExtensionNames(deviceExtensions)
-      .setPEnabledFeatures(&deviceFeatures);
+      .setPEnabledFeatures(&deviceFeatures)
+      .setPNext(deviceCreateInfoNext);
 
    device = physicalDevice.createDevice(deviceCreateInfo);
+   dispatchLoaderDynamic.init(device);
 
    graphicsQueue = device.getQueue(queueFamilyIndices.graphicsFamily, 0);
    presentQueue = device.getQueue(queueFamilyIndices.presentFamily, 0);
@@ -426,10 +449,6 @@ GraphicsContext::GraphicsContext(Window& window)
 
    layoutCache = std::make_unique<DescriptorSetLayoutCache>(*this);
    delayedObjectDestroyer = std::make_unique<DelayedObjectDestroyer>(*this);
-
-#if FORGE_DEBUG
-   DebugUtils::GetDynamicLoader().init(instance, device);
-#endif // FORGE_DEBUG
 }
 
 GraphicsContext::~GraphicsContext()

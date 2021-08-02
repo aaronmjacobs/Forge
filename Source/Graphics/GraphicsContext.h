@@ -31,6 +31,8 @@ class GraphicsContext
 public:
    static const uint32_t kMaxFramesInFlight = 3;
 
+   static const vk::DispatchLoaderDynamic& GetDynamicLoader();
+
    GraphicsContext(Window& window);
 
    GraphicsContext(const GraphicsContext& other) = delete;
@@ -139,6 +141,8 @@ public:
    }
 
 private:
+   static vk::DispatchLoaderDynamic dispatchLoaderDynamic;
+
    void delayedDestroy(uint64_t handle, vk::ObjectType type) const;
    void delayedFree(uint64_t pool, uint64_t handle, vk::ObjectType type) const;
 

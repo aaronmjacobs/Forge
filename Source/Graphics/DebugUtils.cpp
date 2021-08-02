@@ -5,13 +5,7 @@ namespace DebugUtils
 {
    namespace
    {
-      vk::DispatchLoaderDynamic dispatchLoaderDynamic;
       bool labelsEnabled = true;
-   }
-
-   vk::DispatchLoaderDynamic& GetDynamicLoader()
-   {
-      return dispatchLoaderDynamic;
    }
 
    bool AreLabelsEnabled()
@@ -29,7 +23,7 @@ namespace DebugUtils
       if (AreLabelsEnabled())
       {
          vk::DebugUtilsLabelEXT label(labelName);
-         commandBuffer.insertDebugUtilsLabelEXT(label, GetDynamicLoader());
+         commandBuffer.insertDebugUtilsLabelEXT(label, GraphicsContext::GetDynamicLoader());
       }
    }
 
@@ -39,7 +33,7 @@ namespace DebugUtils
       if (AreLabelsEnabled())
       {
          vk::DebugUtilsLabelEXT label(labelName, color);
-         commandBuffer.beginDebugUtilsLabelEXT(label, GetDynamicLoader());
+         commandBuffer.beginDebugUtilsLabelEXT(label, GraphicsContext::GetDynamicLoader());
       }
    }
 
@@ -47,7 +41,7 @@ namespace DebugUtils
    {
       if (commandBuffer)
       {
-         commandBuffer.endDebugUtilsLabelEXT(GetDynamicLoader());
+         commandBuffer.endDebugUtilsLabelEXT(GraphicsContext::GetDynamicLoader());
       }
    }
 }
