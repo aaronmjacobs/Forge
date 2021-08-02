@@ -12,9 +12,11 @@ struct PointLight
 
 struct SpotLight
 {
+   mat4 worldToShadow;
    vec4 colorRadius;
    vec4 positionBeamAngle;
    vec4 directionCutoffAngle;
+   int shadowMapIndex;
 };
 
 struct LightingParams
@@ -42,14 +44,14 @@ float calcAttenuation(vec3 toLight, float radius)
 
 vec3 calcAmbient(vec3 lightColor, vec3 diffuseColor)
 {
-   return lightColor * diffuseColor * 0.1;
+   return lightColor * diffuseColor * 0.05;
 }
 
 vec3 calcDiffuse(vec3 lightColor, vec3 diffuseColor, vec3 surfaceNormal, vec3 toLightDirection)
 {
    float diffuseAmount = max(0.0, dot(surfaceNormal, toLightDirection));
 
-   return lightColor * (diffuseColor * diffuseAmount) * 0.9;
+   return lightColor * (diffuseColor * diffuseAmount) * 0.95;
 }
 
 vec3 calcSpecular(vec3 lightColor, vec3 specularColor, float shininess, vec3 surfacePosition, vec3 surfaceNormal, vec3 toLightDirection, vec3 cameraPosition)
@@ -61,6 +63,27 @@ vec3 calcSpecular(vec3 lightColor, vec3 specularColor, float shininess, vec3 sur
    float specularAmount = pow(specularBase, max(1.0, shininess));
 
    return lightColor * (specularColor * specularAmount);
+}
+
+float calcVisibility(sampler2DArrayShadow shadowMaps, int shadowMapIndex, vec3 surfacePosition, mat4 worldToShadow)
+{
+   float visibility = 0.0;
+
+   vec4 shadowPosition = worldToShadow * vec4(surfacePosition, 1.0);
+   vec2 shadowTexCoords = (shadowPosition.xy / shadowPosition.w) * 0.5 + 0.5;
+   float shadowDepth = shadowPosition.z / shadowPosition.w;
+
+   vec2 texelSize = 1.0 / textureSize(shadowMaps, 0).xy;
+   for (int x = -1; x <= 1; ++x)
+   {
+      for (int y = -1; y <= 1; ++y)
+      {
+         vec2 offset = vec2(x, y) * texelSize;
+         visibility += texture(shadowMaps, vec4(shadowTexCoords + offset, shadowMapIndex, shadowDepth));
+      }
+   }
+
+   return visibility / 9.0;
 }
 
 vec3 calcDirectionalLighting(DirectionalLight directionalLight, LightingParams lightingParams)
@@ -93,7 +116,7 @@ vec3 calcPointLighting(PointLight pointLight, LightingParams lightingParams)
    return (ambient + (diffuse + specular)) * attenuation;
 }
 
-vec3 calcSpotLighting(SpotLight spotLight, LightingParams lightingParams)
+vec3 calcSpotLighting(SpotLight spotLight, LightingParams lightingParams, sampler2DArrayShadow shadowMaps)
 {
    vec3 lightColor = spotLight.colorRadius.rgb;
    vec3 lightPosition = spotLight.positionBeamAngle.xyz;
@@ -115,5 +138,15 @@ vec3 calcSpotLighting(SpotLight spotLight, LightingParams lightingParams)
    float clampedAngle = clamp(spotAngle, lightBeamAngle, lightCutoffAngle);
    float spotMultiplier = 1.0 - ((clampedAngle - lightBeamAngle) / (lightCutoffAngle - lightBeamAngle));
 
-   return (ambient + (diffuse + specular)) * attenuation * spotMultiplier;
+   float brightness = attenuation * spotMultiplier;
+   vec3 directLighting = (diffuse + specular) * brightness;
+   vec3 indirectLighting = ambient * brightness;
+
+   if (max(directLighting.r, max(directLighting.g, directLighting.b)) > 0.0 && spotLight.shadowMapIndex >= 0)
+   {
+      float visibility = calcVisibility(shadowMaps, spotLight.shadowMapIndex, lightingParams.surfacePosition, spotLight.worldToShadow);
+      directLighting *= visibility;
+   }
+
+   return directLighting + indirectLighting;
 }

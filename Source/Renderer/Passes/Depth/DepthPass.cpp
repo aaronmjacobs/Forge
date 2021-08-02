@@ -9,8 +9,9 @@
 #include "Renderer/SceneRenderInfo.h"
 #include "Renderer/UniformData.h"
 
-DepthPass::DepthPass(const GraphicsContext& graphicsContext, ResourceManager& resourceManager)
+DepthPass::DepthPass(const GraphicsContext& graphicsContext, ResourceManager& resourceManager, bool shadowPass)
    : SceneRenderPass(graphicsContext)
+   , isShadowPass(shadowPass)
 {
    clearDepth = true;
    clearColor = false;
@@ -64,6 +65,10 @@ void DepthPass::initializePipelines(vk::SampleCountFlagBits sampleCount)
    pipelineLayout = device.createPipelineLayout(pipelineLayoutCreateInfo);
 
    PipelineData pipelineData(context, pipelineLayout, getRenderPass(), PipelinePassType::Mesh, depthShader->getStages(), {}, sampleCount);
+   if (isShadowPass)
+   {
+      pipelineData.enableDepthBias(2.0f, 2.5f);
+   }
    pipelines[0] = device.createGraphicsPipeline(nullptr, pipelineData.getCreateInfo()).value;
 }
 

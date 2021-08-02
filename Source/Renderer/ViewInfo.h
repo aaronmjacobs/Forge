@@ -44,3 +44,16 @@ struct ViewInfo
    OrthographicInfo orthographicInfo;
    PerspectiveInfo perspectiveInfo;
 };
+
+struct ViewMatrices
+{
+   glm::mat4 worldToView;
+   glm::mat4 viewToClip;
+   glm::mat4 worldToClip;
+
+   glm::vec3 viewPosition;
+   glm::vec3 viewDirection;
+
+   ViewMatrices() = default;
+   ViewMatrices(const ViewInfo& viewInfo);
+};

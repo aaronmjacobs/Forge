@@ -39,27 +39,27 @@ public:
 
    const glm::mat4& getWorldToView() const
    {
-      return worldToView;
+      return viewMatrices.worldToView;
    }
 
    const glm::mat4& getViewToClip() const
    {
-      return viewToClip;
+      return viewMatrices.viewToClip;
    }
 
    const glm::mat4& getWorldToClip() const
    {
-      return worldToClip;
+      return viewMatrices.worldToClip;
    }
 
    const glm::vec3& getViewPosition() const
    {
-      return viewPosition;
+      return viewMatrices.viewPosition;
    }
 
    const glm::vec3& getViewDirection() const
    {
-      return viewDirection;
+      return viewMatrices.viewDirection;
    }
 
 #if FORGE_DEBUG
@@ -72,10 +72,5 @@ private:
    UniformBuffer<ViewUniformData> uniformBuffer;
    DescriptorSet descriptorSet;
 
-   glm::mat4 worldToView;
-   glm::mat4 viewToClip;
-   glm::mat4 worldToClip;
-
-   glm::vec3 viewPosition;
-   glm::vec3 viewDirection;
+   ViewMatrices viewMatrices;
 };

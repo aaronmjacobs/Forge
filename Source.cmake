@@ -69,12 +69,12 @@ target_sources(${PROJECT_NAME} PRIVATE
    "${SRC_DIR}/Platform/Window.cpp"
    "${SRC_DIR}/Platform/Window.h"
 
+   "${SRC_DIR}/Renderer/ForwardLighting.cpp"
+   "${SRC_DIR}/Renderer/ForwardLighting.h"
    "${SRC_DIR}/Renderer/Passes/Depth/DepthPass.cpp"
    "${SRC_DIR}/Renderer/Passes/Depth/DepthPass.h"
    "${SRC_DIR}/Renderer/Passes/Depth/DepthShader.cpp"
    "${SRC_DIR}/Renderer/Passes/Depth/DepthShader.h"
-   "${SRC_DIR}/Renderer/Passes/Forward/ForwardLighting.cpp"
-   "${SRC_DIR}/Renderer/Passes/Forward/ForwardLighting.h"
    "${SRC_DIR}/Renderer/Passes/Forward/ForwardPass.cpp"
    "${SRC_DIR}/Renderer/Passes/Forward/ForwardPass.h"
    "${SRC_DIR}/Renderer/Passes/Forward/ForwardShader.cpp"
@@ -92,6 +92,7 @@ target_sources(${PROJECT_NAME} PRIVATE
    "${SRC_DIR}/Renderer/UniformData.h"
    "${SRC_DIR}/Renderer/View.cpp"
    "${SRC_DIR}/Renderer/View.h"
+   "${SRC_DIR}/Renderer/ViewInfo.cpp"
    "${SRC_DIR}/Renderer/ViewInfo.h"
 
    "${SRC_DIR}/Resources/LoadedImage.cpp"

@@ -4,6 +4,7 @@
 #include "Graphics/RenderPass.h"
 #include "Graphics/UniformBuffer.h"
 
+#include "Renderer/ForwardLighting.h"
 #include "Renderer/UniformData.h"
 
 #include "Resources/ResourceManager.h"
@@ -12,6 +13,7 @@
 #include <vector>
 
 class DepthPass;
+class ForwardLighting;
 class ForwardPass;
 class Scene;
 class SimpleRenderPass;
@@ -41,16 +43,20 @@ private:
    vk::DescriptorPool descriptorPool;
 
    std::unique_ptr<View> view;
+   std::array<std::unique_ptr<View>, ForwardLighting::kMaxSpotShadowMaps> spotShadowViews;
+   std::unique_ptr<ForwardLighting> forwardLighting;
 
    std::unique_ptr<Texture> depthTexture;
    std::unique_ptr<Texture> hdrColorTexture;
    std::unique_ptr<Texture> hdrResolveTexture;
 
    std::unique_ptr<DepthPass> prePass;
+   std::unique_ptr<DepthPass> shadowPass;
    std::unique_ptr<ForwardPass> forwardPass;
    std::unique_ptr<TonemapPass> tonemapPass;
 
    FramebufferHandle prePassFramebufferHandle;
+   std::array<FramebufferHandle, ForwardLighting::kMaxSpotShadowMaps> spotShadowPassFramebufferHandles;
    FramebufferHandle forwardPassFramebufferHandle;
    FramebufferHandle tonemapPassFramebufferHandle;
 

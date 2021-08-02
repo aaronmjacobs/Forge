@@ -1,17 +1,17 @@
 #pragma once
 
-#include "Renderer/Passes/Forward/ForwardLighting.h"
 #include "Renderer/Passes/SceneRenderPass.h"
 
 #include <memory>
 
 class ResourceManager;
+class ForwardLighting;
 class ForwardShader;
 
 class ForwardPass : public SceneRenderPass<ForwardPass>
 {
 public:
-   ForwardPass(const GraphicsContext& graphicsContext, vk::DescriptorPool descriptorPool, ResourceManager& resourceManager);
+   ForwardPass(const GraphicsContext& graphicsContext, ResourceManager& resourceManager, const ForwardLighting* forwardLighting);
    ~ForwardPass();
 
    void render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, FramebufferHandle framebufferHandle);
@@ -31,5 +31,5 @@ protected:
 
 private:
    std::unique_ptr<ForwardShader> forwardShader;
-   ForwardLighting lighting;
+   const ForwardLighting* lighting;
 };

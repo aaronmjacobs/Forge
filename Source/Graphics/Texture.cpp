@@ -19,9 +19,9 @@ namespace
       switch (imageProperties.type)
       {
       case vk::ImageType::e1D:
-         return vk::ImageViewType::e1D;
+         return imageProperties.layers == 1 ? vk::ImageViewType::e1D : vk::ImageViewType::e1DArray;
       case vk::ImageType::e2D:
-         return vk::ImageViewType::e2D;
+         return imageProperties.layers == 1 ? vk::ImageViewType::e2D : vk::ImageViewType::e2DArray;
       case vk::ImageType::e3D:
          return vk::ImageViewType::e3D;
       default:
@@ -115,14 +115,14 @@ Texture::~Texture()
    context.delayedFree(std::move(memory));
 }
 
-vk::ImageView Texture::createView(vk::ImageViewType viewType) const
+vk::ImageView Texture::createView(vk::ImageViewType viewType, uint32_t baseLayer, uint32_t layerCount, std::optional<vk::ImageAspectFlags> aspectFlags) const
 {
    vk::ImageSubresourceRange subresourceRange = vk::ImageSubresourceRange()
-      .setAspectMask(textureProperties.aspects)
+      .setAspectMask(aspectFlags.value_or(textureProperties.aspects))
       .setBaseMipLevel(0)
       .setLevelCount(mipLevels)
-      .setBaseArrayLayer(0)
-      .setLayerCount(1);
+      .setBaseArrayLayer(baseLayer)
+      .setLayerCount(layerCount);
 
    vk::ImageViewCreateInfo createInfo = vk::ImageViewCreateInfo()
       .setImage(image)
@@ -142,7 +142,7 @@ void Texture::transitionLayout(vk::CommandBuffer commandBuffer, vk::ImageLayout 
          .setBaseMipLevel(0)
          .setLevelCount(mipLevels)
          .setBaseArrayLayer(0)
-         .setLayerCount(1);
+         .setLayerCount(imageProperties.layers);
 
       vk::ImageLayout oldLayout = layout;
       vk::ImageMemoryBarrier barrier = vk::ImageMemoryBarrier()
@@ -208,7 +208,7 @@ void Texture::createImage()
       .setImageType(imageProperties.type)
       .setExtent(vk::Extent3D(imageProperties.width, imageProperties.height, imageProperties.depth))
       .setMipLevels(mipLevels)
-      .setArrayLayers(1)
+      .setArrayLayers(imageProperties.layers)
       .setFormat(imageProperties.format)
       .setTiling(textureProperties.tiling)
       .setInitialLayout(vk::ImageLayout::eUndefined)
@@ -233,7 +233,7 @@ void Texture::copyBufferToImage(vk::Buffer buffer)
       .setAspectMask(textureProperties.aspects)
       .setMipLevel(0)
       .setBaseArrayLayer(0)
-      .setLayerCount(1);
+      .setLayerCount(imageProperties.layers);
 
    vk::BufferImageCopy region = vk::BufferImageCopy()
       .setBufferOffset(0)
@@ -285,7 +285,7 @@ void Texture::generateMipmaps(vk::ImageLayout finalLayout, const TextureMemoryBa
       .setBaseMipLevel(0)
       .setLevelCount(1)
       .setBaseArrayLayer(0)
-      .setLayerCount(1);
+      .setLayerCount(imageProperties.layers);
 
    vk::ImageMemoryBarrier barrier = vk::ImageMemoryBarrier()
       .setImage(image)
@@ -327,13 +327,13 @@ void Texture::generateMipmaps(vk::ImageLayout finalLayout, const TextureMemoryBa
          .setAspectMask(textureProperties.aspects)
          .setMipLevel(i - 1)
          .setBaseArrayLayer(0)
-         .setLayerCount(1);
+         .setLayerCount(imageProperties.layers);
 
       vk::ImageSubresourceLayers dstSubresource = vk::ImageSubresourceLayers()
          .setAspectMask(textureProperties.aspects)
          .setMipLevel(i)
          .setBaseArrayLayer(0)
-         .setLayerCount(1);
+         .setLayerCount(imageProperties.layers);
 
       vk::ImageBlit blit = vk::ImageBlit()
          .setSrcOffsets(srcOffsets)

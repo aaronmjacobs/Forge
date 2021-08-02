@@ -2,7 +2,7 @@
 
 #include "Graphics/Texture.h"
 
-#include "Renderer/Passes/Forward/ForwardLighting.h"
+#include "Renderer/ForwardLighting.h"
 #include "Renderer/PhongMaterial.h"
 #include "Renderer/UniformData.h"
 #include "Renderer/View.h"

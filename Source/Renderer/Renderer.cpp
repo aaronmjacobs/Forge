@@ -6,6 +6,7 @@
 
 #include "Math/MathUtils.h"
 
+#include "Renderer/ForwardLighting.h"
 #include "Renderer/Passes/Depth/DepthPass.h"
 #include "Renderer/Passes/Forward/ForwardPass.h"
 #include "Renderer/Passes/PostProcess/Tonemap/TonemapPass.h"
@@ -52,6 +53,23 @@ namespace
             viewInfo.perspectiveInfo.farPlane = cameraComponent->farPlane;
          }
       }
+
+      return viewInfo;
+   }
+
+   ViewInfo computeSpotLightShadowViewInfo(const Transform& transform, const SpotLightComponent& spotLightComponent)
+   {
+      ViewInfo viewInfo;
+
+      viewInfo.transform = transform;
+
+      viewInfo.projectionMode = ProjectionMode::Perspective;
+
+      viewInfo.perspectiveInfo.direction = PerspectiveDirection::FromTransform;
+      viewInfo.perspectiveInfo.fieldOfView = spotLightComponent.getCutoffAngle() * 2.0f;
+      viewInfo.perspectiveInfo.aspectRatio = 1.0f;
+      viewInfo.perspectiveInfo.nearPlane = 0.1f;
+      viewInfo.perspectiveInfo.farPlane = glm::max(viewInfo.perspectiveInfo.nearPlane, spotLightComponent.getRadius());
 
       return viewInfo;
    }
@@ -295,7 +313,8 @@ namespace
             }
          });
 
-         scene.forEach<TransformComponent, SpotLightComponent>([&sceneRenderInfo, &frustumPlanes](const TransformComponent& transformComponent, const SpotLightComponent& spotLightComponent)
+         uint32_t allocatedSpotShadowMaps = 0;
+         scene.forEach<TransformComponent, SpotLightComponent>([&sceneRenderInfo, &frustumPlanes, &allocatedSpotShadowMaps](const TransformComponent& transformComponent, const SpotLightComponent& spotLightComponent)
          {
             Transform transform = transformComponent.getAbsoluteTransform();
 
@@ -324,6 +343,12 @@ namespace
                bool visible = !frustumCull(points, frustumPlanes);
                if (visible)
                {
+                  if (spotLightComponent.castsShadows() && allocatedSpotShadowMaps < ForwardLighting::kMaxSpotShadowMaps)
+                  {
+                     info.shadowViewInfo = computeSpotLightShadowViewInfo(transform, spotLightComponent);
+                     info.shadowMapIndex = allocatedSpotShadowMaps++;
+                  }
+
                   sceneRenderInfo.spotLights.push_back(info);
                }
             }
@@ -356,9 +381,9 @@ Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& reso
    }
 
    {
-      static const uint32_t kMaxUniformBuffers = 3;
-      static const uint32_t kMaxImages = 1; // TODO
-      static const uint32_t kMaxSets = 4; // TODO
+      static const uint32_t kMaxUniformBuffers = 7;
+      static const uint32_t kMaxImages = 2; // TODO
+      static const uint32_t kMaxSets = 8; // TODO
 
       vk::DescriptorPoolSize uniformPoolSize = vk::DescriptorPoolSize()
          .setType(vk::DescriptorType::eUniformBuffer)
@@ -379,17 +404,50 @@ Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& reso
    {
       view = std::make_unique<View>(context, descriptorPool);
       NAME_POINTER(view, "Main View");
+
+      for (uint32_t i = 0; i < spotShadowViews.size(); ++i)
+      {
+         spotShadowViews[i] = std::make_unique<View>(context, descriptorPool);
+         NAME_POINTER(spotShadowViews[i], "Spot Shadow View " + std::to_string(i));
+      }
+   }
+
+   {
+      forwardLighting = std::make_unique<ForwardLighting>(context, descriptorPool, depthStencilFormat);
    }
 
    {
       prePass = std::make_unique<DepthPass>(context, resourceManager);
       NAME_POINTER(prePass, "Pre Pass");
 
-      forwardPass = std::make_unique<ForwardPass>(context, descriptorPool, resourceManager);
+      shadowPass = std::make_unique<DepthPass>(context, resourceManager, true);
+      NAME_POINTER(shadowPass, "Shadow Pass");
+
+      forwardPass = std::make_unique<ForwardPass>(context, resourceManager, forwardLighting.get());
       NAME_POINTER(forwardPass, "Forward Pass");
 
       tonemapPass = std::make_unique<TonemapPass>(context, descriptorPool, resourceManager);
       NAME_POINTER(tonemapPass, "Tonemap Pass");
+   }
+
+   {
+      BasicTextureInfo shadowPassDepthSetupInfo;
+      shadowPassDepthSetupInfo.format = depthStencilFormat;
+      shadowPassDepthSetupInfo.sampleCount = vk::SampleCountFlagBits::e1;
+      shadowPassDepthSetupInfo.isSwapchainTexture = false;
+
+      BasicAttachmentInfo shadowPassSetupInfo;
+      shadowPassSetupInfo.depthInfo = shadowPassDepthSetupInfo;
+
+      shadowPass->updateAttachmentSetup(shadowPassSetupInfo);
+
+      for (uint32_t i = 0; i < ForwardLighting::kMaxSpotShadowMaps; ++i)
+      {
+         AttachmentInfo shadowPassInfo;
+         shadowPassInfo.depthInfo = forwardLighting->getSpotShadowInfo(i);
+
+         spotShadowPassFramebufferHandles[i] = shadowPass->createFramebuffer(shadowPassInfo);
+      }
    }
 
    onSwapchainRecreated();
@@ -398,6 +456,7 @@ Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& reso
 Renderer::~Renderer()
 {
    prePass = nullptr;
+   shadowPass = nullptr;
    forwardPass = nullptr;
    tonemapPass = nullptr;
 
@@ -405,7 +464,13 @@ Renderer::~Renderer()
    hdrColorTexture = nullptr;
    hdrResolveTexture = nullptr;
 
+   forwardLighting = nullptr;
+
    view = nullptr;
+   for (std::unique_ptr<View>& spotShadowView : spotShadowViews)
+   {
+      spotShadowView.reset();
+   }
 
    device.destroyDescriptorPool(descriptorPool);
    descriptorPool = nullptr;
@@ -422,6 +487,27 @@ void Renderer::render(vk::CommandBuffer commandBuffer, const Scene& scene)
    SceneRenderInfo sceneRenderInfo = computeSceneRenderInfo(resourceManager, scene, *view, true);
 
    prePass->render(commandBuffer, sceneRenderInfo, prePassFramebufferHandle);
+
+   forwardLighting->transitionShadowMapLayout(commandBuffer, false);
+
+   for (const SpotLightRenderInfo& spotLightInfo : sceneRenderInfo.spotLights)
+   {
+      if (spotLightInfo.shadowViewInfo.has_value() && spotLightInfo.shadowMapIndex.has_value() && spotLightInfo.shadowMapIndex.value() < spotShadowPassFramebufferHandles.size())
+      {
+         INLINE_LABEL("Update shadow view");
+         std::unique_ptr<View>& spotShadowView = spotShadowViews[spotLightInfo.shadowMapIndex.value()];
+         spotShadowView->update(spotLightInfo.shadowViewInfo.value());
+         SceneRenderInfo shadowSceneRenderInfo = computeSceneRenderInfo(resourceManager, scene, *spotShadowView, false);
+
+         shadowPass->render(commandBuffer, shadowSceneRenderInfo, spotShadowPassFramebufferHandles[spotLightInfo.shadowMapIndex.value()]);
+      }
+   }
+
+   forwardLighting->transitionShadowMapLayout(commandBuffer, true);
+
+   INLINE_LABEL("Update lighting");
+   forwardLighting->update(sceneRenderInfo);
+
    forwardPass->render(commandBuffer, sceneRenderInfo, forwardPassFramebufferHandle);
    tonemapPass->render(commandBuffer, tonemapPassFramebufferHandle, hdrResolveTexture ? *hdrResolveTexture : *hdrColorTexture);
 }

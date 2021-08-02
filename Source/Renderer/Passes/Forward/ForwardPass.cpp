@@ -5,6 +5,7 @@
 #include "Graphics/Pipeline.h"
 #include "Graphics/Texture.h"
 
+#include "Renderer/ForwardLighting.h"
 #include "Renderer/Passes/Forward/ForwardShader.h"
 #include "Renderer/SceneRenderInfo.h"
 #include "Renderer/UniformData.h"
@@ -17,9 +18,9 @@ namespace
    }
 }
 
-ForwardPass::ForwardPass(const GraphicsContext& graphicsContext, vk::DescriptorPool descriptorPool, ResourceManager& resourceManager)
+ForwardPass::ForwardPass(const GraphicsContext& graphicsContext, ResourceManager& resourceManager, const ForwardLighting* forwardLighting)
    : SceneRenderPass(graphicsContext)
-   , lighting(graphicsContext, descriptorPool)
+   , lighting(forwardLighting)
 {
    clearDepth = false;
    clearColor = true;
@@ -48,9 +49,6 @@ void ForwardPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo&
    std::array<vk::ClearValue, 2> clearValues = { vk::ClearDepthStencilValue(1.0f, 0), vk::ClearColorValue(clearColorValues) };
 
    beginRenderPass(commandBuffer, *framebuffer, clearValues);
-
-   INLINE_LABEL("Update lighting");
-   lighting.update(sceneRenderInfo);
 
    {
       SCOPED_LABEL("Opaque");
@@ -134,7 +132,8 @@ std::vector<vk::SubpassDependency> ForwardPass::getSubpassDependencies() const
 
 void ForwardPass::renderMesh(vk::CommandBuffer commandBuffer, const View& view, const Mesh& mesh, uint32_t section, const Material& material)
 {
-   forwardShader->bindDescriptorSets(commandBuffer, pipelineLayout, view, lighting, material);
+   ASSERT(lighting);
+   forwardShader->bindDescriptorSets(commandBuffer, pipelineLayout, view, *lighting, material);
 
    SceneRenderPass::renderMesh(commandBuffer, view, mesh, section, material);
 }

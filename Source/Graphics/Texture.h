@@ -3,6 +3,7 @@
 #include "Graphics/GraphicsResource.h"
 #include "Graphics/TextureInfo.h"
 
+#include <optional>
 #include <span>
 
 struct LoadedImage;
@@ -14,6 +15,7 @@ struct ImageProperties
    uint32_t width = 1;
    uint32_t height = 1;
    uint32_t depth = 1;
+   uint32_t layers = 1;
    bool hasAlpha = false;
 };
 
@@ -59,7 +61,7 @@ public:
 
    ~Texture();
 
-   vk::ImageView createView(vk::ImageViewType viewType) const;
+   vk::ImageView createView(vk::ImageViewType viewType, uint32_t baseLayer = 0, uint32_t layerCount = 1, std::optional<vk::ImageAspectFlags> aspectFlags = {}) const;
    void transitionLayout(vk::CommandBuffer commandBuffer, vk::ImageLayout newLayout, const TextureMemoryBarrierFlags& srcMemoryBarrierFlags, const TextureMemoryBarrierFlags& dstMemoryBarrierFlags);
 
    vk::ImageView getDefaultView() const

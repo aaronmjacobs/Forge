@@ -2,8 +2,11 @@
 
 #include "Math/Transform.h"
 
+#include "Renderer/ViewInfo.h"
+
 #include <glm/glm.hpp>
 
+#include <optional>
 #include <vector>
 
 class Material;
@@ -31,6 +34,8 @@ struct MeshRenderInfo
 struct LightRenderInfo
 {
    glm::vec3 color;
+   std::optional<ViewInfo> shadowViewInfo;
+   std::optional<uint32_t> shadowMapIndex;
 };
 
 struct PointLightRenderInfo : public LightRenderInfo

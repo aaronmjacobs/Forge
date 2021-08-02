@@ -2,17 +2,23 @@
 
 #include "Graphics/DescriptorSet.h"
 #include "Graphics/GraphicsResource.h"
+#include "Graphics/TextureInfo.h"
 #include "Graphics/UniformBuffer.h"
 
 #include <glm/glm.hpp>
 
+#include <memory>
+
 struct SceneRenderInfo;
+class Texture;
 
 struct ForwardSpotLightUniformData
 {
+   alignas(16) glm::mat4 worldToShadow;
    alignas(16) glm::vec4 colorRadius;
    alignas(16) glm::vec4 positionBeamAngle;
    alignas(16) glm::vec4 directionCutoffAngle;
+   alignas(4) int shadowMapIndex = -1;
 };
 
 struct ForwardPointLightUniformData
@@ -41,12 +47,15 @@ struct ForwardLightingUniformData
 class ForwardLighting : public GraphicsResource
 {
 public:
+   static const uint32_t kMaxSpotShadowMaps = 4;
+
    static const vk::DescriptorSetLayoutCreateInfo& getLayoutCreateInfo();
    static vk::DescriptorSetLayout getLayout(const GraphicsContext& context);
 
-   ForwardLighting(const GraphicsContext& graphicsContext, vk::DescriptorPool descriptorPool);
-   ~ForwardLighting() = default;
+   ForwardLighting(const GraphicsContext& graphicsContext, vk::DescriptorPool descriptorPool, vk::Format depthFormat);
+   ~ForwardLighting();
 
+   void transitionShadowMapLayout(vk::CommandBuffer commandBuffer, bool forReading);
    void update(const SceneRenderInfo& sceneRenderInfo);
 
    const DescriptorSet& getDescriptorSet() const
@@ -54,9 +63,16 @@ public:
       return descriptorSet;
    }
 
+   TextureInfo getSpotShadowInfo(uint32_t index) const;
+
 protected:
    void updateDescriptorSets();
 
    UniformBuffer<ForwardLightingUniformData> uniformBuffer;
    DescriptorSet descriptorSet;
+
+   vk::Sampler shadowMapSampler;
+   std::unique_ptr<Texture> spotShadowMapTextureArray;
+   vk::ImageView spotShadowSampleView;
+   std::array<vk::ImageView, kMaxSpotShadowMaps> spotShadowViews;
 };

@@ -15,8 +15,19 @@ public:
       color = glm::max(newColor, glm::vec3(0.0f));
    }
 
+   bool castsShadows() const
+   {
+      return castShadows;
+   }
+
+   void setCastShadows(bool newCastShadows)
+   {
+      castShadows = newCastShadows;
+   }
+
 private:
    glm::vec3 color = glm::vec3(1.0f);
+   bool castShadows = true;
 };
 
 class DirectionalLightComponent : public LightComponent

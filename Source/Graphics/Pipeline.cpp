@@ -121,6 +121,13 @@ void PipelineData::setColorBlendAttachmentStates(std::vector<vk::PipelineColorBl
    colorBlendStateCreateInfo.setAttachments(colorBlendAttachmentStates);
 }
 
+void PipelineData::enableDepthBias(float constantFactor, float slopeFactor)
+{
+   rasterizationStateCreateInfo.setDepthBiasEnable(true)
+      .setDepthBiasConstantFactor(constantFactor)
+      .setDepthBiasSlopeFactor(slopeFactor);
+}
+
 void PipelineData::updatePointers()
 {
    colorBlendStateCreateInfo.setAttachments(colorBlendAttachmentStates);
