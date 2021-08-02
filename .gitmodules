@@ -25,3 +25,6 @@
 [submodule "Libraries/entt"]
 	path = Libraries/entt
 	url = https://github.com/skypjack/entt.git
+[submodule "Libraries/KontrollerSock"]
+	path = Libraries/KontrollerSock
+	url = https://github.com/aaronmjacobs/KontrollerSock.git

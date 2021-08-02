@@ -41,6 +41,10 @@ target_compile_definitions(${PROJECT_NAME} PUBLIC GLM_FORCE_DEPTH_ZERO_TO_ONE)
 target_compile_definitions(${PROJECT_NAME} PUBLIC GLM_FORCE_RADIANS)
 target_link_libraries(${PROJECT_NAME} PUBLIC glm)
 
+# KontrollerSock
+add_subdirectory("${LIB_DIR}/KontrollerSock")
+target_link_libraries(${PROJECT_NAME} PUBLIC KontrollerClient)
+
 # PlatformUtils
 add_subdirectory("${LIB_DIR}/PlatformUtils")
 target_link_libraries(${PROJECT_NAME} PUBLIC PlatformUtils)

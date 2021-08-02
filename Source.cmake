@@ -64,6 +64,8 @@ target_sources(${PROJECT_NAME} PRIVATE
    "${SRC_DIR}/Platform/InputManager.cpp"
    "${SRC_DIR}/Platform/InputManager.h"
    "${SRC_DIR}/Platform/InputTypes.h"
+   "${SRC_DIR}/Platform/Midi.cpp"
+   "${SRC_DIR}/Platform/Midi.h"
    "${SRC_DIR}/Platform/Window.cpp"
    "${SRC_DIR}/Platform/Window.h"
 
