@@ -42,8 +42,10 @@ target_compile_definitions(${PROJECT_NAME} PUBLIC GLM_FORCE_RADIANS)
 target_link_libraries(${PROJECT_NAME} PUBLIC glm)
 
 # KontrollerSock
-add_subdirectory("${LIB_DIR}/KontrollerSock")
-target_link_libraries(${PROJECT_NAME} PUBLIC KontrollerClient)
+if(FORGE_WITH_MIDI)
+   add_subdirectory("${LIB_DIR}/KontrollerSock")
+   target_link_libraries(${PROJECT_NAME} PUBLIC KontrollerClient)
+endif(FORGE_WITH_MIDI)
 
 # PlatformUtils
 add_subdirectory("${LIB_DIR}/PlatformUtils")

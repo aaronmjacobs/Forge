@@ -64,8 +64,6 @@ target_sources(${PROJECT_NAME} PRIVATE
    "${SRC_DIR}/Platform/InputManager.cpp"
    "${SRC_DIR}/Platform/InputManager.h"
    "${SRC_DIR}/Platform/InputTypes.h"
-   "${SRC_DIR}/Platform/Midi.cpp"
-   "${SRC_DIR}/Platform/Midi.h"
    "${SRC_DIR}/Platform/Window.cpp"
    "${SRC_DIR}/Platform/Window.h"
 
@@ -120,6 +118,13 @@ target_sources(${PROJECT_NAME} PRIVATE
    "${SRC_DIR}/Scene/Scene.cpp"
    "${SRC_DIR}/Scene/Scene.h"
 )
+
+if(FORGE_WITH_MIDI)
+   target_sources(${PROJECT_NAME} PRIVATE
+      "${SRC_DIR}/Platform/Midi.cpp"
+      "${SRC_DIR}/Platform/Midi.h"
+   )
+endif(FORGE_WITH_MIDI)
 
 target_include_directories(${PROJECT_NAME} PUBLIC "${SRC_DIR}")
 

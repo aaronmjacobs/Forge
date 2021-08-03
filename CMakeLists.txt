@@ -3,6 +3,8 @@ project(Forge VERSION 0.0.0 LANGUAGES CXX)
 
 set_property(DIRECTORY ${PROJECT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT ${PROJECT_NAME})
 
+option(FORGE_WITH_MIDI "Enable MIDI" ON)
+
 add_executable(${PROJECT_NAME} "")
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_20)
 target_compile_definitions(${PROJECT_NAME} PUBLIC FORGE_DEBUG=$<CONFIG:Debug>)
@@ -14,6 +16,7 @@ target_compile_definitions(${PROJECT_NAME} PUBLIC FORGE_VERSION_MAJOR=${PROJECT_
 target_compile_definitions(${PROJECT_NAME} PUBLIC FORGE_VERSION_MINOR=${PROJECT_VERSION_MINOR})
 target_compile_definitions(${PROJECT_NAME} PUBLIC FORGE_VERSION_PATCH=${PROJECT_VERSION_PATCH})
 target_compile_definitions(${PROJECT_NAME} PUBLIC FORGE_VERSION_TWEAK=${PROJECT_VERSION_TWEAK})
+target_compile_definitions(${PROJECT_NAME} PUBLIC FORGE_WITH_MIDI=$<BOOL:${FORGE_WITH_MIDI}>)
 target_compile_definitions(${PROJECT_NAME} PUBLIC NOMINMAX)
 
 set(RES_DIR "${PROJECT_SOURCE_DIR}/Resources")

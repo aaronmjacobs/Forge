@@ -30,6 +30,16 @@ public:
       return deltaTime;
    }
 
+   float getRawTime() const
+   {
+      return rawTime;
+   }
+
+   float getRawDeltaTime() const
+   {
+      return rawDeltaTime;
+   }
+
    Entity createEntity();
    void destroyEntity(Entity entity);
 
@@ -54,8 +64,12 @@ private:
    entt::registry registry;
 
    TickDelegate tickDelegate;
+
    float time = 0.0f;
    float deltaTime = 0.0f;
+
+   float rawTime = 0.0f;
+   float rawDeltaTime = 0.0f;
 
    std::unique_ptr<Entity> activeCamera;
 };

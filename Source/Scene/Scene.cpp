@@ -1,5 +1,9 @@
 #include "Scene/Scene.h"
 
+#if FORGE_WITH_MIDI
+#include "Platform/Midi.h"
+#endif // FORGE_WITH_MIDI
+
 #include "Scene/Entity.h"
 
 #include <utility>
@@ -22,10 +26,19 @@ void Scene::removeTickDelegate(DelegateHandle handle)
 
 void Scene::tick(float dt)
 {
-   time += dt;
-   deltaTime = dt;
+   float timeScale = 1.0f;
+#if FORGE_WITH_MIDI
+   timeScale = Midi::getState().groups[7].slider;
+#endif // FORGE_WITH_MIDI
+   float scaledDt = dt * timeScale;
 
-   tickDelegate.broadcast(dt);
+   time += scaledDt;
+   deltaTime = scaledDt;
+
+   rawTime += dt;
+   rawDeltaTime = dt;
+
+   tickDelegate.broadcast(scaledDt);
 }
 
 Entity Scene::createEntity()

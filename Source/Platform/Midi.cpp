@@ -18,6 +18,13 @@ namespace Midi
 {
    void initialize()
    {
+      kontrollerState = {};
+      for (Kontroller::Group& group : kontrollerState.groups)
+      {
+         // Assume sliders are in the "up" position by default
+         group.slider = 1.0f;
+      }
+
       clientThread = std::thread([]()
       {
          kontrollerClient.run("127.0.0.1");

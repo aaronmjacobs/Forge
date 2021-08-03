@@ -6,6 +6,9 @@
 #include "Graphics/GraphicsContext.h"
 #include "Graphics/Swapchain.h"
 
+#if FORGE_WITH_MIDI
+#  include "Platform/Midi.h"
+#endif // FORGE_WITH_MIDI
 #include "Platform/Window.h"
 
 #include "Renderer/Renderer.h"
@@ -44,6 +47,10 @@ namespace
 
 ForgeApplication::ForgeApplication()
 {
+#if FORGE_WITH_MIDI
+   Midi::initialize();
+#endif // FORGE_WITH_MIDI
+
    initializeGlfw();
    initializeVulkan();
    initializeSwapchain();
@@ -62,6 +69,10 @@ ForgeApplication::~ForgeApplication()
    terminateSwapchain();
    terminateVulkan();
    terminateGlfw();
+
+#if FORGE_WITH_MIDI
+   Midi::terminate();
+#endif // FORGE_WITH_MIDI
 }
 
 void ForgeApplication::run()
@@ -70,6 +81,10 @@ void ForgeApplication::run()
 
    while (!window->shouldClose())
    {
+#if FORGE_WITH_MIDI
+      Midi::update();
+#endif // FORGE_WITH_MIDI
+
       window->pollEvents();
 
       double time = glfwGetTime();
@@ -432,32 +447,32 @@ void ForgeApplication::loadScene()
       inputManager.bindAxisMapping(InputActions::kMoveForward, [this, cameraEntity](float value) mutable
       {
          Transform& cameraTransform = cameraEntity.getComponent<TransformComponent>().transform;
-         cameraTransform.translateBy(cameraTransform.getForwardVector() * value * kCameraMoveSpeed * scene.getDeltaTime());
+         cameraTransform.translateBy(cameraTransform.getForwardVector() * value * kCameraMoveSpeed * scene.getRawDeltaTime());
       });
 
       inputManager.bindAxisMapping(InputActions::kMoveRight, [this, cameraEntity](float value) mutable
       {
          Transform& cameraTransform = cameraEntity.getComponent<TransformComponent>().transform;
-         cameraTransform.translateBy(cameraTransform.getRightVector() * value * kCameraMoveSpeed * scene.getDeltaTime());
+         cameraTransform.translateBy(cameraTransform.getRightVector() * value * kCameraMoveSpeed * scene.getRawDeltaTime());
       });
 
       inputManager.bindAxisMapping(InputActions::kMoveUp, [this, cameraEntity](float value) mutable
       {
          Transform& cameraTransform = cameraEntity.getComponent<TransformComponent>().transform;
-         cameraTransform.translateBy(cameraTransform.getUpVector() * value * kCameraMoveSpeed * scene.getDeltaTime());
+         cameraTransform.translateBy(cameraTransform.getUpVector() * value * kCameraMoveSpeed * scene.getRawDeltaTime());
       });
 
       inputManager.bindAxisMapping(InputActions::kLookRight, [this, cameraEntity](float value) mutable
       {
          Transform& cameraTransform = cameraEntity.getComponent<TransformComponent>().transform;
-         cameraTransform.rotateBy(glm::angleAxis(glm::radians(value * kCameraLookSpeed * scene.getDeltaTime()), -MathUtils::kUpVector));
+         cameraTransform.rotateBy(glm::angleAxis(glm::radians(value * kCameraLookSpeed * scene.getRawDeltaTime()), -MathUtils::kUpVector));
       });
 
       inputManager.bindAxisMapping(InputActions::kLookUp, [this, cameraEntity](float value) mutable
       {
          Transform& cameraTransform = cameraEntity.getComponent<TransformComponent>().transform;
          glm::vec3 euler = glm::degrees(glm::eulerAngles(cameraTransform.orientation));
-         euler.x = glm::clamp(euler.x + value * kCameraLookSpeed * 0.75f * scene.getDeltaTime(), -89.0f, 89.0f);
+         euler.x = glm::clamp(euler.x + value * kCameraLookSpeed * 0.75f * scene.getRawDeltaTime(), -89.0f, 89.0f);
          cameraTransform.orientation = glm::quat(glm::radians(euler));
       });
    }
