@@ -42,6 +42,7 @@ struct PointLightRenderInfo : public LightRenderInfo
 {
    glm::vec3 position;
    float radius = 0.0f;
+   float shadowNearPlane = 0.0f;
 };
 
 struct SpotLightRenderInfo : public LightRenderInfo

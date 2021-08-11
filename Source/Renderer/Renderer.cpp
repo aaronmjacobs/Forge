@@ -36,7 +36,6 @@ namespace
 
       vk::Extent2D swapchainExtent = context.getSwapchain().getExtent();
       viewInfo.projectionMode = ProjectionMode::Perspective;
-      viewInfo.perspectiveInfo.direction = PerspectiveDirection::FromTransform;
       viewInfo.perspectiveInfo.aspectRatio = static_cast<float>(swapchainExtent.width) / swapchainExtent.height;
 
       if (Entity cameraEntity = scene.getActiveCamera())
@@ -57,6 +56,26 @@ namespace
       return viewInfo;
    }
 
+   ViewInfo computePointLightShadowViewInfo(const Transform& transform, const PointLightComponent& pointLightComponent)
+   {
+      ViewInfo viewInfo;
+
+      viewInfo.transform = transform;
+
+      viewInfo.projectionMode = ProjectionMode::Perspective;
+
+      viewInfo.perspectiveInfo.fieldOfView = 90.0f;
+      viewInfo.perspectiveInfo.aspectRatio = 1.0f;
+      viewInfo.perspectiveInfo.nearPlane = pointLightComponent.getShadowNearPlane();
+      viewInfo.perspectiveInfo.farPlane = glm::max(pointLightComponent.getShadowNearPlane(), pointLightComponent.getRadius());
+
+      viewInfo.depthBiasConstantFactor = pointLightComponent.getShadowBiasConstantFactor();
+      viewInfo.depthBiasSlopeFactor = pointLightComponent.getShadowBiasSlopeFactor();
+      viewInfo.depthBiasClamp = pointLightComponent.getShadowBiasClamp();
+
+      return viewInfo;
+   }
+
    ViewInfo computeSpotLightShadowViewInfo(const Transform& transform, const SpotLightComponent& spotLightComponent)
    {
       ViewInfo viewInfo;
@@ -65,11 +84,14 @@ namespace
 
       viewInfo.projectionMode = ProjectionMode::Perspective;
 
-      viewInfo.perspectiveInfo.direction = PerspectiveDirection::FromTransform;
       viewInfo.perspectiveInfo.fieldOfView = spotLightComponent.getCutoffAngle() * 2.0f;
       viewInfo.perspectiveInfo.aspectRatio = 1.0f;
-      viewInfo.perspectiveInfo.nearPlane = 0.1f;
-      viewInfo.perspectiveInfo.farPlane = glm::max(viewInfo.perspectiveInfo.nearPlane, spotLightComponent.getRadius());
+      viewInfo.perspectiveInfo.nearPlane = spotLightComponent.getShadowNearPlane();
+      viewInfo.perspectiveInfo.farPlane = glm::max(spotLightComponent.getShadowNearPlane(), spotLightComponent.getRadius());
+
+      viewInfo.depthBiasConstantFactor = spotLightComponent.getShadowBiasConstantFactor();
+      viewInfo.depthBiasSlopeFactor = spotLightComponent.getShadowBiasSlopeFactor();
+      viewInfo.depthBiasClamp = spotLightComponent.getShadowBiasClamp();
 
       return viewInfo;
    }
@@ -242,7 +264,7 @@ namespace
    {
       SceneRenderInfo sceneRenderInfo(view);
 
-      std::array<glm::vec4, 6> frustumPlanes = computeFrustumPlanes(view.getWorldToClip());
+      std::array<glm::vec4, 6> frustumPlanes = computeFrustumPlanes(view.getMatrices().worldToClip);
 
       scene.forEach<TransformComponent, MeshComponent>([&resourceManager, &sceneRenderInfo, &frustumPlanes](const TransformComponent& transformComponent, const MeshComponent& meshComponent)
       {
@@ -286,7 +308,7 @@ namespace
          }
       });
 
-      std::sort(sceneRenderInfo.meshes.begin(), sceneRenderInfo.meshes.end(), [viewPosition = view.getViewPosition()](const MeshRenderInfo& first, const MeshRenderInfo& second)
+      std::sort(sceneRenderInfo.meshes.begin(), sceneRenderInfo.meshes.end(), [viewPosition = view.getMatrices().viewPosition](const MeshRenderInfo& first, const MeshRenderInfo& second)
       {
          float firstSquaredDistance = glm::distance2(first.transform.position, viewPosition);
          float secondSquaredDistance = glm::distance2(second.transform.position, viewPosition);
@@ -296,18 +318,28 @@ namespace
 
       if (includeLights)
       {
-         scene.forEach<TransformComponent, PointLightComponent>([&sceneRenderInfo, &frustumPlanes](const TransformComponent& transformComponent, const PointLightComponent& pointLightComponent)
+         uint32_t allocatedPointShadowMaps = 0;
+         scene.forEach<TransformComponent, PointLightComponent>([&sceneRenderInfo, &frustumPlanes, &allocatedPointShadowMaps](const TransformComponent& transformComponent, const PointLightComponent& pointLightComponent)
          {
+            Transform transform = transformComponent.getAbsoluteTransform();
+
             PointLightRenderInfo info;
             info.color = pointLightComponent.getColor();
-            info.position = transformComponent.getAbsoluteTransform().position;
+            info.position = transform.position;
             info.radius = pointLightComponent.getRadius();
+            info.shadowNearPlane = glm::min(pointLightComponent.getShadowNearPlane(), pointLightComponent.getRadius());
 
             if (info.radius > 0.0f && glm::length2(info.color) > 0.0f)
             {
                bool visible = !frustumCull(info.position, info.radius, frustumPlanes);
                if (visible)
                {
+                  if (pointLightComponent.castsShadows() && allocatedPointShadowMaps < ForwardLighting::kMaxPointShadowMaps)
+                  {
+                     info.shadowViewInfo = computePointLightShadowViewInfo(transform, pointLightComponent);
+                     info.shadowMapIndex = allocatedPointShadowMaps++;
+                  }
+
                   sceneRenderInfo.pointLights.push_back(info);
                }
             }
@@ -382,8 +414,8 @@ Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& reso
 
    {
       static const uint32_t kMaxUniformBuffers = 7;
-      static const uint32_t kMaxImages = 2; // TODO
-      static const uint32_t kMaxSets = 8; // TODO
+      static const uint32_t kMaxImages = 3; // TODO
+      static const uint32_t kMaxSets = 20; // TODO
 
       vk::DescriptorPoolSize uniformPoolSize = vk::DescriptorPoolSize()
          .setType(vk::DescriptorType::eUniformBuffer)
@@ -405,6 +437,11 @@ Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& reso
       view = std::make_unique<View>(context, descriptorPool);
       NAME_POINTER(view, "Main View");
 
+      for (uint32_t i = 0; i < pointShadowViews.size(); ++i)
+      {
+         pointShadowViews[i] = std::make_unique<View>(context, descriptorPool);
+         NAME_POINTER(pointShadowViews[i], "Point Shadow View " + std::to_string(i));
+      }
       for (uint32_t i = 0; i < spotShadowViews.size(); ++i)
       {
          spotShadowViews[i] = std::make_unique<View>(context, descriptorPool);
@@ -441,6 +478,19 @@ Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& reso
 
       shadowPass->updateAttachmentSetup(shadowPassSetupInfo);
 
+      for (uint32_t shadowMapIndex = 0; shadowMapIndex < ForwardLighting::kMaxPointShadowMaps; ++shadowMapIndex)
+      {
+         for (uint32_t faceIndex = 0; faceIndex < kNumCubeFaces; ++faceIndex)
+         {
+            uint32_t viewIndex = ForwardLighting::getPointViewIndex(shadowMapIndex, faceIndex);
+
+            AttachmentInfo shadowPassInfo;
+            shadowPassInfo.depthInfo = forwardLighting->getPointShadowInfo(shadowMapIndex, faceIndex);
+
+            pointShadowPassFramebufferHandles[viewIndex] = shadowPass->createFramebuffer(shadowPassInfo);
+         }
+      }
+
       for (uint32_t i = 0; i < ForwardLighting::kMaxSpotShadowMaps; ++i)
       {
          AttachmentInfo shadowPassInfo;
@@ -467,6 +517,10 @@ Renderer::~Renderer()
    forwardLighting = nullptr;
 
    view = nullptr;
+   for (std::unique_ptr<View>& pointShadowView : pointShadowViews)
+   {
+      pointShadowView.reset();
+   }
    for (std::unique_ptr<View>& spotShadowView : spotShadowViews)
    {
       spotShadowView.reset();
@@ -488,22 +542,7 @@ void Renderer::render(vk::CommandBuffer commandBuffer, const Scene& scene)
 
    prePass->render(commandBuffer, sceneRenderInfo, prePassFramebufferHandle);
 
-   forwardLighting->transitionShadowMapLayout(commandBuffer, false);
-
-   for (const SpotLightRenderInfo& spotLightInfo : sceneRenderInfo.spotLights)
-   {
-      if (spotLightInfo.shadowViewInfo.has_value() && spotLightInfo.shadowMapIndex.has_value() && spotLightInfo.shadowMapIndex.value() < spotShadowPassFramebufferHandles.size())
-      {
-         INLINE_LABEL("Update shadow view");
-         std::unique_ptr<View>& spotShadowView = spotShadowViews[spotLightInfo.shadowMapIndex.value()];
-         spotShadowView->update(spotLightInfo.shadowViewInfo.value());
-         SceneRenderInfo shadowSceneRenderInfo = computeSceneRenderInfo(resourceManager, scene, *spotShadowView, false);
-
-         shadowPass->render(commandBuffer, shadowSceneRenderInfo, spotShadowPassFramebufferHandles[spotLightInfo.shadowMapIndex.value()]);
-      }
-   }
-
-   forwardLighting->transitionShadowMapLayout(commandBuffer, true);
+   renderShadowMaps(commandBuffer, scene, sceneRenderInfo);
 
    INLINE_LABEL("Update lighting");
    forwardLighting->update(sceneRenderInfo);
@@ -536,6 +575,63 @@ void Renderer::toggleMSAA()
 {
    enableMSAA = !enableMSAA;
    onSwapchainRecreated();
+}
+
+void Renderer::renderShadowMaps(vk::CommandBuffer commandBuffer, const Scene& scene, const SceneRenderInfo& sceneRenderInfo)
+{
+   SCOPED_LABEL("Shadow maps");
+
+   forwardLighting->transitionShadowMapLayout(commandBuffer, false);
+
+   if (!sceneRenderInfo.pointLights.empty())
+   {
+      SCOPED_LABEL("Point lights");
+
+      for (const PointLightRenderInfo& pointLightInfo : sceneRenderInfo.pointLights)
+      {
+         if (pointLightInfo.shadowViewInfo.has_value() && pointLightInfo.shadowMapIndex.has_value() && pointLightInfo.shadowMapIndex.value() < ForwardLighting::kMaxPointShadowMaps)
+         {
+            ViewInfo pointLightViewInfo = pointLightInfo.shadowViewInfo.value();
+            uint32_t shadowMapIndex = pointLightInfo.shadowMapIndex.value();
+
+            for (uint32_t faceIndex = 0; faceIndex < kNumCubeFaces; ++faceIndex)
+            {
+               CubeFace cubeFace = static_cast<CubeFace>(faceIndex);
+               pointLightViewInfo.cubeFace = cubeFace;
+
+               uint32_t viewIndex = ForwardLighting::getPointViewIndex(shadowMapIndex, faceIndex);
+               INLINE_LABEL("Update point shadow view " + std::to_string(viewIndex));
+               std::unique_ptr<View>& pointShadowView = pointShadowViews[viewIndex];
+               pointShadowView->update(pointLightViewInfo);
+               SceneRenderInfo shadowSceneRenderInfo = computeSceneRenderInfo(resourceManager, scene, *pointShadowView, false);
+
+               shadowPass->render(commandBuffer, shadowSceneRenderInfo, pointShadowPassFramebufferHandles[viewIndex]);
+            }
+         }
+      }
+   }
+
+   if (!sceneRenderInfo.spotLights.empty())
+   {
+      SCOPED_LABEL("Spot lights");
+
+      for (const SpotLightRenderInfo& spotLightInfo : sceneRenderInfo.spotLights)
+      {
+         if (spotLightInfo.shadowViewInfo.has_value() && spotLightInfo.shadowMapIndex.has_value() && spotLightInfo.shadowMapIndex.value() < ForwardLighting::kMaxSpotShadowMaps)
+         {
+            uint32_t shadowMapIndex = spotLightInfo.shadowMapIndex.value();
+
+            INLINE_LABEL("Update spot shadow view " + std::to_string(shadowMapIndex));
+            std::unique_ptr<View>& spotShadowView = spotShadowViews[shadowMapIndex];
+            spotShadowView->update(spotLightInfo.shadowViewInfo.value());
+            SceneRenderInfo shadowSceneRenderInfo = computeSceneRenderInfo(resourceManager, scene, *spotShadowView, false);
+
+            shadowPass->render(commandBuffer, shadowSceneRenderInfo, spotShadowPassFramebufferHandles[shadowMapIndex]);
+         }
+      }
+   }
+
+   forwardLighting->transitionShadowMapLayout(commandBuffer, true);
 }
 
 void Renderer::updateSwapchainDependentFramebuffers()

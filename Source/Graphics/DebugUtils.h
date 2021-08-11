@@ -42,6 +42,11 @@ namespace DebugUtils
 
    void InsertInlineLabel(vk::CommandBuffer commandBuffer, const char* labelName, const std::array<float, 4>& color = {});
 
+   inline void InsertInlineLabel(vk::CommandBuffer commandBuffer, const std::string& labelName, const std::array<float, 4>& color = {})
+   {
+      InsertInlineLabel(commandBuffer, labelName.c_str(), color);
+   }
+
    struct ScopedCommandBufferLabel
    {
       ScopedCommandBufferLabel(vk::CommandBuffer commandBuffer_, const char* labelName, const std::array<float, 4>& color = {});

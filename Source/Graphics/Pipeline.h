@@ -54,7 +54,8 @@ public:
    void setShaderStages(std::vector<vk::PipelineShaderStageCreateInfo> shaderStages);
    void setColorBlendAttachmentStates(std::vector<vk::PipelineColorBlendAttachmentState> colorBlendStates);
 
-   void enableDepthBias(float constantFactor, float slopeFactor);
+   void enableDepthBias();
+   void setFrontFace(vk::FrontFace frontFace);
 
 private:
    void updatePointers();

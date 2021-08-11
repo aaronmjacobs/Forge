@@ -26,10 +26,7 @@ protected:
    void initializePipelines(vk::SampleCountFlagBits sampleCount) override;
    std::vector<vk::SubpassDependency> getSubpassDependencies() const override;
 
-   vk::Pipeline selectPipeline(const MeshSection& meshSection, const Material& material) const
-   {
-      return pipelines[0];
-   }
+   vk::Pipeline selectPipeline(const View& view, const MeshSection& meshSection, const Material& material) const;
 
 private:
    std::unique_ptr<DepthShader> depthShader;

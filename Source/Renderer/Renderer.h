@@ -6,6 +6,7 @@
 
 #include "Renderer/ForwardLighting.h"
 #include "Renderer/UniformData.h"
+#include "Renderer/ViewInfo.h"
 
 #include "Resources/ResourceManager.h"
 
@@ -21,6 +22,7 @@ class Swapchain;
 class Texture;
 class TonemapPass;
 class View;
+struct SceneRenderInfo;
 
 class Renderer : public GraphicsResource
 {
@@ -34,6 +36,8 @@ public:
    void toggleMSAA();
 
 private:
+   void renderShadowMaps(vk::CommandBuffer commandBuffer, const Scene& scene, const SceneRenderInfo& sceneRenderInfo);
+
    void updateSwapchainDependentFramebuffers();
 
    ResourceManager& resourceManager;
@@ -43,6 +47,7 @@ private:
    vk::DescriptorPool descriptorPool;
 
    std::unique_ptr<View> view;
+   std::array<std::unique_ptr<View>, ForwardLighting::kMaxPointShadowMaps * kNumCubeFaces> pointShadowViews;
    std::array<std::unique_ptr<View>, ForwardLighting::kMaxSpotShadowMaps> spotShadowViews;
    std::unique_ptr<ForwardLighting> forwardLighting;
 
@@ -56,6 +61,7 @@ private:
    std::unique_ptr<TonemapPass> tonemapPass;
 
    FramebufferHandle prePassFramebufferHandle;
+   std::array<FramebufferHandle, ForwardLighting::kMaxSpotShadowMaps * kNumCubeFaces> pointShadowPassFramebufferHandles;
    std::array<FramebufferHandle, ForwardLighting::kMaxSpotShadowMaps> spotShadowPassFramebufferHandles;
    FramebufferHandle forwardPassFramebufferHandle;
    FramebufferHandle tonemapPassFramebufferHandle;

@@ -25,9 +25,54 @@ public:
       castShadows = newCastShadows;
    }
 
+   float getShadowNearPlane() const
+   {
+      return shadowNearPlane;
+   }
+
+   void setShadowNearPlane(float newShadowNearPlane)
+   {
+      shadowNearPlane = newShadowNearPlane;
+   }
+
+   float getShadowBiasConstantFactor() const
+   {
+      return shadowBiasConstantFactor;
+   }
+
+   void setShadowBiasConstantFactor(float newShadowBiasConstantFactor)
+   {
+      shadowBiasConstantFactor = newShadowBiasConstantFactor;
+   }
+
+   float getShadowBiasSlopeFactor() const
+   {
+      return shadowBiasSlopeFactor;
+   }
+
+   void setShadowBiasSlopeFactor(float newShadowBiasSlopeFactor)
+   {
+      shadowBiasSlopeFactor = newShadowBiasSlopeFactor;
+   }
+
+   float getShadowBiasClamp() const
+   {
+      return shadowBiasClamp;
+   }
+
+   void setShadowBiasClamp(float newShadowBiasClamp)
+   {
+      shadowBiasClamp = newShadowBiasClamp;
+   }
+
 private:
    glm::vec3 color = glm::vec3(1.0f);
+
    bool castShadows = true;
+   float shadowNearPlane = 0.1f;
+   float shadowBiasConstantFactor = 10.0f;
+   float shadowBiasSlopeFactor = 3.0f;
+   float shadowBiasClamp = 0.001f;
 };
 
 class DirectionalLightComponent : public LightComponent

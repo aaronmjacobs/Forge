@@ -44,7 +44,7 @@ protected:
                const Material* material = meshRenderInfo.materials[section];
                ASSERT(material);
 
-               vk::Pipeline desiredPipeline = static_cast<Derived*>(this)->selectPipeline(meshRenderInfo.mesh->getSection(section), *material);
+               vk::Pipeline desiredPipeline = static_cast<Derived*>(this)->selectPipeline(sceneRenderInfo.view, meshRenderInfo.mesh->getSection(section), *material);
                if (desiredPipeline != lastPipeline)
                {
                   commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, desiredPipeline);
@@ -69,7 +69,7 @@ protected:
       commandBuffer.draw(3, 1, 0, 0);
    }
 
-   vk::Pipeline selectPipeline(const MeshSection& meshSection, const Material& material) const
+   vk::Pipeline selectPipeline(const View& view, const MeshSection& meshSection, const Material& material) const
    {
       return nullptr;
    }

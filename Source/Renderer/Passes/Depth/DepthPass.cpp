@@ -8,6 +8,7 @@
 #include "Renderer/Passes/Depth/DepthShader.h"
 #include "Renderer/SceneRenderInfo.h"
 #include "Renderer/UniformData.h"
+#include "Renderer/View.h"
 
 DepthPass::DepthPass(const GraphicsContext& graphicsContext, ResourceManager& resourceManager, bool shadowPass)
    : SceneRenderPass(graphicsContext)
@@ -15,7 +16,7 @@ DepthPass::DepthPass(const GraphicsContext& graphicsContext, ResourceManager& re
 {
    clearDepth = true;
    clearColor = false;
-   pipelines.resize(1);
+   pipelines.resize(2);
 
    depthShader = std::make_unique<DepthShader>(context, resourceManager);
 }
@@ -39,6 +40,12 @@ void DepthPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& s
    std::array<vk::ClearValue, 2> clearValues = { vk::ClearDepthStencilValue(1.0f, 0) };
    beginRenderPass(commandBuffer, *framebuffer, clearValues);
 
+   if (isShadowPass)
+   {
+      const ViewInfo& viewInfo = sceneRenderInfo.view.getInfo();
+      commandBuffer.setDepthBias(viewInfo.depthBiasConstantFactor, viewInfo.depthBiasClamp, viewInfo.depthBiasSlopeFactor);
+   }
+
    depthShader->bindDescriptorSets(commandBuffer, sceneRenderInfo.view, pipelineLayout);
 
    renderMeshes<BlendMode::Opaque>(commandBuffer, sceneRenderInfo);
@@ -52,6 +59,7 @@ void DepthPass::setName(std::string_view newName)
    SceneRenderPass::setName(newName);
 
    NAME_OBJECT(pipelines[0], name + " Pipeline");
+   NAME_OBJECT(pipelines[1], name + " Pipeline (Cubemap)");
 }
 #endif // FORGE_DEBUG
 
@@ -67,9 +75,13 @@ void DepthPass::initializePipelines(vk::SampleCountFlagBits sampleCount)
    PipelineData pipelineData(context, pipelineLayout, getRenderPass(), PipelinePassType::Mesh, depthShader->getStages(), {}, sampleCount);
    if (isShadowPass)
    {
-      pipelineData.enableDepthBias(2.0f, 2.5f);
+      pipelineData.enableDepthBias();
    }
+
    pipelines[0] = device.createGraphicsPipeline(nullptr, pipelineData.getCreateInfo()).value;
+
+   pipelineData.setFrontFace(vk::FrontFace::eClockwise); // Projection matrix Y values will be inverted when rendering to a cubemap, which swaps which faces are "front" facing
+   pipelines[1] = device.createGraphicsPipeline(nullptr, pipelineData.getCreateInfo()).value;
 }
 
 std::vector<vk::SubpassDependency> DepthPass::getSubpassDependencies() const
@@ -85,4 +97,9 @@ std::vector<vk::SubpassDependency> DepthPass::getSubpassDependencies() const
       .setDstAccessMask(vk::AccessFlagBits::eDepthStencilAttachmentRead | vk::AccessFlagBits::eDepthStencilAttachmentWrite));
 
    return subpassDependencies;
+}
+
+vk::Pipeline DepthPass::selectPipeline(const View& view, const MeshSection& meshSection, const Material& material) const
+{
+   return view.getInfo().cubeFace.has_value() ? pipelines[1] : pipelines[0];
 }

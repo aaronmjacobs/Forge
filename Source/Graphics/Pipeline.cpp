@@ -121,11 +121,17 @@ void PipelineData::setColorBlendAttachmentStates(std::vector<vk::PipelineColorBl
    colorBlendStateCreateInfo.setAttachments(colorBlendAttachmentStates);
 }
 
-void PipelineData::enableDepthBias(float constantFactor, float slopeFactor)
+void PipelineData::enableDepthBias()
 {
-   rasterizationStateCreateInfo.setDepthBiasEnable(true)
-      .setDepthBiasConstantFactor(constantFactor)
-      .setDepthBiasSlopeFactor(slopeFactor);
+   rasterizationStateCreateInfo.setDepthBiasEnable(true);
+
+   dynamicStates.push_back(vk::DynamicState::eDepthBias);
+   dynamicStateCreateInfo.setDynamicStates(dynamicStates);
+}
+
+void PipelineData::setFrontFace(vk::FrontFace frontFace)
+{
+   rasterizationStateCreateInfo.setFrontFace(frontFace);
 }
 
 void PipelineData::updatePointers()

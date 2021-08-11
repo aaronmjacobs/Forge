@@ -36,12 +36,14 @@ View::View(const GraphicsContext& graphicsContext, vk::DescriptorPool descriptor
 
 void View::update(const ViewInfo& viewInfo)
 {
-   viewMatrices = ViewMatrices(viewInfo);
+   info = viewInfo;
+   matrices = ViewMatrices(viewInfo);
 
    ViewUniformData viewUniformData;
-   viewUniformData.worldToClip = viewMatrices.viewToClip * viewMatrices.worldToView;
-   viewUniformData.position = glm::vec4(viewMatrices.viewPosition.x, viewMatrices.viewPosition.y, viewMatrices.viewPosition.z, 1.0f);
-   viewUniformData.direction = glm::vec4(viewMatrices.viewDirection.x, viewMatrices.viewDirection.y, viewMatrices.viewDirection.z, 0.0f);
+   viewUniformData.worldToClip = matrices.viewToClip * matrices.worldToView;
+   viewUniformData.position = glm::vec4(matrices.viewPosition.x, matrices.viewPosition.y, matrices.viewPosition.z, 1.0f);
+   viewUniformData.direction = glm::vec4(matrices.viewDirection.x, matrices.viewDirection.y, matrices.viewDirection.z, 0.0f);
+   viewUniformData.nearFar = matrices.nearFar;
 
    uniformBuffer.update(viewUniformData);
 }

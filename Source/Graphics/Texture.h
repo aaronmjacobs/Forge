@@ -17,6 +17,7 @@ struct ImageProperties
    uint32_t depth = 1;
    uint32_t layers = 1;
    bool hasAlpha = false;
+   bool cubeCompatible = false;
 };
 
 struct TextureProperties

@@ -416,6 +416,8 @@ GraphicsContext::GraphicsContext(Window& window)
    vk::PhysicalDeviceFeatures deviceFeatures;
    deviceFeatures.setSamplerAnisotropy(physicalDeviceFeatures.samplerAnisotropy);
    deviceFeatures.setSampleRateShading(true);
+   deviceFeatures.setImageCubeArray(true);
+   deviceFeatures.setDepthBiasClamp(true);
 
    void* deviceCreateInfoNext = nullptr;
    vk::PhysicalDevicePortabilitySubsetFeaturesKHR portabilityFeatures;

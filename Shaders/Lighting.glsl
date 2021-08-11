@@ -1,3 +1,8 @@
+#if !defined(LIGHTING_GLSL)
+#define LIGHTING_GLSL
+
+#include "View.glsl"
+
 struct DirectionalLight
 {
    vec4 color;
@@ -8,6 +13,8 @@ struct PointLight
 {
    vec4 colorRadius;
    vec4 position;
+   vec2 nearFar;
+   int shadowMapIndex;
 };
 
 struct SpotLight
@@ -30,6 +37,17 @@ struct LightingParams
 
    vec3 cameraPosition;
 };
+
+float vec3Max(vec3 vec)
+{
+   return max(vec.x, max(vec.y, vec.z));
+}
+
+float normalizeDepth(float linearDepth, float near, float far)
+{
+   float depthNDC = ((near + far) - (2.0 * near * far) / linearDepth) / (far - near);
+   return (depthNDC + 1.0) * 0.5;
+}
 
 float calcAttenuation(vec3 toLight, float radius)
 {
@@ -65,6 +83,14 @@ vec3 calcSpecular(vec3 lightColor, vec3 specularColor, float shininess, vec3 sur
    return lightColor * (specularColor * specularAmount);
 }
 
+float calcVisibility(samplerCubeArrayShadow shadowMaps, int shadowMapIndex, vec2 nearFar, vec3 toLight, vec3 toLightDirection)
+{
+   float computedDepth = vec3Max(abs(toLight));
+   float normalizedDepth = normalizeDepth(computedDepth, nearFar.x, nearFar.y);
+
+   return texture(shadowMaps, vec4(-toLightDirection, shadowMapIndex), normalizedDepth);
+}
+
 float calcVisibility(sampler2DArrayShadow shadowMaps, int shadowMapIndex, vec3 surfacePosition, mat4 worldToShadow)
 {
    float visibility = 0.0;
@@ -98,7 +124,7 @@ vec3 calcDirectionalLighting(DirectionalLight directionalLight, LightingParams l
    return ambient + (diffuse + specular);
 }
 
-vec3 calcPointLighting(PointLight pointLight, LightingParams lightingParams)
+vec3 calcPointLighting(PointLight pointLight, LightingParams lightingParams, samplerCubeArrayShadow shadowMaps)
 {
    vec3 lightColor = pointLight.colorRadius.rgb;
    vec3 lightPosition = pointLight.position.xyz;
@@ -113,7 +139,17 @@ vec3 calcPointLighting(PointLight pointLight, LightingParams lightingParams)
 
    float attenuation = calcAttenuation(toLight, lightRadius);
 
-   return (ambient + (diffuse + specular)) * attenuation;
+   float brightness = attenuation;
+   vec3 directLighting = (diffuse + specular) * brightness;
+   vec3 indirectLighting = ambient * brightness;
+
+   if (vec3Max(directLighting) > 0.0 && pointLight.shadowMapIndex >= 0)
+   {
+      float visibility = calcVisibility(shadowMaps, pointLight.shadowMapIndex, pointLight.nearFar, toLight, toLightDirection);
+      directLighting *= visibility;
+   }
+
+   return directLighting + indirectLighting;
 }
 
 vec3 calcSpotLighting(SpotLight spotLight, LightingParams lightingParams, sampler2DArrayShadow shadowMaps)
@@ -142,7 +178,7 @@ vec3 calcSpotLighting(SpotLight spotLight, LightingParams lightingParams, sample
    vec3 directLighting = (diffuse + specular) * brightness;
    vec3 indirectLighting = ambient * brightness;
 
-   if (max(directLighting.r, max(directLighting.g, directLighting.b)) > 0.0 && spotLight.shadowMapIndex >= 0)
+   if (vec3Max(directLighting) > 0.0 && spotLight.shadowMapIndex >= 0)
    {
       float visibility = calcVisibility(shadowMaps, spotLight.shadowMapIndex, lightingParams.surfacePosition, spotLight.worldToShadow);
       directLighting *= visibility;
@@ -150,3 +186,5 @@ vec3 calcSpotLighting(SpotLight spotLight, LightingParams lightingParams, sample
 
    return directLighting + indirectLighting;
 }
+
+#endif

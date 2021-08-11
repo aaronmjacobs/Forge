@@ -138,7 +138,7 @@ void ForwardPass::renderMesh(vk::CommandBuffer commandBuffer, const View& view, 
    SceneRenderPass::renderMesh(commandBuffer, view, mesh, section, material);
 }
 
-vk::Pipeline ForwardPass::selectPipeline(const MeshSection& meshSection, const Material& material) const
+vk::Pipeline ForwardPass::selectPipeline(const View& view, const MeshSection& meshSection, const Material& material) const
 {
    return pipelines[getForwardPipelineIndex(meshSection.hasValidTexCoords, material.getBlendMode() == BlendMode::Translucent)];
 }

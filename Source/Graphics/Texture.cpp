@@ -215,6 +215,10 @@ void Texture::createImage()
       .setUsage(textureProperties.usage)
       .setSharingMode(vk::SharingMode::eExclusive)
       .setSamples(textureProperties.sampleCount);
+   if (imageProperties.cubeCompatible)
+   {
+      imageCreateinfo.setFlags(vk::ImageCreateFlagBits::eCubeCompatible);
+   }
    image = device.createImage(imageCreateinfo);
 
    vk::MemoryRequirements memoryRequirements = device.getImageMemoryRequirements(image);

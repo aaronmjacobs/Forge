@@ -27,7 +27,7 @@ protected:
    std::vector<vk::SubpassDependency> getSubpassDependencies() const override;
 
    void renderMesh(vk::CommandBuffer commandBuffer, const View& view, const Mesh& mesh, uint32_t section, const Material& material);
-   vk::Pipeline selectPipeline(const MeshSection& meshSection, const Material& material) const;
+   vk::Pipeline selectPipeline(const View& view, const MeshSection& meshSection, const Material& material) const;
 
 private:
    std::unique_ptr<ForwardShader> forwardShader;

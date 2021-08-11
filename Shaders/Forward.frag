@@ -17,7 +17,8 @@ layout(std430, set = 1, binding = 0) uniform Lights
 	int numPointLights;
 	int numDirectionalLights;
 };
-layout(set = 1, binding = 1) uniform sampler2DArrayShadow spotLightShadowMaps;
+layout(set = 1, binding = 1) uniform samplerCubeArrayShadow pointLightShadowMaps;
+layout(set = 1, binding = 2) uniform sampler2DArrayShadow spotLightShadowMaps;
 
 layout(set = 2, binding = 0) uniform sampler2D diffuseTexture;
 layout(set = 2, binding = 1) uniform sampler2D normalTexture;
@@ -65,7 +66,7 @@ void main()
 
 	for (int i = 0; i < numPointLights; ++i)
 	{
-		color += calcPointLighting(pointLights[i], lightingParams);
+		color += calcPointLighting(pointLights[i], lightingParams, pointLightShadowMaps);
 	}
 
 	for (int i = 0; i < numSpotLights; ++i)

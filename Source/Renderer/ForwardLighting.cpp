@@ -13,13 +13,14 @@
 
 namespace
 {
-   std::unique_ptr<Texture> createShadowMapTextureArray(const GraphicsContext& context, vk::Format format, vk::Extent2D extent, uint32_t layers)
+   std::unique_ptr<Texture> createShadowMapTextureArray(const GraphicsContext& context, vk::Format format, vk::Extent2D extent, uint32_t layers, bool cubeCompatible)
    {
       ImageProperties depthImageProperties;
       depthImageProperties.format = format;
       depthImageProperties.width = extent.width;
       depthImageProperties.height = extent.height;
       depthImageProperties.layers = layers;
+      depthImageProperties.cubeCompatible = cubeCompatible;
 
       TextureProperties depthTextureProperties;
       depthTextureProperties.sampleCount = vk::SampleCountFlagBits::e1;
@@ -37,7 +38,7 @@ namespace
 // static
 const vk::DescriptorSetLayoutCreateInfo& ForwardLighting::getLayoutCreateInfo()
 {
-   static const std::array<vk::DescriptorSetLayoutBinding, 2> kBindings =
+   static const std::array<vk::DescriptorSetLayoutBinding, 3> kBindings =
    {
       vk::DescriptorSetLayoutBinding()
          .setBinding(0)
@@ -46,6 +47,11 @@ const vk::DescriptorSetLayoutCreateInfo& ForwardLighting::getLayoutCreateInfo()
          .setStageFlags(vk::ShaderStageFlagBits::eFragment),
       vk::DescriptorSetLayoutBinding()
          .setBinding(1)
+         .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+         .setDescriptorCount(1)
+         .setStageFlags(vk::ShaderStageFlagBits::eFragment),
+      vk::DescriptorSetLayoutBinding()
+         .setBinding(2)
          .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
          .setDescriptorCount(1)
          .setStageFlags(vk::ShaderStageFlagBits::eFragment),
@@ -62,6 +68,12 @@ vk::DescriptorSetLayout ForwardLighting::getLayout(const GraphicsContext& contex
    return context.getLayoutCache().getLayout(getLayoutCreateInfo());
 }
 
+// static
+uint32_t ForwardLighting::getPointViewIndex(uint32_t shadowMapIndex, uint32_t faceIndex)
+{
+   return shadowMapIndex * kNumCubeFaces + faceIndex;
+}
+
 ForwardLighting::ForwardLighting(const GraphicsContext& graphicsContext, vk::DescriptorPool descriptorPool, vk::Format depthFormat)
    : GraphicsResource(graphicsContext)
    , uniformBuffer(graphicsContext)
@@ -70,7 +82,10 @@ ForwardLighting::ForwardLighting(const GraphicsContext& graphicsContext, vk::Des
    NAME_OBJECT(uniformBuffer, "Forward Lighting");
    NAME_OBJECT(descriptorSet, "Forward Lighting");
 
-   spotShadowMapTextureArray = createShadowMapTextureArray(context, depthFormat, vk::Extent2D(1024, 1024), kMaxSpotShadowMaps);
+   pointShadowMapTextureArray = createShadowMapTextureArray(context, depthFormat, vk::Extent2D(1024, 1024), kMaxPointShadowMaps * kNumCubeFaces, true);
+   NAME_POINTER(pointShadowMapTextureArray, "Point Shadow Texture Array");
+
+   spotShadowMapTextureArray = createShadowMapTextureArray(context, depthFormat, vk::Extent2D(1024, 1024), kMaxSpotShadowMaps, false);
    NAME_POINTER(spotShadowMapTextureArray, "Spot Shadow Texture Array");
 
    vk::SamplerCreateInfo samplerCreateInfo = vk::SamplerCreateInfo()
@@ -92,12 +107,27 @@ ForwardLighting::ForwardLighting(const GraphicsContext& graphicsContext, vk::Des
    shadowMapSampler = context.getDevice().createSampler(samplerCreateInfo);
    NAME_OBJECT(descriptorSet, "Shadow Map Sampler");
 
+   pointShadowSampleView = pointShadowMapTextureArray->createView(vk::ImageViewType::eCubeArray, 0, kMaxPointShadowMaps * kNumCubeFaces, vk::ImageAspectFlagBits::eDepth);
+   NAME_OBJECT(pointShadowSampleView, "Point Shadow Map Sample View");
+
    spotShadowSampleView = spotShadowMapTextureArray->createView(vk::ImageViewType::e2DArray, 0, kMaxSpotShadowMaps, vk::ImageAspectFlagBits::eDepth);
+   NAME_OBJECT(spotShadowSampleView, "Spot Shadow Map Sample View");
+
+   for (uint32_t shadowMapIndex = 0; shadowMapIndex < kMaxPointShadowMaps; ++shadowMapIndex)
+   {
+      for (uint32_t faceIndex = 0; faceIndex < kNumCubeFaces; ++faceIndex)
+      {
+         uint32_t viewIndex = getPointViewIndex(shadowMapIndex, faceIndex);
+
+         pointShadowViews[viewIndex] = pointShadowMapTextureArray->createView(vk::ImageViewType::e2D, viewIndex, 1);
+         NAME_OBJECT(pointShadowViews[viewIndex], "Point Shadow Map View " + std::to_string(viewIndex));
+      }
+   }
 
    for (uint32_t i = 0; i < kMaxSpotShadowMaps; ++i)
    {
       spotShadowViews[i] = spotShadowMapTextureArray->createView(vk::ImageViewType::e2D, i, 1);
-      NAME_OBJECT(spotShadowViews[i], "Spot Shadow Map Sampler " + std::to_string(i));
+      NAME_OBJECT(spotShadowViews[i], "Spot Shadow Map View " + std::to_string(i));
    }
 
    updateDescriptorSets();
@@ -107,7 +137,18 @@ ForwardLighting::~ForwardLighting()
 {
    context.delayedDestroy(std::move(shadowMapSampler));
 
+   context.delayedDestroy(std::move(pointShadowSampleView));
    context.delayedDestroy(std::move(spotShadowSampleView));
+
+   for (uint32_t shadowMapIndex = 0; shadowMapIndex < kMaxPointShadowMaps; ++shadowMapIndex)
+   {
+      for (uint32_t faceIndex = 0; faceIndex < kNumCubeFaces; ++faceIndex)
+      {
+         uint32_t viewIndex = getPointViewIndex(shadowMapIndex, faceIndex);
+
+         context.delayedDestroy(std::move(pointShadowViews[viewIndex]));
+      }
+   }
 
    for (uint32_t i = 0; i < kMaxSpotShadowMaps; ++i)
    {
@@ -121,6 +162,8 @@ void ForwardLighting::transitionShadowMapLayout(vk::CommandBuffer commandBuffer,
 
    TextureMemoryBarrierFlags srcMemoryBarrierFlags = forReading ? TextureMemoryBarrierFlags(vk::AccessFlagBits::eDepthStencilAttachmentRead | vk::AccessFlagBits::eDepthStencilAttachmentWrite, vk::PipelineStageFlagBits::eEarlyFragmentTests) : TextureMemoryBarrierFlags(vk::AccessFlagBits::eShaderRead, vk::PipelineStageFlagBits::eFragmentShader);
    TextureMemoryBarrierFlags dstMemoryBarrierFlags = forReading ? TextureMemoryBarrierFlags(vk::AccessFlagBits::eShaderRead, vk::PipelineStageFlagBits::eFragmentShader) : TextureMemoryBarrierFlags(vk::AccessFlagBits::eDepthStencilAttachmentRead | vk::AccessFlagBits::eDepthStencilAttachmentWrite, vk::PipelineStageFlagBits::eEarlyFragmentTests);
+
+   pointShadowMapTextureArray->transitionLayout(commandBuffer, layout, srcMemoryBarrierFlags, dstMemoryBarrierFlags);
    spotShadowMapTextureArray->transitionLayout(commandBuffer, layout, srcMemoryBarrierFlags, dstMemoryBarrierFlags);
 }
 
@@ -133,6 +176,8 @@ void ForwardLighting::update(const SceneRenderInfo& sceneRenderInfo)
       ForwardPointLightUniformData& uniformData = lightUniformData.pointLights[lightUniformData.numPointLights];
       uniformData.colorRadius = glm::vec4(pointLightRenderInfo.color.x, pointLightRenderInfo.color.y, pointLightRenderInfo.color.z, pointLightRenderInfo.radius);
       uniformData.position = glm::vec4(pointLightRenderInfo.position.x, pointLightRenderInfo.position.y, pointLightRenderInfo.position.z, 0.0f);
+      uniformData.nearFar = glm::vec2(pointLightRenderInfo.shadowNearPlane, pointLightRenderInfo.radius);
+      uniformData.shadowMapIndex = pointLightRenderInfo.shadowMapIndex.value_or(-1);
 
       if (++lightUniformData.numPointLights >= lightUniformData.pointLights.size())
       {
@@ -176,6 +221,19 @@ void ForwardLighting::update(const SceneRenderInfo& sceneRenderInfo)
    uniformBuffer.update(lightUniformData);
 }
 
+TextureInfo ForwardLighting::getPointShadowInfo(uint32_t shadowMapIndex, uint32_t faceIndex) const
+{
+   ASSERT(shadowMapIndex < kMaxPointShadowMaps);
+   ASSERT(faceIndex < kNumCubeFaces);
+
+   uint32_t viewIndex = getPointViewIndex(shadowMapIndex, faceIndex);
+
+   TextureInfo info = pointShadowMapTextureArray->getInfo();
+   info.view = pointShadowViews[viewIndex];
+
+   return info;
+}
+
 TextureInfo ForwardLighting::getSpotShadowInfo(uint32_t index) const
 {
    ASSERT(index < kMaxSpotShadowMaps);
@@ -192,7 +250,12 @@ void ForwardLighting::updateDescriptorSets()
    {
       vk::DescriptorBufferInfo viewBufferInfo = uniformBuffer.getDescriptorBufferInfo(frameIndex);
 
-      vk::DescriptorImageInfo imageInfo = vk::DescriptorImageInfo()
+      vk::DescriptorImageInfo pointImageInfo = vk::DescriptorImageInfo()
+         .setImageLayout(pointShadowMapTextureArray->getLayout())
+         .setImageView(pointShadowSampleView)
+         .setSampler(shadowMapSampler);
+
+      vk::DescriptorImageInfo spotImageInfo = vk::DescriptorImageInfo()
          .setImageLayout(spotShadowMapTextureArray->getLayout())
          .setImageView(spotShadowSampleView)
          .setSampler(shadowMapSampler);
@@ -205,14 +268,22 @@ void ForwardLighting::updateDescriptorSets()
          .setDescriptorCount(1)
          .setPBufferInfo(&viewBufferInfo);
 
-      vk::WriteDescriptorSet imageDescriptorWrite = vk::WriteDescriptorSet()
+      vk::WriteDescriptorSet pointImageDescriptorWrite = vk::WriteDescriptorSet()
          .setDstSet(descriptorSet.getSet(frameIndex))
          .setDstBinding(1)
          .setDstArrayElement(0)
          .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
          .setDescriptorCount(1)
-         .setPImageInfo(&imageInfo);
+         .setPImageInfo(&pointImageInfo);
 
-      device.updateDescriptorSets({ bufferDescriptorWrite, imageDescriptorWrite }, {});
+      vk::WriteDescriptorSet spotImageDescriptorWrite = vk::WriteDescriptorSet()
+         .setDstSet(descriptorSet.getSet(frameIndex))
+         .setDstBinding(2)
+         .setDstArrayElement(0)
+         .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+         .setDescriptorCount(1)
+         .setPImageInfo(&spotImageInfo);
+
+      device.updateDescriptorSets({ bufferDescriptorWrite, pointImageDescriptorWrite, spotImageDescriptorWrite }, {});
    }
 }
