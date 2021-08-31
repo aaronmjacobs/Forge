@@ -9,8 +9,6 @@
 
 #include "Platform/Window.h"
 
-#include <GLFW/glfw3.h>
-
 #include <algorithm>
 #include <array>
 #include <cstring>
@@ -37,19 +35,13 @@ namespace
       }) != layerProperties.end();
    }
 
-   std::vector<const char*> getExtensions()
+   std::vector<const char*> getExtensions(const Window& window)
    {
       std::vector<const char*> extensions;
 
-      uint32_t glfwRequiredExtensionCount = 0;
-      const char** glfwRequiredExtensionNames = glfwGetRequiredInstanceExtensions(&glfwRequiredExtensionCount);
-      extensions.reserve(glfwRequiredExtensionCount);
-
       std::vector<vk::ExtensionProperties> extensionProperties = vk::enumerateInstanceExtensionProperties();
-      for (uint32_t i = 0; i < glfwRequiredExtensionCount; ++i)
+      for (const char* requiredExtension : window.getRequiredExtensions())
       {
-         const char* requiredExtension = glfwRequiredExtensionNames[i];
-
          if (hasExtensionProperty(extensionProperties, requiredExtension))
          {
             extensions.push_back(requiredExtension);
@@ -146,32 +138,6 @@ namespace
          .setMessageSeverity(vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose | vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo | vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning | vk::DebugUtilsMessageSeverityFlagBitsEXT::eError)
          .setMessageType(vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral | vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation | vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance);
    }
-
-#define FIND_VULKAN_FUNCTION(instance, name) reinterpret_cast<PFN_##name>(glfwGetInstanceProcAddress(instance, #name))
-   VkDebugUtilsMessengerEXT createDebugMessenger(vk::Instance instance)
-   {
-      VkDebugUtilsMessengerEXT debugMessenger = nullptr;
-      if (auto pfnCreateDebugUtilsMessengerEXT = FIND_VULKAN_FUNCTION(instance, vkCreateDebugUtilsMessengerEXT))
-      {
-         VkDebugUtilsMessengerCreateInfoEXT debugUtilsMessengerCreateInfo = createDebugMessengerCreateInfo();
-         if (pfnCreateDebugUtilsMessengerEXT(instance, &debugUtilsMessengerCreateInfo, nullptr, &debugMessenger) != VK_SUCCESS)
-         {
-            ASSERT(false);
-         }
-      }
-
-      return debugMessenger;
-   }
-
-   void destroyDebugMessenger(vk::Instance instance, VkDebugUtilsMessengerEXT& debugMessenger)
-   {
-      if (auto pfnDestroyDebugUtilsMessengerEXT = FIND_VULKAN_FUNCTION(instance, vkDestroyDebugUtilsMessengerEXT))
-      {
-         pfnDestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
-         debugMessenger = nullptr;
-      }
-   }
-#undef FIND_VULKAN_FUNCTION
 #endif // FORGE_DEBUG
 
    std::vector<const char*> getDeviceExtensions(vk::PhysicalDevice physicalDevice)
@@ -364,7 +330,7 @@ GraphicsContext::GraphicsContext(Window& window)
       .setEngineVersion(VK_MAKE_VERSION(FORGE_VERSION_MAJOR, FORGE_VERSION_MINOR, FORGE_VERSION_PATCH))
       .setApiVersion(VK_API_VERSION_1_2);
 
-   std::vector<const char*> extensions = getExtensions();
+   std::vector<const char*> extensions = getExtensions(window);
    std::vector<const char*> layers = getLayers();
 
    vk::InstanceCreateInfo createInfo = vk::InstanceCreateInfo()
@@ -381,7 +347,19 @@ GraphicsContext::GraphicsContext(Window& window)
    dispatchLoaderDynamic.init(instance, vk::Device());
 
 #if FORGE_DEBUG
-   debugMessenger = createDebugMessenger(instance);
+#  define FIND_VULKAN_FUNCTION(instance, name) reinterpret_cast<PFN_##name>(window.getInstanceProcAddress(instance, #name))
+   pfnCreateDebugUtilsMessengerEXT = FIND_VULKAN_FUNCTION(instance, vkCreateDebugUtilsMessengerEXT);
+   pfnDestroyDebugUtilsMessengerEXT = FIND_VULKAN_FUNCTION(instance, vkDestroyDebugUtilsMessengerEXT);
+#  undef FIND_VULKAN_FUNCTION
+
+   if (pfnCreateDebugUtilsMessengerEXT)
+   {
+      VkDebugUtilsMessengerCreateInfoEXT debugUtilsMessengerCreateInfo = createDebugMessengerCreateInfo();
+      if (pfnCreateDebugUtilsMessengerEXT(instance, &debugUtilsMessengerCreateInfo, nullptr, &debugMessenger) != VK_SUCCESS)
+      {
+         ASSERT(false);
+      }
+   }
 #endif // FORGE_DEBUG
 
    surface = window.createSurface(instance);
@@ -465,7 +443,11 @@ GraphicsContext::~GraphicsContext()
    instance.destroySurfaceKHR(surface);
 
 #if FORGE_DEBUG
-   destroyDebugMessenger(instance, debugMessenger);
+   if (pfnDestroyDebugUtilsMessengerEXT)
+   {
+      pfnDestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
+      debugMessenger = nullptr;
+   }
 #endif // FORGE_DEBUG
 
    instance.destroy();

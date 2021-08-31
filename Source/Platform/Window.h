@@ -4,6 +4,8 @@
 
 #include "Platform/InputManager.h"
 
+#include <vector>
+
 struct GLFWwindow;
 
 struct WindowBounds
@@ -20,9 +22,9 @@ public:
    using FramebufferSizeChangedDelegate = Delegate<void, int, int>;
    using WindowRefreshRequestedDelegate = Delegate<void>;
    using WindowFocusDelegate = Delegate<void, bool>;
+   using VulkanProc = void (*)(void);
 
    Window();
-
    ~Window();
 
    void pollEvents();
@@ -34,6 +36,9 @@ public:
 
    vk::SurfaceKHR createSurface(vk::Instance instance);
    vk::Extent2D getExtent() const;
+
+   std::vector<const char*> getRequiredExtensions() const;
+   VulkanProc getInstanceProcAddress(vk::Instance instance, const char* procName) const;
 
    InputManager& getInputManager()
    {

@@ -171,5 +171,7 @@ private:
 
 #if FORGE_DEBUG
    VkDebugUtilsMessengerEXT debugMessenger = nullptr;
+   PFN_vkCreateDebugUtilsMessengerEXT pfnCreateDebugUtilsMessengerEXT = nullptr;
+   PFN_vkDestroyDebugUtilsMessengerEXT pfnDestroyDebugUtilsMessengerEXT = nullptr;
 #endif // FORGE_DEBUG
 };

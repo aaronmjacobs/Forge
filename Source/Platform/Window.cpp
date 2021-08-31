@@ -216,6 +216,19 @@ vk::Extent2D Window::getExtent() const
    return vk::Extent2D(static_cast<uint32_t>(std::max(width, 0)), static_cast<uint32_t>(std::max(height, 0)));
 }
 
+std::vector<const char*> Window::getRequiredExtensions() const
+{
+   uint32_t glfwRequiredExtensionCount = 0;
+   const char** glfwRequiredExtensionNames = glfwGetRequiredInstanceExtensions(&glfwRequiredExtensionCount);
+
+   return std::vector<const char*>(glfwRequiredExtensionNames, glfwRequiredExtensionNames + glfwRequiredExtensionCount);
+}
+
+Window::VulkanProc Window::getInstanceProcAddress(vk::Instance instance, const char* procName) const
+{
+   return glfwGetInstanceProcAddress(instance, procName);
+}
+
 void Window::setCanConsumeCursorInput(bool consume)
 {
    canConsumeCursorInput = consume;
