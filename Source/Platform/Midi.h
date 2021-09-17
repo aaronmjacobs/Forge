@@ -1,6 +1,6 @@
 #pragma once
 
-#include <Kontroller/Kontroller.h>
+#include <Kontroller/State.h>
 
 namespace Midi
 {

@@ -2,46 +2,33 @@
 
 #include "Core/Assert.h"
 
-#include <KontrollerSock/Client.h>
+#include <Kontroller/Client.h>
 
-#include <thread>
+#include <memory>
 
 namespace
 {
-   KontrollerSock::Client kontrollerClient;
-   Kontroller::State kontrollerState{};
-
-   std::thread clientThread;
+   std::unique_ptr<Kontroller::Client> kontrollerClient;
+   Kontroller::State kontrollerState;
 }
 
 namespace Midi
 {
    void initialize()
    {
-      kontrollerState = {};
-      for (Kontroller::Group& group : kontrollerState.groups)
-      {
-         // Assume sliders are in the "up" position by default
-         group.slider = 1.0f;
-      }
-
-      clientThread = std::thread([]()
-      {
-         kontrollerClient.run("127.0.0.1");
-      });
+      kontrollerClient = std::make_unique<Kontroller::Client>();
+      update();
    }
 
    void terminate()
    {
-      ASSERT(clientThread.joinable());
-
-      kontrollerClient.shutDown();
-      clientThread.join();
+      kontrollerClient.reset();
    }
 
    void update()
    {
-      kontrollerState = kontrollerClient.getState();
+      ASSERT(kontrollerClient);
+      kontrollerState = kontrollerClient->getState();
    }
 
    const Kontroller::State& getState()
