@@ -1,5 +1,7 @@
 #include "Resources/TextureResourceManager.h"
 
+#include "Graphics/DebugUtils.h"
+
 #include "Resources/LoadedImage.h"
 
 #include <PlatformUtils/IOUtils.h>
@@ -85,12 +87,7 @@ TextureHandle TextureResourceManager::load(const std::filesystem::path& path, co
          TextureHandle handle = emplaceResource(context, *image, properties, initialLayout);
          cacheHandle(canonicalPathString, handle);
 
-#if FORGE_DEBUG
-         if (Texture* texture = get(handle))
-         {
-            texture->setName(ResourceHelpers::getName(*canonicalPath));
-         }
-#endif // FORGE_DEBUG
+         NAME_POINTER(context.getDevice(), get(handle), ResourceHelpers::getName(*canonicalPath));
 
          return handle;
       }
@@ -155,21 +152,11 @@ void TextureResourceManager::createDefaultTextures()
    TextureInitialLayout defaultTextureInitialLayout = getDefaultInitialLayout();
 
    defaultBlackTextureHandle = emplaceResource(context, defaultBlackImage, defaultTextureProperties, defaultTextureInitialLayout);
-   defaultWhiteTextureHandle = emplaceResource(context, defaultWhiteImage, defaultTextureProperties, defaultTextureInitialLayout);
-   defaultNormalMapTextureHandle = emplaceResource(context, defaultNormalMapImage, defaultTextureProperties, defaultTextureInitialLayout);
+   NAME_POINTER(context.getDevice(), get(defaultBlackTextureHandle), "Default Black Texture");
 
-#if FORGE_DEBUG
-   if (Texture* defaultBlackTexture = get(defaultBlackTextureHandle))
-   {
-      defaultBlackTexture->setName("Default Black Texture");
-   }
-   if (Texture* defaultWhiteTexture = get(defaultWhiteTextureHandle))
-   {
-      defaultWhiteTexture->setName("Default White Texture");
-   }
-   if (Texture* defaultNormalMapTexture = get(defaultNormalMapTextureHandle))
-   {
-      defaultNormalMapTexture->setName("Default Normal Map Texture");
-   }
-#endif // FORGE_DEBUG
+   defaultWhiteTextureHandle = emplaceResource(context, defaultWhiteImage, defaultTextureProperties, defaultTextureInitialLayout);
+   NAME_POINTER(context.getDevice(), get(defaultWhiteTextureHandle), "Default White Texture");
+
+   defaultNormalMapTextureHandle = emplaceResource(context, defaultNormalMapImage, defaultTextureProperties, defaultTextureInitialLayout);
+   NAME_POINTER(context.getDevice(), get(defaultNormalMapTextureHandle), "Default Normal Map Texture");
 }

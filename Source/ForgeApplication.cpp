@@ -308,6 +308,7 @@ void ForgeApplication::terminateVulkan()
 void ForgeApplication::initializeSwapchain()
 {
    swapchain = std::make_unique<Swapchain>(*context, window->getExtent());
+   NAME_POINTER(context->getDevice(), swapchain, "Swapchain");
    context->setSwapchain(swapchain.get());
 }
 

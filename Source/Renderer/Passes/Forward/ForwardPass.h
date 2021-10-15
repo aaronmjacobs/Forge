@@ -16,10 +16,6 @@ public:
 
    void render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, FramebufferHandle framebufferHandle);
 
-#if FORGE_DEBUG
-   void setName(std::string_view newName) override;
-#endif // FORGE_DEBUG
-
 protected:
    friend class SceneRenderPass<ForwardPass>;
 

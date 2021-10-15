@@ -33,6 +33,7 @@ TonemapPass::TonemapPass(const GraphicsContext& graphicsContext, vk::DescriptorP
       .setMinLod(0.0f)
       .setMaxLod(16.0f);
    sampler = context.getDevice().createSampler(samplerCreateInfo);
+   NAME_CHILD(sampler, "Sampler");
 }
 
 TonemapPass::~TonemapPass()
@@ -89,15 +90,6 @@ void TonemapPass::render(vk::CommandBuffer commandBuffer, FramebufferHandle fram
    }
 }
 
-#if FORGE_DEBUG
-void TonemapPass::setName(std::string_view newName)
-{
-   SceneRenderPass::setName(newName);
-
-   NAME_OBJECT(pipelines[0], name + " Pipeline");
-}
-#endif // FORGE_DEBUG
-
 void TonemapPass::initializePipelines(vk::SampleCountFlagBits sampleCount)
 {
    std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = tonemapShader->getSetLayouts();
@@ -111,6 +103,7 @@ void TonemapPass::initializePipelines(vk::SampleCountFlagBits sampleCount)
 
    PipelineData pipelineData(context, pipelineLayout, getRenderPass(), PipelinePassType::Screen, tonemapShader->getStages(), { attachmentState }, sampleCount);
    pipelines[0] = device.createGraphicsPipeline(nullptr, pipelineData.getCreateInfo()).value;
+   NAME_CHILD(pipelines[0], "Pipeline");
 }
 
 std::vector<vk::SubpassDependency> TonemapPass::getSubpassDependencies() const

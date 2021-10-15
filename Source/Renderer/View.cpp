@@ -31,6 +31,9 @@ View::View(const GraphicsContext& graphicsContext, vk::DescriptorPool descriptor
    , uniformBuffer(graphicsContext)
    , descriptorSet(graphicsContext, descriptorPool, getLayoutCreateInfo())
 {
+   NAME_CHILD(uniformBuffer, "");
+   NAME_CHILD(descriptorSet, "");
+
    updateDescriptorSets();
 }
 
@@ -47,16 +50,6 @@ void View::update(const ViewInfo& viewInfo)
 
    uniformBuffer.update(viewUniformData);
 }
-
-#if FORGE_DEBUG
-void View::setName(std::string_view newName)
-{
-   GraphicsResource::setName(newName);
-
-   NAME_OBJECT(uniformBuffer, name);
-   NAME_OBJECT(descriptorSet, name);
-}
-#endif // FORGE_DEBUG
 
 void View::updateDescriptorSets()
 {

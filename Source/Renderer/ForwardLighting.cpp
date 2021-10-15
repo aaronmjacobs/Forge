@@ -79,14 +79,14 @@ ForwardLighting::ForwardLighting(const GraphicsContext& graphicsContext, vk::Des
    , uniformBuffer(graphicsContext)
    , descriptorSet(graphicsContext, descriptorPool, getLayoutCreateInfo())
 {
-   NAME_OBJECT(uniformBuffer, "Forward Lighting");
-   NAME_OBJECT(descriptorSet, "Forward Lighting");
+   NAME_CHILD(uniformBuffer, "");
+   NAME_CHILD(descriptorSet, "");
 
    pointShadowMapTextureArray = createShadowMapTextureArray(context, depthFormat, vk::Extent2D(1024, 1024), kMaxPointShadowMaps * kNumCubeFaces, true);
-   NAME_POINTER(pointShadowMapTextureArray, "Point Shadow Texture Array");
+   NAME_CHILD_POINTER(pointShadowMapTextureArray, "Point Shadow Texture Array");
 
    spotShadowMapTextureArray = createShadowMapTextureArray(context, depthFormat, vk::Extent2D(1024, 1024), kMaxSpotShadowMaps, false);
-   NAME_POINTER(spotShadowMapTextureArray, "Spot Shadow Texture Array");
+   NAME_CHILD_POINTER(spotShadowMapTextureArray, "Spot Shadow Texture Array");
 
    vk::SamplerCreateInfo samplerCreateInfo = vk::SamplerCreateInfo()
       .setMagFilter(vk::Filter::eLinear)
@@ -105,13 +105,13 @@ ForwardLighting::ForwardLighting(const GraphicsContext& graphicsContext, vk::Des
       .setMinLod(0.0f)
       .setMaxLod(16.0f);
    shadowMapSampler = context.getDevice().createSampler(samplerCreateInfo);
-   NAME_OBJECT(descriptorSet, "Shadow Map Sampler");
+   NAME_CHILD(shadowMapSampler, "Shadow Map Sampler");
 
    pointShadowSampleView = pointShadowMapTextureArray->createView(vk::ImageViewType::eCubeArray, 0, kMaxPointShadowMaps * kNumCubeFaces, vk::ImageAspectFlagBits::eDepth);
-   NAME_OBJECT(pointShadowSampleView, "Point Shadow Map Sample View");
+   NAME_CHILD(pointShadowSampleView, "Point Shadow Map Sample View");
 
    spotShadowSampleView = spotShadowMapTextureArray->createView(vk::ImageViewType::e2DArray, 0, kMaxSpotShadowMaps, vk::ImageAspectFlagBits::eDepth);
-   NAME_OBJECT(spotShadowSampleView, "Spot Shadow Map Sample View");
+   NAME_CHILD(spotShadowSampleView, "Spot Shadow Map Sample View");
 
    for (uint32_t shadowMapIndex = 0; shadowMapIndex < kMaxPointShadowMaps; ++shadowMapIndex)
    {
@@ -120,14 +120,14 @@ ForwardLighting::ForwardLighting(const GraphicsContext& graphicsContext, vk::Des
          uint32_t viewIndex = getPointViewIndex(shadowMapIndex, faceIndex);
 
          pointShadowViews[viewIndex] = pointShadowMapTextureArray->createView(vk::ImageViewType::e2D, viewIndex, 1);
-         NAME_OBJECT(pointShadowViews[viewIndex], "Point Shadow Map View " + std::to_string(viewIndex));
+         NAME_CHILD(pointShadowViews[viewIndex], "Point Shadow Map View " + std::to_string(viewIndex));
       }
    }
 
    for (uint32_t i = 0; i < kMaxSpotShadowMaps; ++i)
    {
       spotShadowViews[i] = spotShadowMapTextureArray->createView(vk::ImageViewType::e2D, i, 1);
-      NAME_OBJECT(spotShadowViews[i], "Spot Shadow Map View " + std::to_string(i));
+      NAME_CHILD(spotShadowViews[i], "Spot Shadow Map View " + std::to_string(i));
    }
 
    updateDescriptorSets();

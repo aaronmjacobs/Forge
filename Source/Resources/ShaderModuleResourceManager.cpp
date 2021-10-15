@@ -1,5 +1,7 @@
 #include "Resources/ShaderModuleResourceManager.h"
 
+#include "Graphics/DebugUtils.h"
+
 #include <PlatformUtils/IOUtils.h>
 
 ShaderModuleResourceManager::ShaderModuleResourceManager(const GraphicsContext& graphicsContext, ResourceManager& owningResourceManager)
@@ -23,12 +25,7 @@ ShaderModuleHandle ShaderModuleResourceManager::load(const std::filesystem::path
          ShaderModuleHandle handle = emplaceResource(context, *sourceData);
          cacheHandle(canonicalPathString, handle);
 
-#if FORGE_DEBUG
-         if (ShaderModule* shaderModule = get(handle))
-         {
-            shaderModule->setName(ResourceHelpers::getName(*canonicalPath));
-         }
-#endif // FORGE_DEBUG
+         NAME_POINTER(context.getDevice(), get(handle), ResourceHelpers::getName(*canonicalPath));
 
          return handle;
       }

@@ -19,16 +19,9 @@ DescriptorSet::DescriptorSet(const GraphicsContext& graphicsContext, vk::Descrip
 
    vk::Result result = device.allocateDescriptorSets(&allocateInfo, sets.data());
    ASSERT(result == vk::Result::eSuccess);
-}
-
-#if FORGE_DEBUG
-void DescriptorSet::setName(std::string_view newName)
-{
-   GraphicsResource::setName(newName);
 
    for (std::size_t i = 0; i < sets.size(); ++i)
    {
-      NAME_OBJECT(sets[i], name + " Descriptor Set " + std::to_string(i));
+      NAME_CHILD(sets[i], "Descriptor Set " + std::to_string(i));
    }
 }
-#endif // FORGE_DEBUG

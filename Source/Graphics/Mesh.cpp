@@ -97,6 +97,7 @@ Mesh::Mesh(const GraphicsContext& graphicsContext, std::span<const MeshSectionSo
       .setUsage(vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eIndexBuffer)
       .setSharingMode(vk::SharingMode::eExclusive);
    buffer = device.createBuffer(bufferCreateInfo);
+   NAME_CHILD(buffer, "Mesh Buffer");
 
    vk::MemoryRequirements memoryRequirements = device.getBufferMemoryRequirements(buffer);
    vk::MemoryAllocateInfo allocateInfo = vk::MemoryAllocateInfo()
@@ -105,6 +106,7 @@ Mesh::Mesh(const GraphicsContext& graphicsContext, std::span<const MeshSectionSo
 
    deviceMemory = device.allocateMemory(allocateInfo);
    device.bindBufferMemory(buffer, deviceMemory, 0);
+   NAME_CHILD(deviceMemory, "Mesh Buffer Memory");
 
    // Create staging buffer, and use it to copy over data
 
@@ -186,13 +188,3 @@ void Mesh::draw(vk::CommandBuffer commandBuffer, uint32_t section) const
 {
    commandBuffer.drawIndexed(sections[section].numIndices, 1, 0, 0, 0);
 }
-
-#if FORGE_DEBUG
-void Mesh::setName(std::string_view newName)
-{
-   GraphicsResource::setName(newName);
-
-   NAME_OBJECT(buffer, name + " Mesh Buffer");
-   NAME_OBJECT(deviceMemory, name + " Mesh Buffer Memory");
-}
-#endif // FORGE_DEBUG

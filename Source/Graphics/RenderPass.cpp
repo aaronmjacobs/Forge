@@ -59,9 +59,7 @@ void RenderPass::updateAttachmentSetup(const BasicAttachmentInfo& setup)
    initializeRenderPass();
    initializePipelines(getSampleCount(attachmentSetup).value_or(vk::SampleCountFlagBits::e1));
 
-#if FORGE_DEBUG
-   setName(getName());
-#endif // FORGE_DEBUG
+   NAME_CHILD(pipelineLayout, "Pipeline Layout");
 }
 
 FramebufferHandle RenderPass::createFramebuffer(const AttachmentInfo& attachmentInfo)
@@ -71,7 +69,11 @@ FramebufferHandle RenderPass::createFramebuffer(const AttachmentInfo& attachment
    FramebufferHandle handle = FramebufferHandle::create();
    auto result = framebufferMap.emplace(handle, Framebuffer(context, renderPass, attachmentInfo));
 
-   NAME_OBJECT(result.first->second, name + " Framebuffer " + std::to_string(result.first->first.getId()));
+   NAME_CHILD(result.first->second, "Framebuffer " + std::to_string(result.first->first.getId()));
+   for (std::size_t i = 0; i < pipelines.size(); ++i)
+   {
+      NAME_CHILD(pipelines[i], "Pipeline " + std::to_string(i));
+   }
 
    return handle;
 }
@@ -84,26 +86,6 @@ void RenderPass::destroyFramebuffer(FramebufferHandle& handle)
       handle.invalidate();
    }
 }
-
-#if FORGE_DEBUG
-void RenderPass::setName(std::string_view newName)
-{
-   GraphicsResource::setName(newName);
-
-   NAME_OBJECT(pipelineLayout, name + " Pipeline Layout");
-   NAME_OBJECT(renderPass, name + " Render Pass");
-
-   for (auto& pair : framebufferMap)
-   {
-      NAME_OBJECT(pair.second, name + " Framebuffer " + std::to_string(pair.first.getId()));
-   }
-
-   for (std::size_t i = 0; i < pipelines.size(); ++i)
-   {
-      NAME_OBJECT(pipelines[i], name + " Pipeline " + std::to_string(i));
-   }
-}
-#endif // FORGE_DEBUG
 
 void RenderPass::initializeRenderPass()
 {
@@ -192,6 +174,7 @@ void RenderPass::initializeRenderPass()
       .setDependencies(subpassDependencies);
 
    renderPass = device.createRenderPass(renderPassCreateInfo);
+   NAME_CHILD(renderPass, "Render Pass");
 }
 
 void RenderPass::terminateRenderPass()

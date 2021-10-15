@@ -435,36 +435,37 @@ Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& reso
 
    {
       view = std::make_unique<View>(context, descriptorPool);
-      NAME_POINTER(view, "Main View");
+      NAME_POINTER(device, view, "Main View");
 
       for (uint32_t i = 0; i < pointShadowViews.size(); ++i)
       {
          pointShadowViews[i] = std::make_unique<View>(context, descriptorPool);
-         NAME_POINTER(pointShadowViews[i], "Point Shadow View " + std::to_string(i));
+         NAME_POINTER(device, pointShadowViews[i], "Point Shadow View " + std::to_string(i));
       }
       for (uint32_t i = 0; i < spotShadowViews.size(); ++i)
       {
          spotShadowViews[i] = std::make_unique<View>(context, descriptorPool);
-         NAME_POINTER(spotShadowViews[i], "Spot Shadow View " + std::to_string(i));
+         NAME_POINTER(device, spotShadowViews[i], "Spot Shadow View " + std::to_string(i));
       }
    }
 
    {
       forwardLighting = std::make_unique<ForwardLighting>(context, descriptorPool, depthStencilFormat);
+      NAME_POINTER(device, forwardLighting, "Forward Lighting");
    }
 
    {
       prePass = std::make_unique<DepthPass>(context, resourceManager);
-      NAME_POINTER(prePass, "Pre Pass");
+      NAME_POINTER(device, prePass, "Pre Pass");
 
       shadowPass = std::make_unique<DepthPass>(context, resourceManager, true);
-      NAME_POINTER(shadowPass, "Shadow Pass");
+      NAME_POINTER(device, shadowPass, "Shadow Pass");
 
       forwardPass = std::make_unique<ForwardPass>(context, resourceManager, forwardLighting.get());
-      NAME_POINTER(forwardPass, "Forward Pass");
+      NAME_POINTER(device, forwardPass, "Forward Pass");
 
       tonemapPass = std::make_unique<TonemapPass>(context, descriptorPool, resourceManager);
-      NAME_POINTER(tonemapPass, "Tonemap Pass");
+      NAME_POINTER(device, tonemapPass, "Tonemap Pass");
    }
 
    {
@@ -564,9 +565,9 @@ void Renderer::onSwapchainRecreated()
       hdrResolveTexture = nullptr;
    }
 
-   NAME_POINTER(depthTexture, "Depth Texture");
-   NAME_POINTER(hdrColorTexture, "HDR Color Texture");
-   NAME_POINTER(hdrResolveTexture, "HDR Resolve Texture");
+   NAME_POINTER(device, depthTexture, "Depth Texture");
+   NAME_POINTER(device, hdrColorTexture, "HDR Color Texture");
+   NAME_POINTER(device, hdrResolveTexture, "HDR Resolve Texture");
 
    updateSwapchainDependentFramebuffers();
 }

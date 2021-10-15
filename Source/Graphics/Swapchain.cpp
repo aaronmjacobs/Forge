@@ -142,8 +142,8 @@ Swapchain::Swapchain(const GraphicsContext& graphicsContext, vk::Extent2D desire
    {
       imageViews.push_back(createImageView(context, image, format));
 
-      NAME_OBJECT(images[index], "Swapchain Image " + std::to_string(index));
-      NAME_OBJECT(imageViews[index], "Swapchain Image View " + std::to_string(index));
+      NAME_CHILD(images[index], "Image " + std::to_string(index));
+      NAME_CHILD(imageViews[index], "Image View " + std::to_string(index));
       ++index;
    }
 }

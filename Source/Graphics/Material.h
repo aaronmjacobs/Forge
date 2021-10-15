@@ -24,10 +24,6 @@ public:
       return blendMode;
    }
 
-#if FORGE_DEBUG
-   void setName(std::string_view newName) override;
-#endif // FORGE_DEBUG
-
 protected:
    DescriptorSet descriptorSet;
    BlendMode blendMode = BlendMode::Opaque;

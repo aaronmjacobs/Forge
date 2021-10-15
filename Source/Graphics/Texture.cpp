@@ -72,7 +72,7 @@ Texture::Texture(const GraphicsContext& graphicsContext, const ImageProperties& 
    , textureProperties(textureProps)
 {
    createImage();
-   defaultView = createView(getDefaultViewType(imageProperties));
+   createDefaultView();
 
    transitionLayout(nullptr, initialLayout.layout, TextureMemoryBarrierFlags(vk::AccessFlags(), vk::PipelineStageFlagBits::eTopOfPipe), initialLayout.memoryBarrierFlags);
 }
@@ -89,7 +89,7 @@ Texture::Texture(const GraphicsContext& graphicsContext, const LoadedImage& load
    }
 
    createImage();
-   defaultView = createView(getDefaultViewType(imageProperties));
+   createDefaultView();
 
    stageAndCopyImage(loadedImage);
 
@@ -187,17 +187,6 @@ TextureInfo Texture::getInfo() const
    return info;
 }
 
-#if FORGE_DEBUG
-void Texture::setName(std::string_view newName)
-{
-   GraphicsResource::setName(newName);
-
-   NAME_OBJECT(image, name);
-   NAME_OBJECT(memory, name + " Memory");
-   NAME_OBJECT(defaultView, name + " Default View");
-}
-#endif // FORGE_DEBUG
-
 void Texture::createImage()
 {
    ASSERT(!image && !memory);
@@ -220,6 +209,7 @@ void Texture::createImage()
       imageCreateinfo.setFlags(vk::ImageCreateFlagBits::eCubeCompatible);
    }
    image = device.createImage(imageCreateinfo);
+   NAME_CHILD(image, "Image");
 
    vk::MemoryRequirements memoryRequirements = device.getImageMemoryRequirements(image);
    vk::MemoryAllocateInfo allocateInfo = vk::MemoryAllocateInfo()
@@ -227,6 +217,15 @@ void Texture::createImage()
       .setMemoryTypeIndex(Memory::findType(context.getPhysicalDevice(), memoryRequirements.memoryTypeBits, textureProperties.memoryProperties));
    memory = device.allocateMemory(allocateInfo);
    device.bindImageMemory(image, memory, 0);
+   NAME_CHILD(memory, "Memory");
+}
+
+void Texture::createDefaultView()
+{
+   ASSERT(!defaultView);
+
+   defaultView = createView(getDefaultViewType(imageProperties));
+   NAME_CHILD(defaultView, "Default View");
 }
 
 void Texture::copyBufferToImage(vk::Buffer buffer)

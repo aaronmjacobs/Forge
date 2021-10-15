@@ -20,10 +20,6 @@ public:
    void update(const DataType& data);
    vk::DescriptorBufferInfo getDescriptorBufferInfo(uint32_t frameIndex) const;
 
-#if FORGE_DEBUG
-   void setName(std::string_view newName) override;
-#endif // FORGE_DEBUG
-
 private:
    static vk::DeviceSize getPaddedDataSize(const GraphicsContext& context)
    {
@@ -41,9 +37,11 @@ inline UniformBuffer<DataType>::UniformBuffer(const GraphicsContext& graphicsCon
 {
    vk::DeviceSize bufferSize = getPaddedDataSize(context) * GraphicsContext::kMaxFramesInFlight;
    Buffer::create(context, bufferSize, vk::BufferUsageFlagBits::eUniformBuffer, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, buffer, memory);
+   NAME_CHILD(buffer, "Uniform Buffer");
 
    mappedMemory = device.mapMemory(memory, 0, bufferSize);
    std::memset(mappedMemory, 0, bufferSize);
+   NAME_CHILD(memory, "Uniform Buffer Memory");
 }
 
 template<typename DataType>
@@ -78,14 +76,3 @@ inline vk::DescriptorBufferInfo UniformBuffer<DataType>::getDescriptorBufferInfo
       .setOffset(static_cast<vk::DeviceSize>(getPaddedDataSize(context) * frameIndex))
       .setRange(sizeof(DataType));
 }
-
-#if FORGE_DEBUG
-template<typename DataType>
-inline void UniformBuffer<DataType>::setName(std::string_view newName)
-{
-   GraphicsResource::setName(newName);
-
-   NAME_OBJECT(buffer, name + " Uniform Buffer");
-   NAME_OBJECT(memory, name + " Uniform Buffer Memory");
-}
-#endif // FORGE_DEBUG

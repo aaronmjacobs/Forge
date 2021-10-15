@@ -74,10 +74,6 @@ public:
    FramebufferHandle createFramebuffer(const AttachmentInfo& attachmentInfo);
    void destroyFramebuffer(FramebufferHandle& handle);
 
-#if FORGE_DEBUG
-   void setName(std::string_view newName) override;
-#endif // FORGE_DEBUG
-
 protected:
    void initializeRenderPass();
    virtual void initializePipelines(vk::SampleCountFlagBits sampleCount) = 0;

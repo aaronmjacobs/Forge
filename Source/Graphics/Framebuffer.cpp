@@ -111,11 +111,12 @@ Framebuffer::Framebuffer(const GraphicsContext& graphicsContext, vk::RenderPass 
 
       ASSERT(!framebuffers[i]);
       framebuffers[i] = device.createFramebuffer(framebufferCreateInfo);
+      NAME_CHILD(framebuffers[i], "Index " + std::to_string(i));
    }
 }
 
 Framebuffer::Framebuffer(Framebuffer&& other)
-   : GraphicsResource(other.context)
+   : GraphicsResource(std::move(other))
    , framebuffers(std::move(other.framebuffers))
    , extent(other.extent)
    , hasSwapchainAttachment(other.hasSwapchainAttachment)
@@ -137,15 +138,3 @@ vk::Framebuffer Framebuffer::getCurrentFramebuffer() const
 
    return framebuffers[index];
 }
-
-#if FORGE_DEBUG
-void Framebuffer::setName(std::string_view newName)
-{
-   GraphicsResource::setName(newName);
-
-   for (std::size_t i = 0; i < framebuffers.size(); ++i)
-   {
-      NAME_OBJECT(framebuffers[i], name + " Index " + std::to_string(i));
-   }
-}
-#endif // FORGE_DEBUG

@@ -4,8 +4,10 @@
 
 #include "Graphics/GraphicsContext.h"
 
-#include <string>
-#include <string_view>
+#if FORGE_DEBUG
+#  include <string>
+#  include <utility>
+#endif // FORGE_DEBUG
 
 class GraphicsResource
 {
@@ -18,9 +20,26 @@ public:
    }
 
    GraphicsResource(const GraphicsResource& other) = delete;
-   GraphicsResource(GraphicsResource&& other) = delete;
+   GraphicsResource(GraphicsResource&& other)
+      : context(other.context)
+      , device(other.device)
+#if FORGE_DEBUG
+      , cachedCompositeName(std::move(other.cachedCompositeName))
+#endif // FORGE_DEBUG
+   {
+      ASSERT(device && device == context.getDevice());
 
-   virtual ~GraphicsResource() = default;
+#if FORGE_DEBUG
+      onResourceMoved(std::move(other));
+#endif // FORGE_DEBUG
+   }
+
+   virtual ~GraphicsResource()
+   {
+#if FORGE_DEBUG
+      onResourceDestroyed();
+#endif // FORGE_DEBUG
+   }
 
    GraphicsResource& operator=(const GraphicsResource& other) = delete;
    GraphicsResource& operator=(GraphicsResource&& other) = delete;
@@ -28,12 +47,12 @@ public:
 #if FORGE_DEBUG
    const std::string& getName() const
    {
-      return name;
+      return cachedCompositeName;
    }
 
-   virtual void setName(std::string_view newName)
+   void updateCachedCompositeName(std::string name)
    {
-      name = newName;
+      cachedCompositeName = std::move(name);
    }
 #endif // FORGE_DEBUG
 
@@ -41,7 +60,11 @@ protected:
    const GraphicsContext& context;
    const vk::Device device;
 
+private:
 #if FORGE_DEBUG
-   std::string name;
+   void onResourceMoved(GraphicsResource&& other);
+   void onResourceDestroyed();
+
+   std::string cachedCompositeName;
 #endif // FORGE_DEBUG
 };

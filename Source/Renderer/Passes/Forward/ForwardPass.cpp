@@ -63,18 +63,6 @@ void ForwardPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo&
    endRenderPass(commandBuffer);
 }
 
-#if FORGE_DEBUG
-void ForwardPass::setName(std::string_view newName)
-{
-   SceneRenderPass::setName(newName);
-
-   NAME_OBJECT(pipelines[getForwardPipelineIndex(false, false)], name + " Pipeline (Without Textures, Without Blending)");
-   NAME_OBJECT(pipelines[getForwardPipelineIndex(true, false)], name + " Pipeline (With Textures, Without Blending)");
-   NAME_OBJECT(pipelines[getForwardPipelineIndex(true, true)], name + " Pipeline (With Textures, With Blending)");
-   NAME_OBJECT(pipelines[getForwardPipelineIndex(false, true)], name + " Pipeline (Without Textures, With Blending)");
-}
-#endif // FORGE_DEBUG
-
 void ForwardPass::initializePipelines(vk::SampleCountFlagBits sampleCount)
 {
    std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = forwardShader->getSetLayouts();
@@ -104,15 +92,19 @@ void ForwardPass::initializePipelines(vk::SampleCountFlagBits sampleCount)
 
    PipelineData pipelineData(context, pipelineLayout, getRenderPass(), PipelinePassType::Mesh, shaderStagesWithoutTextures, colorBlendDisabledAttachments, sampleCount);
    pipelines[getForwardPipelineIndex(false, false)] = device.createGraphicsPipeline(nullptr, pipelineData.getCreateInfo()).value;
+   NAME_CHILD(pipelines[getForwardPipelineIndex(false, false)], "Pipeline (Without Textures, Without Blending)");
 
    pipelineData.setShaderStages(shaderStagesWithTextures);
    pipelines[getForwardPipelineIndex(true, false)] = device.createGraphicsPipeline(nullptr, pipelineData.getCreateInfo()).value;
+   NAME_CHILD(pipelines[getForwardPipelineIndex(true, false)], "Pipeline (With Textures, Without Blending)");
 
    pipelineData.setColorBlendAttachmentStates(colorBlendEnabledAttachments);
    pipelines[getForwardPipelineIndex(true, true)] = device.createGraphicsPipeline(nullptr, pipelineData.getCreateInfo()).value;
+   NAME_CHILD(pipelines[getForwardPipelineIndex(true, true)], "Pipeline (With Textures, With Blending)");
 
    pipelineData.setShaderStages(shaderStagesWithoutTextures);
    pipelines[getForwardPipelineIndex(false, true)] = device.createGraphicsPipeline(nullptr, pipelineData.getCreateInfo()).value;
+   NAME_CHILD(pipelines[getForwardPipelineIndex(false, true)], "Pipeline (Without Textures, With Blending)");
 }
 
 std::vector<vk::SubpassDependency> ForwardPass::getSubpassDependencies() const

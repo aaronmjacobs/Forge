@@ -53,16 +53,6 @@ void DepthPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& s
    endRenderPass(commandBuffer);
 }
 
-#if FORGE_DEBUG
-void DepthPass::setName(std::string_view newName)
-{
-   SceneRenderPass::setName(newName);
-
-   NAME_OBJECT(pipelines[0], name + " Pipeline");
-   NAME_OBJECT(pipelines[1], name + " Pipeline (Cubemap)");
-}
-#endif // FORGE_DEBUG
-
 void DepthPass::initializePipelines(vk::SampleCountFlagBits sampleCount)
 {
    std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = depthShader->getSetLayouts();
@@ -79,9 +69,11 @@ void DepthPass::initializePipelines(vk::SampleCountFlagBits sampleCount)
    }
 
    pipelines[0] = device.createGraphicsPipeline(nullptr, pipelineData.getCreateInfo()).value;
+   NAME_CHILD(pipelines[0], "Pipeline");
 
    pipelineData.setFrontFace(vk::FrontFace::eClockwise); // Projection matrix Y values will be inverted when rendering to a cubemap, which swaps which faces are "front" facing
    pipelines[1] = device.createGraphicsPipeline(nullptr, pipelineData.getCreateInfo()).value;
+   NAME_CHILD(pipelines[1], "Pipeline (Cubemap)");
 }
 
 std::vector<vk::SubpassDependency> DepthPass::getSubpassDependencies() const

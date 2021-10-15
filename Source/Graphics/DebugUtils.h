@@ -6,39 +6,65 @@
 
 #  include "Core/Types.h"
 
-#  include "Graphics/GraphicsResource.h"
+#	include "Graphics/Vulkan.h"
 
+#  include <array>
 #  include <string>
 #  include <type_traits>
 
+class GraphicsResource;
+
 namespace DebugUtils
 {
+   void setResourceName(vk::Device device, GraphicsResource* resource, const char* name);
+   void setObjectName(vk::Device device, uint64_t objectHandle, vk::ObjectType objectType, const char* name);
+
+   void setResourceParent(vk::Device device, GraphicsResource* resource, GraphicsResource* parent);
+   void setObjectParent(vk::Device device, uint64_t objectHandle, vk::ObjectType objectType, GraphicsResource* parent);
+
+   void onResourceMoved(GraphicsResource* oldResource, GraphicsResource* newResource);
+   void onResourceDestroyed(GraphicsResource* resource);
+
+   template<typename ItemType, std::enable_if_t<std::is_base_of_v<GraphicsResource, ItemType>, int> = 0>
+   void setItemName(vk::Device device, ItemType& item, const char* name)
+   {
+      setResourceName(device, &item, name);
+   }
+
+   template<typename ItemType, std::enable_if_t<!std::is_base_of_v<GraphicsResource, ItemType>, int> = 0>
+   void setItemName(vk::Device device, ItemType& item, const char* name)
+   {
+      setObjectName(device, Types::bit_cast<uint64_t>(item), ItemType::objectType, name);
+   }
+
+   template<typename ItemType>
+   void setItemName(vk::Device device, ItemType& item, const std::string& name)
+   {
+      setItemName(device, item, name.c_str());
+   }
+
+   template<typename ItemType, std::enable_if_t<std::is_base_of_v<GraphicsResource, ItemType>, int> = 0>
+   void setChildName(vk::Device device, ItemType& item, GraphicsResource& parent, const char* name)
+   {
+      setResourceParent(device, &item, &parent);
+      setItemName(device, item, name);
+   }
+
+   template<typename ItemType, std::enable_if_t<!std::is_base_of_v<GraphicsResource, ItemType>, int> = 0>
+   void setChildName(vk::Device device, ItemType& item, GraphicsResource& parent, const char* name)
+   {
+      setObjectParent(device, Types::bit_cast<uint64_t>(item), ItemType::objectType, &parent);
+      setItemName(device, item, name);
+   }
+
+   template<typename ItemType>
+   void setChildName(vk::Device device, ItemType& item, GraphicsResource& parent, const std::string& name)
+   {
+      setChildName(device, item, parent, name.c_str());
+   }
+
    bool AreLabelsEnabled();
    void SetLabelsEnabled(bool enabled);
-
-   template<typename ObjectType, std::enable_if_t<std::is_base_of<GraphicsResource, ObjectType>::value, int*> = nullptr>
-   void setObjectName(vk::Device device, ObjectType& object, const char* name)
-   {
-      object.setName(name);
-   }
-
-   template<typename ObjectType, std::enable_if_t<!std::is_base_of<GraphicsResource, ObjectType>::value, int*> = nullptr>
-   void setObjectName(vk::Device device, ObjectType& object, const char* name)
-   {
-      if (object)
-      {
-         uint64_t handle = Types::bit_cast<uint64_t>(object);
-
-         vk::DebugUtilsObjectNameInfoEXT nameInfo(ObjectType::objectType, handle, name);
-         device.setDebugUtilsObjectNameEXT(nameInfo, GraphicsContext::GetDynamicLoader());
-      }
-   }
-
-   template<typename ObjectType>
-   void setObjectName(vk::Device device, ObjectType& object, const std::string& name)
-   {
-      setObjectName(device, object, name.c_str());
-   }
 
    void InsertInlineLabel(vk::CommandBuffer commandBuffer, const char* labelName, const std::array<float, 4>& color = {});
 
@@ -68,8 +94,11 @@ namespace DebugUtils
 #  define INLINE_LABEL(label_name) DebugUtils::InsertInlineLabel(commandBuffer, label_name)
 #  define INLINE_COLORED_LABEL(label_name, color_value) DebugUtils::InsertInlineLabel(commandBuffer, label_name, color_value)
 
-#  define NAME_OBJECT(object_variable, object_name) DebugUtils::setObjectName(device, object_variable, object_name)
-#  define NAME_POINTER(object_pointer, object_name) do { if (object_pointer) { NAME_OBJECT(*object_pointer, object_name); } } while(0)
+#  define NAME_ITEM(device, object_variable, object_name) DebugUtils::setItemName(device, object_variable, object_name)
+#  define NAME_POINTER(device, object_pointer, object_name) do { if (object_pointer) { NAME_ITEM(device, *object_pointer, object_name); } } while(0)
+
+#  define NAME_CHILD(object_variable, object_name) DebugUtils::setChildName(device, object_variable, *this, object_name)
+#  define NAME_CHILD_POINTER(object_pointer, object_name) do { if (object_pointer) { NAME_CHILD(*object_pointer, object_name); } } while(0)
 
 #else
 
@@ -79,7 +108,10 @@ namespace DebugUtils
 #  define INLINE_LABEL(label_name) FORGE_NO_OP
 #  define INLINE_COLORED_LABEL(label_name, color_value) FORGE_NO_OP
 
-#  define NAME_OBJECT(object_variable, object_name) FORGE_NO_OP
-#  define NAME_POINTER(object_pointer, object_name) FORGE_NO_OP
+#  define NAME_ITEM(device, object_variable, object_name) FORGE_NO_OP
+#  define NAME_POINTER(device, object_pointer, object_name) FORGE_NO_OP
+
+#  define NAME_CHILD(object_variable, object_name) FORGE_NO_OP
+#  define NAME_CHILD_POINTER(object_pointer, object_name) FORGE_NO_OP
 
 #endif

@@ -92,12 +92,9 @@ public:
 
    TextureInfo getInfo() const;
 
-#if FORGE_DEBUG
-   void setName(std::string_view newName) override;
-#endif // FORGE_DEBUG
-
 private:
    void createImage();
+   void createDefaultView();
    void copyBufferToImage(vk::Buffer buffer);
    void stageAndCopyImage(const LoadedImage& loadedImage);
    void generateMipmaps(vk::ImageLayout finalLayout, const TextureMemoryBarrierFlags& dstMemoryBarrierFlags);

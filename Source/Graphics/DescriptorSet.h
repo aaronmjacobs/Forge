@@ -19,10 +19,6 @@ public:
       return getSet(context.getFrameIndex());
    }
 
-#if FORGE_DEBUG
-   void setName(std::string_view newName) override;
-#endif // FORGE_DEBUG
-
 private:
    std::array<vk::DescriptorSet, GraphicsContext::kMaxFramesInFlight> sets;
 };

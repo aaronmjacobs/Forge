@@ -33,6 +33,7 @@ target_sources(${PROJECT_NAME} PRIVATE
    "${SRC_DIR}/Graphics/Framebuffer.h"
    "${SRC_DIR}/Graphics/GraphicsContext.cpp"
    "${SRC_DIR}/Graphics/GraphicsContext.h"
+   "${SRC_DIR}/Graphics/GraphicsResource.cpp"
    "${SRC_DIR}/Graphics/GraphicsResource.h"
    "${SRC_DIR}/Graphics/Material.cpp"
    "${SRC_DIR}/Graphics/Material.h"

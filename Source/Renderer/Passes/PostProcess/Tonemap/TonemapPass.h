@@ -18,10 +18,6 @@ public:
 
    void render(vk::CommandBuffer commandBuffer, FramebufferHandle framebufferHandle, Texture& hdrColorTexture);
 
-#if FORGE_DEBUG
-   void setName(std::string_view newName) override;
-#endif // FORGE_DEBUG
-
 protected:
    friend class SceneRenderPass<TonemapPass>;
 

@@ -16,6 +16,7 @@ ShaderModule::ShaderModule(const GraphicsContext& graphicsContext, std::span<con
       .setPCode(reinterpret_cast<const uint32_t*>(code.data()));
 
    shaderModule = device.createShaderModule(createInfo);
+   NAME_CHILD(shaderModule, "Shader Module");
 }
 
 ShaderModule::~ShaderModule()
@@ -23,12 +24,3 @@ ShaderModule::~ShaderModule()
    ASSERT(shaderModule);
    context.delayedDestroy(std::move(shaderModule));
 }
-
-#if FORGE_DEBUG
-void ShaderModule::setName(std::string_view newName)
-{
-   GraphicsResource::setName(newName);
-
-   NAME_OBJECT(shaderModule, name);
-}
-#endif // FORGE_DEBUG

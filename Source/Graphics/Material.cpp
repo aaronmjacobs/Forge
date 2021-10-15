@@ -6,13 +6,5 @@ Material::Material(const GraphicsContext& graphicsContext, vk::DescriptorPool de
    : GraphicsResource(graphicsContext)
    , descriptorSet(graphicsContext, descriptorPool, createInfo)
 {
+   NAME_CHILD(descriptorSet, "Descriptor Set");
 }
-
-#if FORGE_DEBUG
-void Material::setName(std::string_view newName)
-{
-   GraphicsResource::setName(newName);
-
-   NAME_OBJECT(descriptorSet, name);
-}
-#endif // FORGE_DEBUG

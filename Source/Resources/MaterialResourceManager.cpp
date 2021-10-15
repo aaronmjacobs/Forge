@@ -2,6 +2,8 @@
 
 #include "Core/Hash.h"
 
+#include "Graphics/DebugUtils.h"
+
 #include "Renderer/PhongMaterial.h"
 
 #include "Resources/ResourceManager.h"
@@ -91,6 +93,7 @@ MaterialResourceManager::MaterialResourceManager(const GraphicsContext& graphics
       .setPoolSizes(samplerPoolSize)
       .setMaxSets(kMaxSets * GraphicsContext::kMaxFramesInFlight);
    descriptorPool = context.getDevice().createDescriptorPool(createInfo);
+   NAME_ITEM(context.getDevice(), descriptorPool, "Material Resource Manager Descriptor Pool");
 
    bool anisotropySupported = context.getPhysicalDeviceFeatures().samplerAnisotropy;
    vk::SamplerCreateInfo samplerCreateInfo = vk::SamplerCreateInfo()
@@ -110,6 +113,7 @@ MaterialResourceManager::MaterialResourceManager(const GraphicsContext& graphics
       .setMinLod(0.0f)
       .setMaxLod(16.0f);
    sampler = context.getDevice().createSampler(samplerCreateInfo);
+   NAME_ITEM(context.getDevice(), sampler, "Default Material Sampler");
 }
 
 MaterialResourceManager::~MaterialResourceManager()
@@ -156,10 +160,7 @@ std::unique_ptr<Material> MaterialResourceManager::createMaterial(const Material
    if (diffuseTexture && normalTexture)
    {
       std::unique_ptr<Material> material = std::make_unique<PhongMaterial>(context, descriptorPool, sampler, *diffuseTexture, *normalTexture);
-
-#if FORGE_DEBUG
-      material->setName("Phong Material (Diffuse = " + diffuseTexture->getName() + ", Normal = " + normalTexture->getName() + ")");
-#endif // FORGE_DEBUG
+      NAME_POINTER(context.getDevice(), material, "Phong Material (Diffuse = " + diffuseTexture->getName() + ", Normal = " + normalTexture->getName() + ")");
 
       return material;
    }

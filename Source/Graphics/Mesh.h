@@ -67,10 +67,6 @@ public:
    void bindBuffers(vk::CommandBuffer commandBuffer, uint32_t section) const;
    void draw(vk::CommandBuffer commandBuffer, uint32_t section) const;
 
-#if FORGE_DEBUG
-   void setName(std::string_view newName) override;
-#endif // FORGE_DEBUG
-
 private:
    vk::Buffer buffer;
    vk::DeviceMemory deviceMemory;

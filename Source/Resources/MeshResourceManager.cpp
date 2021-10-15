@@ -2,6 +2,8 @@
 
 #include "Core/Enum.h"
 
+#include "Graphics/DebugUtils.h"
+
 #include "Math/MathUtils.h"
 
 #include "Renderer/PhongMaterial.h"
@@ -271,12 +273,7 @@ MeshHandle MeshResourceManager::load(const std::filesystem::path& path, const Me
          MeshHandle handle = emplaceResource(context, sourceData);
          cacheHandle(canonicalPathString, handle);
 
-#if FORGE_DEBUG
-         if (Mesh* mesh = get(handle))
-         {
-            mesh->setName(ResourceHelpers::getName(*canonicalPath));
-         }
-#endif // FORGE_DEBUG
+         NAME_POINTER(context.getDevice(), get(handle), ResourceHelpers::getName(*canonicalPath));
 
          return handle;
       }
