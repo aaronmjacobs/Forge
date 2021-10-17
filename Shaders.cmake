@@ -8,6 +8,8 @@ set(SHADER_HEADER_FILES
 
 set(SHADER_SOURCE_FILES
    "${SHADER_DIR}/Depth.vert"
+   "${SHADER_DIR}/Distance.frag"
+   "${SHADER_DIR}/Distance.vert"
    "${SHADER_DIR}/Forward.frag"
    "${SHADER_DIR}/Forward.vert"
    "${SHADER_DIR}/Tonemap.frag"

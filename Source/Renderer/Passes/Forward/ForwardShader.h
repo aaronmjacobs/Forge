@@ -1,12 +1,10 @@
-#include "Graphics/DescriptorSet.h"
 #include "Graphics/GraphicsResource.h"
-
-#include "Resources/ResourceManager.h"
 
 #include <vector>
 
 class ForwardLighting;
 class Material;
+class ResourceManager;
 class Texture;
 class View;
 

@@ -8,6 +8,7 @@
 
 #include "Renderer/ForwardLighting.h"
 #include "Renderer/Passes/Depth/DepthPass.h"
+#include "Renderer/Passes/Distance/DistancePass.h"
 #include "Renderer/Passes/Forward/ForwardPass.h"
 #include "Renderer/Passes/PostProcess/Tonemap/TonemapPass.h"
 #include "Renderer/SceneRenderInfo.h"
@@ -19,8 +20,6 @@
 #include "Scene/Components/TransformComponent.h"
 #include "Scene/Entity.h"
 #include "Scene/Scene.h"
-
-#include <GLFW/glfw3.h>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -423,8 +422,11 @@ Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& reso
    NAME_ITEM(context.getDevice(), dynamicDescriptorPool, "Renderer Dynamic Descriptor Pool");
 
    {
-      std::array<vk::Format, 5> depthFormats = { vk::Format::eD24UnormS8Uint, vk::Format::eD32SfloatS8Uint, vk::Format::eD16UnormS8Uint, vk::Format::eD32Sfloat, vk::Format::eD16Unorm };
-      depthStencilFormat = Texture::findSupportedFormat(context, depthFormats, vk::ImageTiling::eOptimal, vk::FormatFeatureFlagBits::eDepthStencilAttachment);
+      std::array<vk::Format, 5> depthStencilFormats = { vk::Format::eD24UnormS8Uint, vk::Format::eD32SfloatS8Uint, vk::Format::eD16UnormS8Uint, vk::Format::eD32Sfloat, vk::Format::eD16Unorm };
+      depthStencilFormat = Texture::findSupportedFormat(context, depthStencilFormats, vk::ImageTiling::eOptimal, vk::FormatFeatureFlagBits::eDepthStencilAttachment);
+
+      std::array<vk::Format, 5> floatDepthFormats = { vk::Format::eD32Sfloat, vk::Format::eD32SfloatS8Uint };
+      floatDepthFormat = Texture::findSupportedFormat(context, floatDepthFormats, vk::ImageTiling::eOptimal, vk::FormatFeatureFlagBits::eDepthStencilAttachment);
    }
 
    {
@@ -444,7 +446,7 @@ Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& reso
    }
 
    {
-      forwardLighting = std::make_unique<ForwardLighting>(context, dynamicDescriptorPool, depthStencilFormat);
+      forwardLighting = std::make_unique<ForwardLighting>(context, dynamicDescriptorPool, depthStencilFormat, floatDepthFormat);
       NAME_POINTER(device, forwardLighting, "Forward Lighting");
    }
 
@@ -454,6 +456,9 @@ Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& reso
 
       shadowPass = std::make_unique<DepthPass>(context, resourceManager, true);
       NAME_POINTER(device, shadowPass, "Shadow Pass");
+
+      cubeShadowPass = std::make_unique<DistancePass>(context, resourceManager);
+      NAME_POINTER(device, cubeShadowPass, "Cube Shadow Pass");
 
       forwardPass = std::make_unique<ForwardPass>(context, resourceManager, forwardLighting.get());
       NAME_POINTER(device, forwardPass, "Forward Pass");
@@ -473,6 +478,26 @@ Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& reso
 
       shadowPass->updateAttachmentSetup(shadowPassSetupInfo);
 
+      for (uint32_t i = 0; i < ForwardLighting::kMaxSpotShadowMaps; ++i)
+      {
+         AttachmentInfo shadowPassInfo;
+         shadowPassInfo.depthInfo = forwardLighting->getSpotShadowInfo(i);
+
+         spotShadowPassFramebufferHandles[i] = shadowPass->createFramebuffer(shadowPassInfo);
+      }
+   }
+
+   {
+      BasicTextureInfo cubeShadowPassDepthSetupInfo;
+      cubeShadowPassDepthSetupInfo.format = floatDepthFormat;
+      cubeShadowPassDepthSetupInfo.sampleCount = vk::SampleCountFlagBits::e1;
+      cubeShadowPassDepthSetupInfo.isSwapchainTexture = false;
+
+      BasicAttachmentInfo cubeShadowPassSetupInfo;
+      cubeShadowPassSetupInfo.depthInfo = cubeShadowPassDepthSetupInfo;
+
+      cubeShadowPass->updateAttachmentSetup(cubeShadowPassSetupInfo);
+
       for (uint32_t shadowMapIndex = 0; shadowMapIndex < ForwardLighting::kMaxPointShadowMaps; ++shadowMapIndex)
       {
          for (uint32_t faceIndex = 0; faceIndex < kNumCubeFaces; ++faceIndex)
@@ -482,16 +507,8 @@ Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& reso
             AttachmentInfo shadowPassInfo;
             shadowPassInfo.depthInfo = forwardLighting->getPointShadowInfo(shadowMapIndex, faceIndex);
 
-            pointShadowPassFramebufferHandles[viewIndex] = shadowPass->createFramebuffer(shadowPassInfo);
+            pointShadowPassFramebufferHandles[viewIndex] = cubeShadowPass->createFramebuffer(shadowPassInfo);
          }
-      }
-
-      for (uint32_t i = 0; i < ForwardLighting::kMaxSpotShadowMaps; ++i)
-      {
-         AttachmentInfo shadowPassInfo;
-         shadowPassInfo.depthInfo = forwardLighting->getSpotShadowInfo(i);
-
-         spotShadowPassFramebufferHandles[i] = shadowPass->createFramebuffer(shadowPassInfo);
       }
    }
 
@@ -502,6 +519,7 @@ Renderer::~Renderer()
 {
    prePass = nullptr;
    shadowPass = nullptr;
+   cubeShadowPass = nullptr;
    forwardPass = nullptr;
    tonemapPass = nullptr;
 
@@ -597,7 +615,7 @@ void Renderer::renderShadowMaps(vk::CommandBuffer commandBuffer, const Scene& sc
                pointShadowView->update(pointLightViewInfo);
                SceneRenderInfo shadowSceneRenderInfo = computeSceneRenderInfo(resourceManager, scene, *pointShadowView, false);
 
-               shadowPass->render(commandBuffer, shadowSceneRenderInfo, pointShadowPassFramebufferHandles[viewIndex]);
+               cubeShadowPass->render(commandBuffer, shadowSceneRenderInfo, pointShadowPassFramebufferHandles[viewIndex]);
             }
          }
       }

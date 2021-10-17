@@ -2,15 +2,16 @@
 
 #include <vector>
 
+class DescriptorSet;
 class ResourceManager;
 class View;
 
-class DepthShader : public GraphicsResource
+class DistanceShader : public GraphicsResource
 {
 public:
-   DepthShader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager);
+   DistanceShader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager);
 
-   void bindDescriptorSets(vk::CommandBuffer commandBuffer, const View& view, vk::PipelineLayout pipelineLayout);
+   void bindDescriptorSets(vk::CommandBuffer commandBuffer, vk::PipelineLayout pipelineLayout, const View& view);
 
    std::vector<vk::PipelineShaderStageCreateInfo> getStages() const;
    std::vector<vk::DescriptorSetLayout> getSetLayouts() const;
@@ -18,4 +19,5 @@ public:
 
 private:
    vk::PipelineShaderStageCreateInfo vertStageCreateInfo;
+   vk::PipelineShaderStageCreateInfo fragStageCreateInfo;
 };

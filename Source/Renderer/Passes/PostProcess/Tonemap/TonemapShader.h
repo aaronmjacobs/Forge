@@ -1,10 +1,9 @@
 #include "Graphics/GraphicsResource.h"
 
-#include "Resources/ResourceManager.h"
-
 #include <vector>
 
 class DescriptorSet;
+class ResourceManager;
 
 class TonemapShader : public GraphicsResource
 {

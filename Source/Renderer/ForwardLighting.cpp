@@ -13,6 +13,20 @@
 
 namespace
 {
+   bool formatHasStencilComponent(vk::Format format)
+   {
+      switch (format)
+      {
+      case vk::Format::eS8Uint:
+      case vk::Format::eD16UnormS8Uint:
+      case vk::Format::eD24UnormS8Uint:
+      case vk::Format::eD32SfloatS8Uint:
+         return true;
+      default:
+         return false;
+      }
+   }
+
    std::unique_ptr<Texture> createShadowMapTextureArray(const GraphicsContext& context, vk::Format format, vk::Extent2D extent, uint32_t layers, bool cubeCompatible)
    {
       ImageProperties depthImageProperties;
@@ -25,7 +39,11 @@ namespace
       TextureProperties depthTextureProperties;
       depthTextureProperties.sampleCount = vk::SampleCountFlagBits::e1;
       depthTextureProperties.usage = vk::ImageUsageFlagBits::eDepthStencilAttachment | vk::ImageUsageFlagBits::eSampled;
-      depthTextureProperties.aspects = vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil;
+      depthTextureProperties.aspects = vk::ImageAspectFlagBits::eDepth;
+      if (formatHasStencilComponent(format))
+      {
+         depthTextureProperties.aspects |= vk::ImageAspectFlagBits::eStencil;
+      }
 
       TextureInitialLayout depthInitialLayout;
       depthInitialLayout.layout = vk::ImageLayout::eShaderReadOnlyOptimal;
@@ -74,7 +92,7 @@ uint32_t ForwardLighting::getPointViewIndex(uint32_t shadowMapIndex, uint32_t fa
    return shadowMapIndex * kNumCubeFaces + faceIndex;
 }
 
-ForwardLighting::ForwardLighting(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, vk::Format depthFormat)
+ForwardLighting::ForwardLighting(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, vk::Format depthStencilFormat, vk::Format floatDepthFormat)
    : GraphicsResource(graphicsContext)
    , uniformBuffer(graphicsContext)
    , descriptorSet(graphicsContext, dynamicDescriptorPool, getLayoutCreateInfo())
@@ -82,10 +100,10 @@ ForwardLighting::ForwardLighting(const GraphicsContext& graphicsContext, Dynamic
    NAME_CHILD(uniformBuffer, "");
    NAME_CHILD(descriptorSet, "");
 
-   pointShadowMapTextureArray = createShadowMapTextureArray(context, depthFormat, vk::Extent2D(1024, 1024), kMaxPointShadowMaps * kNumCubeFaces, true);
+   pointShadowMapTextureArray = createShadowMapTextureArray(context, floatDepthFormat, vk::Extent2D(1024, 1024), kMaxPointShadowMaps * kNumCubeFaces, true);
    NAME_CHILD_POINTER(pointShadowMapTextureArray, "Point Shadow Texture Array");
 
-   spotShadowMapTextureArray = createShadowMapTextureArray(context, depthFormat, vk::Extent2D(1024, 1024), kMaxSpotShadowMaps, false);
+   spotShadowMapTextureArray = createShadowMapTextureArray(context, depthStencilFormat, vk::Extent2D(1024, 1024), kMaxSpotShadowMaps, false);
    NAME_CHILD_POINTER(spotShadowMapTextureArray, "Spot Shadow Texture Array");
 
    vk::SamplerCreateInfo samplerCreateInfo = vk::SamplerCreateInfo()

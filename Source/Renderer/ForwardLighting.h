@@ -60,7 +60,7 @@ public:
 
    static uint32_t getPointViewIndex(uint32_t shadowMapIndex, uint32_t faceIndex);
 
-   ForwardLighting(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, vk::Format depthFormat);
+   ForwardLighting(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, vk::Format depthStencilFormat, vk::Format floatDepthFormat);
    ~ForwardLighting();
 
    void transitionShadowMapLayout(vk::CommandBuffer commandBuffer, bool forReading);

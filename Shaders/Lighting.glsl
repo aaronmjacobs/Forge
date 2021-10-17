@@ -85,10 +85,9 @@ vec3 calcSpecular(vec3 lightColor, vec3 specularColor, float shininess, vec3 sur
 
 float calcVisibility(samplerCubeArrayShadow shadowMaps, int shadowMapIndex, vec2 nearFar, vec3 toLight, vec3 toLightDirection)
 {
-   float computedDepth = vec3Max(abs(toLight));
-   float normalizedDepth = normalizeDepth(computedDepth, nearFar.x, nearFar.y);
+   float computedDistance = length(toLight);
 
-   return texture(shadowMaps, vec4(-toLightDirection, shadowMapIndex), normalizedDepth);
+   return texture(shadowMaps, vec4(-toLightDirection, shadowMapIndex), computedDistance);
 }
 
 float calcVisibility(sampler2DArrayShadow shadowMaps, int shadowMapIndex, vec3 surfacePosition, mat4 worldToShadow)

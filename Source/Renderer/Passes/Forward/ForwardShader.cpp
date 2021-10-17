@@ -1,11 +1,14 @@
 #include "Renderer/Passes/Forward/ForwardShader.h"
 
+#include "Graphics/DescriptorSet.h"
 #include "Graphics/Texture.h"
 
 #include "Renderer/ForwardLighting.h"
 #include "Renderer/PhongMaterial.h"
 #include "Renderer/UniformData.h"
 #include "Renderer/View.h"
+
+#include "Resources/ResourceManager.h"
 
 namespace
 {

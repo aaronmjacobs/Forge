@@ -3,6 +3,8 @@
 #include "Graphics/DescriptorSet.h"
 #include "Graphics/DescriptorSetLayoutCache.h"
 
+#include "Resources/ResourceManager.h"
+
 // static
 const vk::DescriptorSetLayoutCreateInfo& TonemapShader::getLayoutCreateInfo()
 {

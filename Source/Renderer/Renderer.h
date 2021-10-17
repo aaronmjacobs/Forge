@@ -15,6 +15,7 @@
 #include <vector>
 
 class DepthPass;
+class DistancePass;
 class ForwardLighting;
 class ForwardPass;
 class Scene;
@@ -44,6 +45,7 @@ private:
    ResourceManager& resourceManager;
 
    vk::Format depthStencilFormat = vk::Format::eUndefined;
+   vk::Format floatDepthFormat = vk::Format::eUndefined;
 
    DynamicDescriptorPool dynamicDescriptorPool;
 
@@ -58,6 +60,7 @@ private:
 
    std::unique_ptr<DepthPass> prePass;
    std::unique_ptr<DepthPass> shadowPass;
+   std::unique_ptr<DistancePass> cubeShadowPass;
    std::unique_ptr<ForwardPass> forwardPass;
    std::unique_ptr<TonemapPass> tonemapPass;
 
