@@ -6,9 +6,9 @@
 
 #include "Renderer/Passes/PostProcess/Tonemap/TonemapShader.h"
 
-TonemapPass::TonemapPass(const GraphicsContext& graphicsContext, vk::DescriptorPool descriptorPool, ResourceManager& resourceManager)
+TonemapPass::TonemapPass(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, ResourceManager& resourceManager)
    : SceneRenderPass(graphicsContext)
-   , descriptorSet(graphicsContext, descriptorPool, TonemapShader::getLayoutCreateInfo())
+   , descriptorSet(graphicsContext, dynamicDescriptorPool, TonemapShader::getLayoutCreateInfo())
 {
    clearDepth = false;
    clearColor = true;

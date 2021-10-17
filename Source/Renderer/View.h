@@ -10,6 +10,8 @@
 
 #include <glm/glm.hpp>
 
+class DynamicDescriptorPool;
+
 struct ViewUniformData
 {
    alignas(16) glm::mat4 worldToClip;
@@ -24,7 +26,7 @@ public:
    static const vk::DescriptorSetLayoutCreateInfo& getLayoutCreateInfo();
    static vk::DescriptorSetLayout getLayout(const GraphicsContext& context);
 
-   View(const GraphicsContext& graphicsContext, vk::DescriptorPool descriptorPool);
+   View(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool);
 
    void update(const ViewInfo& viewInfo);
 

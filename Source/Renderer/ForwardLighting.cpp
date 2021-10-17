@@ -74,10 +74,10 @@ uint32_t ForwardLighting::getPointViewIndex(uint32_t shadowMapIndex, uint32_t fa
    return shadowMapIndex * kNumCubeFaces + faceIndex;
 }
 
-ForwardLighting::ForwardLighting(const GraphicsContext& graphicsContext, vk::DescriptorPool descriptorPool, vk::Format depthFormat)
+ForwardLighting::ForwardLighting(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, vk::Format depthFormat)
    : GraphicsResource(graphicsContext)
    , uniformBuffer(graphicsContext)
-   , descriptorSet(graphicsContext, descriptorPool, getLayoutCreateInfo())
+   , descriptorSet(graphicsContext, dynamicDescriptorPool, getLayoutCreateInfo())
 {
    NAME_CHILD(uniformBuffer, "");
    NAME_CHILD(descriptorSet, "");

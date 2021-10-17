@@ -79,21 +79,25 @@ namespace std
    }
 }
 
+namespace
+{
+   DynamicDescriptorPool::Sizes getDynamicDescriptorPoolSizes()
+   {
+      DynamicDescriptorPool::Sizes sizes;
+
+      sizes.maxSets = 50;
+
+      sizes.combinedImageSamplerCount = 100;
+
+      return sizes;
+   }
+}
+
 MaterialResourceManager::MaterialResourceManager(const GraphicsContext& graphicsContext, ResourceManager& owningResourceManager)
    : ResourceManagerBase(graphicsContext, owningResourceManager)
+   , dynamicDescriptorPool(graphicsContext, getDynamicDescriptorPoolSizes())
 {
-   static const uint32_t kMaxImages = 100; // TODO
-   static const uint32_t kMaxSets = 50; // TODO
-
-   vk::DescriptorPoolSize samplerPoolSize = vk::DescriptorPoolSize()
-      .setType(vk::DescriptorType::eCombinedImageSampler)
-      .setDescriptorCount(kMaxImages * GraphicsContext::kMaxFramesInFlight);
-
-   vk::DescriptorPoolCreateInfo createInfo = vk::DescriptorPoolCreateInfo()
-      .setPoolSizes(samplerPoolSize)
-      .setMaxSets(kMaxSets * GraphicsContext::kMaxFramesInFlight);
-   descriptorPool = context.getDevice().createDescriptorPool(createInfo);
-   NAME_ITEM(context.getDevice(), descriptorPool, "Material Resource Manager Descriptor Pool");
+   NAME_ITEM(context.getDevice(), dynamicDescriptorPool, "Material Resource Manager Dynamic Descriptor Pool");
 
    bool anisotropySupported = context.getPhysicalDeviceFeatures().samplerAnisotropy;
    vk::SamplerCreateInfo samplerCreateInfo = vk::SamplerCreateInfo()
@@ -119,7 +123,6 @@ MaterialResourceManager::MaterialResourceManager(const GraphicsContext& graphics
 MaterialResourceManager::~MaterialResourceManager()
 {
    context.getDevice().destroySampler(sampler);
-   context.getDevice().destroyDescriptorPool(descriptorPool);
 }
 
 MaterialHandle MaterialResourceManager::load(const MaterialParameters& parameters)
@@ -140,7 +143,7 @@ MaterialHandle MaterialResourceManager::load(const MaterialParameters& parameter
    return MaterialHandle();
 }
 
-std::unique_ptr<Material> MaterialResourceManager::createMaterial(const MaterialParameters& parameters) const
+std::unique_ptr<Material> MaterialResourceManager::createMaterial(const MaterialParameters& parameters)
 {
    const Texture* diffuseTexture = nullptr;
    const Texture* normalTexture = nullptr;
@@ -159,7 +162,7 @@ std::unique_ptr<Material> MaterialResourceManager::createMaterial(const Material
 
    if (diffuseTexture && normalTexture)
    {
-      std::unique_ptr<Material> material = std::make_unique<PhongMaterial>(context, descriptorPool, sampler, *diffuseTexture, *normalTexture);
+      std::unique_ptr<Material> material = std::make_unique<PhongMaterial>(context, dynamicDescriptorPool, sampler, *diffuseTexture, *normalTexture);
       NAME_POINTER(context.getDevice(), material, "Phong Material (Diffuse = " + diffuseTexture->getName() + ", Normal = " + normalTexture->getName() + ")");
 
       return material;

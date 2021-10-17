@@ -3,6 +3,8 @@
 #include "Graphics/DescriptorSet.h"
 #include "Graphics/GraphicsResource.h"
 
+class DynamicDescriptorPool;
+
 enum class BlendMode
 {
    Opaque,
@@ -12,7 +14,7 @@ enum class BlendMode
 class Material : public GraphicsResource
 {
 public:
-   Material(const GraphicsContext& graphicsContext, vk::DescriptorPool descriptorPool, const vk::DescriptorSetLayoutCreateInfo& createInfo);
+   Material(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, const vk::DescriptorSetLayoutCreateInfo& createInfo);
 
    const DescriptorSet& getDescriptorSet() const
    {

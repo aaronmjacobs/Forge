@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Graphics/DynamicDescriptorPool.h"
 #include "Graphics/GraphicsResource.h"
 #include "Graphics/RenderPass.h"
 #include "Graphics/UniformBuffer.h"
@@ -44,7 +45,7 @@ private:
 
    vk::Format depthStencilFormat = vk::Format::eUndefined;
 
-   vk::DescriptorPool descriptorPool;
+   DynamicDescriptorPool dynamicDescriptorPool;
 
    std::unique_ptr<View> view;
    std::array<std::unique_ptr<View>, ForwardLighting::kMaxPointShadowMaps * kNumCubeFaces> pointShadowViews;

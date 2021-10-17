@@ -29,6 +29,8 @@ target_sources(${PROJECT_NAME} PRIVATE
    "${SRC_DIR}/Graphics/DescriptorSet.h"
    "${SRC_DIR}/Graphics/DescriptorSetLayoutCache.cpp"
    "${SRC_DIR}/Graphics/DescriptorSetLayoutCache.h"
+   "${SRC_DIR}/Graphics/DynamicDescriptorPool.cpp"
+   "${SRC_DIR}/Graphics/DynamicDescriptorPool.h"
    "${SRC_DIR}/Graphics/Framebuffer.cpp"
    "${SRC_DIR}/Graphics/Framebuffer.h"
    "${SRC_DIR}/Graphics/GraphicsContext.cpp"

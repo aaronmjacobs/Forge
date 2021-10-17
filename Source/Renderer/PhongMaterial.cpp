@@ -39,8 +39,8 @@ const std::string PhongMaterial::kDiffuseTextureParameterName = "diffuse";
 // static
 const std::string PhongMaterial::kNormalTextureParameterName = "normal";
 
-PhongMaterial::PhongMaterial(const GraphicsContext& graphicsContext, vk::DescriptorPool descriptorPool, vk::Sampler sampler, const Texture& diffuseTexture, const Texture& normalTexture)
-   : Material(graphicsContext, descriptorPool, getLayoutCreateInfo())
+PhongMaterial::PhongMaterial(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, vk::Sampler sampler, const Texture& diffuseTexture, const Texture& normalTexture)
+   : Material(graphicsContext, dynamicDescriptorPool, getLayoutCreateInfo())
 {
    if (diffuseTexture.getImageProperties().hasAlpha)
    {

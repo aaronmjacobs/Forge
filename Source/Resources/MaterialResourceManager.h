@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Graphics/DynamicDescriptorPool.h"
 #include "Graphics/Material.h"
 
 #include "Resources/ResourceManagerBase.h"
@@ -79,8 +80,8 @@ public:
    MaterialHandle load(const MaterialParameters& parameters);
 
 private:
-   std::unique_ptr<Material> createMaterial(const MaterialParameters& parameters) const;
+   std::unique_ptr<Material> createMaterial(const MaterialParameters& parameters);
 
-   vk::DescriptorPool descriptorPool;
+   DynamicDescriptorPool dynamicDescriptorPool;
    vk::Sampler sampler;
 };

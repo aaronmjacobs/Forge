@@ -26,10 +26,10 @@ vk::DescriptorSetLayout View::getLayout(const GraphicsContext& context)
    return context.getLayoutCache().getLayout(getLayoutCreateInfo());
 }
 
-View::View(const GraphicsContext& graphicsContext, vk::DescriptorPool descriptorPool)
+View::View(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool)
    : GraphicsResource(graphicsContext)
    , uniformBuffer(graphicsContext)
-   , descriptorSet(graphicsContext, descriptorPool, getLayoutCreateInfo())
+   , descriptorSet(graphicsContext, dynamicDescriptorPool, getLayoutCreateInfo())
 {
    NAME_CHILD(uniformBuffer, "");
    NAME_CHILD(descriptorSet, "");

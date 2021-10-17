@@ -2,10 +2,11 @@
 
 #include "Graphics/DebugUtils.h"
 #include "Graphics/DescriptorSetLayoutCache.h"
+#include "Graphics/DynamicDescriptorPool.h"
 
 #include <array>
 
-DescriptorSet::DescriptorSet(const GraphicsContext& graphicsContext, vk::DescriptorPool descriptorPool, const vk::DescriptorSetLayoutCreateInfo& createInfo)
+DescriptorSet::DescriptorSet(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, const vk::DescriptorSetLayoutCreateInfo& createInfo)
    : GraphicsResource(graphicsContext)
 {
    vk::DescriptorSetLayout layout = graphicsContext.getLayoutCache().getLayout(createInfo);
@@ -13,6 +14,7 @@ DescriptorSet::DescriptorSet(const GraphicsContext& graphicsContext, vk::Descrip
    std::array<vk::DescriptorSetLayout, GraphicsContext::kMaxFramesInFlight> layouts;
    layouts.fill(layout);
 
+   vk::DescriptorPool descriptorPool = dynamicDescriptorPool.obtainPool(createInfo);
    vk::DescriptorSetAllocateInfo allocateInfo = vk::DescriptorSetAllocateInfo()
       .setDescriptorPool(descriptorPool)
       .setSetLayouts(layouts);

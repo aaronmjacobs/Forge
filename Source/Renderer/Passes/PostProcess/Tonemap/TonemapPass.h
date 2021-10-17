@@ -6,6 +6,7 @@
 
 #include <memory>
 
+class DynamicDescriptorPool;
 class ResourceManager;
 class Texture;
 class TonemapShader;
@@ -13,7 +14,7 @@ class TonemapShader;
 class TonemapPass : public SceneRenderPass<TonemapPass>
 {
 public:
-   TonemapPass(const GraphicsContext& graphicsContext, vk::DescriptorPool descriptorPool, ResourceManager& resourceManager);
+   TonemapPass(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, ResourceManager& resourceManager);
    ~TonemapPass();
 
    void render(vk::CommandBuffer commandBuffer, FramebufferHandle framebufferHandle, Texture& hdrColorTexture);

@@ -401,56 +401,50 @@ namespace
 
       return sceneRenderInfo;
    }
+
+   DynamicDescriptorPool::Sizes getDynamicDescriptorPoolSizes()
+   {
+      DynamicDescriptorPool::Sizes sizes;
+
+      sizes.maxSets = 50;
+
+      sizes.uniformBufferCount = 30;
+      sizes.combinedImageSamplerCount = 10;
+
+      return sizes;
+   }
 }
 
 Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& resourceManagerRef)
    : GraphicsResource(graphicsContext)
    , resourceManager(resourceManagerRef)
+   , dynamicDescriptorPool(graphicsContext, getDynamicDescriptorPoolSizes())
 {
+   NAME_ITEM(context.getDevice(), dynamicDescriptorPool, "Renderer Dynamic Descriptor Pool");
+
    {
       std::array<vk::Format, 5> depthFormats = { vk::Format::eD24UnormS8Uint, vk::Format::eD32SfloatS8Uint, vk::Format::eD16UnormS8Uint, vk::Format::eD32Sfloat, vk::Format::eD16Unorm };
       depthStencilFormat = Texture::findSupportedFormat(context, depthFormats, vk::ImageTiling::eOptimal, vk::FormatFeatureFlagBits::eDepthStencilAttachment);
    }
 
    {
-      static const uint32_t kMaxUniformBuffers = 7;
-      static const uint32_t kMaxImages = 3; // TODO
-      static const uint32_t kMaxSets = 20; // TODO
-
-      vk::DescriptorPoolSize uniformPoolSize = vk::DescriptorPoolSize()
-         .setType(vk::DescriptorType::eUniformBuffer)
-         .setDescriptorCount(kMaxUniformBuffers * GraphicsContext::kMaxFramesInFlight);
-
-      vk::DescriptorPoolSize samplerPoolSize = vk::DescriptorPoolSize()
-         .setType(vk::DescriptorType::eCombinedImageSampler)
-         .setDescriptorCount(kMaxImages * GraphicsContext::kMaxFramesInFlight);
-
-      std::array<vk::DescriptorPoolSize, 2> poolSizes = { uniformPoolSize, samplerPoolSize };
-
-      vk::DescriptorPoolCreateInfo createInfo = vk::DescriptorPoolCreateInfo()
-         .setPoolSizes(poolSizes)
-         .setMaxSets(kMaxSets * GraphicsContext::kMaxFramesInFlight);
-      descriptorPool = device.createDescriptorPool(createInfo);
-   }
-
-   {
-      view = std::make_unique<View>(context, descriptorPool);
+      view = std::make_unique<View>(context, dynamicDescriptorPool);
       NAME_POINTER(device, view, "Main View");
 
       for (uint32_t i = 0; i < pointShadowViews.size(); ++i)
       {
-         pointShadowViews[i] = std::make_unique<View>(context, descriptorPool);
+         pointShadowViews[i] = std::make_unique<View>(context, dynamicDescriptorPool);
          NAME_POINTER(device, pointShadowViews[i], "Point Shadow View " + std::to_string(i));
       }
       for (uint32_t i = 0; i < spotShadowViews.size(); ++i)
       {
-         spotShadowViews[i] = std::make_unique<View>(context, descriptorPool);
+         spotShadowViews[i] = std::make_unique<View>(context, dynamicDescriptorPool);
          NAME_POINTER(device, spotShadowViews[i], "Spot Shadow View " + std::to_string(i));
       }
    }
 
    {
-      forwardLighting = std::make_unique<ForwardLighting>(context, descriptorPool, depthStencilFormat);
+      forwardLighting = std::make_unique<ForwardLighting>(context, dynamicDescriptorPool, depthStencilFormat);
       NAME_POINTER(device, forwardLighting, "Forward Lighting");
    }
 
@@ -464,7 +458,7 @@ Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& reso
       forwardPass = std::make_unique<ForwardPass>(context, resourceManager, forwardLighting.get());
       NAME_POINTER(device, forwardPass, "Forward Pass");
 
-      tonemapPass = std::make_unique<TonemapPass>(context, descriptorPool, resourceManager);
+      tonemapPass = std::make_unique<TonemapPass>(context, dynamicDescriptorPool, resourceManager);
       NAME_POINTER(device, tonemapPass, "Tonemap Pass");
    }
 
@@ -526,9 +520,6 @@ Renderer::~Renderer()
    {
       spotShadowView.reset();
    }
-
-   device.destroyDescriptorPool(descriptorPool);
-   descriptorPool = nullptr;
 }
 
 void Renderer::render(vk::CommandBuffer commandBuffer, const Scene& scene)

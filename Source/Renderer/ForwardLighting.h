@@ -11,8 +11,9 @@
 
 #include <memory>
 
-struct SceneRenderInfo;
+class DynamicDescriptorPool;
 class Texture;
+struct SceneRenderInfo;
 
 struct ForwardSpotLightUniformData
 {
@@ -59,7 +60,7 @@ public:
 
    static uint32_t getPointViewIndex(uint32_t shadowMapIndex, uint32_t faceIndex);
 
-   ForwardLighting(const GraphicsContext& graphicsContext, vk::DescriptorPool descriptorPool, vk::Format depthFormat);
+   ForwardLighting(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, vk::Format depthFormat);
    ~ForwardLighting();
 
    void transitionShadowMapLayout(vk::CommandBuffer commandBuffer, bool forReading);
