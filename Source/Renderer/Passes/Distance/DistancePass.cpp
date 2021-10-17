@@ -7,11 +7,13 @@
 #include "Renderer/SceneRenderInfo.h"
 #include "Renderer/View.h"
 
+#include <limits>
+
 DistancePass::DistancePass(const GraphicsContext& graphicsContext, ResourceManager& resourceManager)
    : SceneRenderPass(graphicsContext)
 {
-   clearDepth = true; // TODO Not sure what format to use for the texture yet (D32F? R32F?)
-   clearColor = false;
+   clearDepth = true;
+   clearColor = true;
    pipelines.resize(2);
 
    distanceShader = std::make_unique<DistanceShader>(context, resourceManager);
@@ -33,7 +35,9 @@ void DistancePass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo
       return;
    }
 
-   std::array<vk::ClearValue, 2> clearValues = { vk::ClearDepthStencilValue(1.0f, 0) };
+   static const float kMaxDistance = std::numeric_limits<float>::max();
+   std::array<float, 4> clearColorValues = { kMaxDistance, kMaxDistance, kMaxDistance, 1.0f };
+   std::array<vk::ClearValue, 2> clearValues = { vk::ClearDepthStencilValue(1.0f, 0), vk::ClearColorValue(clearColorValues) };
    beginRenderPass(commandBuffer, *framebuffer, clearValues);
 
    const ViewInfo& viewInfo = sceneRenderInfo.view.getInfo();
@@ -56,10 +60,10 @@ void DistancePass::initializePipelines(vk::SampleCountFlagBits sampleCount)
    pipelineLayout = device.createPipelineLayout(pipelineLayoutCreateInfo);
 
    vk::PipelineColorBlendAttachmentState attachmentState = vk::PipelineColorBlendAttachmentState()
-      .setColorWriteMask(vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA)
+      .setColorWriteMask(vk::ColorComponentFlagBits::eR)
       .setBlendEnable(false);
 
-   PipelineData pipelineData(context, pipelineLayout, getRenderPass(), PipelinePassType::Mesh, distanceShader->getStages(), {}, sampleCount); // TODO Need attachment state?
+   PipelineData pipelineData(context, pipelineLayout, getRenderPass(), PipelinePassType::Mesh, distanceShader->getStages(), { attachmentState }, sampleCount, true);
    pipelineData.enableDepthBias(); // TODO does this even work?
 
    pipelines[0] = device.createGraphicsPipeline(nullptr, pipelineData.getCreateInfo()).value;
@@ -79,8 +83,8 @@ std::vector<vk::SubpassDependency> DistancePass::getSubpassDependencies() const
       .setDstSubpass(0)
       .setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
       .setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
-      .setDstStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
-      .setDstAccessMask(vk::AccessFlagBits::eColorAttachmentRead | vk::AccessFlagBits::eColorAttachmentWrite));
+      .setDstStageMask(vk::PipelineStageFlagBits::eFragmentShader)
+      .setDstAccessMask(vk::AccessFlagBits::eShaderRead));
 
    return subpassDependencies;
 }

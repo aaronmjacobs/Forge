@@ -5,8 +5,10 @@
 
 layout(location = 0) in vec3 inPosition;
 
+layout(location = 0) out float outDistance;
+
 void main()
 {
 	vec3 toViewPosition = view.position.xyz - inPosition;
-	gl_FragDepth = length(toViewPosition);
+	outDistance = length(toViewPosition);
 }

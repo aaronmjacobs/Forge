@@ -62,7 +62,7 @@ void DepthPass::initializePipelines(vk::SampleCountFlagBits sampleCount)
       .setPushConstantRanges(pushConstantRanges);
    pipelineLayout = device.createPipelineLayout(pipelineLayoutCreateInfo);
 
-   PipelineData pipelineData(context, pipelineLayout, getRenderPass(), PipelinePassType::Mesh, depthShader->getStages(), {}, sampleCount);
+   PipelineData pipelineData(context, pipelineLayout, getRenderPass(), PipelinePassType::Mesh, depthShader->getStages(), {}, sampleCount, true);
    if (isShadowPass)
    {
       pipelineData.enableDepthBias();

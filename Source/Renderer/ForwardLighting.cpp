@@ -13,11 +13,12 @@
 
 namespace
 {
-   bool formatHasStencilComponent(vk::Format format)
+   bool isDepthFormat(vk::Format format)
    {
       switch (format)
       {
-      case vk::Format::eS8Uint:
+      case vk::Format::eD16Unorm:
+      case vk::Format::eD32Sfloat:
       case vk::Format::eD16UnormS8Uint:
       case vk::Format::eD24UnormS8Uint:
       case vk::Format::eD32SfloatS8Uint:
@@ -29,6 +30,8 @@ namespace
 
    std::unique_ptr<Texture> createShadowMapTextureArray(const GraphicsContext& context, vk::Format format, vk::Extent2D extent, uint32_t layers, bool cubeCompatible)
    {
+      bool formatContainsDepth = isDepthFormat(format);
+
       ImageProperties depthImageProperties;
       depthImageProperties.format = format;
       depthImageProperties.width = extent.width;
@@ -38,12 +41,8 @@ namespace
 
       TextureProperties depthTextureProperties;
       depthTextureProperties.sampleCount = vk::SampleCountFlagBits::e1;
-      depthTextureProperties.usage = vk::ImageUsageFlagBits::eDepthStencilAttachment | vk::ImageUsageFlagBits::eSampled;
-      depthTextureProperties.aspects = vk::ImageAspectFlagBits::eDepth;
-      if (formatHasStencilComponent(format))
-      {
-         depthTextureProperties.aspects |= vk::ImageAspectFlagBits::eStencil;
-      }
+      depthTextureProperties.usage = (formatContainsDepth ? vk::ImageUsageFlagBits::eDepthStencilAttachment : vk::ImageUsageFlagBits::eColorAttachment) | vk::ImageUsageFlagBits::eSampled;
+      depthTextureProperties.aspects = formatContainsDepth ? (vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil) : vk::ImageAspectFlagBits::eColor;
 
       TextureInitialLayout depthInitialLayout;
       depthInitialLayout.layout = vk::ImageLayout::eShaderReadOnlyOptimal;
@@ -92,7 +91,7 @@ uint32_t ForwardLighting::getPointViewIndex(uint32_t shadowMapIndex, uint32_t fa
    return shadowMapIndex * kNumCubeFaces + faceIndex;
 }
 
-ForwardLighting::ForwardLighting(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, vk::Format depthStencilFormat, vk::Format floatDepthFormat)
+ForwardLighting::ForwardLighting(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, vk::Format depthStencilFormat, vk::Format distanceFormat)
    : GraphicsResource(graphicsContext)
    , uniformBuffer(graphicsContext)
    , descriptorSet(graphicsContext, dynamicDescriptorPool, getLayoutCreateInfo())
@@ -100,10 +99,16 @@ ForwardLighting::ForwardLighting(const GraphicsContext& graphicsContext, Dynamic
    NAME_CHILD(uniformBuffer, "");
    NAME_CHILD(descriptorSet, "");
 
-   pointShadowMapTextureArray = createShadowMapTextureArray(context, floatDepthFormat, vk::Extent2D(1024, 1024), kMaxPointShadowMaps * kNumCubeFaces, true);
+   static const vk::Extent2D kPointShadowResolution = vk::Extent2D(1024, 1024);
+   static const vk::Extent2D kSpotShadowResolution = vk::Extent2D(1024, 1024);
+
+   pointShadowMapTextureArray = createShadowMapTextureArray(context, distanceFormat, kPointShadowResolution, kMaxPointShadowMaps * kNumCubeFaces, true);
    NAME_CHILD_POINTER(pointShadowMapTextureArray, "Point Shadow Texture Array");
 
-   spotShadowMapTextureArray = createShadowMapTextureArray(context, depthStencilFormat, vk::Extent2D(1024, 1024), kMaxSpotShadowMaps, false);
+   pointShadowMapDepthTextureArray = createShadowMapTextureArray(context, depthStencilFormat, kPointShadowResolution, kNumCubeFaces, true);
+   NAME_CHILD_POINTER(pointShadowMapDepthTextureArray, "Point Shadow Depth Texture Array");
+
+   spotShadowMapTextureArray = createShadowMapTextureArray(context, depthStencilFormat, kSpotShadowResolution, kMaxSpotShadowMaps, false);
    NAME_CHILD_POINTER(spotShadowMapTextureArray, "Spot Shadow Texture Array");
 
    vk::SamplerCreateInfo samplerCreateInfo = vk::SamplerCreateInfo()
@@ -125,7 +130,7 @@ ForwardLighting::ForwardLighting(const GraphicsContext& graphicsContext, Dynamic
    shadowMapSampler = context.getDevice().createSampler(samplerCreateInfo);
    NAME_CHILD(shadowMapSampler, "Shadow Map Sampler");
 
-   pointShadowSampleView = pointShadowMapTextureArray->createView(vk::ImageViewType::eCubeArray, 0, kMaxPointShadowMaps * kNumCubeFaces, vk::ImageAspectFlagBits::eDepth);
+   pointShadowSampleView = pointShadowMapTextureArray->createView(vk::ImageViewType::eCubeArray, 0, kMaxPointShadowMaps * kNumCubeFaces, vk::ImageAspectFlagBits::eColor);
    NAME_CHILD(pointShadowSampleView, "Point Shadow Map Sample View");
 
    spotShadowSampleView = spotShadowMapTextureArray->createView(vk::ImageViewType::e2DArray, 0, kMaxSpotShadowMaps, vk::ImageAspectFlagBits::eDepth);
@@ -140,6 +145,12 @@ ForwardLighting::ForwardLighting(const GraphicsContext& graphicsContext, Dynamic
          pointShadowViews[viewIndex] = pointShadowMapTextureArray->createView(vk::ImageViewType::e2D, viewIndex, 1);
          NAME_CHILD(pointShadowViews[viewIndex], "Point Shadow Map View " + std::to_string(viewIndex));
       }
+   }
+
+   for (uint32_t faceIndex = 0; faceIndex < kNumCubeFaces; ++faceIndex)
+   {
+      pointShadowDepthViews[faceIndex] = pointShadowMapDepthTextureArray->createView(vk::ImageViewType::e2D, faceIndex, 1);
+      NAME_CHILD(pointShadowDepthViews[faceIndex], "Point Shadow Map Depth View " + std::to_string(faceIndex));
    }
 
    for (uint32_t i = 0; i < kMaxSpotShadowMaps; ++i)
@@ -168,6 +179,11 @@ ForwardLighting::~ForwardLighting()
       }
    }
 
+   for (uint32_t faceIndex = 0; faceIndex < kNumCubeFaces; ++faceIndex)
+   {
+      context.delayedDestroy(std::move(pointShadowDepthViews[faceIndex]));
+   }
+
    for (uint32_t i = 0; i < kMaxSpotShadowMaps; ++i)
    {
       context.delayedDestroy(std::move(spotShadowViews[i]));
@@ -176,13 +192,17 @@ ForwardLighting::~ForwardLighting()
 
 void ForwardLighting::transitionShadowMapLayout(vk::CommandBuffer commandBuffer, bool forReading)
 {
-   vk::ImageLayout layout = forReading ? vk::ImageLayout::eShaderReadOnlyOptimal : vk::ImageLayout::eDepthStencilAttachmentOptimal;
+   vk::ImageLayout pointLayout = forReading ? vk::ImageLayout::eShaderReadOnlyOptimal : vk::ImageLayout::eColorAttachmentOptimal;
+   vk::ImageLayout spotLayout = forReading ? vk::ImageLayout::eShaderReadOnlyOptimal : vk::ImageLayout::eDepthStencilAttachmentOptimal;
 
-   TextureMemoryBarrierFlags srcMemoryBarrierFlags = forReading ? TextureMemoryBarrierFlags(vk::AccessFlagBits::eDepthStencilAttachmentRead | vk::AccessFlagBits::eDepthStencilAttachmentWrite, vk::PipelineStageFlagBits::eEarlyFragmentTests) : TextureMemoryBarrierFlags(vk::AccessFlagBits::eShaderRead, vk::PipelineStageFlagBits::eFragmentShader);
-   TextureMemoryBarrierFlags dstMemoryBarrierFlags = forReading ? TextureMemoryBarrierFlags(vk::AccessFlagBits::eShaderRead, vk::PipelineStageFlagBits::eFragmentShader) : TextureMemoryBarrierFlags(vk::AccessFlagBits::eDepthStencilAttachmentRead | vk::AccessFlagBits::eDepthStencilAttachmentWrite, vk::PipelineStageFlagBits::eEarlyFragmentTests);
+   TextureMemoryBarrierFlags pointSrcMemoryBarrierFlags = forReading ? TextureMemoryBarrierFlags(vk::AccessFlagBits::eColorAttachmentWrite, vk::PipelineStageFlagBits::eColorAttachmentOutput) : TextureMemoryBarrierFlags(vk::AccessFlagBits::eShaderRead, vk::PipelineStageFlagBits::eFragmentShader);
+   TextureMemoryBarrierFlags pointDstMemoryBarrierFlags = forReading ? TextureMemoryBarrierFlags(vk::AccessFlagBits::eShaderRead, vk::PipelineStageFlagBits::eFragmentShader) : TextureMemoryBarrierFlags(vk::AccessFlagBits::eColorAttachmentWrite, vk::PipelineStageFlagBits::eColorAttachmentOutput);
 
-   pointShadowMapTextureArray->transitionLayout(commandBuffer, layout, srcMemoryBarrierFlags, dstMemoryBarrierFlags);
-   spotShadowMapTextureArray->transitionLayout(commandBuffer, layout, srcMemoryBarrierFlags, dstMemoryBarrierFlags);
+   TextureMemoryBarrierFlags spotSrcMemoryBarrierFlags = forReading ? TextureMemoryBarrierFlags(vk::AccessFlagBits::eDepthStencilAttachmentRead | vk::AccessFlagBits::eDepthStencilAttachmentWrite, vk::PipelineStageFlagBits::eEarlyFragmentTests) : TextureMemoryBarrierFlags(vk::AccessFlagBits::eShaderRead, vk::PipelineStageFlagBits::eFragmentShader);
+   TextureMemoryBarrierFlags spotDstMemoryBarrierFlags = forReading ? TextureMemoryBarrierFlags(vk::AccessFlagBits::eShaderRead, vk::PipelineStageFlagBits::eFragmentShader) : TextureMemoryBarrierFlags(vk::AccessFlagBits::eDepthStencilAttachmentRead | vk::AccessFlagBits::eDepthStencilAttachmentWrite, vk::PipelineStageFlagBits::eEarlyFragmentTests);
+
+   pointShadowMapTextureArray->transitionLayout(commandBuffer, pointLayout, pointSrcMemoryBarrierFlags, pointDstMemoryBarrierFlags);
+   spotShadowMapTextureArray->transitionLayout(commandBuffer, spotLayout, spotSrcMemoryBarrierFlags, spotDstMemoryBarrierFlags);
 }
 
 void ForwardLighting::update(const SceneRenderInfo& sceneRenderInfo)
@@ -248,6 +268,16 @@ TextureInfo ForwardLighting::getPointShadowInfo(uint32_t shadowMapIndex, uint32_
 
    TextureInfo info = pointShadowMapTextureArray->getInfo();
    info.view = pointShadowViews[viewIndex];
+
+   return info;
+}
+
+TextureInfo ForwardLighting::getPointShadowDepthInfo(uint32_t faceIndex) const
+{
+   ASSERT(faceIndex < kNumCubeFaces);
+
+   TextureInfo info = pointShadowMapDepthTextureArray->getInfo();
+   info.view = pointShadowDepthViews[faceIndex];
 
    return info;
 }

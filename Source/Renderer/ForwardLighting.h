@@ -60,7 +60,7 @@ public:
 
    static uint32_t getPointViewIndex(uint32_t shadowMapIndex, uint32_t faceIndex);
 
-   ForwardLighting(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, vk::Format depthStencilFormat, vk::Format floatDepthFormat);
+   ForwardLighting(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, vk::Format depthStencilFormat, vk::Format distanceFormat);
    ~ForwardLighting();
 
    void transitionShadowMapLayout(vk::CommandBuffer commandBuffer, bool forReading);
@@ -72,6 +72,7 @@ public:
    }
 
    TextureInfo getPointShadowInfo(uint32_t shadowMapIndex, uint32_t faceIndex) const;
+   TextureInfo getPointShadowDepthInfo(uint32_t faceIndex) const;
    TextureInfo getSpotShadowInfo(uint32_t index) const;
 
 protected:
@@ -82,9 +83,11 @@ protected:
 
    vk::Sampler shadowMapSampler;
    std::unique_ptr<Texture> pointShadowMapTextureArray;
+   std::unique_ptr<Texture> pointShadowMapDepthTextureArray;
    std::unique_ptr<Texture> spotShadowMapTextureArray;
    vk::ImageView pointShadowSampleView;
    vk::ImageView spotShadowSampleView;
    std::array<vk::ImageView, kMaxPointShadowMaps * kNumCubeFaces> pointShadowViews;
+   std::array<vk::ImageView, kNumCubeFaces> pointShadowDepthViews;
    std::array<vk::ImageView, kMaxSpotShadowMaps> spotShadowViews;
 };

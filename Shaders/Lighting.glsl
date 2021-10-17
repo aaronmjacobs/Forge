@@ -85,9 +85,11 @@ vec3 calcSpecular(vec3 lightColor, vec3 specularColor, float shininess, vec3 sur
 
 float calcVisibility(samplerCubeArrayShadow shadowMaps, int shadowMapIndex, vec2 nearFar, vec3 toLight, vec3 toLightDirection)
 {
+   const float kCubemapBias = 0.03;
+
    float computedDistance = length(toLight);
 
-   return texture(shadowMaps, vec4(-toLightDirection, shadowMapIndex), computedDistance);
+   return texture(shadowMaps, vec4(-toLightDirection, shadowMapIndex), computedDistance - kCubemapBias);
 }
 
 float calcVisibility(sampler2DArrayShadow shadowMaps, int shadowMapIndex, vec3 surfacePosition, mat4 worldToShadow)

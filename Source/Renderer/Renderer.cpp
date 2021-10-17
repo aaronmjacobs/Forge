@@ -425,8 +425,8 @@ Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& reso
       std::array<vk::Format, 5> depthStencilFormats = { vk::Format::eD24UnormS8Uint, vk::Format::eD32SfloatS8Uint, vk::Format::eD16UnormS8Uint, vk::Format::eD32Sfloat, vk::Format::eD16Unorm };
       depthStencilFormat = Texture::findSupportedFormat(context, depthStencilFormats, vk::ImageTiling::eOptimal, vk::FormatFeatureFlagBits::eDepthStencilAttachment);
 
-      std::array<vk::Format, 5> floatDepthFormats = { vk::Format::eD32Sfloat, vk::Format::eD32SfloatS8Uint };
-      floatDepthFormat = Texture::findSupportedFormat(context, floatDepthFormats, vk::ImageTiling::eOptimal, vk::FormatFeatureFlagBits::eDepthStencilAttachment);
+      std::array<vk::Format, 5> distanceFormats = { vk::Format::eR32Sfloat, vk::Format::eR16Sfloat };
+      distanceFormat = Texture::findSupportedFormat(context, distanceFormats, vk::ImageTiling::eOptimal, vk::FormatFeatureFlagBits::eColorAttachment);
    }
 
    {
@@ -446,7 +446,7 @@ Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& reso
    }
 
    {
-      forwardLighting = std::make_unique<ForwardLighting>(context, dynamicDescriptorPool, depthStencilFormat, floatDepthFormat);
+      forwardLighting = std::make_unique<ForwardLighting>(context, dynamicDescriptorPool, depthStencilFormat, distanceFormat);
       NAME_POINTER(device, forwardLighting, "Forward Lighting");
    }
 
@@ -489,12 +489,18 @@ Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& reso
 
    {
       BasicTextureInfo cubeShadowPassDepthSetupInfo;
-      cubeShadowPassDepthSetupInfo.format = floatDepthFormat;
+      cubeShadowPassDepthSetupInfo.format = depthStencilFormat;
       cubeShadowPassDepthSetupInfo.sampleCount = vk::SampleCountFlagBits::e1;
       cubeShadowPassDepthSetupInfo.isSwapchainTexture = false;
 
+      BasicTextureInfo cubeShadowPassColorSetupInfo;
+      cubeShadowPassColorSetupInfo.format = distanceFormat;
+      cubeShadowPassColorSetupInfo.sampleCount = vk::SampleCountFlagBits::e1;
+      cubeShadowPassColorSetupInfo.isSwapchainTexture = false;
+
       BasicAttachmentInfo cubeShadowPassSetupInfo;
       cubeShadowPassSetupInfo.depthInfo = cubeShadowPassDepthSetupInfo;
+      cubeShadowPassSetupInfo.colorInfo = { cubeShadowPassColorSetupInfo };
 
       cubeShadowPass->updateAttachmentSetup(cubeShadowPassSetupInfo);
 
@@ -505,7 +511,8 @@ Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& reso
             uint32_t viewIndex = ForwardLighting::getPointViewIndex(shadowMapIndex, faceIndex);
 
             AttachmentInfo shadowPassInfo;
-            shadowPassInfo.depthInfo = forwardLighting->getPointShadowInfo(shadowMapIndex, faceIndex);
+            shadowPassInfo.depthInfo = forwardLighting->getPointShadowDepthInfo(faceIndex);
+            shadowPassInfo.colorInfo = { forwardLighting->getPointShadowInfo(shadowMapIndex, faceIndex) };
 
             pointShadowPassFramebufferHandles[viewIndex] = cubeShadowPass->createFramebuffer(shadowPassInfo);
          }

@@ -45,7 +45,7 @@ private:
    ResourceManager& resourceManager;
 
    vk::Format depthStencilFormat = vk::Format::eUndefined;
-   vk::Format floatDepthFormat = vk::Format::eUndefined;
+   vk::Format distanceFormat = vk::Format::eUndefined;
 
    DynamicDescriptorPool dynamicDescriptorPool;
 

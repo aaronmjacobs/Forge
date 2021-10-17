@@ -101,7 +101,7 @@ void TonemapPass::initializePipelines(vk::SampleCountFlagBits sampleCount)
       .setColorWriteMask(vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA)
       .setBlendEnable(false);
 
-   PipelineData pipelineData(context, pipelineLayout, getRenderPass(), PipelinePassType::Screen, tonemapShader->getStages(), { attachmentState }, sampleCount);
+   PipelineData pipelineData(context, pipelineLayout, getRenderPass(), PipelinePassType::Screen, tonemapShader->getStages(), { attachmentState }, sampleCount, false);
    pipelines[0] = device.createGraphicsPipeline(nullptr, pipelineData.getCreateInfo()).value;
    NAME_CHILD(pipelines[0], "Pipeline");
 }

@@ -5,7 +5,7 @@
 
 #include <utility>
 
-PipelineData::PipelineData(const GraphicsContext& context, vk::PipelineLayout layout, vk::RenderPass renderPass, PipelinePassType passType, std::vector<vk::PipelineShaderStageCreateInfo> shaderStages, std::vector<vk::PipelineColorBlendAttachmentState> colorBlendStates, vk::SampleCountFlagBits sampleCount)
+PipelineData::PipelineData(const GraphicsContext& context, vk::PipelineLayout layout, vk::RenderPass renderPass, PipelinePassType passType, std::vector<vk::PipelineShaderStageCreateInfo> shaderStages, std::vector<vk::PipelineColorBlendAttachmentState> colorBlendStates, vk::SampleCountFlagBits sampleCount, bool writeDepth)
 {
    viewport = vk::Viewport()
       .setX(0.0f)
@@ -21,9 +21,8 @@ PipelineData::PipelineData(const GraphicsContext& context, vk::PipelineLayout la
    shaderStageCreateInfo = std::move(shaderStages);
    colorBlendAttachmentStates = std::move(colorBlendStates);
 
-   bool hasColorOutput = !colorBlendAttachmentStates.empty();
    const std::vector<vk::VertexInputBindingDescription>& vertexBindingDescriptions = Vertex::getBindingDescriptions();
-   const std::vector<vk::VertexInputAttributeDescription>& vertexAttributeDescriptions = Vertex::getAttributeDescriptions(!hasColorOutput);
+   const std::vector<vk::VertexInputAttributeDescription>& vertexAttributeDescriptions = Vertex::getAttributeDescriptions(writeDepth);
    if (passType == PipelinePassType::Mesh)
    {
       vertexInputStateCreateInfo = vk::PipelineVertexInputStateCreateInfo()
@@ -51,8 +50,8 @@ PipelineData::PipelineData(const GraphicsContext& context, vk::PipelineLayout la
 
    depthStencilStateCreateInfo = vk::PipelineDepthStencilStateCreateInfo()
       .setDepthTestEnable(passType == PipelinePassType::Mesh)
-      .setDepthWriteEnable(!hasColorOutput)
-      .setDepthCompareOp(hasColorOutput ? vk::CompareOp::eLessOrEqual : vk::CompareOp::eLess)
+      .setDepthWriteEnable(writeDepth)
+      .setDepthCompareOp(writeDepth ? vk::CompareOp::eLess : vk::CompareOp::eLessOrEqual)
       .setDepthBoundsTestEnable(false)
       .setStencilTestEnable(false);
 
