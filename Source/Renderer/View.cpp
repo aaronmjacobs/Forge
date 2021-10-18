@@ -43,7 +43,7 @@ void View::update(const ViewInfo& viewInfo)
    matrices = ViewMatrices(viewInfo);
 
    ViewUniformData viewUniformData;
-   viewUniformData.worldToClip = matrices.viewToClip * matrices.worldToView;
+   viewUniformData.worldToClip = matrices.worldToClip;
    viewUniformData.position = glm::vec4(matrices.viewPosition.x, matrices.viewPosition.y, matrices.viewPosition.z, 1.0f);
    viewUniformData.direction = glm::vec4(matrices.viewDirection.x, matrices.viewDirection.y, matrices.viewDirection.z, 0.0f);
    viewUniformData.nearFar = matrices.nearFar;

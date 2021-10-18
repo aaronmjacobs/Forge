@@ -522,7 +522,7 @@ void ForgeApplication::loadScene()
          float time = scene.getTime();
 
          TransformComponent& transformComponent = pointLightEntity.getComponent<TransformComponent>();
-         transformComponent.transform.position = glm::vec3(glm::sin(time) * 5.0f, glm::cos(time * 0.7f) * 2.0f, glm::sin(time * 1.1f) * 2.0f + 3.0f);
+         transformComponent.transform.position = glm::vec3(glm::sin(time) * 5.0f, glm::cos(time * 0.7f) * 1.5f, glm::sin(time * 1.1f) * 2.0f + 3.0f);
       });
    }
 
