@@ -140,6 +140,11 @@ TextureInitialLayout TextureResourceManager::getDefaultInitialLayout()
    return defaultInitialLayout;
 }
 
+void TextureResourceManager::onAllResourcesUnloaded()
+{
+   createDefaultTextures();
+}
+
 void TextureResourceManager::createDefaultTextures()
 {
    LoadedImage defaultBlackImage = createDefaultImage(context, glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));

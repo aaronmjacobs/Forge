@@ -50,12 +50,14 @@ public:
    {
       resources.removeAll();
       cache.clear();
+      onAllResourcesUnloaded();
    }
 
    void clear()
    {
       resources.clear();
       cache.clear();
+      onAllResourcesUnloaded();
    }
 
    T* get(Handle handle)
@@ -98,6 +100,10 @@ protected:
       }
 
       return {};
+   }
+
+   virtual void onAllResourcesUnloaded()
+   {
    }
 
    const GraphicsContext& context;

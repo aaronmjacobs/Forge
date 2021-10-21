@@ -34,6 +34,7 @@ public:
    static TextureInitialLayout getDefaultInitialLayout();
 
 protected:
+   void onAllResourcesUnloaded() override;
    void createDefaultTextures();
 
    TextureHandle defaultBlackTextureHandle;
