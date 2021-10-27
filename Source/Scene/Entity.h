@@ -61,7 +61,7 @@ public:
    bool hasComponent() const
    {
       ASSERT(scene);
-      return scene->registry.has<T>(id);
+      return scene->registry.all_of<T>(id);
    }
 
    explicit operator bool() const
