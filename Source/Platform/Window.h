@@ -76,6 +76,8 @@ private:
    bool consumeCursorInput = false;
    bool canConsumeCursorInput = true;
    bool ignoreNextCursorPosChange = false;
+   double lastPollTime = 0.0;
+   double pollDeltaTime = 0.0;
 
    WindowBounds savedWindowBounds;
 

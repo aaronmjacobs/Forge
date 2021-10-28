@@ -125,6 +125,12 @@ Window::Window()
 
    glfwSetWindowSizeLimits(glfwWindow, 640, 360, GLFW_DONT_CARE, GLFW_DONT_CARE);
 
+   if (glfwRawMouseMotionSupported())
+   {
+      // Only applies while the cursor is disabled (prevents scaled / accelerated mouse motion)
+      glfwSetInputMode(glfwWindow, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
+   }
+
    setConsumeCursorInput(true);
 
    double cursorX = 0.0;
@@ -152,6 +158,10 @@ Window::~Window()
 
 void Window::pollEvents()
 {
+   double pollTime = glfwGetTime();
+   pollDeltaTime = pollTime - lastPollTime;
+   lastPollTime = pollTime;
+
    glfwPollEvents();
    inputManager.pollEvents();
 }
@@ -329,7 +339,7 @@ void Window::onMouseButtonEvent(int button, int action, int mods)
 
 void Window::onCursorPosChanged(double xPos, double yPos)
 {
-   inputManager.onCursorPosChanged(xPos, yPos, consumeCursorInput && !ignoreNextCursorPosChange);
+   inputManager.onCursorPosChanged(xPos, yPos, pollDeltaTime, consumeCursorInput && !ignoreNextCursorPosChange);
    ignoreNextCursorPosChange = false;
 }
 

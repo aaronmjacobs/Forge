@@ -399,32 +399,36 @@ void InputManager::onMouseButtonEvent(int button, int action, int mods)
    broadcastEvent(mouseButtonMappings, buttonBindings, mouseButtonChord, pressed);
 }
 
-void InputManager::onCursorPosChanged(double xPos, double yPos, bool broadcast)
+void InputManager::onCursorPosChanged(double xPos, double yPos, double pollDeltaTime, bool broadcast)
 {
-   static const double kMouseSensitivity = 0.2;
+   static const double kMouseSensitivity = 0.0003;
 
    if (broadcast)
    {
-      cursorAxisDelegate.broadcast(xPos, yPos);
+      double xDiff = xPos - lastCursorX;
+      double yDiff = lastCursorY - yPos;
+      double inverseDeltaTime = pollDeltaTime == 0.0 ? 1.0 : 1.0 / pollDeltaTime;
 
-      float xDiff = static_cast<float>((xPos - lastCursorX) * kMouseSensitivity);
-      float yDiff = static_cast<float>((lastCursorY - yPos) * kMouseSensitivity);
+      float xVelocity = static_cast<float>(xDiff * inverseDeltaTime * kMouseSensitivity);
+      float yVelocity = static_cast<float>(yDiff * inverseDeltaTime * kMouseSensitivity);
+
+      cursorAxisDelegate.broadcast(xVelocity, yVelocity);
 
       CursorAxisChord xAxisChord(CursorAxis::X);
 
       xAxisChord.invert = false;
-      broadcastEvent(cursorAxisMappings, axisBindings, xAxisChord, xDiff);
+      broadcastEvent(cursorAxisMappings, axisBindings, xAxisChord, xVelocity);
 
       xAxisChord.invert = true;
-      broadcastEvent(cursorAxisMappings, axisBindings, xAxisChord, -xDiff);
+      broadcastEvent(cursorAxisMappings, axisBindings, xAxisChord, -xVelocity);
 
       CursorAxisChord yAxisChord(CursorAxis::Y);
 
       yAxisChord.invert = false;
-      broadcastEvent(cursorAxisMappings, axisBindings, yAxisChord, yDiff);
+      broadcastEvent(cursorAxisMappings, axisBindings, yAxisChord, yVelocity);
 
       yAxisChord.invert = true;
-      broadcastEvent(cursorAxisMappings, axisBindings, yAxisChord, -yDiff);
+      broadcastEvent(cursorAxisMappings, axisBindings, yAxisChord, -yVelocity);
    }
 
    lastCursorX = xPos;

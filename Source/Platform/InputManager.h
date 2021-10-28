@@ -45,7 +45,7 @@ public:
 
    using KeyDelegate = MulticastDelegate<void, KeyChord /* keyChord */, bool /* pressed */>;
    using MouseButtonDelegate = MulticastDelegate<void, MouseButtonChord /* mouseButtonChord */, bool /* pressed */>;
-   using CursorAxisDelegate = MulticastDelegate<void, double /* xPos */, double /* yPos */>;
+   using CursorAxisDelegate = MulticastDelegate<void, float /* xVelocity */, float /* yVelocity */>;
    using GamepadButtonDelegate = MulticastDelegate<void, GamepadButtonChord /* gamepadButtonChord */, bool /* pressed */>;
    using GamepadAxisDelegate = MulticastDelegate<void, GamepadAxisChord /* gamepadAxisChord */, float /* value */>;
 
@@ -94,7 +94,7 @@ private:
 
    void onKeyEvent(int key, int scancode, int action, int mods);
    void onMouseButtonEvent(int button, int action, int mods);
-   void onCursorPosChanged(double xPos, double yPos, bool broadcast);
+   void onCursorPosChanged(double xPos, double yPos, double pollDeltaTime, bool broadcast);
 
    void pollEvents();
    void pollGamepad(int gamepadId);
