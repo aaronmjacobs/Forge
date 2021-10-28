@@ -24,6 +24,7 @@
 #include <GLFW/glfw3.h>
 
 #include <array>
+#include <sstream>
 #include <stdexcept>
 
 namespace
@@ -77,8 +78,12 @@ ForgeApplication::~ForgeApplication()
 
 void ForgeApplication::run()
 {
-   double lastTime = glfwGetTime();
+   static const double kFrameRateReportInterval = 0.25;
 
+   int frameCount = 0;
+   double accumulatedTime = 0.0;
+
+   double lastTime = glfwGetTime();
    while (!window->shouldClose())
    {
 #if FORGE_WITH_MIDI
@@ -88,12 +93,25 @@ void ForgeApplication::run()
       window->pollEvents();
 
       double time = glfwGetTime();
-      float dt = static_cast<float>(time - lastTime);
+      double dt = time - lastTime;
       lastTime = time;
 
-      scene.tick(dt);
+      scene.tick(static_cast<float>(dt));
 
       render();
+
+      ++frameCount;
+      accumulatedTime += dt;
+      if (accumulatedTime > kFrameRateReportInterval)
+      {
+         double frameRate = frameCount / accumulatedTime;
+         frameCount = 0;
+         accumulatedTime -= kFrameRateReportInterval;
+
+         std::stringstream ss;
+         ss << FORGE_PROJECT_NAME << " | " << std::fixed << std::setprecision(2) << frameRate << " FPS";
+         window->setTitle(ss.str().c_str());
+      }
    }
 
    context->getDevice().waitIdle();
