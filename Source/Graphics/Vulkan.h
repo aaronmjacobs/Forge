@@ -2,6 +2,8 @@
 
 #include "Core/Assert.h"
 
-#define VULKAN_HPP_ASSERT ASSERT
+#if PPK_ASSERT_ENABLED
+#  define VULKAN_HPP_ASSERT ASSERT
+#endif // PPK_ASSERT_ENABLED
 #define VK_ENABLE_BETA_EXTENSIONS
 #include <vulkan/vulkan.hpp>
