@@ -96,6 +96,25 @@ namespace
       return viewInfo;
    }
 
+   ViewInfo computeDirectionalLightShadowViewInfo(const Transform& transform, const DirectionalLightComponent& directionalLightComponent)
+   {
+      ViewInfo viewInfo;
+
+      viewInfo.transform = transform;
+
+      viewInfo.projectionMode = ProjectionMode::Orthographic;
+
+      viewInfo.orthographicInfo.width = directionalLightComponent.getShadowWidth() * transform.scale.x;
+      viewInfo.orthographicInfo.height = directionalLightComponent.getShadowHeight() * transform.scale.z;
+      viewInfo.orthographicInfo.depth = directionalLightComponent.getShadowDepth() * transform.scale.y;
+
+      viewInfo.depthBiasConstantFactor = directionalLightComponent.getShadowBiasConstantFactor();
+      viewInfo.depthBiasSlopeFactor = directionalLightComponent.getShadowBiasSlopeFactor();
+      viewInfo.depthBiasClamp = directionalLightComponent.getShadowBiasClamp();
+
+      return viewInfo;
+   }
+
    vk::SampleCountFlagBits getMaxSampleCount(const GraphicsContext& context)
    {
       const vk::PhysicalDeviceLimits& limits = context.getPhysicalDeviceProperties().limits;
@@ -390,14 +409,45 @@ namespace
             }
          });
 
-         scene.forEach<TransformComponent, DirectionalLightComponent>([&sceneRenderInfo, &frustumPlanes](const TransformComponent& transformComponent, const DirectionalLightComponent& directionalLightComponent)
+         uint32_t allocatedDirectionalShadowMaps = 0;
+         scene.forEach<TransformComponent, DirectionalLightComponent>([&sceneRenderInfo, &frustumPlanes, &allocatedDirectionalShadowMaps](const TransformComponent& transformComponent, const DirectionalLightComponent& directionalLightComponent)
          {
+            Transform transform = transformComponent.getAbsoluteTransform();
+
             DirectionalLightRenderInfo info;
             info.color = directionalLightComponent.getColor();
-            info.direction = transformComponent.getAbsoluteTransform().getForwardVector();
+            info.direction = transform.getForwardVector();
 
             if (glm::length2(info.color) > 0.0f)
             {
+               if (directionalLightComponent.castsShadows() && allocatedDirectionalShadowMaps < ForwardLighting::kMaxDirectionalShadowMaps)
+               {
+                  ViewInfo shadowViewInfo = computeDirectionalLightShadowViewInfo(transform, directionalLightComponent);
+                  glm::vec3 forwardOffset = transform.getForwardVector() * shadowViewInfo.orthographicInfo.depth;
+                  glm::vec3 rightOffset = transform.getRightVector() * shadowViewInfo.orthographicInfo.width;
+                  glm::vec3 upOffset = transform.getUpVector() * shadowViewInfo.orthographicInfo.height;
+
+                  std::array<glm::vec3, 8> points =
+                  {
+                     transform.position + forwardOffset + rightOffset + upOffset,
+                     transform.position + forwardOffset + rightOffset - upOffset,
+                     transform.position + forwardOffset - rightOffset + upOffset,
+                     transform.position + forwardOffset - rightOffset - upOffset,
+                     transform.position - forwardOffset + rightOffset + upOffset,
+                     transform.position - forwardOffset + rightOffset - upOffset,
+                     transform.position - forwardOffset - rightOffset + upOffset,
+                     transform.position - forwardOffset - rightOffset - upOffset,
+                  };
+
+                  bool shadowsVisible = !frustumCull(points, frustumPlanes);
+                  if (shadowsVisible)
+                  {
+                     info.shadowViewInfo = shadowViewInfo;
+                     info.shadowMapIndex = allocatedDirectionalShadowMaps++;
+                     info.shadowOrthoDepth = shadowViewInfo.orthographicInfo.depth;
+                  }
+               }
+
                sceneRenderInfo.directionalLights.push_back(info);
             }
          });
@@ -444,6 +494,11 @@ Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& reso
       {
          spotShadowViews[i] = std::make_unique<View>(context, dynamicDescriptorPool);
          NAME_POINTER(device, spotShadowViews[i], "Spot Shadow View " + std::to_string(i));
+      }
+      for (uint32_t i = 0; i < directionalShadowViews.size(); ++i)
+      {
+         directionalShadowViews[i] = std::make_unique<View>(context, dynamicDescriptorPool);
+         NAME_POINTER(device, directionalShadowViews[i], "Directional Shadow View " + std::to_string(i));
       }
    }
 
@@ -497,6 +552,14 @@ Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& reso
 
          spotShadowPassFramebufferHandles[i] = shadowPass->createFramebuffer(shadowPassInfo);
       }
+
+      for (uint32_t i = 0; i < ForwardLighting::kMaxDirectionalShadowMaps; ++i)
+      {
+         AttachmentInfo shadowPassInfo;
+         shadowPassInfo.depthInfo = forwardLighting->getDirectionalShadowInfo(i);
+
+         directionalShadowPassFramebufferHandles[i] = shadowPass->createFramebuffer(shadowPassInfo);
+      }
    }
 
    onSwapchainRecreated();
@@ -523,6 +586,10 @@ Renderer::~Renderer()
    for (std::unique_ptr<View>& spotShadowView : spotShadowViews)
    {
       spotShadowView.reset();
+   }
+   for (std::unique_ptr<View>& directionalShadowView : directionalShadowViews)
+   {
+      directionalShadowView.reset();
    }
 }
 
@@ -623,6 +690,26 @@ void Renderer::renderShadowMaps(vk::CommandBuffer commandBuffer, const Scene& sc
             SceneRenderInfo shadowSceneRenderInfo = computeSceneRenderInfo(resourceManager, scene, *spotShadowView, false);
 
             shadowPass->render(commandBuffer, shadowSceneRenderInfo, spotShadowPassFramebufferHandles[shadowMapIndex]);
+         }
+      }
+   }
+
+   if (!sceneRenderInfo.directionalLights.empty())
+   {
+      SCOPED_LABEL("Directional lights");
+
+      for (const DirectionalLightRenderInfo& directionalLightInfo : sceneRenderInfo.directionalLights)
+      {
+         if (directionalLightInfo.shadowViewInfo.has_value() && directionalLightInfo.shadowMapIndex.has_value() && directionalLightInfo.shadowMapIndex.value() < ForwardLighting::kMaxDirectionalShadowMaps)
+         {
+            uint32_t shadowMapIndex = directionalLightInfo.shadowMapIndex.value();
+
+            INLINE_LABEL("Update directional shadow view " + std::to_string(shadowMapIndex));
+            std::unique_ptr<View>& directionalShadowView = directionalShadowViews[shadowMapIndex];
+            directionalShadowView->update(directionalLightInfo.shadowViewInfo.value());
+            SceneRenderInfo shadowSceneRenderInfo = computeSceneRenderInfo(resourceManager, scene, *directionalShadowView, false);
+
+            shadowPass->render(commandBuffer, shadowSceneRenderInfo, directionalShadowPassFramebufferHandles[shadowMapIndex]);
          }
       }
    }

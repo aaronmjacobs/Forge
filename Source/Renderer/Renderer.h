@@ -50,6 +50,7 @@ private:
    std::unique_ptr<View> view;
    std::array<std::unique_ptr<View>, ForwardLighting::kMaxPointShadowMaps * kNumCubeFaces> pointShadowViews;
    std::array<std::unique_ptr<View>, ForwardLighting::kMaxSpotShadowMaps> spotShadowViews;
+   std::array<std::unique_ptr<View>, ForwardLighting::kMaxDirectionalShadowMaps> directionalShadowViews;
    std::unique_ptr<ForwardLighting> forwardLighting;
 
    std::unique_ptr<Texture> depthTexture;
@@ -64,6 +65,7 @@ private:
    FramebufferHandle prePassFramebufferHandle;
    std::array<FramebufferHandle, ForwardLighting::kMaxSpotShadowMaps * kNumCubeFaces> pointShadowPassFramebufferHandles;
    std::array<FramebufferHandle, ForwardLighting::kMaxSpotShadowMaps> spotShadowPassFramebufferHandles;
+   std::array<FramebufferHandle, ForwardLighting::kMaxDirectionalShadowMaps> directionalShadowPassFramebufferHandles;
    FramebufferHandle forwardPassFramebufferHandle;
    FramebufferHandle tonemapPassFramebufferHandle;
 

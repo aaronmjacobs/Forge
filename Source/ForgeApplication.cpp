@@ -520,11 +520,23 @@ void ForgeApplication::loadScene()
    {
       Entity directionalLightEntity = scene.createEntity();
 
-      TransformComponent& transformComponent = directionalLightEntity.createComponent<TransformComponent>();
-      transformComponent.transform.orientation = glm::angleAxis(glm::radians(-80.0f), MathUtils::kRightVector);
+      directionalLightEntity.createComponent<TransformComponent>();
 
       DirectionalLightComponent& directionalLightComponent = directionalLightEntity.createComponent<DirectionalLightComponent>();
-      directionalLightComponent.setColor(glm::vec3(0.05f));
+      directionalLightComponent.setColor(glm::vec3(1.0f));
+      directionalLightComponent.setShadowWidth(20.0f);
+      directionalLightComponent.setShadowHeight(15.0f);
+      directionalLightComponent.setShadowDepth(20.0f);
+
+      scene.addTickDelegate([this, directionalLightEntity](float dt) mutable
+      {
+         float time = scene.getTime();
+
+         TransformComponent& transformComponent = directionalLightEntity.getComponent<TransformComponent>();
+         float pitchOffset = 20.0f * glm::sin(time * 0.55f);
+         float yawOffset = 10.0f * glm::cos(time * 0.4f);
+         transformComponent.transform.orientation = glm::angleAxis(glm::radians(-90.0f + pitchOffset), MathUtils::kRightVector) * glm::angleAxis(glm::radians(yawOffset), MathUtils::kUpVector);
+      });
    }
 
    {
@@ -550,15 +562,15 @@ void ForgeApplication::loadScene()
       spotLightEntity.createComponent<TransformComponent>();
 
       SpotLightComponent& spotLightComponent = spotLightEntity.createComponent<SpotLightComponent>();
-      spotLightComponent.setColor(glm::vec3(0.8f, 0.1f, 0.3f) * 30.0f);
-      spotLightComponent.setRadius(10.0f);
+      spotLightComponent.setColor(glm::vec3(0.8f, 0.1f, 0.3f) * 50.0f);
+      spotLightComponent.setRadius(20.0f);
 
       scene.addTickDelegate([this, spotLightEntity](float dt) mutable
       {
          float time = scene.getTime();
 
          TransformComponent& transformComponent = spotLightEntity.getComponent<TransformComponent>();
-         transformComponent.transform.position = glm::vec3(glm::cos(time * 0.6f) * 8.0f, glm::sin(time * 0.3f) - 0.5f, glm::cos(time * 1.3f) * 2.0f + 2.0f);
+         transformComponent.transform.position = glm::vec3(glm::cos(time * 0.6f) * 8.0f, glm::sin(time * 0.3f) - 4.5f, glm::cos(time * 1.3f) * 1.5f + 1.5f);
       });
    }
 }

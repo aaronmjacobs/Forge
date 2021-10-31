@@ -5,8 +5,11 @@
 
 struct DirectionalLight
 {
+   mat4 worldToShadow;
    vec4 color;
    vec4 direction;
+   vec2 nearFar;
+   int shadowMapIndex;
 };
 
 struct PointLight
@@ -112,7 +115,7 @@ float calcVisibility(sampler2DArrayShadow shadowMaps, int shadowMapIndex, vec3 s
    return visibility / 9.0;
 }
 
-vec3 calcDirectionalLighting(DirectionalLight directionalLight, LightingParams lightingParams)
+vec3 calcDirectionalLighting(DirectionalLight directionalLight, LightingParams lightingParams, sampler2DArrayShadow shadowMaps)
 {
    vec3 lightColor = directionalLight.color.rgb;
    vec3 lightDirection = directionalLight.direction.xyz;
@@ -121,7 +124,16 @@ vec3 calcDirectionalLighting(DirectionalLight directionalLight, LightingParams l
    vec3 diffuse = calcDiffuse(lightColor, lightingParams.diffuseColor, lightingParams.surfaceNormal, -lightDirection);
    vec3 specular = calcSpecular(lightColor, lightingParams.specularColor, lightingParams.shininess, lightingParams.surfacePosition, lightingParams.surfaceNormal, -lightDirection, lightingParams.cameraPosition);
 
-   return ambient + (diffuse + specular);
+   vec3 directLighting = diffuse + specular;
+   vec3 indirectLighting = ambient;
+
+   if (vec3Max(directLighting) > 0.0 && directionalLight.shadowMapIndex >= 0)
+   {
+      float visibility = calcVisibility(shadowMaps, directionalLight.shadowMapIndex, lightingParams.surfacePosition, directionalLight.worldToShadow);
+      directLighting *= visibility;
+   }
+
+   return directLighting + indirectLighting;
 }
 
 vec3 calcPointLighting(PointLight pointLight, LightingParams lightingParams, samplerCubeArrayShadow shadowMaps)

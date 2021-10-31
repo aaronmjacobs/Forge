@@ -58,6 +58,7 @@ struct SpotLightRenderInfo : public LightRenderInfo
 struct DirectionalLightRenderInfo : public LightRenderInfo
 {
    glm::vec3 direction;
+   float shadowOrthoDepth = 0.0f;
 };
 
 struct SceneRenderInfo

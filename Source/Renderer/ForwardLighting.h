@@ -34,8 +34,11 @@ struct ForwardPointLightUniformData
 
 struct ForwardDirectionalLightUniformData
 {
+   alignas(16) glm::mat4 worldToShadow;
    alignas(16) glm::vec4 color;
    alignas(16) glm::vec4 direction;
+   alignas(16) glm::vec2 nearFar;
+   alignas(4) int shadowMapIndex = -1;
 };
 
 struct ForwardLightingUniformData
@@ -54,6 +57,7 @@ class ForwardLighting : public GraphicsResource
 public:
    static const uint32_t kMaxPointShadowMaps = 2;
    static const uint32_t kMaxSpotShadowMaps = 4;
+   static const uint32_t kMaxDirectionalShadowMaps = 1;
 
    static const vk::DescriptorSetLayoutCreateInfo& getLayoutCreateInfo();
    static vk::DescriptorSetLayout getLayout(const GraphicsContext& context);
@@ -73,6 +77,7 @@ public:
 
    TextureInfo getPointShadowInfo(uint32_t shadowMapIndex, uint32_t faceIndex) const;
    TextureInfo getSpotShadowInfo(uint32_t index) const;
+   TextureInfo getDirectionalShadowInfo(uint32_t index) const;
 
 protected:
    void updateDescriptorSets();
@@ -83,8 +88,11 @@ protected:
    vk::Sampler shadowMapSampler;
    std::unique_ptr<Texture> pointShadowMapTextureArray;
    std::unique_ptr<Texture> spotShadowMapTextureArray;
+   std::unique_ptr<Texture> directionalShadowMapTextureArray;
    vk::ImageView pointShadowSampleView;
    vk::ImageView spotShadowSampleView;
+   vk::ImageView directionalShadowSampleView;
    std::array<vk::ImageView, kMaxPointShadowMaps * kNumCubeFaces> pointShadowViews;
    std::array<vk::ImageView, kMaxSpotShadowMaps> spotShadowViews;
+   std::array<vk::ImageView, kMaxDirectionalShadowMaps> directionalShadowViews;
 };
