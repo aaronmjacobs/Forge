@@ -13,7 +13,8 @@
 bool TextureMaterialParameter::operator==(const TextureMaterialParameter& other) const
 {
    return name == other.name
-      && value == other.value;
+      && value == other.value
+      && interpretAlphaAsMask == other.interpretAlphaAsMask;
 }
 
 bool VectorMaterialParameter::operator==(const VectorMaterialParameter& other) const
@@ -43,6 +44,7 @@ namespace std
 
       Hash::combine(hash, textureMaterialParameters.name);
       Hash::combine(hash, textureMaterialParameters.value);
+      Hash::combine(hash, textureMaterialParameters.interpretAlphaAsMask);
 
       return hash;
    }
@@ -147,12 +149,14 @@ std::unique_ptr<Material> MaterialResourceManager::createMaterial(const Material
 {
    const Texture* diffuseTexture = nullptr;
    const Texture* normalTexture = nullptr;
+   bool interpretAlphaAsMask = false;
 
    for (const TextureMaterialParameter& textureMaterialParameter : parameters.textureParameters)
    {
       if (textureMaterialParameter.name == PhongMaterial::kDiffuseTextureParameterName)
       {
          diffuseTexture = resourceManager.getTexture(textureMaterialParameter.value);
+         interpretAlphaAsMask = textureMaterialParameter.interpretAlphaAsMask;
       }
       else if (textureMaterialParameter.name == PhongMaterial::kNormalTextureParameterName)
       {
@@ -162,7 +166,7 @@ std::unique_ptr<Material> MaterialResourceManager::createMaterial(const Material
 
    if (diffuseTexture && normalTexture)
    {
-      std::unique_ptr<Material> material = std::make_unique<PhongMaterial>(context, dynamicDescriptorPool, sampler, *diffuseTexture, *normalTexture);
+      std::unique_ptr<Material> material = std::make_unique<PhongMaterial>(context, dynamicDescriptorPool, sampler, *diffuseTexture, *normalTexture, interpretAlphaAsMask);
       NAME_POINTER(context.getDevice(), material, "Phong Material (Diffuse = " + diffuseTexture->getName() + ", Normal = " + normalTexture->getName() + ")");
 
       return material;

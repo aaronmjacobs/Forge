@@ -291,6 +291,10 @@ namespace
                      {
                         info.visibleOpaqueSections.push_back(section);
                      }
+                     else if (blendMode == BlendMode::Masked)
+                     {
+                        info.visibleMaskedSections.push_back(section);
+                     }
                      else if (blendMode == BlendMode::Translucent)
                      {
                         info.visibleTranslucentSections.push_back(section);

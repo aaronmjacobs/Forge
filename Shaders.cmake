@@ -3,11 +3,14 @@ set(SHADER_BIN_DIR "${RES_DIR}/Shaders")
 
 set(SHADER_HEADER_FILES
    "${SHADER_DIR}/Lighting.glsl"
+   "${SHADER_DIR}/Masked.glsl"
    "${SHADER_DIR}/View.glsl"
 )
 
 set(SHADER_SOURCE_FILES
    "${SHADER_DIR}/Depth.vert"
+   "${SHADER_DIR}/DepthMasked.frag"
+   "${SHADER_DIR}/DepthMasked.vert"
    "${SHADER_DIR}/Forward.frag"
    "${SHADER_DIR}/Forward.vert"
    "${SHADER_DIR}/Tonemap.frag"

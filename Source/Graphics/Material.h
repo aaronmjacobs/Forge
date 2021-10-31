@@ -1,15 +1,10 @@
 #pragma once
 
+#include "Graphics/BlendMode.h"
 #include "Graphics/DescriptorSet.h"
 #include "Graphics/GraphicsResource.h"
 
 class DynamicDescriptorPool;
-
-enum class BlendMode
-{
-   Opaque,
-   Translucent
-};
 
 class Material : public GraphicsResource
 {

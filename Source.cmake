@@ -17,6 +17,7 @@ target_sources(${PROJECT_NAME} PRIVATE
    "${SRC_DIR}/Core/Macros.h"
    "${SRC_DIR}/Core/Types.h"
 
+   "${SRC_DIR}/Graphics/BlendMode.h"
    "${SRC_DIR}/Graphics/Buffer.cpp"
    "${SRC_DIR}/Graphics/Buffer.h"
    "${SRC_DIR}/Graphics/Command.cpp"
@@ -74,6 +75,8 @@ target_sources(${PROJECT_NAME} PRIVATE
    "${SRC_DIR}/Renderer/ForwardLighting.h"
    "${SRC_DIR}/Renderer/Passes/Depth/DepthPass.cpp"
    "${SRC_DIR}/Renderer/Passes/Depth/DepthPass.h"
+   "${SRC_DIR}/Renderer/Passes/Depth/DepthMaskedShader.cpp"
+   "${SRC_DIR}/Renderer/Passes/Depth/DepthMaskedShader.h"
    "${SRC_DIR}/Renderer/Passes/Depth/DepthShader.cpp"
    "${SRC_DIR}/Renderer/Passes/Depth/DepthShader.h"
    "${SRC_DIR}/Renderer/Passes/Forward/ForwardPass.cpp"

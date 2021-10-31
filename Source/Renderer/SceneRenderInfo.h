@@ -19,6 +19,7 @@ struct MeshRenderInfo
    glm::mat4 localToWorld;
 
    std::vector<uint32_t> visibleOpaqueSections;
+   std::vector<uint32_t> visibleMaskedSections;
    std::vector<uint32_t> visibleTranslucentSections;
    std::vector<const Material*> materials;
    const Mesh* mesh = nullptr;

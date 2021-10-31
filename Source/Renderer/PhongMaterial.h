@@ -9,5 +9,5 @@ public:
    static const std::string kDiffuseTextureParameterName;
    static const std::string kNormalTextureParameterName;
 
-   PhongMaterial(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, vk::Sampler sampler, const Texture& diffuseTexture, const Texture& normalTexture);
+   PhongMaterial(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, vk::Sampler sampler, const Texture& diffuseTexture, const Texture& normalTexture, bool interpretAlphaAsMask = false);
 };

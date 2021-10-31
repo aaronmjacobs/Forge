@@ -90,7 +90,7 @@ protected:
    vk::RenderPass getRenderPass() const { return renderPass; }
    const Framebuffer* getFramebuffer(FramebufferHandle handle) const;
 
-   vk::PipelineLayout pipelineLayout;
+   std::vector<vk::PipelineLayout> pipelineLayouts;
    std::vector<vk::Pipeline> pipelines;
 
    bool clearDepth = false;

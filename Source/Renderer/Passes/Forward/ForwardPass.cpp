@@ -10,14 +10,6 @@
 #include "Renderer/SceneRenderInfo.h"
 #include "Renderer/UniformData.h"
 
-namespace
-{
-   uint32_t getForwardPipelineIndex(bool withTextures, bool withBlending)
-   {
-      return (withTextures ? 0b01 : 0b00) | (withBlending ? 0b10 : 0b00);
-   }
-}
-
 ForwardPass::ForwardPass(const GraphicsContext& graphicsContext, ResourceManager& resourceManager, const ForwardLighting* forwardLighting)
    : SceneRenderPass(graphicsContext)
    , lighting(forwardLighting)
@@ -56,6 +48,11 @@ void ForwardPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo&
    }
 
    {
+      SCOPED_LABEL("Masked");
+      renderMeshes<BlendMode::Masked>(commandBuffer, sceneRenderInfo);
+   }
+
+   {
       SCOPED_LABEL("Translucent");
       renderMeshes<BlendMode::Translucent>(commandBuffer, sceneRenderInfo);
    }
@@ -65,15 +62,22 @@ void ForwardPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo&
 
 void ForwardPass::initializePipelines(vk::SampleCountFlagBits sampleCount)
 {
+   pipelineLayouts.resize(1);
+
    std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = forwardShader->getSetLayouts();
    std::vector<vk::PushConstantRange> pushConstantRanges = forwardShader->getPushConstantRanges();
    vk::PipelineLayoutCreateInfo pipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo()
       .setSetLayouts(descriptorSetLayouts)
       .setPushConstantRanges(pushConstantRanges);
-   pipelineLayout = device.createPipelineLayout(pipelineLayoutCreateInfo);
+   pipelineLayouts[0] = device.createPipelineLayout(pipelineLayoutCreateInfo);
 
-   std::vector<vk::PipelineShaderStageCreateInfo> shaderStagesWithoutTextures = forwardShader->getStages(false);
-   std::vector<vk::PipelineShaderStageCreateInfo> shaderStagesWithTextures = forwardShader->getStages(true);
+   std::array<std::vector<vk::PipelineShaderStageCreateInfo>, 4> shaderStages =
+   {
+      forwardShader->getStages(false, false),
+      forwardShader->getStages(false, true),
+      forwardShader->getStages(true, false),
+      forwardShader->getStages(true, true)
+   };
 
    vk::PipelineColorBlendAttachmentState colorBlendDisabledAttachmentState = vk::PipelineColorBlendAttachmentState()
       .setColorWriteMask(vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA)
@@ -90,21 +94,30 @@ void ForwardPass::initializePipelines(vk::SampleCountFlagBits sampleCount)
    std::vector<vk::PipelineColorBlendAttachmentState> colorBlendDisabledAttachments = { colorBlendDisabledAttachmentState };
    std::vector<vk::PipelineColorBlendAttachmentState> colorBlendEnabledAttachments = { colorBlendEnabledAttachmentState };
 
-   PipelineData pipelineData(context, pipelineLayout, getRenderPass(), PipelinePassType::Mesh, shaderStagesWithoutTextures, colorBlendDisabledAttachments, sampleCount);
-   pipelines[getForwardPipelineIndex(false, false)] = device.createGraphicsPipeline(nullptr, pipelineData.getCreateInfo()).value;
-   NAME_CHILD(pipelines[getForwardPipelineIndex(false, false)], "Pipeline (Without Textures, Without Blending)");
+   PipelineInfo pipelineInfo;
+   pipelineInfo.renderPass = getRenderPass();
+   pipelineInfo.layout = pipelineLayouts[0];
+   pipelineInfo.sampleCount = sampleCount;
+   pipelineInfo.passType = PipelinePassType::Mesh;
+   pipelineInfo.writeDepth = false;
+   pipelineInfo.positionOnly = false;
 
-   pipelineData.setShaderStages(shaderStagesWithTextures);
-   pipelines[getForwardPipelineIndex(true, false)] = device.createGraphicsPipeline(nullptr, pipelineData.getCreateInfo()).value;
-   NAME_CHILD(pipelines[getForwardPipelineIndex(true, false)], "Pipeline (With Textures, Without Blending)");
+   PipelineData pipelineData(context, pipelineInfo, shaderStages[ForwardShader::getPermutationIndex(false, false)], colorBlendDisabledAttachments);
+   pipelines[ForwardShader::getPermutationIndex(false, false)] = device.createGraphicsPipeline(nullptr, pipelineData.getCreateInfo()).value;
+   NAME_CHILD(pipelines[ForwardShader::getPermutationIndex(false, false)], "Pipeline (Without Textures, Without Blending)");
 
+   pipelineData.setShaderStages(shaderStages[ForwardShader::getPermutationIndex(true, false)]);
+   pipelines[ForwardShader::getPermutationIndex(true, false)] = device.createGraphicsPipeline(nullptr, pipelineData.getCreateInfo()).value;
+   NAME_CHILD(pipelines[ForwardShader::getPermutationIndex(true, false)], "Pipeline (With Textures, Without Blending)");
+
+   pipelineData.setShaderStages(shaderStages[ForwardShader::getPermutationIndex(true, true)]);
    pipelineData.setColorBlendAttachmentStates(colorBlendEnabledAttachments);
-   pipelines[getForwardPipelineIndex(true, true)] = device.createGraphicsPipeline(nullptr, pipelineData.getCreateInfo()).value;
-   NAME_CHILD(pipelines[getForwardPipelineIndex(true, true)], "Pipeline (With Textures, With Blending)");
+   pipelines[ForwardShader::getPermutationIndex(true, true)] = device.createGraphicsPipeline(nullptr, pipelineData.getCreateInfo()).value;
+   NAME_CHILD(pipelines[ForwardShader::getPermutationIndex(true, true)], "Pipeline (With Textures, With Blending)");
 
-   pipelineData.setShaderStages(shaderStagesWithoutTextures);
-   pipelines[getForwardPipelineIndex(false, true)] = device.createGraphicsPipeline(nullptr, pipelineData.getCreateInfo()).value;
-   NAME_CHILD(pipelines[getForwardPipelineIndex(false, true)], "Pipeline (Without Textures, With Blending)");
+   pipelineData.setShaderStages(shaderStages[ForwardShader::getPermutationIndex(false, true)]);
+   pipelines[ForwardShader::getPermutationIndex(false, true)] = device.createGraphicsPipeline(nullptr, pipelineData.getCreateInfo()).value;
+   NAME_CHILD(pipelines[ForwardShader::getPermutationIndex(false, true)], "Pipeline (Without Textures, With Blending)");
 }
 
 std::vector<vk::SubpassDependency> ForwardPass::getSubpassDependencies() const
@@ -122,15 +135,15 @@ std::vector<vk::SubpassDependency> ForwardPass::getSubpassDependencies() const
    return subpassDependencies;
 }
 
-void ForwardPass::renderMesh(vk::CommandBuffer commandBuffer, const View& view, const Mesh& mesh, uint32_t section, const Material& material)
+void ForwardPass::renderMesh(vk::CommandBuffer commandBuffer, vk::PipelineLayout pipelineLayout, const View& view, const Mesh& mesh, uint32_t section, const Material& material)
 {
    ASSERT(lighting);
    forwardShader->bindDescriptorSets(commandBuffer, pipelineLayout, view, *lighting, material);
 
-   SceneRenderPass::renderMesh(commandBuffer, view, mesh, section, material);
+   SceneRenderPass::renderMesh(commandBuffer, pipelineLayout, view, mesh, section, material);
 }
 
 vk::Pipeline ForwardPass::selectPipeline(const View& view, const MeshSection& meshSection, const Material& material) const
 {
-   return pipelines[getForwardPipelineIndex(meshSection.hasValidTexCoords, material.getBlendMode() == BlendMode::Translucent)];
+   return pipelines[ForwardShader::getPermutationIndex(meshSection.hasValidTexCoords, material.getBlendMode() == BlendMode::Translucent)];
 }

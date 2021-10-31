@@ -3,19 +3,21 @@
 #extension GL_EXT_scalar_block_layout : enable
 
 #include "Lighting.glsl"
+#include "Masked.glsl"
 #include "View.glsl"
 
 layout(constant_id = 0) const bool kWithTextures = false;
+layout(constant_id = 1) const bool kWithBlending = false;
 
 layout(std430, set = 1, binding = 0) uniform Lights
 {
-	SpotLight spotLights[8];
-	PointLight pointLights[8];
-	DirectionalLight directionalLights[2];
+   SpotLight spotLights[8];
+   PointLight pointLights[8];
+   DirectionalLight directionalLights[2];
 
-	int numSpotLights;
-	int numPointLights;
-	int numDirectionalLights;
+   int numSpotLights;
+   int numPointLights;
+   int numDirectionalLights;
 };
 layout(set = 1, binding = 1) uniform samplerCubeArrayShadow pointLightShadowMaps;
 layout(set = 1, binding = 2) uniform sampler2DArrayShadow spotLightShadowMaps;
@@ -32,47 +34,52 @@ layout(location = 0) out vec4 outColor;
 
 void main()
 {
-	LightingParams lightingParams;
+   LightingParams lightingParams;
 
-	float alpha = 1.0;
-	if (kWithTextures)
-	{
-		vec4 diffuseSample = texture(diffuseTexture, inTexCoord);
-		lightingParams.diffuseColor = inColor.rgb * diffuseSample.rgb;
-		alpha = inColor.a * diffuseSample.a;
+   float alpha = 1.0;
+   if (kWithTextures)
+   {
+      vec4 diffuseSample = texture(diffuseTexture, inTexCoord);
+      lightingParams.diffuseColor = inColor.rgb * diffuseSample.rgb;
+      alpha = inColor.a * diffuseSample.a;
 
-		vec3 tangentSpaceNormal = texture(normalTexture, inTexCoord).rgb * 2.0 - 1.0;
-		lightingParams.surfaceNormal = normalize(inTBN * tangentSpaceNormal);
-	}
-	else
-	{
-		lightingParams.diffuseColor = inColor.rgb;
-		alpha = inColor.a;
+      vec3 tangentSpaceNormal = texture(normalTexture, inTexCoord).rgb * 2.0 - 1.0;
+      lightingParams.surfaceNormal = normalize(inTBN * tangentSpaceNormal);
+   }
+   else
+   {
+      lightingParams.diffuseColor = inColor.rgb;
+      alpha = inColor.a;
 
-		lightingParams.surfaceNormal = normalize(inTBN[2]);
-	}
+      lightingParams.surfaceNormal = normalize(inTBN[2]);
+   }
 
-	lightingParams.specularColor = vec3(0.5);
-	lightingParams.shininess = 30.0;
-	lightingParams.surfacePosition = inPosition;
-	lightingParams.cameraPosition = view.position.xyz;
+   if (!kWithBlending && !passesMaskThreshold(alpha))
+   {
+      discard;
+   }
 
-	vec3 color = vec3(0.0);
+   lightingParams.specularColor = vec3(0.5);
+   lightingParams.shininess = 30.0;
+   lightingParams.surfacePosition = inPosition;
+   lightingParams.cameraPosition = view.position.xyz;
 
-	for (int i = 0; i < numDirectionalLights; ++i)
-	{
-		color += calcDirectionalLighting(directionalLights[i], lightingParams);
-	}
+   vec3 color = vec3(0.0);
 
-	for (int i = 0; i < numPointLights; ++i)
-	{
-		color += calcPointLighting(pointLights[i], lightingParams, pointLightShadowMaps);
-	}
+   for (int i = 0; i < numDirectionalLights; ++i)
+   {
+      color += calcDirectionalLighting(directionalLights[i], lightingParams);
+   }
 
-	for (int i = 0; i < numSpotLights; ++i)
-	{
-		color += calcSpotLighting(spotLights[i], lightingParams, spotLightShadowMaps);
-	}
+   for (int i = 0; i < numPointLights; ++i)
+   {
+      color += calcPointLighting(pointLights[i], lightingParams, pointLightShadowMaps);
+   }
 
-	outColor = vec4(color, alpha);
+   for (int i = 0; i < numSpotLights; ++i)
+   {
+      color += calcSpotLighting(spotLights[i], lightingParams, spotLightShadowMaps);
+   }
+
+   outColor = vec4(color, alpha);
 }

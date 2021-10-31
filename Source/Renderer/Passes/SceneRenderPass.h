@@ -23,10 +23,12 @@ protected:
    template<BlendMode blendMode>
    void renderMeshes(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo)
    {
+      vk::PipelineLayout pipelineLayout = static_cast<Derived*>(this)->selectPipelineLayout(blendMode);
+
       vk::Pipeline lastPipeline;
       for (const MeshRenderInfo& meshRenderInfo : sceneRenderInfo.meshes)
       {
-         const std::vector<uint32_t>& sections = blendMode == BlendMode::Translucent ? meshRenderInfo.visibleTranslucentSections : meshRenderInfo.visibleOpaqueSections;
+         const std::vector<uint32_t>& sections = blendMode == BlendMode::Translucent ? meshRenderInfo.visibleTranslucentSections : blendMode == BlendMode::Masked ? meshRenderInfo.visibleMaskedSections : meshRenderInfo.visibleOpaqueSections;
          if (!sections.empty())
          {
             ASSERT(meshRenderInfo.mesh);
@@ -51,13 +53,13 @@ protected:
                   lastPipeline = desiredPipeline;
                }
 
-               static_cast<Derived*>(this)->renderMesh(commandBuffer, sceneRenderInfo.view, *meshRenderInfo.mesh, section, *material);
+               static_cast<Derived*>(this)->renderMesh(commandBuffer, pipelineLayout, sceneRenderInfo.view, *meshRenderInfo.mesh, section, *material);
             }
          }
       }
    }
 
-   void renderMesh(vk::CommandBuffer commandBuffer, const View& view, const Mesh& mesh, uint32_t section, const Material& material)
+   void renderMesh(vk::CommandBuffer commandBuffer, vk::PipelineLayout pipelineLayout, const View& view, const Mesh& mesh, uint32_t section, const Material& material)
    {
       mesh.bindBuffers(commandBuffer, section);
       mesh.draw(commandBuffer, section);
@@ -67,6 +69,12 @@ protected:
    {
       commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline);
       commandBuffer.draw(3, 1, 0, 0);
+   }
+
+   vk::PipelineLayout selectPipelineLayout(BlendMode blendMode) const
+   {
+      ASSERT(!pipelineLayouts.empty());
+      return pipelineLayouts[0];
    }
 
    vk::Pipeline selectPipeline(const View& view, const MeshSection& meshSection, const Material& material) const

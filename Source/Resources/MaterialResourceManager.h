@@ -15,6 +15,7 @@ struct TextureMaterialParameter
 {
    std::string name;
    TextureHandle value;
+   bool interpretAlphaAsMask = false;
 
    bool operator==(const TextureMaterialParameter& other) const;
 };

@@ -126,7 +126,7 @@ namespace
       return resourceManager.loadTexture(texturePath, loadOptions);
    }
 
-   MaterialHandle processAssimpMaterial(const aiMaterial& assimpMaterial, const std::filesystem::path& directory, ResourceManager& resourceManager)
+   MaterialHandle processAssimpMaterial(const aiMaterial& assimpMaterial, bool interpretTextureAlphaAsMask, const std::filesystem::path& directory, ResourceManager& resourceManager)
    {
       TextureHandle diffuseTextureHandle = loadMaterialTexture(assimpMaterial, aiTextureType_DIFFUSE, directory, resourceManager);
       TextureHandle normalTextureHandle = loadMaterialTexture(assimpMaterial, aiTextureType_NORMALS, directory, resourceManager);
@@ -134,6 +134,7 @@ namespace
       TextureMaterialParameter diffuseParameter;
       diffuseParameter.name = PhongMaterial::kDiffuseTextureParameterName;
       diffuseParameter.value = diffuseTextureHandle;
+      diffuseParameter.interpretAlphaAsMask = interpretTextureAlphaAsMask;
 
       TextureMaterialParameter normalParameter;
       normalParameter.name = PhongMaterial::kNormalTextureParameterName;
@@ -146,7 +147,7 @@ namespace
       return resourceManager.loadMaterial(materialParameters);
    }
 
-   MeshSectionSourceData processAssimpMesh(const aiScene& assimpScene, const aiMesh& assimpMesh, const glm::mat3& swizzle, float scale, const std::filesystem::path& directory, ResourceManager& resourceManager)
+   MeshSectionSourceData processAssimpMesh(const aiScene& assimpScene, const aiMesh& assimpMesh, const glm::mat3& swizzle, float scale, bool interpretTextureAlphaAsMask, const std::filesystem::path& directory, ResourceManager& resourceManager)
    {
       MeshSectionSourceData sectionSourceData;
 
@@ -214,23 +215,23 @@ namespace
 
       if (assimpMesh.mMaterialIndex < assimpScene.mNumMaterials && assimpScene.mMaterials[assimpMesh.mMaterialIndex])
       {
-         sectionSourceData.materialHandle = processAssimpMaterial(*assimpScene.mMaterials[assimpMesh.mMaterialIndex], directory, resourceManager);
+         sectionSourceData.materialHandle = processAssimpMaterial(*assimpScene.mMaterials[assimpMesh.mMaterialIndex], interpretTextureAlphaAsMask, directory, resourceManager);
       }
 
       return sectionSourceData;
    }
 
-   void processAssimpNode(std::vector<MeshSectionSourceData>& sourceData, const aiScene& assimpScene, const aiNode& assimpNode, const glm::mat3& swizzle, float scale, const std::filesystem::path& directory, ResourceManager& resourceManager)
+   void processAssimpNode(std::vector<MeshSectionSourceData>& sourceData, const aiScene& assimpScene, const aiNode& assimpNode, const glm::mat3& swizzle, float scale, bool interpretTextureAlphaAsMask, const std::filesystem::path& directory, ResourceManager& resourceManager)
    {
       for (unsigned int i = 0; i < assimpNode.mNumMeshes; ++i)
       {
          const aiMesh& assimpMesh = *assimpScene.mMeshes[assimpNode.mMeshes[i]];
-         sourceData.push_back(processAssimpMesh(assimpScene, assimpMesh, swizzle, scale, directory, resourceManager));
+         sourceData.push_back(processAssimpMesh(assimpScene, assimpMesh, swizzle, scale, interpretTextureAlphaAsMask, directory, resourceManager));
       }
 
       for (unsigned int i = 0; i < assimpNode.mNumChildren; ++i)
       {
-         processAssimpNode(sourceData, assimpScene, *assimpNode.mChildren[i], swizzle, scale, directory, resourceManager);
+         processAssimpNode(sourceData, assimpScene, *assimpNode.mChildren[i], swizzle, scale, interpretTextureAlphaAsMask, directory, resourceManager);
       }
    }
 
@@ -245,7 +246,7 @@ namespace
       if (assimpScene && assimpScene->mRootNode && !(assimpScene->mFlags & AI_SCENE_FLAGS_INCOMPLETE))
       {
          std::filesystem::path directory = path.parent_path();
-         processAssimpNode(sourceData, *assimpScene, *assimpScene->mRootNode, getSwizzleMatrix(loadOptions), loadOptions.scale, directory, resourceManager);
+         processAssimpNode(sourceData, *assimpScene, *assimpScene->mRootNode, getSwizzleMatrix(loadOptions), loadOptions.scale, loadOptions.interpretTextureAlphaAsMask, directory, resourceManager);
       }
 
       return sourceData;

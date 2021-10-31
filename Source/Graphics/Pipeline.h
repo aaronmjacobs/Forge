@@ -12,6 +12,17 @@ enum class PipelinePassType
    Screen
 };
 
+struct PipelineInfo
+{
+   vk::RenderPass renderPass;
+   vk::PipelineLayout layout;
+   vk::SampleCountFlagBits sampleCount = vk::SampleCountFlagBits::e1;
+
+   PipelinePassType passType = PipelinePassType::Mesh;
+   bool writeDepth = false;
+   bool positionOnly = false;
+};
+
 class PipelineDataBase
 {
 protected:
@@ -37,7 +48,7 @@ protected:
 class PipelineData : public PipelineDataBase
 {
 public:
-   PipelineData(const GraphicsContext& context, vk::PipelineLayout layout, vk::RenderPass renderPass, PipelinePassType passType, std::vector<vk::PipelineShaderStageCreateInfo> shaderStages, std::vector<vk::PipelineColorBlendAttachmentState> colorBlendStates, vk::SampleCountFlagBits sampleCount);
+   PipelineData(const GraphicsContext& context, const PipelineInfo& info, std::vector<vk::PipelineShaderStageCreateInfo> shaderStages, std::vector<vk::PipelineColorBlendAttachmentState> colorBlendStates);
    PipelineData(const PipelineData& other);
    PipelineData(PipelineData&& other);
 

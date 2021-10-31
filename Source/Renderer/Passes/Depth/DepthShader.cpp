@@ -19,7 +19,7 @@ DepthShader::DepthShader(const GraphicsContext& graphicsContext, ResourceManager
       .setPName("main");
 }
 
-void DepthShader::bindDescriptorSets(vk::CommandBuffer commandBuffer, const View& view, vk::PipelineLayout pipelineLayout)
+void DepthShader::bindDescriptorSets(vk::CommandBuffer commandBuffer, vk::PipelineLayout pipelineLayout, const View& view)
 {
    commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, 0, { view.getDescriptorSet().getCurrentSet() }, {});
 }

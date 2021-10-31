@@ -78,7 +78,7 @@ void TonemapPass::render(vk::CommandBuffer commandBuffer, FramebufferHandle fram
       .setPImageInfo(&imageInfo);
    device.updateDescriptorSets(descriptorWrite, {});
 
-   tonemapShader->bindDescriptorSets(commandBuffer, pipelineLayout, descriptorSet);
+   tonemapShader->bindDescriptorSets(commandBuffer, pipelineLayouts[0], descriptorSet);
    renderScreenMesh(commandBuffer, pipelines[0]);
 
    endRenderPass(commandBuffer);
@@ -92,16 +92,26 @@ void TonemapPass::render(vk::CommandBuffer commandBuffer, FramebufferHandle fram
 
 void TonemapPass::initializePipelines(vk::SampleCountFlagBits sampleCount)
 {
+   pipelineLayouts.resize(1);
+
    std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = tonemapShader->getSetLayouts();
    vk::PipelineLayoutCreateInfo pipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo()
       .setSetLayouts(descriptorSetLayouts);
-   pipelineLayout = device.createPipelineLayout(pipelineLayoutCreateInfo);
+   pipelineLayouts[0] = device.createPipelineLayout(pipelineLayoutCreateInfo);
 
    vk::PipelineColorBlendAttachmentState attachmentState = vk::PipelineColorBlendAttachmentState()
       .setColorWriteMask(vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA)
       .setBlendEnable(false);
 
-   PipelineData pipelineData(context, pipelineLayout, getRenderPass(), PipelinePassType::Screen, tonemapShader->getStages(), { attachmentState }, sampleCount);
+   PipelineInfo pipelineInfo;
+   pipelineInfo.renderPass = getRenderPass();
+   pipelineInfo.layout = pipelineLayouts[0];
+   pipelineInfo.sampleCount = sampleCount;
+   pipelineInfo.passType = PipelinePassType::Screen;
+   pipelineInfo.writeDepth = false;
+   pipelineInfo.positionOnly = false;
+
+   PipelineData pipelineData(context, pipelineInfo, tonemapShader->getStages(), { attachmentState });
    pipelines[0] = device.createGraphicsPipeline(nullptr, pipelineData.getCreateInfo()).value;
    NAME_CHILD(pipelines[0], "Pipeline");
 }

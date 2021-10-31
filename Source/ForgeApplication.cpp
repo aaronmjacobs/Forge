@@ -503,6 +503,7 @@ void ForgeApplication::loadScene()
 
       MeshLoadOptions meshLoadOptions;
       meshLoadOptions.scale = 0.01f;
+      meshLoadOptions.interpretTextureAlphaAsMask = true;
       meshComponent.meshHandle = resourceManager->loadMesh("Resources/Meshes/Sponza/Sponza.gltf", meshLoadOptions);
    }
 

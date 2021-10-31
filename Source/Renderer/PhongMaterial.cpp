@@ -39,12 +39,12 @@ const std::string PhongMaterial::kDiffuseTextureParameterName = "diffuse";
 // static
 const std::string PhongMaterial::kNormalTextureParameterName = "normal";
 
-PhongMaterial::PhongMaterial(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, vk::Sampler sampler, const Texture& diffuseTexture, const Texture& normalTexture)
+PhongMaterial::PhongMaterial(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, vk::Sampler sampler, const Texture& diffuseTexture, const Texture& normalTexture, bool interpretAlphaAsMask)
    : Material(graphicsContext, dynamicDescriptorPool, getLayoutCreateInfo())
 {
    if (diffuseTexture.getImageProperties().hasAlpha)
    {
-      blendMode = BlendMode::Translucent;
+      blendMode = interpretAlphaAsMask ? BlendMode::Masked : BlendMode::Translucent;
    }
 
    std::array<vk::DescriptorImageInfo, GraphicsContext::kMaxFramesInFlight * 2> imageInfo;

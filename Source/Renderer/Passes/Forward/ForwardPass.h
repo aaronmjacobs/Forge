@@ -22,7 +22,7 @@ protected:
    void initializePipelines(vk::SampleCountFlagBits sampleCount) override;
    std::vector<vk::SubpassDependency> getSubpassDependencies() const override;
 
-   void renderMesh(vk::CommandBuffer commandBuffer, const View& view, const Mesh& mesh, uint32_t section, const Material& material);
+   void renderMesh(vk::CommandBuffer commandBuffer, vk::PipelineLayout pipelineLayout, const View& view, const Mesh& mesh, uint32_t section, const Material& material);
    vk::Pipeline selectPipeline(const View& view, const MeshSection& meshSection, const Material& material) const;
 
 private:

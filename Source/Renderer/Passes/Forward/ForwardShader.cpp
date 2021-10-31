@@ -11,23 +11,33 @@ namespace
 {
    struct ForwardShaderStageData
    {
-      std::array<vk::SpecializationMapEntry, 1> specializationMapEntries =
+      std::array<vk::SpecializationMapEntry, 2> specializationMapEntries =
       {
          vk::SpecializationMapEntry()
             .setConstantID(0)
             .setOffset(0)
+            .setSize(sizeof(VkBool32)),
+         vk::SpecializationMapEntry()
+            .setConstantID(1)
+            .setOffset(1)
             .setSize(sizeof(VkBool32))
       };
 
-      std::array<VkBool32, 1> withTexturesSpecializationData = { true };
-      std::array<VkBool32, 1> withoutTexturesSpecializationData = { false };
+      std::array<std::array<VkBool32, 2>, 4> specializationData =
+      { {
+         { false, false },
+         { false, true },
+         { true, false },
+         { true, true }
+      } };
 
-      vk::SpecializationInfo withTextureSpecializationInfo = vk::SpecializationInfo()
-         .setMapEntries(specializationMapEntries)
-         .setData<VkBool32>(withTexturesSpecializationData);
-      vk::SpecializationInfo withoutTexturesSpecializationInfo = vk::SpecializationInfo()
-         .setMapEntries(specializationMapEntries)
-         .setData<VkBool32>(withoutTexturesSpecializationData);
+      std::array<vk::SpecializationInfo, 4> specializationInfo =
+      {
+         vk::SpecializationInfo().setMapEntries(specializationMapEntries).setData<std::array<VkBool32, 2>>(specializationData[0]),
+         vk::SpecializationInfo().setMapEntries(specializationMapEntries).setData<std::array<VkBool32, 2>>(specializationData[1]),
+         vk::SpecializationInfo().setMapEntries(specializationMapEntries).setData<std::array<VkBool32, 2>>(specializationData[2]),
+         vk::SpecializationInfo().setMapEntries(specializationMapEntries).setData<std::array<VkBool32, 2>>(specializationData[3])
+      };
    };
 
    const ForwardShaderStageData& getStageData()
@@ -35,6 +45,11 @@ namespace
       static const ForwardShaderStageData kStageData;
       return kStageData;
    }
+}
+
+uint32_t ForwardShader::getPermutationIndex(bool withTextures, bool withBlending)
+{
+   return (withTextures ? 0b01 : 0b00) | (withBlending ? 0b10 : 0b00);
 }
 
 ForwardShader::ForwardShader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager)
@@ -52,29 +67,20 @@ ForwardShader::ForwardShader(const GraphicsContext& graphicsContext, ResourceMan
 
    const ForwardShaderStageData& stageData = getStageData();
 
-   vertStageCreateInfoWithTextures = vk::PipelineShaderStageCreateInfo()
-      .setStage(vk::ShaderStageFlagBits::eVertex)
-      .setModule(vertShaderModule->getShaderModule())
-      .setPName("main")
-      .setPSpecializationInfo(&stageData.withTextureSpecializationInfo);
+   for (uint32_t i = 0; i < 4; ++i)
+   {
+      vertStageCreateInfo[i] = vk::PipelineShaderStageCreateInfo()
+         .setStage(vk::ShaderStageFlagBits::eVertex)
+         .setModule(vertShaderModule->getShaderModule())
+         .setPName("main")
+         .setPSpecializationInfo(&stageData.specializationInfo[i]);
 
-   vertStageCreateInfoWithoutTextures = vk::PipelineShaderStageCreateInfo()
-      .setStage(vk::ShaderStageFlagBits::eVertex)
-      .setModule(vertShaderModule->getShaderModule())
-      .setPName("main")
-      .setPSpecializationInfo(&stageData.withoutTexturesSpecializationInfo);
-
-   fragStageCreateInfoWithTextures = vk::PipelineShaderStageCreateInfo()
-      .setStage(vk::ShaderStageFlagBits::eFragment)
-      .setModule(fragShaderModule->getShaderModule())
-      .setPName("main")
-      .setPSpecializationInfo(&stageData.withTextureSpecializationInfo);
-
-   fragStageCreateInfoWithoutTextures = vk::PipelineShaderStageCreateInfo()
-      .setStage(vk::ShaderStageFlagBits::eFragment)
-      .setModule(fragShaderModule->getShaderModule())
-      .setPName("main")
-      .setPSpecializationInfo(&stageData.withoutTexturesSpecializationInfo);
+      fragStageCreateInfo[i] = vk::PipelineShaderStageCreateInfo()
+         .setStage(vk::ShaderStageFlagBits::eFragment)
+         .setModule(fragShaderModule->getShaderModule())
+         .setPName("main")
+         .setPSpecializationInfo(&stageData.specializationInfo[i]);
+   }
 }
 
 void ForwardShader::bindDescriptorSets(vk::CommandBuffer commandBuffer, vk::PipelineLayout pipelineLayout, const View& view, const ForwardLighting& lighting, const Material& material)
@@ -82,9 +88,10 @@ void ForwardShader::bindDescriptorSets(vk::CommandBuffer commandBuffer, vk::Pipe
    commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, 0, { view.getDescriptorSet().getCurrentSet(), lighting.getDescriptorSet().getCurrentSet(), material.getDescriptorSet().getCurrentSet() }, {});
 }
 
-std::vector<vk::PipelineShaderStageCreateInfo> ForwardShader::getStages(bool withTextures) const
+std::vector<vk::PipelineShaderStageCreateInfo> ForwardShader::getStages(bool withTextures, bool withBlending) const
 {
-   return { withTextures ? vertStageCreateInfoWithTextures : vertStageCreateInfoWithoutTextures, withTextures ? fragStageCreateInfoWithTextures : fragStageCreateInfoWithoutTextures };
+   uint32_t permutationIndex = getPermutationIndex(withTextures, withBlending);
+   return { vertStageCreateInfo[permutationIndex], fragStageCreateInfo[permutationIndex] };
 }
 
 std::vector<vk::DescriptorSetLayout> ForwardShader::getSetLayouts() const

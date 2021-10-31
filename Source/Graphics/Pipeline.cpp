@@ -5,7 +5,7 @@
 
 #include <utility>
 
-PipelineData::PipelineData(const GraphicsContext& context, vk::PipelineLayout layout, vk::RenderPass renderPass, PipelinePassType passType, std::vector<vk::PipelineShaderStageCreateInfo> shaderStages, std::vector<vk::PipelineColorBlendAttachmentState> colorBlendStates, vk::SampleCountFlagBits sampleCount)
+PipelineData::PipelineData(const GraphicsContext& context, const PipelineInfo& info, std::vector<vk::PipelineShaderStageCreateInfo> shaderStages, std::vector<vk::PipelineColorBlendAttachmentState> colorBlendStates)
 {
    viewport = vk::Viewport()
       .setX(0.0f)
@@ -21,10 +21,9 @@ PipelineData::PipelineData(const GraphicsContext& context, vk::PipelineLayout la
    shaderStageCreateInfo = std::move(shaderStages);
    colorBlendAttachmentStates = std::move(colorBlendStates);
 
-   bool hasColorOutput = !colorBlendAttachmentStates.empty();
    const std::vector<vk::VertexInputBindingDescription>& vertexBindingDescriptions = Vertex::getBindingDescriptions();
-   const std::vector<vk::VertexInputAttributeDescription>& vertexAttributeDescriptions = Vertex::getAttributeDescriptions(!hasColorOutput);
-   if (passType == PipelinePassType::Mesh)
+   const std::vector<vk::VertexInputAttributeDescription>& vertexAttributeDescriptions = Vertex::getAttributeDescriptions(info.positionOnly);
+   if (info.passType == PipelinePassType::Mesh)
    {
       vertexInputStateCreateInfo = vk::PipelineVertexInputStateCreateInfo()
          .setVertexBindingDescriptions(vertexBindingDescriptions)
@@ -45,14 +44,14 @@ PipelineData::PipelineData(const GraphicsContext& context, vk::PipelineLayout la
       .setFrontFace(vk::FrontFace::eCounterClockwise);
 
    multisampleStateCreateInfo = vk::PipelineMultisampleStateCreateInfo()
-      .setRasterizationSamples(sampleCount)
+      .setRasterizationSamples(info.sampleCount)
       .setSampleShadingEnable(true)
       .setMinSampleShading(0.2f);
 
    depthStencilStateCreateInfo = vk::PipelineDepthStencilStateCreateInfo()
-      .setDepthTestEnable(passType == PipelinePassType::Mesh)
-      .setDepthWriteEnable(!hasColorOutput)
-      .setDepthCompareOp(hasColorOutput ? vk::CompareOp::eLessOrEqual : vk::CompareOp::eLess)
+      .setDepthTestEnable(info.passType == PipelinePassType::Mesh)
+      .setDepthWriteEnable(info.writeDepth)
+      .setDepthCompareOp(info.writeDepth ? vk::CompareOp::eLess : vk::CompareOp::eLessOrEqual)
       .setDepthBoundsTestEnable(false)
       .setStencilTestEnable(false);
 
@@ -74,8 +73,8 @@ PipelineData::PipelineData(const GraphicsContext& context, vk::PipelineLayout la
       .setPDepthStencilState(&depthStencilStateCreateInfo)
       .setPColorBlendState(&colorBlendStateCreateInfo)
       .setPDynamicState(&dynamicStateCreateInfo)
-      .setLayout(layout)
-      .setRenderPass(renderPass)
+      .setLayout(info.layout)
+      .setRenderPass(info.renderPass)
       .setSubpass(0)
       .setBasePipelineHandle(nullptr)
       .setBasePipelineIndex(-1);
