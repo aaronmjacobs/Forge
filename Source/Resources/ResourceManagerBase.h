@@ -17,9 +17,9 @@ namespace ResourceHelpers
 {
    std::optional<std::filesystem::path> makeCanonical(const std::filesystem::path& path);
 
-#if FORGE_DEBUG
+#if FORGE_WITH_DEBUG_UTILS
    std::string getName(const std::filesystem::path& path);
-#endif // FORGE_DEBUG
+#endif // FORGE_WITH_DEBUG_UTILS
 }
 
 template<typename T, typename Identifier>

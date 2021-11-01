@@ -1,4 +1,4 @@
-#if FORGE_DEBUG
+#if FORGE_WITH_DEBUG_UTILS
 
 #include "Graphics/DebugUtils.h"
 
@@ -337,4 +337,4 @@ namespace DebugUtils
       }
    }
 }
-#endif
+#endif // FORGE_WITH_DEBUG_UTILS

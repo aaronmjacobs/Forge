@@ -351,7 +351,7 @@ void ForgeApplication::initializeRenderer()
       }
    });
 
-#if FORGE_DEBUG
+#if FORGE_WITH_DEBUG_UTILS
    inputManager.createButtonMapping(InputActions::kToggleLabels, KeyChord(Key::L), {}, {});
    inputManager.bindButtonMapping(InputActions::kToggleLabels, [](bool pressed)
    {
@@ -360,7 +360,7 @@ void ForgeApplication::initializeRenderer()
          DebugUtils::SetLabelsEnabled(!DebugUtils::AreLabelsEnabled());
       }
    });
-#endif // FORGE_DEBUG
+#endif // FORGE_WITH_DEBUG_UTILS
 }
 
 void ForgeApplication::terminateRenderer()

@@ -21,10 +21,10 @@ namespace ResourceHelpers
       return {};
    }
 
-#if FORGE_DEBUG
+#if FORGE_WITH_DEBUG_UTILS
    std::string getName(const std::filesystem::path& path)
    {
       return path.stem().string();
    }
-#endif // FORGE_DEBUG
+#endif // FORGE_WITH_DEBUG_UTILS
 }

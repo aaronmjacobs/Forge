@@ -2,7 +2,7 @@
 
 #include "Core/Macros.h"
 
-#if FORGE_DEBUG
+#if FORGE_WITH_DEBUG_UTILS
 
 #  include "Core/Types.h"
 
