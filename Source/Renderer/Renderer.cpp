@@ -292,9 +292,14 @@ namespace
             MeshRenderInfo info(*mesh, transformComponent.getAbsoluteTransform());
 
             bool anyVisible = false;
-            info.materials.resize(mesh->getNumSections());
+            uint32_t numSections = mesh->getNumSections();
 
-            for (uint32_t section = 0; section < mesh->getNumSections(); ++section)
+            info.materials.resize(numSections);
+            info.visibleOpaqueSections.reserve(numSections);
+            info.visibleMaskedSections.reserve(numSections);
+            info.visibleTranslucentSections.reserve(numSections);
+
+            for (uint32_t section = 0; section < numSections; ++section)
             {
                const MeshSection& meshSection = mesh->getSection(section);
 
@@ -326,6 +331,10 @@ namespace
 
             if (anyVisible)
             {
+               info.visibleOpaqueSections.shrink_to_fit();
+               info.visibleMaskedSections.shrink_to_fit();
+               info.visibleTranslucentSections.shrink_to_fit();
+
                sceneRenderInfo.meshes.push_back(info);
             }
          }
