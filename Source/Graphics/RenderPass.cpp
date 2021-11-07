@@ -61,7 +61,7 @@ void RenderPass::updateAttachmentSetup(const BasicAttachmentInfo& setup)
 
    for (std::size_t i = 0; i < pipelineLayouts.size(); ++i)
    {
-      NAME_CHILD(pipelineLayouts[i], "Pipeline Layout " + std::to_string(i));
+      NAME_CHILD(pipelineLayouts[i], "Pipeline Layout " + DebugUtils::toString(i));
    }
 }
 
@@ -71,7 +71,7 @@ FramebufferHandle RenderPass::createFramebuffer(const AttachmentInfo& attachment
 
    FramebufferHandle handle = FramebufferHandle::create();
    auto result = framebufferMap.emplace(handle, Framebuffer(context, renderPass, attachmentInfo));
-   NAME_CHILD(result.first->second, "Framebuffer " + std::to_string(result.first->first.getId()));
+   NAME_CHILD(result.first->second, "Framebuffer " + DebugUtils::toString(result.first->first.getId()));
 
    return handle;
 }

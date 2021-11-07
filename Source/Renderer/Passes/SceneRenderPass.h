@@ -41,7 +41,7 @@ protected:
 
             for (uint32_t section : sections)
             {
-               SCOPED_LABEL("Section " + std::to_string(section));
+               SCOPED_LABEL("Section " + DebugUtils::toString(section));
 
                const Material* material = meshRenderInfo.materials[section];
                ASSERT(material);

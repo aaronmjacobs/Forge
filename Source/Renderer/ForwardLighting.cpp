@@ -131,20 +131,20 @@ ForwardLighting::ForwardLighting(const GraphicsContext& graphicsContext, Dynamic
          uint32_t viewIndex = getPointViewIndex(shadowMapIndex, faceIndex);
 
          pointShadowViews[viewIndex] = pointShadowMapTextureArray->createView(vk::ImageViewType::e2D, viewIndex, 1);
-         NAME_CHILD(pointShadowViews[viewIndex], "Point Shadow Map View " + std::to_string(viewIndex));
+         NAME_CHILD(pointShadowViews[viewIndex], "Point Shadow Map View " + DebugUtils::toString(viewIndex));
       }
    }
 
    for (uint32_t i = 0; i < kMaxSpotShadowMaps; ++i)
    {
       spotShadowViews[i] = spotShadowMapTextureArray->createView(vk::ImageViewType::e2D, i, 1);
-      NAME_CHILD(spotShadowViews[i], "Spot Shadow Map View " + std::to_string(i));
+      NAME_CHILD(spotShadowViews[i], "Spot Shadow Map View " + DebugUtils::toString(i));
    }
 
    for (uint32_t i = 0; i < kMaxDirectionalShadowMaps; ++i)
    {
       directionalShadowViews[i] = directionalShadowMapTextureArray->createView(vk::ImageViewType::e2D, i, 1);
-      NAME_CHILD(directionalShadowViews[i], "Directional Shadow Map View " + std::to_string(i));
+      NAME_CHILD(directionalShadowViews[i], "Directional Shadow Map View " + DebugUtils::toString(i));
    }
 
    updateDescriptorSets();

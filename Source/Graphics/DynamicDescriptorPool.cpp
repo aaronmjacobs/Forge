@@ -226,7 +226,7 @@ DynamicDescriptorPool::PoolInfo* DynamicDescriptorPool::allocatePool()
       .setPoolSizes(poolSizes)
       .setMaxSets(sizes.maxSets * GraphicsContext::kMaxFramesInFlight);
    poolInfo.pool = device.createDescriptorPool(createInfo);
-   NAME_CHILD(poolInfo.pool, "Pool " + std::to_string(pools.size()));
+   NAME_CHILD(poolInfo.pool, "Pool " + DebugUtils::toString(pools.size()));
 
    return &poolInfo;
 }

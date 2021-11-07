@@ -488,17 +488,17 @@ Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& reso
       for (uint32_t i = 0; i < pointShadowViews.size(); ++i)
       {
          pointShadowViews[i] = std::make_unique<View>(context, dynamicDescriptorPool);
-         NAME_POINTER(device, pointShadowViews[i], "Point Shadow View " + std::to_string(i));
+         NAME_POINTER(device, pointShadowViews[i], "Point Shadow View " + DebugUtils::toString(i));
       }
       for (uint32_t i = 0; i < spotShadowViews.size(); ++i)
       {
          spotShadowViews[i] = std::make_unique<View>(context, dynamicDescriptorPool);
-         NAME_POINTER(device, spotShadowViews[i], "Spot Shadow View " + std::to_string(i));
+         NAME_POINTER(device, spotShadowViews[i], "Spot Shadow View " + DebugUtils::toString(i));
       }
       for (uint32_t i = 0; i < directionalShadowViews.size(); ++i)
       {
          directionalShadowViews[i] = std::make_unique<View>(context, dynamicDescriptorPool);
-         NAME_POINTER(device, directionalShadowViews[i], "Directional Shadow View " + std::to_string(i));
+         NAME_POINTER(device, directionalShadowViews[i], "Directional Shadow View " + DebugUtils::toString(i));
       }
    }
 
@@ -663,7 +663,7 @@ void Renderer::renderShadowMaps(vk::CommandBuffer commandBuffer, const Scene& sc
                pointLightViewInfo.cubeFace = cubeFace;
 
                uint32_t viewIndex = ForwardLighting::getPointViewIndex(shadowMapIndex, faceIndex);
-               INLINE_LABEL("Update point shadow view " + std::to_string(viewIndex));
+               INLINE_LABEL("Update point shadow view " + DebugUtils::toString(viewIndex));
                std::unique_ptr<View>& pointShadowView = pointShadowViews[viewIndex];
                pointShadowView->update(pointLightViewInfo);
                SceneRenderInfo shadowSceneRenderInfo = computeSceneRenderInfo(resourceManager, scene, *pointShadowView, false);
@@ -684,7 +684,7 @@ void Renderer::renderShadowMaps(vk::CommandBuffer commandBuffer, const Scene& sc
          {
             uint32_t shadowMapIndex = spotLightInfo.shadowMapIndex.value();
 
-            INLINE_LABEL("Update spot shadow view " + std::to_string(shadowMapIndex));
+            INLINE_LABEL("Update spot shadow view " + DebugUtils::toString(shadowMapIndex));
             std::unique_ptr<View>& spotShadowView = spotShadowViews[shadowMapIndex];
             spotShadowView->update(spotLightInfo.shadowViewInfo.value());
             SceneRenderInfo shadowSceneRenderInfo = computeSceneRenderInfo(resourceManager, scene, *spotShadowView, false);
@@ -704,7 +704,7 @@ void Renderer::renderShadowMaps(vk::CommandBuffer commandBuffer, const Scene& sc
          {
             uint32_t shadowMapIndex = directionalLightInfo.shadowMapIndex.value();
 
-            INLINE_LABEL("Update directional shadow view " + std::to_string(shadowMapIndex));
+            INLINE_LABEL("Update directional shadow view " + DebugUtils::toString(shadowMapIndex));
             std::unique_ptr<View>& directionalShadowView = directionalShadowViews[shadowMapIndex];
             directionalShadowView->update(directionalLightInfo.shadowViewInfo.value());
             SceneRenderInfo shadowSceneRenderInfo = computeSceneRenderInfo(resourceManager, scene, *directionalShadowView, false);

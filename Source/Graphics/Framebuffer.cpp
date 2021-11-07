@@ -111,7 +111,7 @@ Framebuffer::Framebuffer(const GraphicsContext& graphicsContext, vk::RenderPass 
 
       ASSERT(!framebuffers[i]);
       framebuffers[i] = device.createFramebuffer(framebufferCreateInfo);
-      NAME_CHILD(framebuffers[i], "Index " + std::to_string(i));
+      NAME_CHILD(framebuffers[i], "Index " + DebugUtils::toString(i));
    }
 }
 

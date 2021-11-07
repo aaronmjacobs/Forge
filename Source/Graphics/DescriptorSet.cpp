@@ -24,6 +24,6 @@ DescriptorSet::DescriptorSet(const GraphicsContext& graphicsContext, DynamicDesc
 
    for (std::size_t i = 0; i < sets.size(); ++i)
    {
-      NAME_CHILD(sets[i], "Descriptor Set " + std::to_string(i));
+      NAME_CHILD(sets[i], "Descriptor Set " + DebugUtils::toString(i));
    }
 }
