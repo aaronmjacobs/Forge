@@ -300,7 +300,7 @@ namespace DebugUtils
       }
    }
 
-   const std::string& toString(uint32_t n)
+   const std::string& toString(uint64_t n)
    {
       static std::array<std::string, 150> lookupTable;
       static std::string dynamic;
@@ -308,7 +308,7 @@ namespace DebugUtils
 
       if (!initialized)
       {
-         for (uint32_t i = 0; i < lookupTable.size(); ++i)
+         for (uint64_t i = 0; i < lookupTable.size(); ++i)
          {
             lookupTable[i] = std::to_string(i);
          }
@@ -318,19 +318,6 @@ namespace DebugUtils
       if (n < lookupTable.size())
       {
          return lookupTable[n];
-      }
-
-      dynamic = std::to_string(n);
-      return dynamic;
-   }
-
-   const std::string& toString(std::size_t n)
-   {
-      static std::string dynamic;
-
-      if (n <= std::numeric_limits<uint32_t>::max())
-      {
-         return toString(static_cast<uint32_t>(n));
       }
 
       dynamic = std::to_string(n);

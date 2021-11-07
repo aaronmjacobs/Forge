@@ -25,8 +25,13 @@ namespace DebugUtils
    void onResourceMoved(GraphicsResource* oldResource, GraphicsResource* newResource);
    void onResourceDestroyed(GraphicsResource* resource);
 
-   const std::string& toString(uint32_t n);
-   const std::string& toString(std::size_t n);
+   const std::string& toString(uint64_t n);
+
+   template<typename T>
+   const std::string& toString(T n)
+   {
+      return toString(static_cast<uint64_t>(n));
+   }
 
    template<typename ItemType, std::enable_if_t<std::is_base_of_v<GraphicsResource, ItemType>, int> = 0>
    void setItemName(vk::Device device, ItemType& item, const char* name)
