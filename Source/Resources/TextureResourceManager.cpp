@@ -2,67 +2,75 @@
 
 #include "Graphics/DebugUtils.h"
 
-#include "Resources/LoadedImage.h"
+#include "Resources/DDSImageLoader.h"
+#include "Resources/Image.h"
+#include "Resources/STBImageLoader.h"
 
 #include <PlatformUtils/IOUtils.h>
 
 #include <glm/glm.hpp>
 
-#define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
+#include <algorithm>
+#include <array>
+#include <cstdint>
 
 namespace
 {
-   std::optional<LoadedImage> loadImage(const std::filesystem::path& path, const TextureLoadOptions& loadOptions)
+   std::unique_ptr<Image> loadImage(const std::filesystem::path& path, const TextureLoadOptions& loadOptions)
    {
-      if (std::optional<std::vector<uint8_t>> imageData = IOUtils::readBinaryFile(path))
+      if (std::optional<std::vector<uint8_t>> fileData = IOUtils::readBinaryFile(path))
       {
-         int textureWidth = 0;
-         int textureHeight = 0;
-         int textureChannels = 0;
-         stbi_uc* pixelData = stbi_load_from_memory(imageData->data(), static_cast<int>(imageData->size()), &textureWidth, &textureHeight, &textureChannels, STBI_rgb_alpha);
+         std::string extension = path.extension().string();
+         std::transform(extension.begin(), extension.end(), extension.begin(), [](const char c) { return std::tolower(c); });
 
-         if (pixelData)
+         if (extension == ".dds")
          {
-            LoadedImage loadedImage;
-
-            loadedImage.data.reset(pixelData);
-            loadedImage.size = static_cast<vk::DeviceSize>(textureWidth * textureHeight * STBI_rgb_alpha);
-
-            loadedImage.properties.format = loadOptions.sRGB ? vk::Format::eR8G8B8A8Srgb : vk::Format::eR8G8B8A8Unorm;
-            loadedImage.properties.width = static_cast<uint32_t>(textureWidth);
-            loadedImage.properties.height = static_cast<uint32_t>(textureHeight);
-            loadedImage.properties.hasAlpha = textureChannels == 4;
-
-            return loadedImage;
+            return DDSImageLoader::loadImage(std::move(*fileData));
+         }
+         else
+         {
+            return STBImageLoader::loadImage(std::move(*fileData), loadOptions.sRGB);
          }
       }
 
-      return {};
+      return nullptr;
    }
 
-   LoadedImage createDefaultImage(const GraphicsContext& context, const glm::vec4& color)
+   class SinglePixelImage : public Image
+   {
+   public:
+      SinglePixelImage(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
+         : data({ r, g, b, a })
+      {
+         properties.format = vk::Format::eR8G8B8A8Unorm;
+         properties.width = 1;
+         properties.height = 1;
+
+         mipInfo.extent = vk::Extent3D(1, 1, 1);
+      }
+
+      TextureData getTextureData() const final
+      {
+         TextureData textureData;
+         textureData.bytes = std::span<const uint8_t>(data);
+         textureData.mips = std::span<const MipInfo>(&mipInfo, 1);
+         textureData.mipsPerLayer = 1;
+         return textureData;
+      }
+
+   private:
+      std::array<uint8_t, 4> data;
+      MipInfo mipInfo;
+   };
+
+   SinglePixelImage createDefaultImage(const glm::vec4& color)
    {
       static const auto to8Bit = [](float value)
       {
          return static_cast<uint8_t>(glm::clamp(value, 0.0f, 1.0f) * 255.0f + 0.5f);
       };
 
-      LoadedImage loadedImage;
-
-      uint8_t* pixelData = static_cast<uint8_t*>(STBI_MALLOC(4));
-      pixelData[0] = to8Bit(color.r);
-      pixelData[1] = to8Bit(color.g);
-      pixelData[2] = to8Bit(color.b);
-      pixelData[3] = to8Bit(color.a);
-      loadedImage.data.reset(pixelData);
-      loadedImage.size = static_cast<vk::DeviceSize>(4);
-
-      loadedImage.properties.format = vk::Format::eR8G8B8A8Unorm;
-      loadedImage.properties.width = 1;
-      loadedImage.properties.height = 1;
-
-      return loadedImage;
+      return SinglePixelImage(to8Bit(color.r), to8Bit(color.g), to8Bit(color.b), to8Bit(color.a));
    }
 }
 
@@ -82,9 +90,9 @@ TextureHandle TextureResourceManager::load(const std::filesystem::path& path, co
          return *cachedHandle;
       }
 
-      if (std::optional<LoadedImage> image = loadImage(*canonicalPath, loadOptions))
+      if (std::unique_ptr<Image> image = loadImage(*canonicalPath, loadOptions))
       {
-         TextureHandle handle = emplaceResource(context, *image, properties, initialLayout);
+         TextureHandle handle = emplaceResource(context, image->getProperties(), properties, initialLayout, image->getTextureData());
          cacheHandle(canonicalPathString, handle);
 
          NAME_POINTER(context.getDevice(), get(handle), ResourceHelpers::getName(*canonicalPath));
@@ -147,21 +155,21 @@ void TextureResourceManager::onAllResourcesUnloaded()
 
 void TextureResourceManager::createDefaultTextures()
 {
-   LoadedImage defaultBlackImage = createDefaultImage(context, glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
-   LoadedImage defaultWhiteImage = createDefaultImage(context, glm::vec4(1.0f, 1.0f, 1.0f, 1.0f));
-   LoadedImage defaultNormalMapImage = createDefaultImage(context, glm::vec4(0.5f, 0.5f, 1.0f, 1.0f));
+   SinglePixelImage defaultBlackImage = createDefaultImage(glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
+   SinglePixelImage defaultWhiteImage = createDefaultImage(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f));
+   SinglePixelImage defaultNormalMapImage = createDefaultImage(glm::vec4(0.5f, 0.5f, 1.0f, 1.0f));
 
    TextureProperties defaultTextureProperties = getDefaultProperties();
    defaultTextureProperties.generateMipMaps = false;
 
    TextureInitialLayout defaultTextureInitialLayout = getDefaultInitialLayout();
 
-   defaultBlackTextureHandle = emplaceResource(context, defaultBlackImage, defaultTextureProperties, defaultTextureInitialLayout);
+   defaultBlackTextureHandle = emplaceResource(context, defaultBlackImage.getProperties(), defaultTextureProperties, defaultTextureInitialLayout, defaultBlackImage.getTextureData());
    NAME_POINTER(context.getDevice(), get(defaultBlackTextureHandle), "Default Black Texture");
 
-   defaultWhiteTextureHandle = emplaceResource(context, defaultWhiteImage, defaultTextureProperties, defaultTextureInitialLayout);
+   defaultWhiteTextureHandle = emplaceResource(context, defaultWhiteImage.getProperties(), defaultTextureProperties, defaultTextureInitialLayout, defaultWhiteImage.getTextureData());
    NAME_POINTER(context.getDevice(), get(defaultWhiteTextureHandle), "Default White Texture");
 
-   defaultNormalMapTextureHandle = emplaceResource(context, defaultNormalMapImage, defaultTextureProperties, defaultTextureInitialLayout);
+   defaultNormalMapTextureHandle = emplaceResource(context, defaultNormalMapImage.getProperties(), defaultTextureProperties, defaultTextureInitialLayout, defaultNormalMapImage.getTextureData());
    NAME_POINTER(context.getDevice(), get(defaultNormalMapTextureHandle), "Default Normal Map Texture");
 }

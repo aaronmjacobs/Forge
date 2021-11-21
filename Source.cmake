@@ -99,8 +99,9 @@ target_sources(${PROJECT_NAME} PRIVATE
    "${SRC_DIR}/Renderer/ViewInfo.cpp"
    "${SRC_DIR}/Renderer/ViewInfo.h"
 
-   "${SRC_DIR}/Resources/LoadedImage.cpp"
-   "${SRC_DIR}/Resources/LoadedImage.h"
+   "${SRC_DIR}/Resources/DDSImageLoader.cpp"
+   "${SRC_DIR}/Resources/DDSImageLoader.h"
+   "${SRC_DIR}/Resources/Image.h"
    "${SRC_DIR}/Resources/MaterialResourceManager.cpp"
    "${SRC_DIR}/Resources/MaterialResourceManager.h"
    "${SRC_DIR}/Resources/MeshResourceManager.cpp"
@@ -111,6 +112,8 @@ target_sources(${PROJECT_NAME} PRIVATE
    "${SRC_DIR}/Resources/ResourceTypes.h"
    "${SRC_DIR}/Resources/ShaderModuleResourceManager.cpp"
    "${SRC_DIR}/Resources/ShaderModuleResourceManager.h"
+   "${SRC_DIR}/Resources/STBImageLoader.cpp"
+   "${SRC_DIR}/Resources/STBImageLoader.h"
    "${SRC_DIR}/Resources/TextureResourceManager.cpp"
    "${SRC_DIR}/Resources/TextureResourceManager.h"
 

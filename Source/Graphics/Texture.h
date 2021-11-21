@@ -6,31 +6,6 @@
 #include <optional>
 #include <span>
 
-struct LoadedImage;
-
-struct ImageProperties
-{
-   vk::Format format = vk::Format::eR8G8B8A8Srgb;
-   vk::ImageType type = vk::ImageType::e2D;
-   uint32_t width = 1;
-   uint32_t height = 1;
-   uint32_t depth = 1;
-   uint32_t layers = 1;
-   bool hasAlpha = false;
-   bool cubeCompatible = false;
-};
-
-struct TextureProperties
-{
-   vk::SampleCountFlagBits sampleCount = vk::SampleCountFlagBits::e1;
-   vk::ImageTiling tiling = vk::ImageTiling::eOptimal;
-   vk::ImageUsageFlags usage = vk::ImageUsageFlagBits::eSampled;
-   vk::MemoryPropertyFlags memoryProperties = vk::MemoryPropertyFlagBits::eDeviceLocal;
-   vk::ImageAspectFlags aspects = vk::ImageAspectFlagBits::eColor;
-
-   bool generateMipMaps = false;
-};
-
 struct TextureMemoryBarrierFlags
 {
    vk::AccessFlags accessMask;
@@ -54,12 +29,7 @@ class Texture : public GraphicsResource
 public:
    static vk::Format findSupportedFormat(const GraphicsContext& context, std::span<const vk::Format> candidates, vk::ImageTiling tiling, vk::FormatFeatureFlags features);
 
-   // Create a texture with no initial data
-   Texture(const GraphicsContext& graphicsContext, const ImageProperties& imageProps, const TextureProperties& textureProps, const TextureInitialLayout& initialLayout);
-
-   // Create a texture with initial data provided by a loaded image
-   Texture(const GraphicsContext& graphicsContext, const LoadedImage& loadedImage, const TextureProperties& textureProps, const TextureInitialLayout& initialLayout);
-
+   Texture(const GraphicsContext& graphicsContext, const ImageProperties& imageProps, const TextureProperties& textureProps, const TextureInitialLayout& initialLayout, const TextureData& textureData = {});
    ~Texture();
 
    vk::ImageView createView(vk::ImageViewType viewType, uint32_t baseLayer = 0, uint32_t layerCount = 1, std::optional<vk::ImageAspectFlags> aspectFlags = {}) const;
@@ -95,8 +65,8 @@ public:
 private:
    void createImage();
    void createDefaultView();
-   void copyBufferToImage(vk::Buffer buffer);
-   void stageAndCopyImage(const LoadedImage& loadedImage);
+   void copyBufferToImage(vk::Buffer buffer, const TextureData& textureData);
+   void stageAndCopyImage(const TextureData& textureData);
    void generateMipmaps(vk::ImageLayout finalLayout, const TextureMemoryBarrierFlags& dstMemoryBarrierFlags);
 
    vk::Image image;

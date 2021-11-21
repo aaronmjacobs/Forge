@@ -45,6 +45,8 @@ void main()
       alpha = inColor.a * diffuseSample.a;
 
       vec3 tangentSpaceNormal = texture(normalTexture, inTexCoord).rgb * 2.0 - 1.0;
+      tangentSpaceNormal.z = sqrt(clamp(1.0 - dot(tangentSpaceNormal.xy, tangentSpaceNormal.xy), 0.0, 1.0));
+      tangentSpaceNormal = normalize(tangentSpaceNormal);
       lightingParams.surfaceNormal = normalize(inTBN * tangentSpaceNormal);
    }
    else

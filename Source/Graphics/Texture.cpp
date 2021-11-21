@@ -7,8 +7,6 @@
 #include "Graphics/DebugUtils.h"
 #include "Graphics/Memory.h"
 
-#include "Resources/LoadedImage.h"
-
 #include <cmath>
 #include <utility>
 
@@ -66,40 +64,54 @@ vk::Format Texture::findSupportedFormat(const GraphicsContext& context, std::spa
    throw std::runtime_error("Failed to find supported format");
 }
 
-Texture::Texture(const GraphicsContext& graphicsContext, const ImageProperties& imageProps, const TextureProperties& textureProps, const TextureInitialLayout& initialLayout)
+Texture::Texture(const GraphicsContext& graphicsContext, const ImageProperties& imageProps, const TextureProperties& textureProps, const TextureInitialLayout& initialLayout, const TextureData& textureData)
    : GraphicsResource(graphicsContext)
    , imageProperties(imageProps)
    , textureProperties(textureProps)
 {
-   createImage();
-   createDefaultView();
-
-   transitionLayout(nullptr, initialLayout.layout, TextureMemoryBarrierFlags(vk::AccessFlags(), vk::PipelineStageFlagBits::eTopOfPipe), initialLayout.memoryBarrierFlags);
-}
-
-Texture::Texture(const GraphicsContext& graphicsContext, const LoadedImage& loadedImage, const TextureProperties& textureProps, const TextureInitialLayout& initialLayout)
-   : GraphicsResource(graphicsContext)
-   , imageProperties(loadedImage.properties)
-   , textureProperties(textureProps)
-{
-   textureProperties.usage |= vk::ImageUsageFlagBits::eTransferDst;
-   if (textureProperties.generateMipMaps)
+   bool hasTextureData = !textureData.bytes.empty() && !textureData.mips.empty() && textureData.mipsPerLayer > 0;
+   if (hasTextureData)
    {
-      textureProperties.usage |= vk::ImageUsageFlagBits::eTransferSrc;
+      if (textureData.mipsPerLayer > 1)
+      {
+         mipLevels = textureData.mipsPerLayer;
+         textureProperties.generateMipMaps = false;
+      }
+      else if (textureProperties.generateMipMaps)
+      {
+         mipLevels = calcMipLevels(imageProperties);
+         if (mipLevels < 2)
+         {
+            textureProperties.generateMipMaps = false;
+         }
+      }
+
+      textureProperties.usage |= vk::ImageUsageFlagBits::eTransferDst;
+      if (textureProperties.generateMipMaps)
+      {
+         textureProperties.usage |= vk::ImageUsageFlagBits::eTransferSrc;
+      }
    }
 
    createImage();
    createDefaultView();
 
-   stageAndCopyImage(loadedImage);
-
-   if (textureProperties.generateMipMaps)
+   if (hasTextureData)
    {
-      generateMipmaps(initialLayout.layout, initialLayout.memoryBarrierFlags);
+      stageAndCopyImage(textureData);
+
+      if (textureProperties.generateMipMaps)
+      {
+         generateMipmaps(initialLayout.layout, initialLayout.memoryBarrierFlags);
+      }
+      else
+      {
+         transitionLayout(nullptr, initialLayout.layout, TextureMemoryBarrierFlags(vk::AccessFlagBits::eTransferWrite, vk::PipelineStageFlagBits::eTransfer), initialLayout.memoryBarrierFlags);
+      }
    }
    else
    {
-      transitionLayout(nullptr, initialLayout.layout, TextureMemoryBarrierFlags(vk::AccessFlagBits::eTransferWrite, vk::PipelineStageFlagBits::eTransfer), initialLayout.memoryBarrierFlags);
+      transitionLayout(nullptr, initialLayout.layout, TextureMemoryBarrierFlags(vk::AccessFlags(), vk::PipelineStageFlagBits::eTopOfPipe), initialLayout.memoryBarrierFlags);
    }
 }
 
@@ -191,8 +203,6 @@ void Texture::createImage()
 {
    ASSERT(!image && !memory);
 
-   mipLevels = textureProperties.generateMipMaps ? calcMipLevels(imageProperties) : 1;
-
    vk::ImageCreateInfo imageCreateinfo = vk::ImageCreateInfo()
       .setImageType(imageProperties.type)
       .setExtent(vk::Extent3D(imageProperties.width, imageProperties.height, imageProperties.depth))
@@ -228,44 +238,60 @@ void Texture::createDefaultView()
    NAME_CHILD(defaultView, "Default View");
 }
 
-void Texture::copyBufferToImage(vk::Buffer buffer)
+void Texture::copyBufferToImage(vk::Buffer buffer, const TextureData& textureData)
 {
    vk::CommandBuffer commandBuffer = Command::beginSingle(context);
 
-   vk::ImageSubresourceLayers imageSubresource = vk::ImageSubresourceLayers()
-      .setAspectMask(textureProperties.aspects)
-      .setMipLevel(0)
-      .setBaseArrayLayer(0)
-      .setLayerCount(imageProperties.layers);
+   std::vector<vk::BufferImageCopy> regions;
+   regions.reserve(textureData.mips.size());
 
-   vk::BufferImageCopy region = vk::BufferImageCopy()
-      .setBufferOffset(0)
-      .setBufferRowLength(0)
-      .setBufferImageHeight(0)
-      .setImageSubresource(imageSubresource)
-      .setImageOffset(vk::Offset3D(0, 0))
-      .setImageExtent(vk::Extent3D(imageProperties.width, imageProperties.height, imageProperties.depth));
+   ASSERT(textureData.mips.size() % textureData.mipsPerLayer == 0);
+   uint32_t numLayers = static_cast<uint32_t>(textureData.mips.size() / textureData.mipsPerLayer);
+
+   for (uint32_t layer = 0; layer < numLayers; ++layer)
+   {
+      for (uint32_t mipLevel = 0; mipLevel < textureData.mipsPerLayer; ++mipLevel)
+      {
+         const MipInfo& mipInfo = textureData.mips[layer * textureData.mipsPerLayer + mipLevel];
+
+         vk::ImageSubresourceLayers imageSubresource = vk::ImageSubresourceLayers()
+            .setAspectMask(textureProperties.aspects)
+            .setMipLevel(mipLevel)
+            .setBaseArrayLayer(layer)
+            .setLayerCount(1);
+
+         vk::BufferImageCopy region = vk::BufferImageCopy()
+            .setBufferOffset(mipInfo.bufferOffset)
+            .setBufferRowLength(0)
+            .setBufferImageHeight(0)
+            .setImageSubresource(imageSubresource)
+            .setImageOffset(vk::Offset3D(0, 0, 0))
+            .setImageExtent(mipInfo.extent);
+
+         regions.push_back(region);
+      }
+   }
 
    layout = vk::ImageLayout::eTransferDstOptimal;
-   commandBuffer.copyBufferToImage(buffer, image, layout, { region });
+   commandBuffer.copyBufferToImage(buffer, image, layout, regions);
 
    Command::endSingle(context, commandBuffer);
 }
 
-void Texture::stageAndCopyImage(const LoadedImage& loadedImage)
+void Texture::stageAndCopyImage(const TextureData& textureData)
 {
    transitionLayout(nullptr, vk::ImageLayout::eTransferDstOptimal, TextureMemoryBarrierFlags(vk::AccessFlags(), vk::PipelineStageFlagBits::eTopOfPipe), TextureMemoryBarrierFlags(vk::AccessFlagBits::eTransferWrite, vk::PipelineStageFlagBits::eTransfer));
 
    vk::Buffer stagingBuffer;
    vk::DeviceMemory stagingBufferMemory;
-   Buffer::create(context, loadedImage.size, vk::BufferUsageFlagBits::eTransferSrc, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, stagingBuffer, stagingBufferMemory);
+   Buffer::create(context, textureData.bytes.size_bytes(), vk::BufferUsageFlagBits::eTransferSrc, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, stagingBuffer, stagingBufferMemory);
 
-   void* mappedMemory = device.mapMemory(stagingBufferMemory, 0, loadedImage.size);
-   std::memcpy(mappedMemory, loadedImage.data.get(), static_cast<std::size_t>(loadedImage.size));
+   void* mappedMemory = device.mapMemory(stagingBufferMemory, 0, textureData.bytes.size_bytes());
+   std::memcpy(mappedMemory, textureData.bytes.data(), textureData.bytes.size_bytes());
    device.unmapMemory(stagingBufferMemory);
    mappedMemory = nullptr;
 
-   copyBufferToImage(stagingBuffer);
+   copyBufferToImage(stagingBuffer, textureData);
 
    device.destroyBuffer(stagingBuffer);
    stagingBuffer = nullptr;
