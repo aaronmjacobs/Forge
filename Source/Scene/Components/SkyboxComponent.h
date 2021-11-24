@@ -2,7 +2,7 @@
 
 #include "Resources/ResourceTypes.h"
 
-struct MeshComponent
+struct SkyboxComponent
 {
-   MeshHandle meshHandle;
+   TextureHandle textureHandle;
 };

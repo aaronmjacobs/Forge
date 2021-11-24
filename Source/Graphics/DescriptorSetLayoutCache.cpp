@@ -3,6 +3,8 @@
 #include "Core/Enum.h"
 #include "Core/Hash.h"
 
+#include <utility>
+
 namespace std
 {
    size_t hash<vk::DescriptorSetLayoutBinding>::operator()(const vk::DescriptorSetLayoutBinding& value) const
@@ -48,10 +50,10 @@ DescriptorSetLayoutCache::DescriptorSetLayoutCache(const GraphicsContext& graphi
 
 DescriptorSetLayoutCache::~DescriptorSetLayoutCache()
 {
-   for (const auto& pair : layoutMap)
+   for (auto& pair : layoutMap)
    {
-      vk::DescriptorSetLayout layout = pair.second;
-      device.destroyDescriptorSetLayout(layout);
+      vk::DescriptorSetLayout& layout = pair.second;
+      context.delayedDestroy(std::move(layout));
    }
 }
 

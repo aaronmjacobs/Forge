@@ -6,6 +6,8 @@
 
 #include "Renderer/Passes/PostProcess/Tonemap/TonemapShader.h"
 
+#include <utility>
+
 TonemapPass::TonemapPass(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, ResourceManager& resourceManager)
    : SceneRenderPass(graphicsContext)
    , descriptorSet(graphicsContext, dynamicDescriptorPool, TonemapShader::getLayoutCreateInfo())
@@ -38,7 +40,7 @@ TonemapPass::TonemapPass(const GraphicsContext& graphicsContext, DynamicDescript
 
 TonemapPass::~TonemapPass()
 {
-   device.destroySampler(sampler);
+   context.delayedDestroy(std::move(sampler));
 
    tonemapShader.reset();
 }
@@ -108,6 +110,7 @@ void TonemapPass::initializePipelines(vk::SampleCountFlagBits sampleCount)
    pipelineInfo.layout = pipelineLayouts[0];
    pipelineInfo.sampleCount = sampleCount;
    pipelineInfo.passType = PipelinePassType::Screen;
+   pipelineInfo.enableDepthTest = false;
    pipelineInfo.writeDepth = false;
    pipelineInfo.positionOnly = false;
 

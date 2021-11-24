@@ -7,26 +7,53 @@
 
 #include "Renderer/ForwardLighting.h"
 #include "Renderer/Passes/Forward/ForwardShader.h"
+#include "Renderer/Passes/Forward/SkyboxShader.h"
 #include "Renderer/SceneRenderInfo.h"
 #include "Renderer/UniformData.h"
 
-ForwardPass::ForwardPass(const GraphicsContext& graphicsContext, ResourceManager& resourceManager, const ForwardLighting* forwardLighting)
+#include <utility>
+
+ForwardPass::ForwardPass(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, ResourceManager& resourceManager, const ForwardLighting* forwardLighting)
    : SceneRenderPass(graphicsContext)
    , lighting(forwardLighting)
+   , skyboxDescriptorSet(graphicsContext, dynamicDescriptorPool, SkyboxShader::getLayoutCreateInfo())
 {
    clearDepth = false;
    clearColor = true;
-   pipelines.resize(4);
+   pipelines.resize(5);
 
    forwardShader = std::make_unique<ForwardShader>(context, resourceManager);
+   skyboxShader = std::make_unique<SkyboxShader>(context, resourceManager);
+
+   vk::SamplerCreateInfo skyboxSamplerCreateInfo = vk::SamplerCreateInfo()
+      .setMagFilter(vk::Filter::eLinear)
+      .setMinFilter(vk::Filter::eLinear)
+      .setAddressModeU(vk::SamplerAddressMode::eRepeat)
+      .setAddressModeV(vk::SamplerAddressMode::eRepeat)
+      .setAddressModeW(vk::SamplerAddressMode::eRepeat)
+      .setBorderColor(vk::BorderColor::eIntOpaqueBlack)
+      .setAnisotropyEnable(false)
+      .setMaxAnisotropy(1.0f)
+      .setUnnormalizedCoordinates(false)
+      .setCompareEnable(false)
+      .setCompareOp(vk::CompareOp::eAlways)
+      .setMipmapMode(vk::SamplerMipmapMode::eLinear)
+      .setMipLodBias(0.0f)
+      .setMinLod(0.0f)
+      .setMaxLod(16.0f);
+   skyboxSampler = context.getDevice().createSampler(skyboxSamplerCreateInfo);
+   NAME_CHILD(skyboxSampler, "Skybox Sampler");
 }
 
 ForwardPass::~ForwardPass()
 {
+   context.delayedDestroy(std::move(skyboxSampler));
+
    forwardShader.reset();
+   skyboxShader.reset();
 }
 
-void ForwardPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, FramebufferHandle framebufferHandle)
+void ForwardPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, FramebufferHandle framebufferHandle, const Texture* skyboxTexture)
 {
    SCOPED_LABEL(getName());
 
@@ -37,7 +64,7 @@ void ForwardPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo&
       return;
    }
 
-   std::array<float, 4> clearColorValues = { 1.0f, 1.0f, 1.0f, 1.0f };
+   std::array<float, 4> clearColorValues = { 0.0f, 0.0f, 0.0f, 1.0f };
    std::array<vk::ClearValue, 2> clearValues = { vk::ClearDepthStencilValue(1.0f, 0), vk::ClearColorValue(clearColorValues) };
 
    beginRenderPass(commandBuffer, *framebuffer, clearValues);
@@ -57,19 +84,49 @@ void ForwardPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo&
       renderMeshes<BlendMode::Translucent>(commandBuffer, sceneRenderInfo);
    }
 
+   if (skyboxTexture)
+   {
+      SCOPED_LABEL("Skybox");
+
+      vk::DescriptorImageInfo imageInfo = vk::DescriptorImageInfo()
+         .setImageLayout(skyboxTexture->getLayout())
+         .setImageView(skyboxTexture->getDefaultView())
+         .setSampler(skyboxSampler);
+      vk::WriteDescriptorSet descriptorWrite = vk::WriteDescriptorSet()
+         .setDstSet(skyboxDescriptorSet.getCurrentSet())
+         .setDstBinding(0)
+         .setDstArrayElement(0)
+         .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+         .setDescriptorCount(1)
+         .setPImageInfo(&imageInfo);
+      device.updateDescriptorSets(descriptorWrite, {});
+
+      skyboxShader->bindDescriptorSets(commandBuffer, pipelineLayouts[1], sceneRenderInfo.view, skyboxDescriptorSet);
+      renderScreenMesh(commandBuffer, pipelines[4]);
+   }
+
    endRenderPass(commandBuffer);
 }
 
 void ForwardPass::initializePipelines(vk::SampleCountFlagBits sampleCount)
 {
-   pipelineLayouts.resize(1);
+   pipelineLayouts.resize(2);
 
-   std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = forwardShader->getSetLayouts();
-   std::vector<vk::PushConstantRange> pushConstantRanges = forwardShader->getPushConstantRanges();
-   vk::PipelineLayoutCreateInfo pipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo()
-      .setSetLayouts(descriptorSetLayouts)
-      .setPushConstantRanges(pushConstantRanges);
-   pipelineLayouts[0] = device.createPipelineLayout(pipelineLayoutCreateInfo);
+   {
+      std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = forwardShader->getSetLayouts();
+      std::vector<vk::PushConstantRange> pushConstantRanges = forwardShader->getPushConstantRanges();
+      vk::PipelineLayoutCreateInfo pipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo()
+         .setSetLayouts(descriptorSetLayouts)
+         .setPushConstantRanges(pushConstantRanges);
+      pipelineLayouts[0] = device.createPipelineLayout(pipelineLayoutCreateInfo);
+   }
+
+   {
+      std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = skyboxShader->getSetLayouts();
+      vk::PipelineLayoutCreateInfo pipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo()
+         .setSetLayouts(descriptorSetLayouts);
+      pipelineLayouts[1] = device.createPipelineLayout(pipelineLayoutCreateInfo);
+   }
 
    std::array<std::vector<vk::PipelineShaderStageCreateInfo>, 4> shaderStages =
    {
@@ -118,6 +175,21 @@ void ForwardPass::initializePipelines(vk::SampleCountFlagBits sampleCount)
    pipelineData.setShaderStages(shaderStages[ForwardShader::getPermutationIndex(false, true)]);
    pipelines[ForwardShader::getPermutationIndex(false, true)] = device.createGraphicsPipeline(nullptr, pipelineData.getCreateInfo()).value;
    NAME_CHILD(pipelines[ForwardShader::getPermutationIndex(false, true)], "Pipeline (Without Textures, With Blending)");
+
+   {
+      PipelineInfo skyboxPipelineInfo;
+      skyboxPipelineInfo.renderPass = getRenderPass();
+      skyboxPipelineInfo.layout = pipelineLayouts[1];
+      skyboxPipelineInfo.sampleCount = sampleCount;
+      skyboxPipelineInfo.passType = PipelinePassType::Screen;
+      skyboxPipelineInfo.enableDepthTest = true;
+      skyboxPipelineInfo.writeDepth = false;
+      skyboxPipelineInfo.positionOnly = false;
+
+      PipelineData skyboxPipelineData(context, skyboxPipelineInfo, skyboxShader->getStages(), { colorBlendDisabledAttachmentState });
+      pipelines[4] = device.createGraphicsPipeline(nullptr, skyboxPipelineData.getCreateInfo()).value;
+      NAME_CHILD(pipelines[4], "Skybox pipeline");
+   }
 }
 
 std::vector<vk::SubpassDependency> ForwardPass::getSubpassDependencies() const

@@ -16,6 +16,7 @@
 #include "Scene/Components/CameraComponent.h"
 #include "Scene/Components/LightComponent.h"
 #include "Scene/Components/MeshComponent.h"
+#include "Scene/Components/SkyboxComponent.h"
 #include "Scene/Components/TransformComponent.h"
 #include "Scene/Entity.h"
 #include "Scene/Scene.h"
@@ -523,7 +524,7 @@ Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& reso
       shadowPass = std::make_unique<DepthPass>(context, resourceManager, true);
       NAME_POINTER(device, shadowPass, "Shadow Pass");
 
-      forwardPass = std::make_unique<ForwardPass>(context, resourceManager, forwardLighting.get());
+      forwardPass = std::make_unique<ForwardPass>(context, dynamicDescriptorPool, resourceManager, forwardLighting.get());
       NAME_POINTER(device, forwardPass, "Forward Pass");
 
       tonemapPass = std::make_unique<TonemapPass>(context, dynamicDescriptorPool, resourceManager);
@@ -619,7 +620,13 @@ void Renderer::render(vk::CommandBuffer commandBuffer, const Scene& scene)
    INLINE_LABEL("Update lighting");
    forwardLighting->update(sceneRenderInfo);
 
-   forwardPass->render(commandBuffer, sceneRenderInfo, forwardPassFramebufferHandle);
+   const Texture* skyboxTexture = nullptr;
+   scene.forEach<SkyboxComponent>([this, &skyboxTexture](const SkyboxComponent& skyboxComponent)
+   {
+      skyboxTexture = resourceManager.getTexture(skyboxComponent.textureHandle);
+   });
+
+   forwardPass->render(commandBuffer, sceneRenderInfo, forwardPassFramebufferHandle, skyboxTexture);
    tonemapPass->render(commandBuffer, tonemapPassFramebufferHandle, hdrResolveTexture ? *hdrResolveTexture : *hdrColorTexture);
 }
 

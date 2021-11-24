@@ -49,7 +49,7 @@ PipelineData::PipelineData(const GraphicsContext& context, const PipelineInfo& i
       .setMinSampleShading(0.2f);
 
    depthStencilStateCreateInfo = vk::PipelineDepthStencilStateCreateInfo()
-      .setDepthTestEnable(info.passType == PipelinePassType::Mesh)
+      .setDepthTestEnable(info.enableDepthTest)
       .setDepthWriteEnable(info.writeDepth)
       .setDepthCompareOp(info.writeDepth ? vk::CompareOp::eLess : vk::CompareOp::eLessOrEqual)
       .setDepthBoundsTestEnable(false)

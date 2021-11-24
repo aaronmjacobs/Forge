@@ -19,6 +19,7 @@ struct PipelineInfo
    vk::SampleCountFlagBits sampleCount = vk::SampleCountFlagBits::e1;
 
    PipelinePassType passType = PipelinePassType::Mesh;
+   bool enableDepthTest = true;
    bool writeDepth = false;
    bool positionOnly = false;
 };

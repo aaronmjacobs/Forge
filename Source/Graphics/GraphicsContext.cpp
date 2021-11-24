@@ -427,14 +427,14 @@ GraphicsContext::GraphicsContext(Window& window)
 
    transientCommandPool = device.createCommandPool(commandPoolCreateInfo);
 
-   layoutCache = std::make_unique<DescriptorSetLayoutCache>(*this);
    delayedObjectDestroyer = std::make_unique<DelayedObjectDestroyer>(*this);
+   layoutCache = std::make_unique<DescriptorSetLayoutCache>(*this);
 }
 
 GraphicsContext::~GraphicsContext()
 {
-   delayedObjectDestroyer = nullptr;
    layoutCache = nullptr;
+   delayedObjectDestroyer = nullptr;
 
    device.destroyCommandPool(transientCommandPool);
 

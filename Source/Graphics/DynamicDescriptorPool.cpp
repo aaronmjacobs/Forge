@@ -4,6 +4,8 @@
 
 #include "Graphics/DebugUtils.h"
 
+#include <utility>
+
 namespace
 {
    uint32_t getIndexForDescriptorType(vk::DescriptorType descriptorType)
@@ -135,9 +137,9 @@ DynamicDescriptorPool::DynamicDescriptorPool(const GraphicsContext& graphicsCont
 
 DynamicDescriptorPool::~DynamicDescriptorPool()
 {
-   for (const PoolInfo& poolInfo : pools)
+   for (PoolInfo& poolInfo : pools)
    {
-      device.destroyDescriptorPool(poolInfo.pool);
+      context.delayedDestroy(std::move(poolInfo.pool));
    }
 }
 

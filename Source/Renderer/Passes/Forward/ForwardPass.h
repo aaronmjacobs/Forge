@@ -7,14 +7,15 @@
 class ResourceManager;
 class ForwardLighting;
 class ForwardShader;
+class SkyboxShader;
 
 class ForwardPass : public SceneRenderPass<ForwardPass>
 {
 public:
-   ForwardPass(const GraphicsContext& graphicsContext, ResourceManager& resourceManager, const ForwardLighting* forwardLighting);
+   ForwardPass(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, ResourceManager& resourceManager, const ForwardLighting* forwardLighting);
    ~ForwardPass();
 
-   void render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, FramebufferHandle framebufferHandle);
+   void render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, FramebufferHandle framebufferHandle, const Texture* skyboxTexture);
 
 protected:
    friend class SceneRenderPass<ForwardPass>;
@@ -27,5 +28,8 @@ protected:
 
 private:
    std::unique_ptr<ForwardShader> forwardShader;
-   const ForwardLighting* lighting;
+   std::unique_ptr<SkyboxShader> skyboxShader;
+   const ForwardLighting* lighting = nullptr;
+   DescriptorSet skyboxDescriptorSet;
+   vk::Sampler skyboxSampler;
 };
