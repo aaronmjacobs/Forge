@@ -816,6 +816,10 @@ namespace DDSImageLoader
 
       ImageProperties properties;
       properties.format = ddsToVkFormat(header.pixelFormat, headerDX10);
+      if (properties.format == vk::Format::eUndefined)
+      {
+         return nullptr;
+      }
       properties.type = determineImageType(header, headerDX10);
       if (header.flags & DDSFlags::Width)
       {
