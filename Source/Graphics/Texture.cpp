@@ -14,17 +14,24 @@ namespace
 {
    vk::ImageViewType getDefaultViewType(const ImageProperties& imageProperties)
    {
-      switch (imageProperties.type)
+      if (imageProperties.cubeCompatible)
       {
-      case vk::ImageType::e1D:
-         return imageProperties.layers == 1 ? vk::ImageViewType::e1D : vk::ImageViewType::e1DArray;
-      case vk::ImageType::e2D:
-         return imageProperties.layers == 1 ? vk::ImageViewType::e2D : vk::ImageViewType::e2DArray;
-      case vk::ImageType::e3D:
-         return vk::ImageViewType::e3D;
-      default:
-         ASSERT(false);
-         return vk::ImageViewType::e2D;
+         return imageProperties.layers <= 6 ? vk::ImageViewType::eCube : vk::ImageViewType::eCubeArray;
+      }
+      else
+      {
+         switch (imageProperties.type)
+         {
+         case vk::ImageType::e1D:
+            return imageProperties.layers == 1 ? vk::ImageViewType::e1D : vk::ImageViewType::e1DArray;
+         case vk::ImageType::e2D:
+            return imageProperties.layers == 1 ? vk::ImageViewType::e2D : vk::ImageViewType::e2DArray;
+         case vk::ImageType::e3D:
+            return vk::ImageViewType::e3D;
+         default:
+            ASSERT(false);
+            return vk::ImageViewType::e2D;
+         }
       }
    }
 
@@ -234,7 +241,7 @@ void Texture::createDefaultView()
 {
    ASSERT(!defaultView);
 
-   defaultView = createView(getDefaultViewType(imageProperties));
+   defaultView = createView(getDefaultViewType(imageProperties), 0, imageProperties.cubeCompatible ? 6 : 1);
    NAME_CHILD(defaultView, "Default View");
 }
 
