@@ -152,6 +152,8 @@ Window::Window()
 
 Window::~Window()
 {
+   setConsumeCursorInput(false);
+
    ASSERT(glfwWindow);
    glfwDestroyWindow(glfwWindow);
 }
@@ -161,6 +163,15 @@ void Window::pollEvents()
    double pollTime = glfwGetTime();
    pollDeltaTime = pollTime - lastPollTime;
    lastPollTime = pollTime;
+
+#if FORGE_PLATFORM_MACOS
+   if (pollDeltaTime >= 2.0 && consumeCursorInput)
+   {
+      // Handle the beach ball forcing the cursor to reappear on macOS if the application blocks for too long
+      setConsumeCursorInput(false);
+      setConsumeCursorInput(true);
+   }
+#endif // FORGE_PLATFORM_MACOS
 
    glfwPollEvents();
    inputManager.pollEvents();
