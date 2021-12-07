@@ -1,4 +1,4 @@
 # Forge
 Renderer built with Vulkan
 
-![Scene](https://user-images.githubusercontent.com/1409522/139568687-e5c88a68-690c-470c-a25a-4961fdc46b18.jpg)
+![Scene](https://user-images.githubusercontent.com/1409522/145005660-29e1ecf2-f007-4ffe-bb4f-0e27449d50b7.jpg)
