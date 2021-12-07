@@ -92,6 +92,8 @@ target_sources(${PROJECT_NAME} PRIVATE
    "${SRC_DIR}/Renderer/Passes/SceneRenderPass.h"
    "${SRC_DIR}/Renderer/PhongMaterial.cpp"
    "${SRC_DIR}/Renderer/PhongMaterial.h"
+   "${SRC_DIR}/Renderer/PhysicallyBasedMaterial.cpp"
+   "${SRC_DIR}/Renderer/PhysicallyBasedMaterial.h"
    "${SRC_DIR}/Renderer/Renderer.cpp"
    "${SRC_DIR}/Renderer/Renderer.h"
    "${SRC_DIR}/Renderer/SceneRenderInfo.h"

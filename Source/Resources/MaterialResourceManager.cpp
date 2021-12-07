@@ -4,7 +4,7 @@
 
 #include "Graphics/DebugUtils.h"
 
-#include "Renderer/PhongMaterial.h"
+#include "Renderer/PhysicallyBasedMaterial.h"
 
 #include "Resources/ResourceManager.h"
 
@@ -147,27 +147,32 @@ MaterialHandle MaterialResourceManager::load(const MaterialParameters& parameter
 
 std::unique_ptr<Material> MaterialResourceManager::createMaterial(const MaterialParameters& parameters)
 {
-   const Texture* diffuseTexture = nullptr;
+   const Texture* albedoTexture = nullptr;
    const Texture* normalTexture = nullptr;
+   const Texture* aoRoughnessMetalnessTexture = nullptr;
    bool interpretAlphaAsMask = false;
 
    for (const TextureMaterialParameter& textureMaterialParameter : parameters.textureParameters)
    {
-      if (textureMaterialParameter.name == PhongMaterial::kDiffuseTextureParameterName)
+      if (textureMaterialParameter.name == PhysicallyBasedMaterial::kAlbedoTextureParameterName)
       {
-         diffuseTexture = resourceManager.getTexture(textureMaterialParameter.value);
+         albedoTexture = resourceManager.getTexture(textureMaterialParameter.value);
          interpretAlphaAsMask = textureMaterialParameter.interpretAlphaAsMask;
       }
-      else if (textureMaterialParameter.name == PhongMaterial::kNormalTextureParameterName)
+      else if (textureMaterialParameter.name == PhysicallyBasedMaterial::kNormalTextureParameterName)
       {
          normalTexture = resourceManager.getTexture(textureMaterialParameter.value);
       }
+      else if (textureMaterialParameter.name == PhysicallyBasedMaterial::kAoRoughnessMetalnessTextureParameterName)
+      {
+         aoRoughnessMetalnessTexture = resourceManager.getTexture(textureMaterialParameter.value);
+      }
    }
 
-   if (diffuseTexture && normalTexture)
+   if (albedoTexture && normalTexture && aoRoughnessMetalnessTexture)
    {
-      std::unique_ptr<Material> material = std::make_unique<PhongMaterial>(context, dynamicDescriptorPool, sampler, *diffuseTexture, *normalTexture, interpretAlphaAsMask);
-      NAME_POINTER(context.getDevice(), material, "Phong Material (Diffuse = " + diffuseTexture->getName() + ", Normal = " + normalTexture->getName() + ")");
+      std::unique_ptr<Material> material = std::make_unique<PhysicallyBasedMaterial>(context, dynamicDescriptorPool, sampler, *albedoTexture, *normalTexture, *aoRoughnessMetalnessTexture, interpretAlphaAsMask);
+      NAME_POINTER(context.getDevice(), material, "Physically Based Material (Albedo = " + albedoTexture->getName() + ", Normal = " + normalTexture->getName() + ", Ambient Occlusion / Roughness / Metalness = " + aoRoughnessMetalnessTexture->getName() + ")");
 
       return material;
    }

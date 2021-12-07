@@ -3,7 +3,7 @@
 #include "Graphics/Texture.h"
 
 #include "Renderer/ForwardLighting.h"
-#include "Renderer/PhongMaterial.h"
+#include "Renderer/PhysicallyBasedMaterial.h"
 #include "Renderer/UniformData.h"
 #include "Renderer/View.h"
 
@@ -96,7 +96,7 @@ std::vector<vk::PipelineShaderStageCreateInfo> ForwardShader::getStages(bool wit
 
 std::vector<vk::DescriptorSetLayout> ForwardShader::getSetLayouts() const
 {
-   return { View::getLayout(context), ForwardLighting::getLayout(context), PhongMaterial::getLayout(context) };
+   return { View::getLayout(context), ForwardLighting::getLayout(context), PhysicallyBasedMaterial::getLayout(context) };
 }
 
 std::vector<vk::PushConstantRange> ForwardShader::getPushConstantRanges() const

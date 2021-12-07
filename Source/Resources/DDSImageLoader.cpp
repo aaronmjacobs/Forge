@@ -583,7 +583,7 @@ namespace
       return ddsFormat.rBitMask == r && ddsFormat.gBitMask == g && ddsFormat.bBitMask == b && ddsFormat.aBitMask == a;
    }
 
-   vk::Format ddsToVkFormat(const DDSPixelFormat& ddsFormat, const DDSHeaderDX10& headerDx10)
+   vk::Format ddsToVkFormat(const DDSPixelFormat& ddsFormat, const DDSHeaderDX10& headerDx10, bool sRGBHint)
    {
       if (ddsFormat.flags & DDSPixelFormatFlags::RGB)
       {
@@ -658,13 +658,13 @@ namespace
          switch (ddsFormat.fourCC)
          {
          case DDSFourCC::DXT1:
-            return vk::Format::eBc1RgbSrgbBlock;
+            return sRGBHint ? vk::Format::eBc1RgbSrgbBlock : vk::Format::eBc1RgbUnormBlock;
          case DDSFourCC::DXT2:
          case DDSFourCC::DXT3:
-            return vk::Format::eBc2SrgbBlock;
+            return sRGBHint ? vk::Format::eBc2SrgbBlock : vk::Format::eBc2UnormBlock;
          case DDSFourCC::DXT4:
          case DDSFourCC::DXT5:
-            return vk::Format::eBc3SrgbBlock;
+            return sRGBHint ? vk::Format::eBc3SrgbBlock : vk::Format::eBc3UnormBlock;
          case DDSFourCC::ATI1:
             return vk::Format::eBc4UnormBlock;
          case DDSFourCC::ATI2:
@@ -784,7 +784,7 @@ namespace
 
 namespace DDSImageLoader
 {
-   std::unique_ptr<Image> loadImage(std::vector<uint8_t> fileData)
+   std::unique_ptr<Image> loadImage(std::vector<uint8_t> fileData, bool sRGBHint)
    {
       if (fileData.size() < sizeof(uint32_t) + sizeof(DDSHeader))
       {
@@ -815,7 +815,7 @@ namespace DDSImageLoader
       }
 
       ImageProperties properties;
-      properties.format = ddsToVkFormat(header.pixelFormat, headerDX10);
+      properties.format = ddsToVkFormat(header.pixelFormat, headerDX10, sRGBHint);
       if (properties.format == vk::Format::eUndefined)
       {
          return nullptr;

@@ -523,7 +523,7 @@ void ForgeApplication::loadScene()
       directionalLightEntity.createComponent<TransformComponent>();
 
       DirectionalLightComponent& directionalLightComponent = directionalLightEntity.createComponent<DirectionalLightComponent>();
-      directionalLightComponent.setColor(glm::vec3(1.0f));
+      directionalLightComponent.setColor(glm::vec3(3.0f));
       directionalLightComponent.setShadowWidth(20.0f);
       directionalLightComponent.setShadowHeight(15.0f);
       directionalLightComponent.setShadowDepth(20.0f);
@@ -533,8 +533,8 @@ void ForgeApplication::loadScene()
          float time = scene.getTime();
 
          TransformComponent& transformComponent = directionalLightEntity.getComponent<TransformComponent>();
-         float pitchOffset = 20.0f * glm::sin(time * 0.55f);
-         float yawOffset = 10.0f * glm::cos(time * 0.4f);
+         float pitchOffset = 25.0f * glm::sin(time * 0.45f - 0.5f);
+         float yawOffset = 25.0f * glm::cos(time * 0.25f + 3.14f);
          transformComponent.transform.orientation = glm::angleAxis(glm::radians(-90.0f + pitchOffset), MathUtils::kRightVector) * glm::angleAxis(glm::radians(yawOffset), MathUtils::kUpVector);
       });
    }
@@ -545,8 +545,8 @@ void ForgeApplication::loadScene()
       pointLightEntity.createComponent<TransformComponent>();
 
       PointLightComponent& pointLightComponent = pointLightEntity.createComponent<PointLightComponent>();
-      pointLightComponent.setColor(glm::vec3(0.1f, 0.3f, 0.8f) * 20.0f);
-      pointLightComponent.setRadius(30.0f);
+      pointLightComponent.setColor(glm::vec3(0.1f, 0.3f, 0.8f) * 70.0f);
+      pointLightComponent.setRadius(50.0f);
 
       scene.addTickDelegate([this, pointLightEntity](float dt) mutable
       {
@@ -562,8 +562,8 @@ void ForgeApplication::loadScene()
       spotLightEntity.createComponent<TransformComponent>();
 
       SpotLightComponent& spotLightComponent = spotLightEntity.createComponent<SpotLightComponent>();
-      spotLightComponent.setColor(glm::vec3(0.8f, 0.1f, 0.3f) * 50.0f);
-      spotLightComponent.setRadius(20.0f);
+      spotLightComponent.setColor(glm::vec3(0.8f, 0.1f, 0.3f) * 70.0f);
+      spotLightComponent.setRadius(50.0f);
 
       scene.addTickDelegate([this, spotLightEntity](float dt) mutable
       {

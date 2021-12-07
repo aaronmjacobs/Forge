@@ -23,8 +23,9 @@ layout(set = 1, binding = 1) uniform samplerCubeArrayShadow pointLightShadowMaps
 layout(set = 1, binding = 2) uniform sampler2DArrayShadow spotLightShadowMaps;
 layout(set = 1, binding = 3) uniform sampler2DArrayShadow directionalLightShadowMaps;
 
-layout(set = 2, binding = 0) uniform sampler2D diffuseTexture;
+layout(set = 2, binding = 0) uniform sampler2D albedoTexture;
 layout(set = 2, binding = 1) uniform sampler2D normalTexture;
+layout(set = 2, binding = 2) uniform sampler2D aoRoughnessMetalnessTexture;
 
 layout(location = 0) in vec3 inPosition;
 layout(location = 1) in vec4 inColor;
@@ -35,26 +36,34 @@ layout(location = 0) out vec4 outColor;
 
 void main()
 {
-   LightingParams lightingParams;
+   SurfaceInfo surfaceInfo;
 
    float alpha = 1.0;
    if (kWithTextures)
    {
-      vec4 diffuseSample = texture(diffuseTexture, inTexCoord);
-      lightingParams.diffuseColor = inColor.rgb * diffuseSample.rgb;
-      alpha = inColor.a * diffuseSample.a;
+      vec4 albedoSample = texture(albedoTexture, inTexCoord);
+      surfaceInfo.albedo = inColor.rgb * albedoSample.rgb;
+      alpha = inColor.a * albedoSample.a;
 
       vec3 tangentSpaceNormal = texture(normalTexture, inTexCoord).rgb * 2.0 - 1.0;
       tangentSpaceNormal.z = sqrt(clamp(1.0 - dot(tangentSpaceNormal.xy, tangentSpaceNormal.xy), 0.0, 1.0));
       tangentSpaceNormal = normalize(tangentSpaceNormal);
-      lightingParams.surfaceNormal = normalize(inTBN * tangentSpaceNormal);
+      surfaceInfo.normal = normalize(inTBN * tangentSpaceNormal);
+
+      vec4 aoRoughnessMetalnessSample = texture(aoRoughnessMetalnessTexture, inTexCoord);
+      surfaceInfo.roughness = aoRoughnessMetalnessSample.g;
+      surfaceInfo.metalness = aoRoughnessMetalnessSample.b;
+      surfaceInfo.ambientOcclusion = 1.0; // aoRoughnessMetalnessSample.r; // TODO Uncomment after fixing sponza textures
    }
    else
    {
-      lightingParams.diffuseColor = inColor.rgb;
+      surfaceInfo.albedo = inColor.rgb;
       alpha = inColor.a;
 
-      lightingParams.surfaceNormal = normalize(inTBN[2]);
+      surfaceInfo.normal = normalize(inTBN[2]);
+      surfaceInfo.roughness = 0.5;
+      surfaceInfo.metalness = 0.0;
+      surfaceInfo.ambientOcclusion = 1.0;
    }
 
    if (!kWithBlending && !passesMaskThreshold(alpha))
@@ -62,26 +71,23 @@ void main()
       discard;
    }
 
-   lightingParams.specularColor = vec3(0.5);
-   lightingParams.shininess = 30.0;
-   lightingParams.surfacePosition = inPosition;
-   lightingParams.cameraPosition = view.position.xyz;
+   surfaceInfo.position = inPosition;
 
    vec3 color = vec3(0.0);
 
    for (int i = 0; i < numDirectionalLights; ++i)
    {
-      color += calcDirectionalLighting(directionalLights[i], lightingParams, directionalLightShadowMaps);
+      color += calcDirectionalLighting(view.position.xyz, surfaceInfo, directionalLights[i], directionalLightShadowMaps);
    }
 
    for (int i = 0; i < numPointLights; ++i)
    {
-      color += calcPointLighting(pointLights[i], lightingParams, pointLightShadowMaps);
+      color += calcPointLighting(view.position.xyz, surfaceInfo, pointLights[i], pointLightShadowMaps);
    }
 
    for (int i = 0; i < numSpotLights; ++i)
    {
-      color += calcSpotLighting(spotLights[i], lightingParams, spotLightShadowMaps);
+      color += calcSpotLighting(view.position.xyz, surfaceInfo, spotLights[i], spotLightShadowMaps);
    }
 
    outColor = vec4(color, alpha);

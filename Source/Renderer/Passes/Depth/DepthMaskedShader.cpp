@@ -1,6 +1,6 @@
 #include "Renderer/Passes/Depth/DepthMaskedShader.h"
 
-#include "Renderer/PhongMaterial.h"
+#include "Renderer/PhysicallyBasedMaterial.h"
 #include "Renderer/UniformData.h"
 #include "Renderer/View.h"
 
@@ -40,7 +40,7 @@ std::vector<vk::PipelineShaderStageCreateInfo> DepthMaskedShader::getStages() co
 
 std::vector<vk::DescriptorSetLayout> DepthMaskedShader::getSetLayouts() const
 {
-   return { View::getLayout(context), PhongMaterial::getLayout(context) };
+   return { View::getLayout(context), PhysicallyBasedMaterial::getLayout(context) };
 }
 
 std::vector<vk::PushConstantRange> DepthMaskedShader::getPushConstantRanges() const

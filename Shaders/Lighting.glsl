@@ -29,17 +29,87 @@ struct SpotLight
    int shadowMapIndex;
 };
 
-struct LightingParams
+struct SurfaceInfo
 {
-   vec3 diffuseColor;
-   vec3 specularColor;
-   float shininess;
+   vec3 position;
+   vec3 normal;
 
-   vec3 surfacePosition;
-   vec3 surfaceNormal;
-
-   vec3 cameraPosition;
+   vec3 albedo;
+   float roughness;
+   float metalness;
+   float ambientOcclusion;
 };
+
+const float kPI = 3.14159265359;
+
+float positiveDot(vec3 first, vec3 second)
+{
+   return max(dot(first, second), 0.0);
+}
+
+float distributionGGX(vec3 normal, vec3 halfwayVector, float roughness)
+{
+   float alpha = roughness * roughness;
+   float alphaSquared = alpha * alpha;
+   float cosTheta = positiveDot(normal, halfwayVector);
+   float cosThetaSquared = cosTheta * cosTheta;
+
+   float numerator = alphaSquared;
+   float denominator = (cosThetaSquared * (alphaSquared - 1.0) + 1.0);
+   denominator = kPI * denominator * denominator;
+
+   return numerator / denominator;
+}
+
+float geometrySchlickGGX(float cosTheta, float roughness)
+{
+   float r = (roughness + 1.0);
+   float k = (r * r) / 8.0;
+
+   float numerator = cosTheta;
+   float denominator = cosTheta * (1.0 - k) + k;
+
+   return numerator / denominator;
+}
+
+float geometrySmith(vec3 normal, vec3 viewDirection, vec3 lightDirection, float roughness)
+{
+   float cosThetaView = positiveDot(normal, viewDirection);
+   float cosThetaLight = positiveDot(normal, lightDirection);
+   float ggxView = geometrySchlickGGX(cosThetaView, roughness);
+   float ggxLight = geometrySchlickGGX(cosThetaLight, roughness);
+
+   return ggxView * ggxLight;
+}
+
+vec3 fresnelSchlick(float cosTheta, vec3 baseReflectivity)
+{
+   return baseReflectivity + (1.0 - baseReflectivity) * pow(1.0 - cosTheta, 5.0);
+}
+
+vec3 calcOutgoingRadiance(SurfaceInfo surfaceInfo, vec3 viewDirection, vec3 lightDirection, vec3 lightColor, float attenuation)
+{
+   vec3 halfwayVector = normalize(viewDirection + lightDirection);
+   vec3 baseReflectivity = mix(vec3(0.04), surfaceInfo.albedo, surfaceInfo.metalness);
+
+   float distribution = distributionGGX(surfaceInfo.normal, halfwayVector, surfaceInfo.roughness);
+   float geometry = geometrySmith(surfaceInfo.normal, viewDirection, lightDirection, surfaceInfo.roughness);
+   vec3 fresnel = fresnelSchlick(positiveDot(halfwayVector, viewDirection), baseReflectivity);
+
+   vec3 specularContribution = fresnel;
+   vec3 diffuseContribution = (vec3(1.0) - specularContribution) * (1.0 - surfaceInfo.metalness);
+   vec3 diffuse = (surfaceInfo.albedo / kPI) * diffuseContribution;
+   vec3 specular = (distribution * geometry * fresnel) / (4.0 * positiveDot(surfaceInfo.normal, viewDirection) * positiveDot(surfaceInfo.normal, lightDirection) + 0.0001);
+
+   float nDotL = positiveDot(surfaceInfo.normal, lightDirection);
+
+   return (diffuse + specular) * lightColor * attenuation * nDotL;
+}
+
+vec3 calcAmbient(vec3 lightColor, vec3 albedo, float ambientOcclusion, float attenuation)
+{
+   return lightColor * albedo * ambientOcclusion * attenuation * 0.01;
+}
 
 float vec3Max(vec3 vec)
 {
@@ -61,29 +131,6 @@ float calcAttenuation(vec3 toLight, float radius)
    float linearFalloff = 1.0 - clamp(dist / radius, 0.0, 1.0);
 
    return squaredFalloff * linearFalloff;
-}
-
-vec3 calcAmbient(vec3 lightColor, vec3 diffuseColor)
-{
-   return lightColor * diffuseColor * 0.05;
-}
-
-vec3 calcDiffuse(vec3 lightColor, vec3 diffuseColor, vec3 surfaceNormal, vec3 toLightDirection)
-{
-   float diffuseAmount = max(0.0, dot(surfaceNormal, toLightDirection));
-
-   return lightColor * (diffuseColor * diffuseAmount) * 0.95;
-}
-
-vec3 calcSpecular(vec3 lightColor, vec3 specularColor, float shininess, vec3 surfacePosition, vec3 surfaceNormal, vec3 toLightDirection, vec3 cameraPosition)
-{
-   vec3 toCamera = normalize(cameraPosition - surfacePosition);
-   vec3 reflection = reflect(-toLightDirection, surfaceNormal);
-
-   float specularBase = max(0.0, dot(toCamera, reflection));
-   float specularAmount = pow(specularBase, max(1.0, shininess));
-
-   return lightColor * (specularColor * specularAmount);
 }
 
 float calcVisibility(samplerCubeArrayShadow shadowMaps, int shadowMapIndex, vec2 nearFar, vec3 toLight, vec3 toLightDirection)
@@ -115,84 +162,73 @@ float calcVisibility(sampler2DArrayShadow shadowMaps, int shadowMapIndex, vec3 s
    return visibility / 9.0;
 }
 
-vec3 calcDirectionalLighting(DirectionalLight directionalLight, LightingParams lightingParams, sampler2DArrayShadow shadowMaps)
+vec3 calcDirectionalLighting(vec3 viewPosition, SurfaceInfo surfaceInfo, DirectionalLight directionalLight, sampler2DArrayShadow shadowMaps)
 {
    vec3 lightColor = directionalLight.color.rgb;
-   vec3 lightDirection = directionalLight.direction.xyz;
+   vec3 lightDirection = -directionalLight.direction.xyz;
+   vec3 viewDirection = normalize(viewPosition - surfaceInfo.position);
 
-   vec3 ambient = calcAmbient(lightColor, lightingParams.diffuseColor);
-   vec3 diffuse = calcDiffuse(lightColor, lightingParams.diffuseColor, lightingParams.surfaceNormal, -lightDirection);
-   vec3 specular = calcSpecular(lightColor, lightingParams.specularColor, lightingParams.shininess, lightingParams.surfacePosition, lightingParams.surfaceNormal, -lightDirection, lightingParams.cameraPosition);
-
-   vec3 directLighting = diffuse + specular;
-   vec3 indirectLighting = ambient;
+   vec3 directLighting = calcOutgoingRadiance(surfaceInfo, viewDirection, lightDirection, lightColor, 1.0);
+   vec3 indirectLighting = calcAmbient(lightColor, surfaceInfo.albedo, surfaceInfo.ambientOcclusion, 1.0);
 
    if (vec3Max(directLighting) > 0.0 && directionalLight.shadowMapIndex >= 0)
    {
-      float visibility = calcVisibility(shadowMaps, directionalLight.shadowMapIndex, lightingParams.surfacePosition, directionalLight.worldToShadow);
+      float visibility = calcVisibility(shadowMaps, directionalLight.shadowMapIndex, surfaceInfo.position, directionalLight.worldToShadow);
       directLighting *= visibility;
    }
 
    return directLighting + indirectLighting;
 }
 
-vec3 calcPointLighting(PointLight pointLight, LightingParams lightingParams, samplerCubeArrayShadow shadowMaps)
+vec3 calcPointLighting(vec3 viewPosition, SurfaceInfo surfaceInfo, PointLight pointLight, samplerCubeArrayShadow shadowMaps)
 {
    vec3 lightColor = pointLight.colorRadius.rgb;
    vec3 lightPosition = pointLight.position.xyz;
    float lightRadius = pointLight.colorRadius.w;
+   vec3 viewDirection = normalize(viewPosition - surfaceInfo.position);
 
-   vec3 toLight = lightPosition - lightingParams.surfacePosition;
-   vec3 toLightDirection = normalize(toLight);
-
-   vec3 ambient = calcAmbient(lightColor, lightingParams.diffuseColor);
-   vec3 diffuse = calcDiffuse(lightColor, lightingParams.diffuseColor, lightingParams.surfaceNormal, toLightDirection);
-   vec3 specular = calcSpecular(lightColor, lightingParams.specularColor, lightingParams.shininess, lightingParams.surfacePosition, lightingParams.surfaceNormal, toLightDirection, lightingParams.cameraPosition);
+   vec3 toLight = lightPosition - surfaceInfo.position;
+   vec3 lightDirection = normalize(toLight);
 
    float attenuation = calcAttenuation(toLight, lightRadius);
 
-   float brightness = attenuation;
-   vec3 directLighting = (diffuse + specular) * brightness;
-   vec3 indirectLighting = ambient * brightness;
+   vec3 directLighting = calcOutgoingRadiance(surfaceInfo, viewDirection, lightDirection, lightColor, attenuation);
+   vec3 indirectLighting = calcAmbient(lightColor, surfaceInfo.albedo, surfaceInfo.ambientOcclusion, attenuation);
 
    if (vec3Max(directLighting) > 0.0 && pointLight.shadowMapIndex >= 0)
    {
-      float visibility = calcVisibility(shadowMaps, pointLight.shadowMapIndex, pointLight.nearFar, toLight, toLightDirection);
+      float visibility = calcVisibility(shadowMaps, pointLight.shadowMapIndex, pointLight.nearFar, toLight, lightDirection);
       directLighting *= visibility;
    }
 
    return directLighting + indirectLighting;
 }
 
-vec3 calcSpotLighting(SpotLight spotLight, LightingParams lightingParams, sampler2DArrayShadow shadowMaps)
+vec3 calcSpotLighting(vec3 viewPosition, SurfaceInfo surfaceInfo, SpotLight spotLight, sampler2DArrayShadow shadowMaps)
 {
    vec3 lightColor = spotLight.colorRadius.rgb;
    vec3 lightPosition = spotLight.positionBeamAngle.xyz;
-   vec3 lightDirection = spotLight.directionCutoffAngle.xyz;
+   vec3 spotDirection = -spotLight.directionCutoffAngle.xyz;
    float lightRadius = spotLight.colorRadius.w;
    float lightBeamAngle = spotLight.positionBeamAngle.w;
    float lightCutoffAngle = spotLight.directionCutoffAngle.w;
+   vec3 viewDirection = normalize(viewPosition - surfaceInfo.position);
 
-   vec3 toLight = lightPosition - lightingParams.surfacePosition;
-   vec3 toLightDirection = normalize(toLight);
+   vec3 toLight = lightPosition - surfaceInfo.position;
+   vec3 lightDirection = normalize(toLight);
 
-   vec3 ambient = calcAmbient(lightColor, lightingParams.diffuseColor);
-   vec3 diffuse = calcDiffuse(lightColor, lightingParams.diffuseColor, lightingParams.surfaceNormal, toLightDirection);
-   vec3 specular = calcSpecular(lightColor, lightingParams.specularColor, lightingParams.shininess, lightingParams.surfacePosition, lightingParams.surfaceNormal, toLightDirection, lightingParams.cameraPosition);
-
-   float attenuation = calcAttenuation(toLight, lightRadius);
-
-   float spotAngle = acos(dot(lightDirection, -toLightDirection));
+   float spotAngle = acos(dot(lightDirection, spotDirection));
    float clampedAngle = clamp(spotAngle, lightBeamAngle, lightCutoffAngle);
    float spotMultiplier = 1.0 - ((clampedAngle - lightBeamAngle) / (lightCutoffAngle - lightBeamAngle));
 
-   float brightness = attenuation * spotMultiplier;
-   vec3 directLighting = (diffuse + specular) * brightness;
-   vec3 indirectLighting = ambient * brightness;
+   float attenuation = calcAttenuation(toLight, lightRadius) * spotMultiplier;
+
+   vec3 directLighting = calcOutgoingRadiance(surfaceInfo, viewDirection, lightDirection, lightColor, attenuation);
+   vec3 indirectLighting = calcAmbient(lightColor, surfaceInfo.albedo, surfaceInfo.ambientOcclusion, attenuation);
 
    if (vec3Max(directLighting) > 0.0 && spotLight.shadowMapIndex >= 0)
    {
-      float visibility = calcVisibility(shadowMaps, spotLight.shadowMapIndex, lightingParams.surfacePosition, spotLight.worldToShadow);
+      float visibility = calcVisibility(shadowMaps, spotLight.shadowMapIndex, surfaceInfo.position, spotLight.worldToShadow);
       directLighting *= visibility;
    }
 

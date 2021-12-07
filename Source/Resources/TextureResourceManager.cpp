@@ -25,7 +25,7 @@ namespace
 
          if (extension == ".dds")
          {
-            return DDSImageLoader::loadImage(std::move(*fileData));
+            return DDSImageLoader::loadImage(std::move(*fileData), loadOptions.sRGB);
          }
          else
          {

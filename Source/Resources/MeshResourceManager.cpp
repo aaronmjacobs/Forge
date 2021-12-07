@@ -6,7 +6,7 @@
 
 #include "Math/MathUtils.h"
 
-#include "Renderer/PhongMaterial.h"
+#include "Renderer/PhysicallyBasedMaterial.h"
 
 #include "Resources/ResourceManager.h"
 
@@ -18,6 +18,7 @@
 
 #include <PlatformUtils/IOUtils.h>
 
+#include <span>
 #include <limits>
 
 namespace
@@ -106,21 +107,27 @@ namespace
       return swizzle;
    }
 
-   TextureHandle loadMaterialTexture(const aiMaterial& assimpMaterial, aiTextureType textureType, const std::filesystem::path& directory, ResourceManager& resourceManager)
+   TextureHandle loadMaterialTexture(const aiMaterial& assimpMaterial, std::span<const aiTextureType> textureTypes, const std::filesystem::path& directory, ResourceManager& resourceManager)
    {
       std::filesystem::path texturePath;
+      aiTextureType textureType = aiTextureType_NONE;
 
-      if (assimpMaterial.GetTextureCount(textureType) > 0)
+      for (aiTextureType type : textureTypes)
       {
-         aiString textureName;
-         if (assimpMaterial.GetTexture(textureType, 0, &textureName) == aiReturn_SUCCESS)
+         if (assimpMaterial.GetTextureCount(type) > 0)
          {
-            texturePath = directory / textureName.C_Str();
+            aiString textureName;
+            if (assimpMaterial.GetTexture(type, 0, &textureName) == aiReturn_SUCCESS)
+            {
+               texturePath = directory / textureName.C_Str();
+               textureType = type;
+               break;
+            }
          }
       }
 
       TextureLoadOptions loadOptions;
-      loadOptions.sRGB = textureType != aiTextureType_NORMALS;
+      loadOptions.sRGB = textureType == aiTextureType_BASE_COLOR || textureType == aiTextureType_DIFFUSE;
       loadOptions.fallbackDefaultTextureType = textureType == aiTextureType_NORMALS ? DefaultTextureType::NormalMap : DefaultTextureType::White;
 
       return resourceManager.loadTexture(texturePath, loadOptions);
@@ -128,21 +135,31 @@ namespace
 
    MaterialHandle processAssimpMaterial(const aiMaterial& assimpMaterial, bool interpretTextureAlphaAsMask, const std::filesystem::path& directory, ResourceManager& resourceManager)
    {
-      TextureHandle diffuseTextureHandle = loadMaterialTexture(assimpMaterial, aiTextureType_DIFFUSE, directory, resourceManager);
-      TextureHandle normalTextureHandle = loadMaterialTexture(assimpMaterial, aiTextureType_NORMALS, directory, resourceManager);
+      static const std::array<aiTextureType, 2> kAlbedoTextureTypes = { aiTextureType_BASE_COLOR, aiTextureType_DIFFUSE };
+      static const std::array<aiTextureType, 1> kNormalTextureTypes = { aiTextureType_NORMALS };
+      static const std::array<aiTextureType, 4> kAoRMTextureTypes = { aiTextureType_AMBIENT_OCCLUSION, aiTextureType_DIFFUSE_ROUGHNESS, aiTextureType_METALNESS, aiTextureType_UNKNOWN };
+      
+      TextureHandle albedoTextureHandle = loadMaterialTexture(assimpMaterial, kAlbedoTextureTypes, directory, resourceManager);
+      TextureHandle normalTextureHandle = loadMaterialTexture(assimpMaterial, kNormalTextureTypes, directory, resourceManager);
+      TextureHandle aoRoughnessMetalnessTextureHandle = loadMaterialTexture(assimpMaterial, kAoRMTextureTypes, directory, resourceManager);
 
-      TextureMaterialParameter diffuseParameter;
-      diffuseParameter.name = PhongMaterial::kDiffuseTextureParameterName;
-      diffuseParameter.value = diffuseTextureHandle;
-      diffuseParameter.interpretAlphaAsMask = interpretTextureAlphaAsMask;
+      TextureMaterialParameter albedoParameter;
+      albedoParameter.name = PhysicallyBasedMaterial::kAlbedoTextureParameterName;
+      albedoParameter.value = albedoTextureHandle;
+      albedoParameter.interpretAlphaAsMask = interpretTextureAlphaAsMask;
 
       TextureMaterialParameter normalParameter;
-      normalParameter.name = PhongMaterial::kNormalTextureParameterName;
+      normalParameter.name = PhysicallyBasedMaterial::kNormalTextureParameterName;
       normalParameter.value = normalTextureHandle;
+      
+      TextureMaterialParameter aoRoughnessMetalnessParameter;
+      aoRoughnessMetalnessParameter.name = PhysicallyBasedMaterial::kAoRoughnessMetalnessTextureParameterName;
+      aoRoughnessMetalnessParameter.value = aoRoughnessMetalnessTextureHandle;
 
       MaterialParameters materialParameters;
-      materialParameters.textureParameters.push_back(diffuseParameter);
+      materialParameters.textureParameters.push_back(albedoParameter);
       materialParameters.textureParameters.push_back(normalParameter);
+      materialParameters.textureParameters.push_back(aoRoughnessMetalnessParameter);
 
       return resourceManager.loadMaterial(materialParameters);
    }
