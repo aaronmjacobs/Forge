@@ -8,6 +8,7 @@ set(SHADER_HEADER_FILES
 )
 
 set(SHADER_SOURCE_FILES
+   "${SHADER_DIR}/Composite.frag"
    "${SHADER_DIR}/Depth.vert"
    "${SHADER_DIR}/DepthMasked.frag"
    "${SHADER_DIR}/DepthMasked.vert"

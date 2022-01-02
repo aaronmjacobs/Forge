@@ -28,3 +28,6 @@
 [submodule "Libraries/Kontroller"]
 	path = Libraries/Kontroller
 	url = https://github.com/aaronmjacobs/Kontroller.git
+[submodule "Libraries/imgui"]
+	path = Libraries/imgui
+	url = https://github.com/ocornut/imgui.git

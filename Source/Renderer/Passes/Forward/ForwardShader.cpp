@@ -7,6 +7,8 @@
 #include "Renderer/UniformData.h"
 #include "Renderer/View.h"
 
+#include "Resources/ResourceManager.h"
+
 namespace
 {
    struct ForwardShaderStageData

@@ -110,7 +110,7 @@ Swapchain::Swapchain(const GraphicsContext& graphicsContext, vk::Extent2D desire
 #else
    uint32_t desiredMinImageCount = supportDetails.capabilities.minImageCount + 1;
 #endif
-   uint32_t minImageCount = supportDetails.capabilities.maxImageCount > 0 ? std::min(supportDetails.capabilities.maxImageCount, desiredMinImageCount) : desiredMinImageCount;
+   minImageCount = supportDetails.capabilities.maxImageCount > 0 ? std::min(supportDetails.capabilities.maxImageCount, desiredMinImageCount) : desiredMinImageCount;
 
    vk::SwapchainCreateInfoKHR createInfo = vk::SwapchainCreateInfoKHR()
       .setSurface(context.getSurface())

@@ -14,6 +14,7 @@
 #include <memory>
 #include <vector>
 
+class CompositePass;
 class DepthPass;
 class ForwardLighting;
 class ForwardPass;
@@ -22,6 +23,7 @@ class SimpleRenderPass;
 class Swapchain;
 class Texture;
 class TonemapPass;
+class UIPass;
 class View;
 struct SceneRenderInfo;
 
@@ -56,11 +58,14 @@ private:
    std::unique_ptr<Texture> depthTexture;
    std::unique_ptr<Texture> hdrColorTexture;
    std::unique_ptr<Texture> hdrResolveTexture;
+   std::unique_ptr<Texture> uiColorTexture;
 
    std::unique_ptr<DepthPass> prePass;
    std::unique_ptr<DepthPass> shadowPass;
    std::unique_ptr<ForwardPass> forwardPass;
    std::unique_ptr<TonemapPass> tonemapPass;
+   std::unique_ptr<UIPass> uiPass;
+   std::unique_ptr<CompositePass> compositePass;
 
    FramebufferHandle prePassFramebufferHandle;
    std::array<FramebufferHandle, ForwardLighting::kMaxSpotShadowMaps * kNumCubeFaces> pointShadowPassFramebufferHandles;
@@ -68,6 +73,8 @@ private:
    std::array<FramebufferHandle, ForwardLighting::kMaxDirectionalShadowMaps> directionalShadowPassFramebufferHandles;
    FramebufferHandle forwardPassFramebufferHandle;
    FramebufferHandle tonemapPassFramebufferHandle;
+   FramebufferHandle uiPassFramebufferHandle;
+   FramebufferHandle compositePassFramebufferHandle;
 
    bool enableMSAA = false;
 };

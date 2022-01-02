@@ -20,6 +20,30 @@ set(BUILD_SHARED_LIBS OFF CACHE INTERNAL "Build package with shared libraries.")
 add_subdirectory("${LIB_DIR}/Boxer")
 target_link_libraries(${PROJECT_NAME} PUBLIC Boxer)
 
+# Dear ImGui
+set(IMGUI_DIR "${LIB_DIR}/imgui")
+target_sources(${PROJECT_NAME} PRIVATE
+   "${IMGUI_DIR}/imconfig.h"
+   "${IMGUI_DIR}/imgui.cpp"
+   "${IMGUI_DIR}/imgui.h"
+   "${IMGUI_DIR}/imgui_demo.cpp"
+   "${IMGUI_DIR}/imgui_draw.cpp"
+   "${IMGUI_DIR}/imgui_internal.h"
+   "${IMGUI_DIR}/imgui_tables.cpp"
+   "${IMGUI_DIR}/imgui_widgets.cpp"
+   "${IMGUI_DIR}/imstb_rectpack.h"
+   "${IMGUI_DIR}/imstb_textedit.h"
+   "${IMGUI_DIR}/imstb_truetype.h"
+   "${IMGUI_DIR}/backends/imgui_impl_glfw.cpp"
+   "${IMGUI_DIR}/backends/imgui_impl_glfw.h"
+   "${IMGUI_DIR}/backends/imgui_impl_vulkan.cpp"
+   "${IMGUI_DIR}/backends/imgui_impl_vulkan.h"
+)
+target_include_directories(${PROJECT_NAME} PUBLIC "${IMGUI_DIR}")
+target_compile_definitions(${PROJECT_NAME} PUBLIC IMGUI_USER_CONFIG="UI/UIConfig.h")
+source_group("Libraries\\imgui\\backends" "${IMGUI_DIR}/backends/*")
+source_group("Libraries\\imgui" "${IMGUI_DIR}/*")
+
 # EnTT
 add_subdirectory("${LIB_DIR}/entt")
 target_link_libraries(${PROJECT_NAME} PUBLIC EnTT)

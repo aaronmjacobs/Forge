@@ -43,6 +43,11 @@ public:
    GraphicsContext& operator=(const GraphicsContext&& other) = delete;
    GraphicsContext& operator=(GraphicsContext&& other) = delete;
 
+   vk::Instance getInstance() const
+   {
+      return instance;
+   }
+
    vk::SurfaceKHR getSurface() const
    {
       return surface;

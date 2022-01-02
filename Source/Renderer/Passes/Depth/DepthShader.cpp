@@ -3,6 +3,8 @@
 #include "Renderer/UniformData.h"
 #include "Renderer/View.h"
 
+#include "Resources/ResourceManager.h"
+
 DepthShader::DepthShader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager)
    : GraphicsResource(graphicsContext)
 {

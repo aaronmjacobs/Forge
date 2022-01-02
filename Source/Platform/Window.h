@@ -69,6 +69,10 @@ private:
 
    void setConsumeCursorInput(bool consume);
 
+   bool uiWantsMouseInput() const;
+   bool uiWantsKeyboardInput() const;
+   void setUIIgnoreMouse(bool ignore);
+
    GLFWwindow* glfwWindow = nullptr;
 
    InputManager inputManager;

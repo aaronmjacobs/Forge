@@ -7,9 +7,11 @@
 #include "Math/MathUtils.h"
 
 #include "Renderer/ForwardLighting.h"
+#include "Renderer/Passes/Composite/CompositePass.h"
 #include "Renderer/Passes/Depth/DepthPass.h"
 #include "Renderer/Passes/Forward/ForwardPass.h"
 #include "Renderer/Passes/PostProcess/Tonemap/TonemapPass.h"
+#include "Renderer/Passes/UI/UIPass.h"
 #include "Renderer/SceneRenderInfo.h"
 #include "Renderer/View.h"
 
@@ -280,14 +282,19 @@ namespace
       return Bounds(transform.transformPosition(bounds.getCenter()), transform.transformVector(bounds.getExtent()));
    }
 
-   SceneRenderInfo computeSceneRenderInfo(const ResourceManager& resourceManager, const Scene& scene, const View& view, bool includeLights)
+   SceneRenderInfo computeSceneRenderInfo(const ResourceManager& resourceManager, const Scene& scene, const View& view, bool isShadowPass)
    {
       SceneRenderInfo sceneRenderInfo(view);
 
       std::array<glm::vec4, 6> frustumPlanes = computeFrustumPlanes(view.getMatrices().worldToClip);
 
-      scene.forEach<TransformComponent, MeshComponent>([&resourceManager, &sceneRenderInfo, &frustumPlanes](const TransformComponent& transformComponent, const MeshComponent& meshComponent)
+      scene.forEach<TransformComponent, MeshComponent>([&resourceManager, &sceneRenderInfo, &frustumPlanes, isShadowPass](const TransformComponent& transformComponent, const MeshComponent& meshComponent)
       {
+         if (isShadowPass && !meshComponent.castsShadows)
+         {
+            return;
+         }
+
          if (const Mesh* mesh = resourceManager.getMesh(meshComponent.meshHandle))
          {
             MeshRenderInfo info(*mesh, transformComponent.getAbsoluteTransform());
@@ -349,7 +356,7 @@ namespace
          return firstSquaredDistance > secondSquaredDistance;
       });
 
-      if (includeLights)
+      if (!isShadowPass)
       {
          uint32_t allocatedPointShadowMaps = 0;
          scene.forEach<TransformComponent, PointLightComponent>([&sceneRenderInfo, &frustumPlanes, &allocatedPointShadowMaps](const TransformComponent& transformComponent, const PointLightComponent& pointLightComponent)
@@ -529,6 +536,13 @@ Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& reso
 
       tonemapPass = std::make_unique<TonemapPass>(context, dynamicDescriptorPool, resourceManager);
       NAME_POINTER(device, tonemapPass, "Tonemap Pass");
+
+      uiPass = std::make_unique<UIPass>(context);
+      NAME_POINTER(device, uiPass, "UI Pass");
+
+      compositePass = std::make_unique<CompositePass>(context, dynamicDescriptorPool, resourceManager);
+      compositePass->setIsFinalRenderPass(true);
+      NAME_POINTER(device, compositePass, "Composite Pass");
    }
 
    {
@@ -581,10 +595,13 @@ Renderer::~Renderer()
    shadowPass = nullptr;
    forwardPass = nullptr;
    tonemapPass = nullptr;
+   uiPass = nullptr;
+   compositePass = nullptr;
 
    depthTexture = nullptr;
    hdrColorTexture = nullptr;
    hdrResolveTexture = nullptr;
+   uiColorTexture = nullptr;
 
    forwardLighting = nullptr;
 
@@ -611,7 +628,7 @@ void Renderer::render(vk::CommandBuffer commandBuffer, const Scene& scene)
    ViewInfo activeCameraViewInfo = computeActiveCameraViewInfo(context, scene);
    view->update(activeCameraViewInfo);
 
-   SceneRenderInfo sceneRenderInfo = computeSceneRenderInfo(resourceManager, scene, *view, true);
+   SceneRenderInfo sceneRenderInfo = computeSceneRenderInfo(resourceManager, scene, *view, false);
 
    prePass->render(commandBuffer, sceneRenderInfo, prePassFramebufferHandle);
 
@@ -628,6 +645,9 @@ void Renderer::render(vk::CommandBuffer commandBuffer, const Scene& scene)
 
    forwardPass->render(commandBuffer, sceneRenderInfo, forwardPassFramebufferHandle, skyboxTexture);
    tonemapPass->render(commandBuffer, tonemapPassFramebufferHandle, hdrResolveTexture ? *hdrResolveTexture : *hdrColorTexture);
+
+   uiPass->render(commandBuffer, uiPassFramebufferHandle);
+   compositePass->render(commandBuffer, compositePassFramebufferHandle, *uiColorTexture, CompositeShader::Mode::SrgbToLinear);
 }
 
 void Renderer::onSwapchainRecreated()
@@ -642,10 +662,12 @@ void Renderer::onSwapchainRecreated()
    {
       hdrResolveTexture = nullptr;
    }
+   uiColorTexture = createColorTexture(context, vk::Format::eR8G8B8A8Unorm, true, false);
 
    NAME_POINTER(device, depthTexture, "Depth Texture");
    NAME_POINTER(device, hdrColorTexture, "HDR Color Texture");
    NAME_POINTER(device, hdrResolveTexture, "HDR Resolve Texture");
+   NAME_POINTER(device, uiColorTexture, "UI Color Texture");
 
    updateSwapchainDependentFramebuffers();
 }
@@ -682,7 +704,7 @@ void Renderer::renderShadowMaps(vk::CommandBuffer commandBuffer, const Scene& sc
                INLINE_LABEL("Update point shadow view " + DebugUtils::toString(viewIndex));
                std::unique_ptr<View>& pointShadowView = pointShadowViews[viewIndex];
                pointShadowView->update(pointLightViewInfo);
-               SceneRenderInfo shadowSceneRenderInfo = computeSceneRenderInfo(resourceManager, scene, *pointShadowView, false);
+               SceneRenderInfo shadowSceneRenderInfo = computeSceneRenderInfo(resourceManager, scene, *pointShadowView, true);
 
                shadowPass->render(commandBuffer, shadowSceneRenderInfo, pointShadowPassFramebufferHandles[viewIndex]);
             }
@@ -703,7 +725,7 @@ void Renderer::renderShadowMaps(vk::CommandBuffer commandBuffer, const Scene& sc
             INLINE_LABEL("Update spot shadow view " + DebugUtils::toString(shadowMapIndex));
             std::unique_ptr<View>& spotShadowView = spotShadowViews[shadowMapIndex];
             spotShadowView->update(spotLightInfo.shadowViewInfo.value());
-            SceneRenderInfo shadowSceneRenderInfo = computeSceneRenderInfo(resourceManager, scene, *spotShadowView, false);
+            SceneRenderInfo shadowSceneRenderInfo = computeSceneRenderInfo(resourceManager, scene, *spotShadowView, true);
 
             shadowPass->render(commandBuffer, shadowSceneRenderInfo, spotShadowPassFramebufferHandles[shadowMapIndex]);
          }
@@ -723,7 +745,7 @@ void Renderer::renderShadowMaps(vk::CommandBuffer commandBuffer, const Scene& sc
             INLINE_LABEL("Update directional shadow view " + DebugUtils::toString(shadowMapIndex));
             std::unique_ptr<View>& directionalShadowView = directionalShadowViews[shadowMapIndex];
             directionalShadowView->update(directionalLightInfo.shadowViewInfo.value());
-            SceneRenderInfo shadowSceneRenderInfo = computeSceneRenderInfo(resourceManager, scene, *directionalShadowView, false);
+            SceneRenderInfo shadowSceneRenderInfo = computeSceneRenderInfo(resourceManager, scene, *directionalShadowView, true);
 
             shadowPass->render(commandBuffer, shadowSceneRenderInfo, directionalShadowPassFramebufferHandles[shadowMapIndex]);
          }
@@ -762,5 +784,21 @@ void Renderer::updateSwapchainDependentFramebuffers()
 
       tonemapPass->updateAttachmentSetup(tonemapInfo.asBasic());
       tonemapPassFramebufferHandle = tonemapPass->createFramebuffer(tonemapInfo);
+   }
+
+   {
+      AttachmentInfo uiInfo;
+      uiInfo.colorInfo = { uiColorTexture->getInfo() };
+
+      uiPass->updateAttachmentSetup(uiInfo.asBasic());
+      uiPassFramebufferHandle = uiPass->createFramebuffer(uiInfo);
+   }
+
+   {
+      AttachmentInfo compositeInfo;
+      compositeInfo.colorInfo = { context.getSwapchain().getTextureInfo() };
+
+      compositePass->updateAttachmentSetup(compositeInfo.asBasic());
+      compositePassFramebufferHandle = compositePass->createFramebuffer(compositeInfo);
    }
 }

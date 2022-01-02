@@ -23,6 +23,8 @@ public:
 private:
    void render();
 
+   void renderUI();
+
    bool recreateSwapchain();
 
    void initializeGlfw();

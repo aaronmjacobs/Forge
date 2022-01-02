@@ -4,6 +4,8 @@
 #include "Renderer/UniformData.h"
 #include "Renderer/View.h"
 
+#include "Resources/ResourceManager.h"
+
 DepthMaskedShader::DepthMaskedShader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager)
    : GraphicsResource(graphicsContext)
 {

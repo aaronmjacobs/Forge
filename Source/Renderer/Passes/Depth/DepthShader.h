@@ -1,9 +1,8 @@
 #include "Graphics/GraphicsResource.h"
 
-#include "Resources/ResourceManager.h"
-
 #include <vector>
 
+class ResourceManager;
 class View;
 
 class DepthShader : public GraphicsResource

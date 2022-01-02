@@ -74,6 +74,13 @@ public:
    FramebufferHandle createFramebuffer(const AttachmentInfo& attachmentInfo);
    void destroyFramebuffer(FramebufferHandle& handle);
 
+   vk::RenderPass getRenderPass() const { return renderPass; }
+
+   void setIsFinalRenderPass(bool isFinalPass)
+   {
+      isFinalRenderPass = isFinalPass;
+   }
+
 protected:
    void initializeRenderPass();
    virtual void initializePipelines(vk::SampleCountFlagBits sampleCount) = 0;
@@ -87,7 +94,6 @@ protected:
    void endRenderPass(vk::CommandBuffer commandBuffer);
    void setViewport(vk::CommandBuffer commandBuffer, const vk::Rect2D& rect);
 
-   vk::RenderPass getRenderPass() const { return renderPass; }
    const Framebuffer* getFramebuffer(FramebufferHandle handle) const;
 
    std::vector<vk::PipelineLayout> pipelineLayouts;
@@ -101,4 +107,5 @@ private:
    std::unordered_map<FramebufferHandle, Framebuffer> framebufferMap;
 
    BasicAttachmentInfo attachmentSetup;
+   bool isFinalRenderPass = false;
 };

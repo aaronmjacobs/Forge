@@ -2,6 +2,9 @@
 
 #include <GLFW/glfw3.h>
 
+#include <imgui.h>
+#include <backends/imgui_impl_glfw.h>
+
 #include <algorithm>
 #include <stdexcept>
 
@@ -131,8 +134,6 @@ Window::Window()
       glfwSetInputMode(glfwWindow, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
    }
 
-   setConsumeCursorInput(true);
-
    double cursorX = 0.0;
    double cursorY = 0.0;
    glfwGetCursorPos(glfwWindow, &cursorX, &cursorY);
@@ -148,10 +149,17 @@ Window::Window()
    glfwSetKeyCallback(glfwWindow, WindowCallbackHelper::keyCallback);
    glfwSetMouseButtonCallback(glfwWindow, WindowCallbackHelper::mouseButtonCallback);
    glfwSetCursorPosCallback(glfwWindow, WindowCallbackHelper::cursorPosCallback);
+
+   IMGUI_CHECKVERSION();
+   ImGui::CreateContext();
+   ImGui_ImplGlfw_InitForVulkan(glfwWindow, true);
 }
 
 Window::~Window()
 {
+   ImGui_ImplGlfw_Shutdown();
+   ImGui::DestroyContext();
+
    setConsumeCursorInput(false);
 
    ASSERT(glfwWindow);
@@ -256,7 +264,7 @@ void Window::setCanConsumeCursorInput(bool consume)
 
    if (!consume)
    {
-      setConsumeCursorInput(consumeCursorInput);
+      releaseCursor();
    }
 }
 
@@ -319,8 +327,8 @@ void Window::onWindowFocusChanged(bool focused)
       int height = 0;
       glfwGetWindowSize(glfwWindow, &width, &height);
 
-      // Ignore the event if the cursor isn't within the bounds of the window
-      if (cursorX >= 0.0 && cursorX <= width && cursorY >= 0.0 && cursorY <= height)
+      // Ignore the event if the cursor isn't within the bounds of the window, or if the UI wants to use mouse input
+      if (cursorX >= 0.0 && cursorX <= width && cursorY >= 0.0 && cursorY <= height && !uiWantsMouseInput())
       {
          setConsumeCursorInput(true);
       }
@@ -335,16 +343,22 @@ void Window::onWindowFocusChanged(bool focused)
 
 void Window::onKeyEvent(int key, int scancode, int action, int mods)
 {
-   inputManager.onKeyEvent(key, scancode, action, mods);
+   if (!uiWantsKeyboardInput())
+   {
+      inputManager.onKeyEvent(key, scancode, action, mods);
+   }
 }
 
 void Window::onMouseButtonEvent(int button, int action, int mods)
 {
-   inputManager.onMouseButtonEvent(button, action, mods);
-
-   if (!consumeCursorInput)
+   if (!uiWantsMouseInput())
    {
-      setConsumeCursorInput(true);
+      inputManager.onMouseButtonEvent(button, action, mods);
+
+      if (!consumeCursorInput)
+      {
+         setConsumeCursorInput(true);
+      }
    }
 }
 
@@ -362,5 +376,43 @@ void Window::setConsumeCursorInput(bool consume)
    if (consumeCursorInput)
    {
       ignoreNextCursorPosChange = true;
+   }
+
+   setUIIgnoreMouse(consumeCursorInput);
+}
+
+bool Window::uiWantsMouseInput() const
+{
+   if (ImGui::GetCurrentContext())
+   {
+      return ImGui::GetIO().WantCaptureMouse;
+   }
+
+   return false;
+}
+
+bool Window::uiWantsKeyboardInput() const
+{
+   if (ImGui::GetCurrentContext())
+   {
+      return ImGui::GetIO().WantCaptureKeyboard;
+   }
+
+   return false;
+}
+
+void Window::setUIIgnoreMouse(bool ignore)
+{
+   if (ImGui::GetCurrentContext())
+   {
+      ImGuiIO& io = ImGui::GetIO();
+      if (ignore)
+      {
+         io.ConfigFlags |= ImGuiConfigFlags_NoMouse;
+      }
+      else
+      {
+         io.ConfigFlags &= ~ImGuiConfigFlags_NoMouse;
+      }
    }
 }

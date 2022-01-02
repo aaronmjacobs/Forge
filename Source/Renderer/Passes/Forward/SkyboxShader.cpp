@@ -5,6 +5,8 @@
 
 #include "Renderer/View.h"
 
+#include "Resources/ResourceManager.h"
+
 // static
 const vk::DescriptorSetLayoutCreateInfo& SkyboxShader::getLayoutCreateInfo()
 {

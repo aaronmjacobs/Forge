@@ -23,6 +23,10 @@
 
 #include <GLFW/glfw3.h>
 
+#include <imgui.h>
+#include <backends/imgui_impl_glfw.h>
+#include <backends/imgui_impl_vulkan.h>
+
 #include <array>
 #include <sstream>
 #include <stdexcept>
@@ -78,6 +82,7 @@ ForgeApplication::~ForgeApplication()
 
 void ForgeApplication::run()
 {
+   static const double kMaxDeltaTime = 0.2;
    static const double kFrameRateReportInterval = 0.25;
 
    int frameCount = 0;
@@ -94,6 +99,10 @@ void ForgeApplication::run()
 
       double time = glfwGetTime();
       double dt = time - lastTime;
+      if (dt > kMaxDeltaTime)
+      {
+         dt = 0.0;
+      }
       lastTime = time;
 
       scene.tick(static_cast<float>(dt));
@@ -119,6 +128,8 @@ void ForgeApplication::run()
 
 void ForgeApplication::render()
 {
+   renderUI();
+
    if (framebufferSizeChanged)
    {
       if (!recreateSwapchain())
@@ -210,6 +221,22 @@ void ForgeApplication::render()
    }
 
    frameIndex = (frameIndex + 1) % GraphicsContext::kMaxFramesInFlight;
+}
+
+void ForgeApplication::renderUI()
+{
+   if (!ImGui::GetCurrentContext())
+   {
+      return;
+   }
+
+   ImGui_ImplGlfw_NewFrame();
+   ImGui_ImplVulkan_NewFrame();
+   ImGui::NewFrame();
+
+   ImGui::ShowDemoWindow();
+
+   ImGui::Render();
 }
 
 bool ForgeApplication::recreateSwapchain()

@@ -1,10 +1,9 @@
 #include "Graphics/GraphicsResource.h"
 
-#include "Resources/ResourceManager.h"
-
 #include <vector>
 
 class Material;
+class ResourceManager;
 class View;
 
 class DepthMaskedShader : public GraphicsResource

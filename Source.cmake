@@ -73,6 +73,10 @@ target_sources(${PROJECT_NAME} PRIVATE
 
    "${SRC_DIR}/Renderer/ForwardLighting.cpp"
    "${SRC_DIR}/Renderer/ForwardLighting.h"
+   "${SRC_DIR}/Renderer/Passes/Composite/CompositePass.cpp"
+   "${SRC_DIR}/Renderer/Passes/Composite/CompositePass.h"
+   "${SRC_DIR}/Renderer/Passes/Composite/CompositeShader.cpp"
+   "${SRC_DIR}/Renderer/Passes/Composite/CompositeShader.h"
    "${SRC_DIR}/Renderer/Passes/Depth/DepthPass.cpp"
    "${SRC_DIR}/Renderer/Passes/Depth/DepthPass.h"
    "${SRC_DIR}/Renderer/Passes/Depth/DepthMaskedShader.cpp"
@@ -90,6 +94,8 @@ target_sources(${PROJECT_NAME} PRIVATE
    "${SRC_DIR}/Renderer/Passes/PostProcess/Tonemap/TonemapShader.cpp"
    "${SRC_DIR}/Renderer/Passes/PostProcess/Tonemap/TonemapShader.h"
    "${SRC_DIR}/Renderer/Passes/SceneRenderPass.h"
+   "${SRC_DIR}/Renderer/Passes/UI/UIPass.cpp"
+   "${SRC_DIR}/Renderer/Passes/UI/UIPass.h"
    "${SRC_DIR}/Renderer/PhongMaterial.cpp"
    "${SRC_DIR}/Renderer/PhongMaterial.h"
    "${SRC_DIR}/Renderer/PhysicallyBasedMaterial.cpp"
@@ -131,6 +137,8 @@ target_sources(${PROJECT_NAME} PRIVATE
    "${SRC_DIR}/Scene/Entity.h"
    "${SRC_DIR}/Scene/Scene.cpp"
    "${SRC_DIR}/Scene/Scene.h"
+
+   "${SRC_DIR}/UI/UIConfig.h"
 )
 
 if(FORGE_WITH_MIDI)

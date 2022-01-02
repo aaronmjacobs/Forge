@@ -41,6 +41,11 @@ public:
       return swapchainKHR;
    }
 
+   uint32_t getMinImageCount() const
+   {
+      return minImageCount;
+   }
+
    uint32_t getImageCount() const
    {
       return static_cast<uint32_t>(images.size());
@@ -57,6 +62,7 @@ private:
    vk::Format format;
    vk::Extent2D extent;
 
+   uint32_t minImageCount = 0;
    vk::SwapchainKHR swapchainKHR;
    std::vector<vk::Image> images;
    std::vector<vk::ImageView> imageViews;

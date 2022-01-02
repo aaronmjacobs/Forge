@@ -44,6 +44,7 @@ RenderPass::RenderPass(const GraphicsContext& graphicsContext)
 RenderPass::~RenderPass()
 {
    framebufferMap.clear();
+
    terminatePipelines();
    terminateRenderPass();
 }
@@ -51,17 +52,21 @@ RenderPass::~RenderPass()
 void RenderPass::updateAttachmentSetup(const BasicAttachmentInfo& setup)
 {
    framebufferMap.clear();
-   terminatePipelines();
-   terminateRenderPass();
 
-   attachmentSetup = setup;
-
-   initializeRenderPass();
-   initializePipelines(getSampleCount(attachmentSetup).value_or(vk::SampleCountFlagBits::e1));
-
-   for (std::size_t i = 0; i < pipelineLayouts.size(); ++i)
+   if (setup != attachmentSetup)
    {
-      NAME_CHILD(pipelineLayouts[i], "Pipeline Layout " + DebugUtils::toString(i));
+      terminatePipelines();
+      terminateRenderPass();
+
+      attachmentSetup = setup;
+
+      initializeRenderPass();
+      initializePipelines(getSampleCount(attachmentSetup).value_or(vk::SampleCountFlagBits::e1));
+
+      for (std::size_t i = 0; i < pipelineLayouts.size(); ++i)
+      {
+         NAME_CHILD(pipelineLayouts[i], "Pipeline Layout " + DebugUtils::toString(i));
+      }
    }
 }
 
@@ -125,7 +130,7 @@ void RenderPass::initializeRenderPass()
          .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
          .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
          .setInitialLayout(clearColor ? vk::ImageLayout::eUndefined : vk::ImageLayout::eColorAttachmentOptimal)
-         .setFinalLayout(colorInfo.isSwapchainTexture ? vk::ImageLayout::ePresentSrcKHR : vk::ImageLayout::eColorAttachmentOptimal);
+         .setFinalLayout(colorInfo.isSwapchainTexture && isFinalRenderPass ? vk::ImageLayout::ePresentSrcKHR : vk::ImageLayout::eColorAttachmentOptimal);
 
       vk::AttachmentReference colorAttachmentReference = vk::AttachmentReference()
          .setAttachment(static_cast<uint32_t>(attachments.size()))

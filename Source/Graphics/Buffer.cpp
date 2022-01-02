@@ -25,17 +25,16 @@ namespace Buffer
 
    void copy(const GraphicsContext& context, std::span<const CopyInfo> copyInfo)
    {
-      vk::CommandBuffer copyCommandBuffer = Command::beginSingle(context);
-
-      for (const CopyInfo& info : copyInfo)
+      Command::executeSingle(context, [copyInfo](vk::CommandBuffer commandBuffer)
       {
-         vk::BufferCopy copyRegion = vk::BufferCopy()
-            .setSrcOffset(info.srcOffset)
-            .setDstOffset(info.dstOffset)
-            .setSize(info.size);
-         copyCommandBuffer.copyBuffer(info.srcBuffer, info.dstBuffer, { copyRegion });
-      }
-
-      Command::endSingle(context, copyCommandBuffer);
+         for (const CopyInfo& info : copyInfo)
+         {
+            vk::BufferCopy copyRegion = vk::BufferCopy()
+               .setSrcOffset(info.srcOffset)
+               .setDstOffset(info.dstOffset)
+               .setSize(info.size);
+            commandBuffer.copyBuffer(info.srcBuffer, info.dstBuffer, { copyRegion });
+         }
+      });
    }
 }
