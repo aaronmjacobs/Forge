@@ -3,7 +3,6 @@
 #include "Core/Assert.h"
 
 #include "Graphics/DebugUtils.h"
-#include "Graphics/DescriptorSetLayoutCache.h"
 #include "Graphics/Texture.h"
 
 #include "Renderer/SceneRenderInfo.h"
@@ -70,7 +69,7 @@ const vk::DescriptorSetLayoutCreateInfo& ForwardLighting::getLayoutCreateInfo()
 // static
 vk::DescriptorSetLayout ForwardLighting::getLayout(const GraphicsContext& context)
 {
-   return context.getLayoutCache().getLayout(getLayoutCreateInfo());
+   return context.getDescriptorSetLayout(getLayoutCreateInfo());
 }
 
 // static

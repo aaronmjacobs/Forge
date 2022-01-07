@@ -1,41 +1,35 @@
 #include "Renderer/PhysicallyBasedMaterial.h"
 
-#include "Graphics/DescriptorSetLayoutCache.h"
+#include "Graphics/DescriptorSetLayout.h"
 #include "Graphics/Texture.h"
 
-namespace
+// static
+std::array<vk::DescriptorSetLayoutBinding, 3> PhysicallyBasedMaterial::getBindings()
 {
-   const vk::DescriptorSetLayoutCreateInfo& getLayoutCreateInfo()
+   return
    {
-      static const std::array<vk::DescriptorSetLayoutBinding, 3> kBindings =
-      {
-         vk::DescriptorSetLayoutBinding()
-            .setBinding(0)
-            .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-            .setDescriptorCount(1)
-            .setStageFlags(vk::ShaderStageFlagBits::eFragment),
-         vk::DescriptorSetLayoutBinding()
-            .setBinding(1)
-            .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-            .setDescriptorCount(1)
-            .setStageFlags(vk::ShaderStageFlagBits::eFragment),
-         vk::DescriptorSetLayoutBinding()
-            .setBinding(2)
-            .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-            .setDescriptorCount(1)
-            .setStageFlags(vk::ShaderStageFlagBits::eFragment)
-      };
-
-      static const vk::DescriptorSetLayoutCreateInfo kCreateInfo = vk::DescriptorSetLayoutCreateInfo(vk::DescriptorSetLayoutCreateFlags(), kBindings);
-
-      return kCreateInfo;
-   }
+      vk::DescriptorSetLayoutBinding()
+         .setBinding(0)
+         .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+         .setDescriptorCount(1)
+         .setStageFlags(vk::ShaderStageFlagBits::eFragment),
+      vk::DescriptorSetLayoutBinding()
+         .setBinding(1)
+         .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+         .setDescriptorCount(1)
+         .setStageFlags(vk::ShaderStageFlagBits::eFragment),
+      vk::DescriptorSetLayoutBinding()
+         .setBinding(2)
+         .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+         .setDescriptorCount(1)
+         .setStageFlags(vk::ShaderStageFlagBits::eFragment)
+   };
 }
 
 // static
 vk::DescriptorSetLayout PhysicallyBasedMaterial::getLayout(const GraphicsContext& context)
 {
-   return context.getLayoutCache().getLayout(getLayoutCreateInfo());
+   return DescriptorSetLayout::get<PhysicallyBasedMaterial>(context);
 }
 
 // static
@@ -48,7 +42,7 @@ const std::string PhysicallyBasedMaterial::kNormalTextureParameterName = "normal
 const std::string PhysicallyBasedMaterial::kAoRoughnessMetalnessTextureParameterName = "aoRoughnessMetalness";
 
 PhysicallyBasedMaterial::PhysicallyBasedMaterial(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, vk::Sampler sampler, const Texture& albedoTexture, const Texture& normalTexture, const Texture& aoRoughnessMetalnessTexture, bool interpretAlphaAsMask)
-   : Material(graphicsContext, dynamicDescriptorPool, getLayoutCreateInfo())
+   : Material(graphicsContext, dynamicDescriptorPool, DescriptorSetLayout::getCreateInfo<PhysicallyBasedMaterial>())
 {
    if (albedoTexture.getImageProperties().hasAlpha)
    {

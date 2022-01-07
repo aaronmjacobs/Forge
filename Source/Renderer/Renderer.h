@@ -9,8 +9,6 @@
 #include "Renderer/UniformData.h"
 #include "Renderer/ViewInfo.h"
 
-#include "Resources/ResourceManager.h"
-
 #include <memory>
 #include <vector>
 
@@ -18,6 +16,7 @@ class CompositePass;
 class DepthPass;
 class ForwardLighting;
 class ForwardPass;
+class ResourceManager;
 class Scene;
 class SimpleRenderPass;
 class Swapchain;

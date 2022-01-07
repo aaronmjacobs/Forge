@@ -3,22 +3,21 @@
 #include "Renderer/UniformData.h"
 #include "Renderer/View.h"
 
-#include "Resources/ResourceManager.h"
+namespace
+{
+   Shader::InitializationInfo getInitializationInfo()
+   {
+      Shader::InitializationInfo info;
+
+      info.vertShaderModulePath = "Resources/Shaders/Depth.vert.spv";
+
+      return info;
+   }
+}
 
 DepthShader::DepthShader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager)
-   : GraphicsResource(graphicsContext)
+   : Shader(graphicsContext, resourceManager, getInitializationInfo())
 {
-   ShaderModuleHandle vertModuleHandle = resourceManager.loadShaderModule("Resources/Shaders/Depth.vert.spv");
-   const ShaderModule* vertShaderModule = resourceManager.getShaderModule(vertModuleHandle);
-   if (!vertShaderModule)
-   {
-      throw std::runtime_error(std::string("Failed to load shader"));
-   }
-
-   vertStageCreateInfo = vk::PipelineShaderStageCreateInfo()
-      .setStage(vk::ShaderStageFlagBits::eVertex)
-      .setModule(vertShaderModule->getShaderModule())
-      .setPName("main");
 }
 
 void DepthShader::bindDescriptorSets(vk::CommandBuffer commandBuffer, vk::PipelineLayout pipelineLayout, const View& view)
@@ -28,7 +27,7 @@ void DepthShader::bindDescriptorSets(vk::CommandBuffer commandBuffer, vk::Pipeli
 
 std::vector<vk::PipelineShaderStageCreateInfo> DepthShader::getStages() const
 {
-   return { vertStageCreateInfo };
+   return getStagesForPermutation(0);
 }
 
 std::vector<vk::DescriptorSetLayout> DepthShader::getSetLayouts() const

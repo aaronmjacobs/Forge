@@ -15,6 +15,8 @@
 #include "Renderer/SceneRenderInfo.h"
 #include "Renderer/View.h"
 
+#include "Resources/ResourceManager.h"
+
 #include "Scene/Components/CameraComponent.h"
 #include "Scene/Components/LightComponent.h"
 #include "Scene/Components/MeshComponent.h"

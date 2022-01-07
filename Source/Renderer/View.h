@@ -10,6 +10,8 @@
 
 #include <glm/glm.hpp>
 
+#include <array>
+
 class DynamicDescriptorPool;
 
 struct ViewUniformData
@@ -24,6 +26,7 @@ struct ViewUniformData
 class View : public GraphicsResource
 {
 public:
+   static std::array<vk::DescriptorSetLayoutBinding, 1> getBindings();
    static const vk::DescriptorSetLayoutCreateInfo& getLayoutCreateInfo();
    static vk::DescriptorSetLayout getLayout(const GraphicsContext& context);
 

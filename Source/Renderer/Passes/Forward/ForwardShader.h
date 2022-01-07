@@ -1,16 +1,14 @@
-#include "Graphics/DescriptorSet.h"
-#include "Graphics/GraphicsResource.h"
+#pragma once
 
-#include <array>
+#include "Graphics/Shader.h"
+
 #include <vector>
 
 class ForwardLighting;
 class Material;
-class ResourceManager;
-class Texture;
 class View;
 
-class ForwardShader : public GraphicsResource
+class ForwardShader : public Shader
 {
 public:
    static uint32_t getPermutationIndex(bool withTextures, bool withBlending);
@@ -22,8 +20,4 @@ public:
    std::vector<vk::PipelineShaderStageCreateInfo> getStages(bool withTextures, bool withBlending) const;
    std::vector<vk::DescriptorSetLayout> getSetLayouts() const;
    std::vector<vk::PushConstantRange> getPushConstantRanges() const;
-
-private:
-   std::array<vk::PipelineShaderStageCreateInfo, 4> vertStageCreateInfo;
-   std::array<vk::PipelineShaderStageCreateInfo, 4> fragStageCreateInfo;
 };

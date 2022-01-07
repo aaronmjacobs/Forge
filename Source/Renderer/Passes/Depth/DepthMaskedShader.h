@@ -1,12 +1,13 @@
-#include "Graphics/GraphicsResource.h"
+#pragma once
+
+#include "Graphics/Shader.h"
 
 #include <vector>
 
 class Material;
-class ResourceManager;
 class View;
 
-class DepthMaskedShader : public GraphicsResource
+class DepthMaskedShader : public Shader
 {
 public:
    DepthMaskedShader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager);
@@ -16,8 +17,4 @@ public:
    std::vector<vk::PipelineShaderStageCreateInfo> getStages() const;
    std::vector<vk::DescriptorSetLayout> getSetLayouts() const;
    std::vector<vk::PushConstantRange> getPushConstantRanges() const;
-
-private:
-   vk::PipelineShaderStageCreateInfo vertStageCreateInfo;
-   vk::PipelineShaderStageCreateInfo fragStageCreateInfo;
 };

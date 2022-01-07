@@ -1,7 +1,6 @@
 #include "Graphics/DescriptorSet.h"
 
 #include "Graphics/DebugUtils.h"
-#include "Graphics/DescriptorSetLayoutCache.h"
 #include "Graphics/DynamicDescriptorPool.h"
 
 #include <array>
@@ -9,7 +8,7 @@
 DescriptorSet::DescriptorSet(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, const vk::DescriptorSetLayoutCreateInfo& createInfo)
    : GraphicsResource(graphicsContext)
 {
-   vk::DescriptorSetLayout layout = graphicsContext.getLayoutCache().getLayout(createInfo);
+   vk::DescriptorSetLayout layout = context.getDescriptorSetLayout(createInfo);
 
    std::array<vk::DescriptorSetLayout, GraphicsContext::kMaxFramesInFlight> layouts;
    layouts.fill(layout);

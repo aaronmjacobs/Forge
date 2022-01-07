@@ -1,25 +1,27 @@
+#pragma once
+
 #include "Core/Enum.h"
 
-#include "Graphics/GraphicsResource.h"
+#include "Graphics/Shader.h"
 
 #include <array>
 #include <vector>
 
 class DescriptorSet;
-class ResourceManager;
 
-class CompositeShader : public GraphicsResource
+class CompositeShader : public Shader
 {
 public:
-   enum class Mode
+   enum class Mode : uint32_t
    {
       Passthrough = 0,
       LinearToSrgb = 1,
       SrgbToLinear = 2
    };
 
-   static constexpr int kNumModes = Enum::cast(Mode::SrgbToLinear) + 1;
+   static constexpr uint32_t kNumModes = Enum::cast(Mode::SrgbToLinear) + 1;
 
+   static std::array<vk::DescriptorSetLayoutBinding, 1> getBindings();
    static const vk::DescriptorSetLayoutCreateInfo& getLayoutCreateInfo();
    static vk::DescriptorSetLayout getLayout(const GraphicsContext& context);
 
@@ -29,8 +31,4 @@ public:
 
    std::vector<vk::PipelineShaderStageCreateInfo> getStages(Mode mode) const;
    std::vector<vk::DescriptorSetLayout> getSetLayouts() const;
-
-private:
-   std::array<vk::PipelineShaderStageCreateInfo, 3> vertStageCreateInfo;
-   std::array<vk::PipelineShaderStageCreateInfo, 3> fragStageCreateInfo;
 };

@@ -1,3 +1,5 @@
+#pragma once
+
 #include "Graphics/Material.h"
 
 class Texture;
@@ -5,7 +7,9 @@ class Texture;
 class PhysicallyBasedMaterial : public Material
 {
 public:
+   static std::array<vk::DescriptorSetLayoutBinding, 3> getBindings();
    static vk::DescriptorSetLayout getLayout(const GraphicsContext& context);
+
    static const std::string kAlbedoTextureParameterName;
    static const std::string kNormalTextureParameterName;
    static const std::string kAoRoughnessMetalnessTextureParameterName;

@@ -118,11 +118,7 @@ public:
 
    void setFrameIndex(uint32_t index);
 
-   DescriptorSetLayoutCache& getLayoutCache() const
-   {
-      ASSERT(layoutCache);
-      return *layoutCache;
-   }
+   vk::DescriptorSetLayout getDescriptorSetLayout(const vk::DescriptorSetLayoutCreateInfo& createInfo) const;
 
    template<typename T>
    void delayedDestroy(T&& object) const

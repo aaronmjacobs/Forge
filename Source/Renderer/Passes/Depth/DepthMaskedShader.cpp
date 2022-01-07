@@ -4,30 +4,22 @@
 #include "Renderer/UniformData.h"
 #include "Renderer/View.h"
 
-#include "Resources/ResourceManager.h"
+namespace
+{
+   Shader::InitializationInfo getInitializationInfo()
+   {
+      Shader::InitializationInfo info;
+
+      info.vertShaderModulePath = "Resources/Shaders/DepthMasked.vert.spv";
+      info.fragShaderModulePath = "Resources/Shaders/DepthMasked.frag.spv";
+
+      return info;
+   }
+}
 
 DepthMaskedShader::DepthMaskedShader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager)
-   : GraphicsResource(graphicsContext)
+   : Shader(graphicsContext, resourceManager, getInitializationInfo())
 {
-   ShaderModuleHandle vertModuleHandle = resourceManager.loadShaderModule("Resources/Shaders/DepthMasked.vert.spv");
-   ShaderModuleHandle fragModuleHandle = resourceManager.loadShaderModule("Resources/Shaders/DepthMasked.frag.spv");
-
-   const ShaderModule* vertShaderModule = resourceManager.getShaderModule(vertModuleHandle);
-   const ShaderModule* fragShaderModule = resourceManager.getShaderModule(fragModuleHandle);
-   if (!vertShaderModule || !fragShaderModule)
-   {
-      throw std::runtime_error(std::string("Failed to load shader"));
-   }
-
-   vertStageCreateInfo = vk::PipelineShaderStageCreateInfo()
-      .setStage(vk::ShaderStageFlagBits::eVertex)
-      .setModule(vertShaderModule->getShaderModule())
-      .setPName("main");
-
-   fragStageCreateInfo = vk::PipelineShaderStageCreateInfo()
-      .setStage(vk::ShaderStageFlagBits::eFragment)
-      .setModule(fragShaderModule->getShaderModule())
-      .setPName("main");
 }
 
 void DepthMaskedShader::bindDescriptorSets(vk::CommandBuffer commandBuffer, vk::PipelineLayout pipelineLayout, const View& view, const Material& material)
@@ -37,7 +29,7 @@ void DepthMaskedShader::bindDescriptorSets(vk::CommandBuffer commandBuffer, vk::
 
 std::vector<vk::PipelineShaderStageCreateInfo> DepthMaskedShader::getStages() const
 {
-   return { vertStageCreateInfo, fragStageCreateInfo };
+   return getStagesForPermutation(0);
 }
 
 std::vector<vk::DescriptorSetLayout> DepthMaskedShader::getSetLayouts() const

@@ -1,52 +1,49 @@
 #include "Renderer/Passes/PostProcess/Tonemap/TonemapShader.h"
 
 #include "Graphics/DescriptorSet.h"
-#include "Graphics/DescriptorSetLayoutCache.h"
+#include "Graphics/DescriptorSetLayout.h"
 
-#include "Resources/ResourceManager.h"
+namespace
+{
+   Shader::InitializationInfo getInitializationInfo()
+   {
+      Shader::InitializationInfo info;
+
+      info.vertShaderModulePath = "Resources/Shaders/Screen.vert.spv";
+      info.fragShaderModulePath = "Resources/Shaders/Tonemap.frag.spv";
+
+      return info;
+   }
+}
+
+// static
+std::array<vk::DescriptorSetLayoutBinding, 1> TonemapShader::getBindings()
+{
+   return
+   {
+      vk::DescriptorSetLayoutBinding()
+         .setBinding(0)
+         .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+         .setDescriptorCount(1)
+         .setStageFlags(vk::ShaderStageFlagBits::eFragment)
+   };
+}
 
 // static
 const vk::DescriptorSetLayoutCreateInfo& TonemapShader::getLayoutCreateInfo()
 {
-   static const vk::DescriptorSetLayoutBinding kBinding = vk::DescriptorSetLayoutBinding()
-      .setBinding(0)
-      .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-      .setDescriptorCount(1)
-      .setStageFlags(vk::ShaderStageFlagBits::eFragment);
-
-   static const vk::DescriptorSetLayoutCreateInfo kCreateInfo = vk::DescriptorSetLayoutCreateInfo(vk::DescriptorSetLayoutCreateFlags(), 1, &kBinding);
-
-   return kCreateInfo;
+   return DescriptorSetLayout::getCreateInfo<TonemapShader>();
 }
 
 // static
 vk::DescriptorSetLayout TonemapShader::getLayout(const GraphicsContext& context)
 {
-   return context.getLayoutCache().getLayout(getLayoutCreateInfo());
+   return DescriptorSetLayout::get<TonemapShader>(context);
 }
 
 TonemapShader::TonemapShader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager)
-   : GraphicsResource(graphicsContext)
+   : Shader(graphicsContext, resourceManager, getInitializationInfo())
 {
-   ShaderModuleHandle vertModuleHandle = resourceManager.loadShaderModule("Resources/Shaders/Screen.vert.spv");
-   ShaderModuleHandle fragModuleHandle = resourceManager.loadShaderModule("Resources/Shaders/Tonemap.frag.spv");
-
-   const ShaderModule* vertShaderModule = resourceManager.getShaderModule(vertModuleHandle);
-   const ShaderModule* fragShaderModule = resourceManager.getShaderModule(fragModuleHandle);
-   if (!vertShaderModule || !fragShaderModule)
-   {
-      throw std::runtime_error(std::string("Failed to load shader"));
-   }
-
-   vertStageCreateInfo = vk::PipelineShaderStageCreateInfo()
-      .setStage(vk::ShaderStageFlagBits::eVertex)
-      .setModule(vertShaderModule->getShaderModule())
-      .setPName("main");
-
-   fragStageCreateInfo = vk::PipelineShaderStageCreateInfo()
-      .setStage(vk::ShaderStageFlagBits::eFragment)
-      .setModule(fragShaderModule->getShaderModule())
-      .setPName("main");
 }
 
 void TonemapShader::bindDescriptorSets(vk::CommandBuffer commandBuffer, vk::PipelineLayout pipelineLayout, const DescriptorSet& descriptorSet)
@@ -56,7 +53,7 @@ void TonemapShader::bindDescriptorSets(vk::CommandBuffer commandBuffer, vk::Pipe
 
 std::vector<vk::PipelineShaderStageCreateInfo> TonemapShader::getStages() const
 {
-   return { vertStageCreateInfo, fragStageCreateInfo };
+   return getStagesForPermutation(0);
 }
 
 std::vector<vk::DescriptorSetLayout> TonemapShader::getSetLayouts() const

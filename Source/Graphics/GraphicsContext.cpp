@@ -468,6 +468,12 @@ void GraphicsContext::setFrameIndex(uint32_t index)
    delayedObjectDestroyer->onFrameIndexUpdate();
 }
 
+vk::DescriptorSetLayout GraphicsContext::getDescriptorSetLayout(const vk::DescriptorSetLayoutCreateInfo& createInfo) const
+{
+   ASSERT(layoutCache);
+   return layoutCache->getLayout(createInfo);
+}
+
 void GraphicsContext::delayedDestroy(uint64_t handle, vk::ObjectType type) const
 {
    ASSERT(delayedObjectDestroyer);

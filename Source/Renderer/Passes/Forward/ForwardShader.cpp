@@ -1,13 +1,9 @@
 #include "Renderer/Passes/Forward/ForwardShader.h"
 
-#include "Graphics/Texture.h"
-
 #include "Renderer/ForwardLighting.h"
 #include "Renderer/PhysicallyBasedMaterial.h"
 #include "Renderer/UniformData.h"
 #include "Renderer/View.h"
-
-#include "Resources/ResourceManager.h"
 
 namespace
 {
@@ -47,6 +43,18 @@ namespace
       static const ForwardShaderStageData kStageData;
       return kStageData;
    }
+
+   Shader::InitializationInfo getInitializationInfo()
+   {
+      Shader::InitializationInfo info;
+
+      info.vertShaderModulePath = "Resources/Shaders/Forward.vert.spv";
+      info.fragShaderModulePath = "Resources/Shaders/Forward.frag.spv";
+
+      info.specializationInfo = getStageData().specializationInfo;
+
+      return info;
+   }
 }
 
 uint32_t ForwardShader::getPermutationIndex(bool withTextures, bool withBlending)
@@ -55,34 +63,8 @@ uint32_t ForwardShader::getPermutationIndex(bool withTextures, bool withBlending
 }
 
 ForwardShader::ForwardShader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager)
-   : GraphicsResource(graphicsContext)
+   : Shader(graphicsContext, resourceManager, getInitializationInfo())
 {
-   ShaderModuleHandle vertModuleHandle = resourceManager.loadShaderModule("Resources/Shaders/Forward.vert.spv");
-   ShaderModuleHandle fragModuleHandle = resourceManager.loadShaderModule("Resources/Shaders/Forward.frag.spv");
-
-   const ShaderModule* vertShaderModule = resourceManager.getShaderModule(vertModuleHandle);
-   const ShaderModule* fragShaderModule = resourceManager.getShaderModule(fragModuleHandle);
-   if (!vertShaderModule || !fragShaderModule)
-   {
-      throw std::runtime_error(std::string("Failed to load shader"));
-   }
-
-   const ForwardShaderStageData& stageData = getStageData();
-
-   for (uint32_t i = 0; i < 4; ++i)
-   {
-      vertStageCreateInfo[i] = vk::PipelineShaderStageCreateInfo()
-         .setStage(vk::ShaderStageFlagBits::eVertex)
-         .setModule(vertShaderModule->getShaderModule())
-         .setPName("main")
-         .setPSpecializationInfo(&stageData.specializationInfo[i]);
-
-      fragStageCreateInfo[i] = vk::PipelineShaderStageCreateInfo()
-         .setStage(vk::ShaderStageFlagBits::eFragment)
-         .setModule(fragShaderModule->getShaderModule())
-         .setPName("main")
-         .setPSpecializationInfo(&stageData.specializationInfo[i]);
-   }
 }
 
 void ForwardShader::bindDescriptorSets(vk::CommandBuffer commandBuffer, vk::PipelineLayout pipelineLayout, const View& view, const ForwardLighting& lighting, const Material& material)
@@ -92,8 +74,7 @@ void ForwardShader::bindDescriptorSets(vk::CommandBuffer commandBuffer, vk::Pipe
 
 std::vector<vk::PipelineShaderStageCreateInfo> ForwardShader::getStages(bool withTextures, bool withBlending) const
 {
-   uint32_t permutationIndex = getPermutationIndex(withTextures, withBlending);
-   return { vertStageCreateInfo[permutationIndex], fragStageCreateInfo[permutationIndex] };
+   return getStagesForPermutation(getPermutationIndex(withTextures, withBlending));
 }
 
 std::vector<vk::DescriptorSetLayout> ForwardShader::getSetLayouts() const

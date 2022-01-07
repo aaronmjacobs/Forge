@@ -3,9 +3,7 @@
 #include "Core/Enum.h"
 
 #include "Graphics/DescriptorSet.h"
-#include "Graphics/DescriptorSetLayoutCache.h"
-
-#include "Resources/ResourceManager.h"
+#include "Graphics/DescriptorSetLayout.h"
 
 namespace
 {
@@ -36,57 +34,48 @@ namespace
       static const CompositeShaderStageData kStageData;
       return kStageData;
    }
+
+   Shader::InitializationInfo getInitializationInfo()
+   {
+      Shader::InitializationInfo info;
+
+      info.vertShaderModulePath = "Resources/Shaders/Screen.vert.spv";
+      info.fragShaderModulePath = "Resources/Shaders/Composite.frag.spv";
+
+      info.specializationInfo = getStageData().specializationInfo;
+
+      return info;
+   }
+}
+
+// static
+std::array<vk::DescriptorSetLayoutBinding, 1> CompositeShader::getBindings()
+{
+   return
+   {
+      vk::DescriptorSetLayoutBinding()
+         .setBinding(0)
+         .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+         .setDescriptorCount(1)
+         .setStageFlags(vk::ShaderStageFlagBits::eFragment)
+   };
 }
 
 // static
 const vk::DescriptorSetLayoutCreateInfo& CompositeShader::getLayoutCreateInfo()
 {
-   static const vk::DescriptorSetLayoutBinding kBinding = vk::DescriptorSetLayoutBinding()
-      .setBinding(0)
-      .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-      .setDescriptorCount(1)
-      .setStageFlags(vk::ShaderStageFlagBits::eFragment);
-
-   static const vk::DescriptorSetLayoutCreateInfo kCreateInfo = vk::DescriptorSetLayoutCreateInfo(vk::DescriptorSetLayoutCreateFlags(), 1, &kBinding);
-
-   return kCreateInfo;
+   return DescriptorSetLayout::getCreateInfo<CompositeShader>();
 }
 
 // static
 vk::DescriptorSetLayout CompositeShader::getLayout(const GraphicsContext& context)
 {
-   return context.getLayoutCache().getLayout(getLayoutCreateInfo());
+   return DescriptorSetLayout::get<CompositeShader>(context);
 }
 
 CompositeShader::CompositeShader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager)
-   : GraphicsResource(graphicsContext)
+   : Shader(graphicsContext, resourceManager, getInitializationInfo())
 {
-   ShaderModuleHandle vertModuleHandle = resourceManager.loadShaderModule("Resources/Shaders/Screen.vert.spv");
-   ShaderModuleHandle fragModuleHandle = resourceManager.loadShaderModule("Resources/Shaders/Composite.frag.spv");
-
-   const ShaderModule* vertShaderModule = resourceManager.getShaderModule(vertModuleHandle);
-   const ShaderModule* fragShaderModule = resourceManager.getShaderModule(fragModuleHandle);
-   if (!vertShaderModule || !fragShaderModule)
-   {
-      throw std::runtime_error(std::string("Failed to load shader"));
-   }
-
-   const CompositeShaderStageData& stageData = getStageData();
-
-   for (uint32_t i = 0; i < kNumModes; ++i)
-   {
-      vertStageCreateInfo[i] = vk::PipelineShaderStageCreateInfo()
-         .setStage(vk::ShaderStageFlagBits::eVertex)
-         .setModule(vertShaderModule->getShaderModule())
-         .setPName("main")
-         .setPSpecializationInfo(&stageData.specializationInfo[i]);
-
-      fragStageCreateInfo[i] = vk::PipelineShaderStageCreateInfo()
-         .setStage(vk::ShaderStageFlagBits::eFragment)
-         .setModule(fragShaderModule->getShaderModule())
-         .setPName("main")
-         .setPSpecializationInfo(&stageData.specializationInfo[i]);
-   }
 }
 
 void CompositeShader::bindDescriptorSets(vk::CommandBuffer commandBuffer, vk::PipelineLayout pipelineLayout, const DescriptorSet& descriptorSet)
@@ -96,7 +85,7 @@ void CompositeShader::bindDescriptorSets(vk::CommandBuffer commandBuffer, vk::Pi
 
 std::vector<vk::PipelineShaderStageCreateInfo> CompositeShader::getStages(Mode mode) const
 {
-   return { vertStageCreateInfo[Enum::cast(mode)], fragStageCreateInfo[Enum::cast(mode)]};
+   return getStagesForPermutation(Enum::cast(mode));
 }
 
 std::vector<vk::DescriptorSetLayout> CompositeShader::getSetLayouts() const

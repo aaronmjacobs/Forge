@@ -1,29 +1,34 @@
 #include "Renderer/View.h"
 
 #include "Graphics/DebugUtils.h"
-#include "Graphics/DescriptorSetLayoutCache.h"
+#include "Graphics/DescriptorSetLayout.h"
 #include "Graphics/Swapchain.h"
 
 #include "Math/MathUtils.h"
 
 // static
+std::array<vk::DescriptorSetLayoutBinding, 1> View::getBindings()
+{
+   return
+   {
+      vk::DescriptorSetLayoutBinding()
+         .setBinding(0)
+         .setDescriptorType(vk::DescriptorType::eUniformBuffer)
+         .setDescriptorCount(1)
+         .setStageFlags(vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment)
+   };
+}
+
+// static
 const vk::DescriptorSetLayoutCreateInfo& View::getLayoutCreateInfo()
 {
-   static const vk::DescriptorSetLayoutBinding kBinding = vk::DescriptorSetLayoutBinding()
-      .setBinding(0)
-      .setDescriptorType(vk::DescriptorType::eUniformBuffer)
-      .setDescriptorCount(1)
-      .setStageFlags(vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment);
-
-   static const vk::DescriptorSetLayoutCreateInfo kCreateInfo = vk::DescriptorSetLayoutCreateInfo(vk::DescriptorSetLayoutCreateFlags(), 1, &kBinding);
-
-   return kCreateInfo;
+   return DescriptorSetLayout::getCreateInfo<View>();
 }
 
 // static
 vk::DescriptorSetLayout View::getLayout(const GraphicsContext& context)
 {
-   return context.getLayoutCache().getLayout(getLayoutCreateInfo());
+   return DescriptorSetLayout::get<View>(context);
 }
 
 View::View(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool)

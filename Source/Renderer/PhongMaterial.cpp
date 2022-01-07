@@ -1,36 +1,30 @@
 #include "Renderer/PhongMaterial.h"
 
-#include "Graphics/DescriptorSetLayoutCache.h"
+#include "Graphics/DescriptorSetLayout.h"
 #include "Graphics/Texture.h"
 
-namespace
+// static
+std::array<vk::DescriptorSetLayoutBinding, 2> PhongMaterial::getBindings()
 {
-   const vk::DescriptorSetLayoutCreateInfo& getLayoutCreateInfo()
+   return
    {
-      static const std::array<vk::DescriptorSetLayoutBinding, 2> kBindings =
-      {
-         vk::DescriptorSetLayoutBinding()
-            .setBinding(0)
-            .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-            .setDescriptorCount(1)
-            .setStageFlags(vk::ShaderStageFlagBits::eFragment),
-         vk::DescriptorSetLayoutBinding()
-            .setBinding(1)
-            .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-            .setDescriptorCount(1)
-            .setStageFlags(vk::ShaderStageFlagBits::eFragment)
-      };
-
-      static const vk::DescriptorSetLayoutCreateInfo kCreateInfo = vk::DescriptorSetLayoutCreateInfo(vk::DescriptorSetLayoutCreateFlags(), kBindings);
-
-      return kCreateInfo;
-   }
+      vk::DescriptorSetLayoutBinding()
+         .setBinding(0)
+         .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+         .setDescriptorCount(1)
+         .setStageFlags(vk::ShaderStageFlagBits::eFragment),
+      vk::DescriptorSetLayoutBinding()
+         .setBinding(1)
+         .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+         .setDescriptorCount(1)
+         .setStageFlags(vk::ShaderStageFlagBits::eFragment)
+   };
 }
 
 // static
 vk::DescriptorSetLayout PhongMaterial::getLayout(const GraphicsContext& context)
 {
-   return context.getLayoutCache().getLayout(getLayoutCreateInfo());
+   return DescriptorSetLayout::get<PhongMaterial>(context);
 }
 
 // static
@@ -40,7 +34,7 @@ const std::string PhongMaterial::kDiffuseTextureParameterName = "diffuse";
 const std::string PhongMaterial::kNormalTextureParameterName = "normal";
 
 PhongMaterial::PhongMaterial(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, vk::Sampler sampler, const Texture& diffuseTexture, const Texture& normalTexture, bool interpretAlphaAsMask)
-   : Material(graphicsContext, dynamicDescriptorPool, getLayoutCreateInfo())
+   : Material(graphicsContext, dynamicDescriptorPool, DescriptorSetLayout::getCreateInfo<PhongMaterial>())
 {
    if (diffuseTexture.getImageProperties().hasAlpha)
    {

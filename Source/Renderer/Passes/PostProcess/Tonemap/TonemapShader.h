@@ -1,13 +1,16 @@
-#include "Graphics/GraphicsResource.h"
+#pragma once
 
+#include "Graphics/Shader.h"
+
+#include <array>
 #include <vector>
 
 class DescriptorSet;
-class ResourceManager;
 
-class TonemapShader : public GraphicsResource
+class TonemapShader : public Shader
 {
 public:
+   static std::array<vk::DescriptorSetLayoutBinding, 1> getBindings();
    static const vk::DescriptorSetLayoutCreateInfo& getLayoutCreateInfo();
    static vk::DescriptorSetLayout getLayout(const GraphicsContext& context);
 
@@ -17,8 +20,4 @@ public:
 
    std::vector<vk::PipelineShaderStageCreateInfo> getStages() const;
    std::vector<vk::DescriptorSetLayout> getSetLayouts() const;
-
-private:
-   vk::PipelineShaderStageCreateInfo vertStageCreateInfo;
-   vk::PipelineShaderStageCreateInfo fragStageCreateInfo;
 };
