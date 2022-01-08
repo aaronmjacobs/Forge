@@ -49,7 +49,7 @@ protected:
 class PipelineData : public PipelineDataBase
 {
 public:
-   PipelineData(const GraphicsContext& context, const PipelineInfo& info, std::vector<vk::PipelineShaderStageCreateInfo> shaderStages, std::vector<vk::PipelineColorBlendAttachmentState> colorBlendStates);
+   PipelineData(const PipelineInfo& info, std::vector<vk::PipelineShaderStageCreateInfo> shaderStages, std::vector<vk::PipelineColorBlendAttachmentState> colorBlendStates);
    PipelineData(const PipelineData& other);
    PipelineData(PipelineData&& other);
 

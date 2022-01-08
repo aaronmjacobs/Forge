@@ -5,7 +5,7 @@
 
 #include <utility>
 
-PipelineData::PipelineData(const GraphicsContext& context, const PipelineInfo& info, std::vector<vk::PipelineShaderStageCreateInfo> shaderStages, std::vector<vk::PipelineColorBlendAttachmentState> colorBlendStates)
+PipelineData::PipelineData(const PipelineInfo& info, std::vector<vk::PipelineShaderStageCreateInfo> shaderStages, std::vector<vk::PipelineColorBlendAttachmentState> colorBlendStates)
 {
    viewport = vk::Viewport()
       .setX(0.0f)
@@ -21,13 +21,11 @@ PipelineData::PipelineData(const GraphicsContext& context, const PipelineInfo& i
    shaderStageCreateInfo = std::move(shaderStages);
    colorBlendAttachmentStates = std::move(colorBlendStates);
 
-   const std::vector<vk::VertexInputBindingDescription>& vertexBindingDescriptions = Vertex::getBindingDescriptions();
-   const std::vector<vk::VertexInputAttributeDescription>& vertexAttributeDescriptions = Vertex::getAttributeDescriptions(info.positionOnly);
    if (info.passType == PipelinePassType::Mesh)
    {
       vertexInputStateCreateInfo = vk::PipelineVertexInputStateCreateInfo()
-         .setVertexBindingDescriptions(vertexBindingDescriptions)
-         .setVertexAttributeDescriptions(vertexAttributeDescriptions);
+         .setVertexBindingDescriptions(Vertex::getBindingDescriptions())
+         .setVertexAttributeDescriptions(Vertex::getAttributeDescriptions(info.positionOnly));
    }
 
    inputAssemblyStateCreateInfo = vk::PipelineInputAssemblyStateCreateInfo()

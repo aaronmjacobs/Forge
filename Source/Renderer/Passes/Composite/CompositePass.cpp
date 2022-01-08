@@ -116,7 +116,7 @@ void CompositePass::initializePipelines(vk::SampleCountFlagBits sampleCount)
    pipelineInfo.writeDepth = false;
    pipelineInfo.positionOnly = false;
 
-   PipelineData pipelineData(context, pipelineInfo, compositeShader->getStages(CompositeShader::Mode::Passthrough), { attachmentState });
+   PipelineData pipelineData(pipelineInfo, compositeShader->getStages(CompositeShader::Mode::Passthrough), { attachmentState });
    pipelines[Enum::cast(CompositeShader::Mode::Passthrough)] = device.createGraphicsPipeline(nullptr, pipelineData.getCreateInfo()).value;
    NAME_CHILD(pipelines[Enum::cast(CompositeShader::Mode::Passthrough)], "Pipeline (Passthrough)");
 

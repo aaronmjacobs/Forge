@@ -101,7 +101,7 @@ void DepthPass::initializePipelines(vk::SampleCountFlagBits sampleCount)
       pipelineInfo.writeDepth = true;
       pipelineInfo.positionOnly = true;
 
-      PipelineData pipelineData(context, pipelineInfo, depthShader->getStages(), {});
+      PipelineData pipelineData(pipelineInfo, depthShader->getStages(), {});
       if (isShadowPass)
       {
          pipelineData.enableDepthBias();
@@ -124,7 +124,7 @@ void DepthPass::initializePipelines(vk::SampleCountFlagBits sampleCount)
       pipelineInfo.writeDepth = true;
       pipelineInfo.positionOnly = false;
 
-      PipelineData pipelineData(context, pipelineInfo, depthMaskedShader->getStages(), {});
+      PipelineData pipelineData(pipelineInfo, depthMaskedShader->getStages(), {});
       if (isShadowPass)
       {
          pipelineData.enableDepthBias();

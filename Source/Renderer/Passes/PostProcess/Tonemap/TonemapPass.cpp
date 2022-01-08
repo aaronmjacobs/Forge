@@ -114,7 +114,7 @@ void TonemapPass::initializePipelines(vk::SampleCountFlagBits sampleCount)
    pipelineInfo.writeDepth = false;
    pipelineInfo.positionOnly = false;
 
-   PipelineData pipelineData(context, pipelineInfo, tonemapShader->getStages(), { attachmentState });
+   PipelineData pipelineData(pipelineInfo, tonemapShader->getStages(), { attachmentState });
    pipelines[0] = device.createGraphicsPipeline(nullptr, pipelineData.getCreateInfo()).value;
    NAME_CHILD(pipelines[0], "Pipeline");
 }
