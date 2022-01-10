@@ -35,4 +35,9 @@ namespace Midi
    {
       return kontrollerState;
    }
+
+   bool isConnected()
+   {
+      return kontrollerClient && kontrollerClient->isConnected();
+   }
 }

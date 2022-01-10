@@ -72,6 +72,11 @@ public:
       return resource ? resource->get() : nullptr;
    }
 
+   const Identifier* getIdentifier(Handle handle) const
+   {
+      return cache.find(handle);
+   }
+
 protected:
    Handle addResource(std::unique_ptr<T> resource)
    {

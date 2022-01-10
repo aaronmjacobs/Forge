@@ -4,12 +4,15 @@
 
 #include "Scene/Scene.h"
 
+#include "UI/UI.h"
+
 #include <memory>
 
 class GraphicsContext;
 class Renderer;
 class ResourceManager;
 class Swapchain;
+class UI;
 class Window;
 
 class ForgeApplication
@@ -22,8 +25,6 @@ public:
 
 private:
    void render();
-
-   void renderUI();
 
    bool recreateSwapchain();
 
@@ -38,6 +39,9 @@ private:
 
    void initializeRenderer();
    void terminateRenderer();
+
+   void initializeUI();
+   void terminateUI();
 
    void initializeCommandBuffers();
    void terminateCommandBuffers(bool keepPoolAlive);
@@ -55,6 +59,7 @@ private:
 
    Scene scene;
    std::unique_ptr<Renderer> renderer;
+   std::unique_ptr<UI> ui;
 
    vk::CommandPool commandPool;
    std::vector<vk::CommandBuffer> commandBuffers;

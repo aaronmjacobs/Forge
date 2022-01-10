@@ -26,10 +26,6 @@ void Scene::removeTickDelegate(DelegateHandle handle)
 
 void Scene::tick(float dt)
 {
-   float timeScale = 1.0f;
-#if FORGE_WITH_MIDI
-   timeScale = Midi::getState().groups[7].slider;
-#endif // FORGE_WITH_MIDI
    float scaledDt = dt * timeScale;
 
    time += scaledDt;
@@ -60,4 +56,9 @@ void Scene::setActiveCamera(Entity newActiveCamera)
 {
    ASSERT(newActiveCamera.scene == nullptr || newActiveCamera.scene == this);
    *activeCamera = newActiveCamera;
+}
+
+Entity Scene::getEntity(std::size_t index)
+{
+   return Entity(this, registry.data()[index]);
 }

@@ -12,7 +12,17 @@ public:
 
    void setColor(const glm::vec3& newColor)
    {
-      color = glm::max(newColor, glm::vec3(0.0f));
+      color = glm::clamp(newColor, glm::vec3(0.0f), glm::vec3(1.0f));
+   }
+
+   float getBrightness() const
+   {
+      return brightness;
+   }
+
+   void setBrightness(float newBrightness)
+   {
+      brightness = glm::max(newBrightness, 0.0f);
    }
 
    bool castsShadows() const
@@ -57,6 +67,7 @@ public:
 
 private:
    glm::vec3 color = glm::vec3(1.0f);
+   float brightness = 1.0f;
 
    bool castShadows = true;
    float shadowBiasConstantFactor = 10.0f;

@@ -64,6 +64,11 @@ public:
       return materialResourceManager.get(handle);
    }
 
+   const MaterialParameters* getMaterialParameters(MaterialHandle handle) const
+   {
+      return materialResourceManager.getIdentifier(handle);
+   }
+
    // Mesh
 
    MeshHandle loadMesh(const std::filesystem::path& path, const MeshLoadOptions& loadOptions = {})
@@ -94,6 +99,11 @@ public:
    const Mesh* getMesh(MeshHandle handle) const
    {
       return meshResourceManager.get(handle);
+   }
+
+   const std::string* getMeshPath(MeshHandle handle) const
+   {
+      return meshResourceManager.getIdentifier(handle);
    }
 
    // ShaderModule
@@ -128,6 +138,11 @@ public:
       return shaderModuleResourceManager.get(handle);
    }
 
+   const std::string* getShaderModulePath(ShaderModuleHandle handle) const
+   {
+      return shaderModuleResourceManager.getIdentifier(handle);
+   }
+
    // Texture
 
    TextureHandle loadTexture(const std::filesystem::path& path, const TextureLoadOptions& loadOptions = {}, const TextureProperties& properties = TextureResourceManager::getDefaultProperties(), const TextureInitialLayout& initialLayout = TextureResourceManager::getDefaultInitialLayout())
@@ -158,6 +173,11 @@ public:
    const Texture* getTexture(TextureHandle handle) const
    {
       return textureResourceManager.get(handle);
+   }
+
+   const std::string* getTexturePath(TextureHandle handle) const
+   {
+      return textureResourceManager.getIdentifier(handle);
    }
 
 private:

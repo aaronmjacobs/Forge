@@ -10,4 +10,5 @@ namespace Midi
    void update();
 
    const Kontroller::State& getState();
+   bool isConnected();
 }

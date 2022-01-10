@@ -20,6 +20,16 @@ public:
 
    void tick(float dt);
 
+   float getTimeScale() const
+   {
+      return timeScale;
+   }
+
+   void setTimeScale(float newTimeScale)
+   {
+      timeScale = newTimeScale;
+   }
+
    float getTime() const
    {
       return time;
@@ -55,15 +65,28 @@ public:
       return registry.view<const ComponentTypes...>().each(std::forward<Function>(function));
    }
 
+   template<typename Function>
+   void forEachEntity(Function&& function)
+   {
+      for (std::size_t i = 0; i < registry.size(); ++i)
+      {
+         function(getEntity(i));
+      }
+   }
+
    Entity getActiveCamera() const;
    void setActiveCamera(Entity newActiveCamera);
 
 private:
    friend class Entity;
 
+   Entity getEntity(std::size_t index);
+
    entt::registry registry;
 
    TickDelegate tickDelegate;
+
+   float timeScale = 1.0f;
 
    float time = 0.0f;
    float deltaTime = 0.0f;

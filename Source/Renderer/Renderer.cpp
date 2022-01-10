@@ -366,7 +366,7 @@ namespace
             Transform transform = transformComponent.getAbsoluteTransform();
 
             PointLightRenderInfo info;
-            info.color = pointLightComponent.getColor();
+            info.color = pointLightComponent.getColor() * pointLightComponent.getBrightness();
             info.position = transform.position;
             info.radius = pointLightComponent.getRadius();
             info.shadowNearPlane = glm::min(pointLightComponent.getShadowNearPlane(), pointLightComponent.getRadius());
@@ -393,7 +393,7 @@ namespace
             Transform transform = transformComponent.getAbsoluteTransform();
 
             SpotLightRenderInfo info;
-            info.color = spotLightComponent.getColor();
+            info.color = spotLightComponent.getColor() * spotLightComponent.getBrightness();
             info.position = transform.position;
             info.direction = transform.getForwardVector();
             info.radius = spotLightComponent.getRadius();
@@ -434,7 +434,7 @@ namespace
             Transform transform = transformComponent.getAbsoluteTransform();
 
             DirectionalLightRenderInfo info;
-            info.color = directionalLightComponent.getColor();
+            info.color = directionalLightComponent.getColor() * directionalLightComponent.getBrightness();
             info.direction = transform.getForwardVector();
 
             if (glm::length2(info.color) > 0.0f)

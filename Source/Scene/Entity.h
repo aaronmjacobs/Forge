@@ -69,7 +69,7 @@ public:
       return scene && scene->registry.valid(id);
    }
 
-   bool operator==(const Entity& other)
+   bool operator==(const Entity& other) const
    {
       return scene == other.scene && id == other.id;
    }

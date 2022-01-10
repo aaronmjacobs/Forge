@@ -133,6 +133,7 @@ target_sources(${PROJECT_NAME} PRIVATE
    "${SRC_DIR}/Scene/Components/CameraComponent.h"
    "${SRC_DIR}/Scene/Components/LightComponent.h"
    "${SRC_DIR}/Scene/Components/MeshComponent.h"
+   "${SRC_DIR}/Scene/Components/NameComponent.h"
    "${SRC_DIR}/Scene/Components/SkyboxComponent.h"
    "${SRC_DIR}/Scene/Components/TransformComponent.cpp"
    "${SRC_DIR}/Scene/Components/TransformComponent.h"
@@ -141,6 +142,8 @@ target_sources(${PROJECT_NAME} PRIVATE
    "${SRC_DIR}/Scene/Scene.cpp"
    "${SRC_DIR}/Scene/Scene.h"
 
+   "${SRC_DIR}/UI/UI.cpp"
+   "${SRC_DIR}/UI/UI.h"
    "${SRC_DIR}/UI/UIConfig.h"
 )
 

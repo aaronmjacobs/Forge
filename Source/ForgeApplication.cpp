@@ -19,16 +19,14 @@
 #include "Scene/Components/CameraComponent.h"
 #include "Scene/Components/LightComponent.h"
 #include "Scene/Components/MeshComponent.h"
+#include "Scene/Components/NameComponent.h"
 #include "Scene/Components/TransformComponent.h"
+
+#include "UI/UI.h"
 
 #include <GLFW/glfw3.h>
 
-#include <imgui.h>
-#include <backends/imgui_impl_glfw.h>
-#include <backends/imgui_impl_vulkan.h>
-
 #include <array>
-#include <sstream>
 #include <stdexcept>
 
 namespace
@@ -60,6 +58,7 @@ ForgeApplication::ForgeApplication()
    initializeVulkan();
    initializeSwapchain();
    initializeRenderer();
+   initializeUI();
    initializeCommandBuffers();
    initializeSyncObjects();
 
@@ -70,6 +69,7 @@ ForgeApplication::~ForgeApplication()
 {
    terminateSyncObjects();
    terminateCommandBuffers(false);
+   terminateUI();
    terminateRenderer();
    terminateSwapchain();
    terminateVulkan();
@@ -84,9 +84,6 @@ void ForgeApplication::run()
 {
    static const double kMaxDeltaTime = 0.2;
    static const double kFrameRateReportInterval = 0.25;
-
-   int frameCount = 0;
-   double accumulatedTime = 0.0;
 
    double lastTime = glfwGetTime();
    while (!window->shouldClose())
@@ -105,22 +102,16 @@ void ForgeApplication::run()
       }
       lastTime = time;
 
+#if FORGE_WITH_MIDI
+      if (Midi::isConnected())
+      {
+         scene.setTimeScale(Midi::getState().groups[7].slider);
+      }
+#endif // FORGE_WITH_MIDI
+
       scene.tick(static_cast<float>(dt));
 
       render();
-
-      ++frameCount;
-      accumulatedTime += dt;
-      if (accumulatedTime > kFrameRateReportInterval)
-      {
-         double frameRate = frameCount / accumulatedTime;
-         frameCount = 0;
-         accumulatedTime -= kFrameRateReportInterval;
-
-         std::stringstream ss;
-         ss << FORGE_PROJECT_NAME << " | " << std::fixed << std::setprecision(2) << frameRate << " FPS";
-         window->setTitle(ss.str().c_str());
-      }
    }
 
    context->getDevice().waitIdle();
@@ -128,7 +119,7 @@ void ForgeApplication::run()
 
 void ForgeApplication::render()
 {
-   renderUI();
+   ui->render(scene, *resourceManager);
 
    if (framebufferSizeChanged)
    {
@@ -221,22 +212,6 @@ void ForgeApplication::render()
    }
 
    frameIndex = (frameIndex + 1) % GraphicsContext::kMaxFramesInFlight;
-}
-
-void ForgeApplication::renderUI()
-{
-   if (!ImGui::GetCurrentContext())
-   {
-      return;
-   }
-
-   ImGui_ImplGlfw_NewFrame();
-   ImGui_ImplVulkan_NewFrame();
-   ImGui::NewFrame();
-
-   ImGui::ShowDemoWindow();
-
-   ImGui::Render();
 }
 
 bool ForgeApplication::recreateSwapchain()
@@ -395,6 +370,16 @@ void ForgeApplication::terminateRenderer()
    renderer = nullptr;
 }
 
+void ForgeApplication::initializeUI()
+{
+   ui = std::make_unique<UI>();
+}
+
+void ForgeApplication::terminateUI()
+{
+   ui = nullptr;
+}
+
 void ForgeApplication::initializeCommandBuffers()
 {
    if (!commandPool)
@@ -483,6 +468,7 @@ void ForgeApplication::loadScene()
       Entity cameraEntity = scene.createEntity();
       scene.setActiveCamera(cameraEntity);
 
+      cameraEntity.createComponent<NameComponent>().name = "Camera";
       cameraEntity.createComponent<CameraComponent>();
       Transform& transform = cameraEntity.createComponent<TransformComponent>().transform;
       transform.orientation = glm::quat(glm::radians(glm::vec3(-10.0f, 0.0f, -70.0f)));
@@ -525,6 +511,7 @@ void ForgeApplication::loadScene()
 
    {
       Entity sponzaEntity = scene.createEntity();
+      sponzaEntity.createComponent<NameComponent>().name = "Sponza";
       sponzaEntity.createComponent<TransformComponent>();
       MeshComponent& meshComponent = sponzaEntity.createComponent<MeshComponent>();
 
@@ -536,6 +523,7 @@ void ForgeApplication::loadScene()
 
    {
       Entity bunnyEntity = scene.createEntity();
+      bunnyEntity.createComponent<NameComponent>().name = "Bunny";
       TransformComponent& transformComponent = bunnyEntity.createComponent<TransformComponent>();
       transformComponent.transform.position = glm::vec3(0.0f, 1.0f, 0.0f);
       transformComponent.transform.scaleBy(glm::vec3(5.0f));
@@ -547,10 +535,11 @@ void ForgeApplication::loadScene()
    {
       Entity directionalLightEntity = scene.createEntity();
 
+      directionalLightEntity.createComponent<NameComponent>().name = "Directional Light";
       directionalLightEntity.createComponent<TransformComponent>();
 
       DirectionalLightComponent& directionalLightComponent = directionalLightEntity.createComponent<DirectionalLightComponent>();
-      directionalLightComponent.setColor(glm::vec3(3.0f));
+      directionalLightComponent.setBrightness(3.0f);
       directionalLightComponent.setShadowWidth(20.0f);
       directionalLightComponent.setShadowHeight(15.0f);
       directionalLightComponent.setShadowDepth(20.0f);
@@ -569,10 +558,12 @@ void ForgeApplication::loadScene()
    {
       Entity pointLightEntity = scene.createEntity();
 
+      pointLightEntity.createComponent<NameComponent>().name = "Point Light";
       pointLightEntity.createComponent<TransformComponent>();
 
       PointLightComponent& pointLightComponent = pointLightEntity.createComponent<PointLightComponent>();
-      pointLightComponent.setColor(glm::vec3(0.1f, 0.3f, 0.8f) * 70.0f);
+      pointLightComponent.setColor(glm::vec3(0.1f, 0.3f, 0.8f));
+      pointLightComponent.setBrightness(70.0f);
       pointLightComponent.setRadius(50.0f);
 
       scene.addTickDelegate([this, pointLightEntity](float dt) mutable
@@ -586,10 +577,13 @@ void ForgeApplication::loadScene()
 
    {
       Entity spotLightEntity = scene.createEntity();
+
+      spotLightEntity.createComponent<NameComponent>().name = "Spot Light";
       spotLightEntity.createComponent<TransformComponent>();
 
       SpotLightComponent& spotLightComponent = spotLightEntity.createComponent<SpotLightComponent>();
-      spotLightComponent.setColor(glm::vec3(0.8f, 0.1f, 0.3f) * 70.0f);
+      spotLightComponent.setColor(glm::vec3(0.8f, 0.1f, 0.3f));
+      spotLightComponent.setBrightness(70.0f);
       spotLightComponent.setRadius(50.0f);
 
       scene.addTickDelegate([this, spotLightEntity](float dt) mutable
