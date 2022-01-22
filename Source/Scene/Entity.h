@@ -7,6 +7,15 @@
 class Entity
 {
 public:
+    template<typename Function>
+    static void forEach(Scene& scene, Function&& function)
+    {
+       for (std::size_t i = 0; i < scene.registry.size(); ++i)
+       {
+          function(scene.getEntity(i));
+       }
+    }
+
    Entity() = default;
 
    void destroy()

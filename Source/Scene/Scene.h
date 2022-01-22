@@ -65,15 +65,6 @@ public:
       return registry.view<const ComponentTypes...>().each(std::forward<Function>(function));
    }
 
-   template<typename Function>
-   void forEachEntity(Function&& function)
-   {
-      for (std::size_t i = 0; i < registry.size(); ++i)
-      {
-         function(getEntity(i));
-      }
-   }
-
    Entity getActiveCamera() const;
    void setActiveCamera(Entity newActiveCamera);
 

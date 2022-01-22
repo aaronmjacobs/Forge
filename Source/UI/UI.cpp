@@ -465,7 +465,7 @@ void UI::renderEntityList(Scene& scene)
 
    std::vector<Entity> rootEntities;
    std::unordered_map<Entity, std::vector<Entity>> entityTree;
-   scene.forEachEntity([this, &rootEntities, &entityTree](Entity entity)
+   Entity::forEach(scene, [this, &rootEntities, &entityTree](Entity entity)
    {
       bool hasParent = false;
       if (TransformComponent* transformComponent = entity.tryGetComponent<TransformComponent>())
