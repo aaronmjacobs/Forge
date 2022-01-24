@@ -1,2 +1,5 @@
 # Ignore content built with CMake
 Build/
+
+# macOS
+.DS_Store
