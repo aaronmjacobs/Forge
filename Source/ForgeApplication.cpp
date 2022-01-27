@@ -37,6 +37,7 @@ namespace
       const char* kReleaseCursor = "ReleaseCursor";
 
       const char* kToggleMSAA = "ToggleMSAA";
+      const char* kToggleHDR = "ToggleHDR";
       const char* kToggleLabels = "ToggleLabels";
 
       const char* kMoveForward = "MoveForward";
@@ -327,7 +328,7 @@ void ForgeApplication::terminateVulkan()
 
 void ForgeApplication::initializeSwapchain()
 {
-   swapchain = std::make_unique<Swapchain>(*context, window->getExtent());
+   swapchain = std::make_unique<Swapchain>(*context, window->getExtent(), preferHDR);
    NAME_POINTER(context->getDevice(), swapchain, "Swapchain");
    context->setSwapchain(swapchain.get());
 }
@@ -350,6 +351,16 @@ void ForgeApplication::initializeRenderer()
       if (pressed && renderer)
       {
          renderer->toggleMSAA();
+      }
+   });
+
+   inputManager.createButtonMapping(InputActions::kToggleHDR, KeyChord(Key::H), {}, {});
+   inputManager.bindButtonMapping(InputActions::kToggleHDR, [this](bool pressed)
+   {
+      if (pressed)
+      {
+         preferHDR = !preferHDR;
+         recreateSwapchain();
       }
    });
 

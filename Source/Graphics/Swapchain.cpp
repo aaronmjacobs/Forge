@@ -4,8 +4,19 @@
 
 namespace
 {
-   vk::SurfaceFormatKHR chooseSurfaceFormat(const std::vector<vk::SurfaceFormatKHR>& formats)
+   vk::SurfaceFormatKHR chooseSurfaceFormat(const std::vector<vk::SurfaceFormatKHR>& formats, bool preferHDR)
    {
+      if (preferHDR)
+      {
+         for (const vk::SurfaceFormatKHR& format : formats)
+         {
+            if (format.format == vk::Format::eA2R10G10B10UnormPack32 && format.colorSpace == vk::ColorSpaceKHR::eHdr10St2084EXT)
+            {
+               return format;
+            }
+         }
+      }
+
       for (const vk::SurfaceFormatKHR& format : formats)
       {
          if (format.format == vk::Format::eB8G8R8A8Srgb && format.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear)
@@ -92,13 +103,13 @@ SwapchainSupportDetails Swapchain::getSupportDetails(vk::PhysicalDevice physical
    return supportDetails;
 }
 
-Swapchain::Swapchain(const GraphicsContext& graphicsContext, vk::Extent2D desiredExtent)
+Swapchain::Swapchain(const GraphicsContext& graphicsContext, vk::Extent2D desiredExtent, bool preferHDR)
    : GraphicsResource(graphicsContext)
 {
    SwapchainSupportDetails supportDetails = getSupportDetails(context.getPhysicalDevice(), context.getSurface());
    ASSERT(supportDetails.isValid());
 
-   vk::SurfaceFormatKHR surfaceFormat = chooseSurfaceFormat(supportDetails.formats);
+   vk::SurfaceFormatKHR surfaceFormat = chooseSurfaceFormat(supportDetails.formats, preferHDR);
    vk::PresentModeKHR presentMode = choosePresentMode(supportDetails.presentModes);
 
    format = surfaceFormat.format;

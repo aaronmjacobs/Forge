@@ -64,7 +64,7 @@ void ForwardPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo&
       return;
    }
 
-   std::array<float, 4> clearColorValues = { 0.0f, 0.0f, 0.0f, 1.0f };
+   std::array<float, 4> clearColorValues = { 1.0f, 1.0f, 1.0f, 1.0f };
    std::array<vk::ClearValue, 2> clearValues = { vk::ClearDepthStencilValue(1.0f, 0), vk::ClearColorValue(clearColorValues) };
 
    beginRenderPass(commandBuffer, *framebuffer, clearValues);

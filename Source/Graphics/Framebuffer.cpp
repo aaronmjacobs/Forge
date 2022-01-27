@@ -33,8 +33,9 @@ namespace
    }
 }
 
-Framebuffer::Framebuffer(const GraphicsContext& graphicsContext, vk::RenderPass renderPass, const AttachmentInfo& attachmentInfo)
+Framebuffer::Framebuffer(const GraphicsContext& graphicsContext, vk::RenderPass renderPass, const AttachmentInfo& attachInfo)
    : GraphicsResource(graphicsContext)
+   , attachmentInfo(attachInfo)
 {
    vk::Extent2D swapchainExtent = context.getSwapchain().getExtent();
    const std::vector<vk::ImageView>& swapchainImageViews = context.getSwapchain().getImageViews();
@@ -118,6 +119,7 @@ Framebuffer::Framebuffer(const GraphicsContext& graphicsContext, vk::RenderPass 
 Framebuffer::Framebuffer(Framebuffer&& other)
    : GraphicsResource(std::move(other))
    , framebuffers(std::move(other.framebuffers))
+   , attachmentInfo(other.attachmentInfo)
    , extent(other.extent)
    , hasSwapchainAttachment(other.hasSwapchainAttachment)
 {

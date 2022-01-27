@@ -52,12 +52,18 @@ namespace
          }
       }
 
+      std::vector<const char*> optionalDeviceExtensions = { VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME };
 #if FORGE_DEBUG
-      if (hasExtensionProperty(extensionProperties, VK_EXT_DEBUG_UTILS_EXTENSION_NAME))
-      {
-         extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-      }
+      optionalDeviceExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 #endif // FORGE_DEBUG
+
+      for (const char* optionalDeviceExtension : optionalDeviceExtensions)
+      {
+         if (hasExtensionProperty(extensionProperties, optionalDeviceExtension))
+         {
+            extensions.push_back(optionalDeviceExtension);
+         }
+      }
 
       return extensions;
    }

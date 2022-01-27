@@ -71,4 +71,5 @@ private:
    uint32_t frameIndex = 0;
 
    bool framebufferSizeChanged = false;
+   bool preferHDR = false;
 };

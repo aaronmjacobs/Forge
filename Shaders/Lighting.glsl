@@ -108,7 +108,7 @@ vec3 calcOutgoingRadiance(SurfaceInfo surfaceInfo, vec3 viewDirection, vec3 ligh
 
 vec3 calcAmbient(vec3 lightColor, vec3 albedo, float ambientOcclusion, float attenuation)
 {
-   return lightColor * albedo * ambientOcclusion * attenuation * 0.01;
+   return lightColor * albedo * ambientOcclusion * attenuation * 0.005;
 }
 
 float vec3Max(vec3 vec)

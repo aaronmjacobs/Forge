@@ -22,8 +22,7 @@ class Swapchain : public GraphicsResource
 public:
    static SwapchainSupportDetails getSupportDetails(vk::PhysicalDevice physicalDevice, vk::SurfaceKHR surface);
 
-   Swapchain(const GraphicsContext& graphicsContext, vk::Extent2D desiredExtent);
-
+   Swapchain(const GraphicsContext& graphicsContext, vk::Extent2D desiredExtent, bool preferHDR = false);
    ~Swapchain();
 
    vk::Format getFormat() const

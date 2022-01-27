@@ -14,7 +14,7 @@ TonemapPass::TonemapPass(const GraphicsContext& graphicsContext, DynamicDescript
 {
    clearDepth = false;
    clearColor = true;
-   pipelines.resize(1);
+   pipelines.resize(2);
 
    tonemapShader = std::make_unique<TonemapShader>(context, resourceManager);
 
@@ -80,8 +80,12 @@ void TonemapPass::render(vk::CommandBuffer commandBuffer, FramebufferHandle fram
       .setPImageInfo(&imageInfo);
    device.updateDescriptorSets(descriptorWrite, {});
 
+
+   const AttachmentInfo& attachmentInfo = framebuffer->getAttachmentInfo();
+   bool outputHDR = attachmentInfo.colorInfo.size() > 0 && attachmentInfo.colorInfo[0].format == vk::Format::eA2R10G10B10UnormPack32;
+
    tonemapShader->bindDescriptorSets(commandBuffer, pipelineLayouts[0], descriptorSet);
-   renderScreenMesh(commandBuffer, pipelines[0]);
+   renderScreenMesh(commandBuffer, pipelines[TonemapShader::getPermutationIndex(outputHDR)]);
 
    endRenderPass(commandBuffer);
 
@@ -114,9 +118,13 @@ void TonemapPass::initializePipelines(vk::SampleCountFlagBits sampleCount)
    pipelineInfo.writeDepth = false;
    pipelineInfo.positionOnly = false;
 
-   PipelineData pipelineData(pipelineInfo, tonemapShader->getStages(), { attachmentState });
-   pipelines[0] = device.createGraphicsPipeline(nullptr, pipelineData.getCreateInfo()).value;
-   NAME_CHILD(pipelines[0], "Pipeline");
+   PipelineData pipelineData(pipelineInfo, tonemapShader->getStages(false), { attachmentState });
+   pipelines[TonemapShader::getPermutationIndex(false)] = device.createGraphicsPipeline(nullptr, pipelineData.getCreateInfo()).value;
+   NAME_CHILD(pipelines[TonemapShader::getPermutationIndex(false)], "Pipeline (SDR)");
+
+   pipelineData.setShaderStages(tonemapShader->getStages(true));
+   pipelines[TonemapShader::getPermutationIndex(true)] = device.createGraphicsPipeline(nullptr, pipelineData.getCreateInfo()).value;
+   NAME_CHILD(pipelines[TonemapShader::getPermutationIndex(true)], "Pipeline (HDR)");
 }
 
 std::vector<vk::SubpassDependency> TonemapPass::getSubpassDependencies() const

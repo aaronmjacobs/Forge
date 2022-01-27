@@ -14,10 +14,12 @@ public:
    static const vk::DescriptorSetLayoutCreateInfo& getLayoutCreateInfo();
    static vk::DescriptorSetLayout getLayout(const GraphicsContext& context);
 
+   static uint32_t getPermutationIndex(bool outputHDR);
+
    TonemapShader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager);
 
    void bindDescriptorSets(vk::CommandBuffer commandBuffer, vk::PipelineLayout pipelineLayout, const DescriptorSet& descriptorSet);
 
-   std::vector<vk::PipelineShaderStageCreateInfo> getStages() const;
+   std::vector<vk::PipelineShaderStageCreateInfo> getStages(bool outputHDR) const;
    std::vector<vk::DescriptorSetLayout> getSetLayouts() const;
 };
