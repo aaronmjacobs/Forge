@@ -536,15 +536,15 @@ Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& reso
       forwardPass = std::make_unique<ForwardPass>(context, dynamicDescriptorPool, resourceManager, forwardLighting.get());
       NAME_POINTER(device, forwardPass, "Forward Pass");
 
-      tonemapPass = std::make_unique<TonemapPass>(context, dynamicDescriptorPool, resourceManager);
-      NAME_POINTER(device, tonemapPass, "Tonemap Pass");
-
       uiPass = std::make_unique<UIPass>(context);
       NAME_POINTER(device, uiPass, "UI Pass");
 
       compositePass = std::make_unique<CompositePass>(context, dynamicDescriptorPool, resourceManager);
-      compositePass->setIsFinalRenderPass(true);
       NAME_POINTER(device, compositePass, "Composite Pass");
+
+      tonemapPass = std::make_unique<TonemapPass>(context, dynamicDescriptorPool, resourceManager);
+      tonemapPass->setIsFinalRenderPass(true);
+      NAME_POINTER(device, tonemapPass, "Tonemap Pass");
    }
 
    {
@@ -596,9 +596,9 @@ Renderer::~Renderer()
    prePass = nullptr;
    shadowPass = nullptr;
    forwardPass = nullptr;
-   tonemapPass = nullptr;
    uiPass = nullptr;
    compositePass = nullptr;
+   tonemapPass = nullptr;
 
    depthTexture = nullptr;
    hdrColorTexture = nullptr;
@@ -646,10 +646,11 @@ void Renderer::render(vk::CommandBuffer commandBuffer, const Scene& scene)
    });
 
    forwardPass->render(commandBuffer, sceneRenderInfo, forwardPassFramebufferHandle, skyboxTexture);
-   tonemapPass->render(commandBuffer, tonemapPassFramebufferHandle, hdrResolveTexture ? *hdrResolveTexture : *hdrColorTexture);
 
    uiPass->render(commandBuffer, uiPassFramebufferHandle);
    compositePass->render(commandBuffer, compositePassFramebufferHandle, *uiColorTexture, CompositeShader::Mode::SrgbToLinear);
+
+   tonemapPass->render(commandBuffer, tonemapPassFramebufferHandle, hdrResolveTexture ? *hdrResolveTexture : *hdrColorTexture);
 }
 
 void Renderer::onSwapchainRecreated()
@@ -781,14 +782,6 @@ void Renderer::updateSwapchainDependentFramebuffers()
    }
 
    {
-      AttachmentInfo tonemapInfo;
-      tonemapInfo.colorInfo = { context.getSwapchain().getTextureInfo() };
-
-      tonemapPass->updateAttachmentSetup(tonemapInfo.asBasic());
-      tonemapPassFramebufferHandle = tonemapPass->createFramebuffer(tonemapInfo);
-   }
-
-   {
       AttachmentInfo uiInfo;
       uiInfo.colorInfo = { uiColorTexture->getInfo() };
 
@@ -798,9 +791,18 @@ void Renderer::updateSwapchainDependentFramebuffers()
 
    {
       AttachmentInfo compositeInfo;
-      compositeInfo.colorInfo = { context.getSwapchain().getTextureInfo() };
+      Texture* compositeColorAttachment = hdrResolveTexture ? hdrResolveTexture.get() : hdrColorTexture.get();
+      compositeInfo.colorInfo = { compositeColorAttachment->getInfo() };
 
       compositePass->updateAttachmentSetup(compositeInfo.asBasic());
       compositePassFramebufferHandle = compositePass->createFramebuffer(compositeInfo);
+   }
+
+   {
+      AttachmentInfo tonemapInfo;
+      tonemapInfo.colorInfo = { context.getSwapchain().getTextureInfo() };
+
+      tonemapPass->updateAttachmentSetup(tonemapInfo.asBasic());
+      tonemapPassFramebufferHandle = tonemapPass->createFramebuffer(tonemapInfo);
    }
 }
