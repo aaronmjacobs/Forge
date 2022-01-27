@@ -47,6 +47,11 @@ namespace
       const char* kLookRight = "LookRight";
       const char* kLookUp = "LookUp";
    }
+
+   void glfwErrorCallback(int errorCode, const char* description)
+   {
+      ASSERT(false, "Encountered GLFW error %d: %s", errorCode, description);
+   }
 }
 
 ForgeApplication::ForgeApplication()
@@ -245,6 +250,8 @@ bool ForgeApplication::recreateSwapchain()
 
 void ForgeApplication::initializeGlfw()
 {
+   glfwSetErrorCallback(glfwErrorCallback);
+
    if (!glfwInit())
    {
       throw std::runtime_error("Failed to initialize GLFW");
