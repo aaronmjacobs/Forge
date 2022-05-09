@@ -107,11 +107,11 @@ void DepthPass::initializePipelines(vk::SampleCountFlagBits sampleCount)
          pipelineData.enableDepthBias();
       }
 
-      pipelines[0] = device.createGraphicsPipeline(nullptr, pipelineData.getCreateInfo()).value;
+      pipelines[0] = device.createGraphicsPipeline(context.getPipelineCache(), pipelineData.getCreateInfo()).value;
       NAME_CHILD(pipelines[0], "Pipeline");
 
       pipelineData.setFrontFace(vk::FrontFace::eClockwise); // Projection matrix Y values will be inverted when rendering to a cubemap, which swaps which faces are "front" facing
-      pipelines[1] = device.createGraphicsPipeline(nullptr, pipelineData.getCreateInfo()).value;
+      pipelines[1] = device.createGraphicsPipeline(context.getPipelineCache(), pipelineData.getCreateInfo()).value;
       NAME_CHILD(pipelines[1], "Pipeline (Cubemap)");
    }
 
@@ -130,11 +130,11 @@ void DepthPass::initializePipelines(vk::SampleCountFlagBits sampleCount)
          pipelineData.enableDepthBias();
       }
 
-      pipelines[2] = device.createGraphicsPipeline(nullptr, pipelineData.getCreateInfo()).value;
+      pipelines[2] = device.createGraphicsPipeline(context.getPipelineCache(), pipelineData.getCreateInfo()).value;
       NAME_CHILD(pipelines[2], "Masked Pipeline");
 
       pipelineData.setFrontFace(vk::FrontFace::eClockwise); // Projection matrix Y values will be inverted when rendering to a cubemap, which swaps which faces are "front" facing
-      pipelines[3] = device.createGraphicsPipeline(nullptr, pipelineData.getCreateInfo()).value;
+      pipelines[3] = device.createGraphicsPipeline(context.getPipelineCache(), pipelineData.getCreateInfo()).value;
       NAME_CHILD(pipelines[3], "Masked Pipeline (Cubemap)");
    }
 }

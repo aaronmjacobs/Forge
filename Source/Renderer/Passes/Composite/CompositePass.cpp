@@ -117,15 +117,15 @@ void CompositePass::initializePipelines(vk::SampleCountFlagBits sampleCount)
    pipelineInfo.positionOnly = false;
 
    PipelineData pipelineData(pipelineInfo, compositeShader->getStages(CompositeShader::Mode::Passthrough), { attachmentState });
-   pipelines[Enum::cast(CompositeShader::Mode::Passthrough)] = device.createGraphicsPipeline(nullptr, pipelineData.getCreateInfo()).value;
+   pipelines[Enum::cast(CompositeShader::Mode::Passthrough)] = device.createGraphicsPipeline(context.getPipelineCache(), pipelineData.getCreateInfo()).value;
    NAME_CHILD(pipelines[Enum::cast(CompositeShader::Mode::Passthrough)], "Pipeline (Passthrough)");
 
    pipelineData.setShaderStages(compositeShader->getStages(CompositeShader::Mode::LinearToSrgb));
-   pipelines[Enum::cast(CompositeShader::Mode::LinearToSrgb)] = device.createGraphicsPipeline(nullptr, pipelineData.getCreateInfo()).value;
+   pipelines[Enum::cast(CompositeShader::Mode::LinearToSrgb)] = device.createGraphicsPipeline(context.getPipelineCache(), pipelineData.getCreateInfo()).value;
    NAME_CHILD(pipelines[Enum::cast(CompositeShader::Mode::LinearToSrgb)], "Pipeline (LinearToSrgb)");
 
    pipelineData.setShaderStages(compositeShader->getStages(CompositeShader::Mode::SrgbToLinear));
-   pipelines[Enum::cast(CompositeShader::Mode::SrgbToLinear)] = device.createGraphicsPipeline(nullptr, pipelineData.getCreateInfo()).value;
+   pipelines[Enum::cast(CompositeShader::Mode::SrgbToLinear)] = device.createGraphicsPipeline(context.getPipelineCache(), pipelineData.getCreateInfo()).value;
    NAME_CHILD(pipelines[Enum::cast(CompositeShader::Mode::SrgbToLinear)], "Pipeline (SrgbToLinear)");
 }
 

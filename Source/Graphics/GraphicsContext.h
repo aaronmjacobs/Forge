@@ -93,6 +93,11 @@ public:
       return transientCommandPool;
    }
 
+   vk::PipelineCache getPipelineCache() const
+   {
+      return pipelineCache;
+   }
+
    const Swapchain& getSwapchain() const
    {
       ASSERT(swapchain);
@@ -161,14 +166,15 @@ private:
    vk::PhysicalDeviceFeatures physicalDeviceFeatures;
 
    vk::CommandPool transientCommandPool;
+   vk::PipelineCache pipelineCache;
 
    const Swapchain* swapchain = nullptr;
    uint32_t swapchainIndex = 0;
 
    uint32_t frameIndex = 0;
 
-   std::unique_ptr<DescriptorSetLayoutCache> layoutCache;
    std::unique_ptr<DelayedObjectDestroyer> delayedObjectDestroyer;
+   std::unique_ptr<DescriptorSetLayoutCache> layoutCache;
 
 #if FORGE_DEBUG
    VkDebugUtilsMessengerEXT debugMessenger = nullptr;

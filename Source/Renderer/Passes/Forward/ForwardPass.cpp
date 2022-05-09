@@ -160,20 +160,20 @@ void ForwardPass::initializePipelines(vk::SampleCountFlagBits sampleCount)
    pipelineInfo.positionOnly = false;
 
    PipelineData pipelineData(pipelineInfo, shaderStages[ForwardShader::getPermutationIndex(false, false)], colorBlendDisabledAttachments);
-   pipelines[ForwardShader::getPermutationIndex(false, false)] = device.createGraphicsPipeline(nullptr, pipelineData.getCreateInfo()).value;
+   pipelines[ForwardShader::getPermutationIndex(false, false)] = device.createGraphicsPipeline(context.getPipelineCache(), pipelineData.getCreateInfo()).value;
    NAME_CHILD(pipelines[ForwardShader::getPermutationIndex(false, false)], "Pipeline (Without Textures, Without Blending)");
 
    pipelineData.setShaderStages(shaderStages[ForwardShader::getPermutationIndex(true, false)]);
-   pipelines[ForwardShader::getPermutationIndex(true, false)] = device.createGraphicsPipeline(nullptr, pipelineData.getCreateInfo()).value;
+   pipelines[ForwardShader::getPermutationIndex(true, false)] = device.createGraphicsPipeline(context.getPipelineCache(), pipelineData.getCreateInfo()).value;
    NAME_CHILD(pipelines[ForwardShader::getPermutationIndex(true, false)], "Pipeline (With Textures, Without Blending)");
 
    pipelineData.setShaderStages(shaderStages[ForwardShader::getPermutationIndex(true, true)]);
    pipelineData.setColorBlendAttachmentStates(colorBlendEnabledAttachments);
-   pipelines[ForwardShader::getPermutationIndex(true, true)] = device.createGraphicsPipeline(nullptr, pipelineData.getCreateInfo()).value;
+   pipelines[ForwardShader::getPermutationIndex(true, true)] = device.createGraphicsPipeline(context.getPipelineCache(), pipelineData.getCreateInfo()).value;
    NAME_CHILD(pipelines[ForwardShader::getPermutationIndex(true, true)], "Pipeline (With Textures, With Blending)");
 
    pipelineData.setShaderStages(shaderStages[ForwardShader::getPermutationIndex(false, true)]);
-   pipelines[ForwardShader::getPermutationIndex(false, true)] = device.createGraphicsPipeline(nullptr, pipelineData.getCreateInfo()).value;
+   pipelines[ForwardShader::getPermutationIndex(false, true)] = device.createGraphicsPipeline(context.getPipelineCache(), pipelineData.getCreateInfo()).value;
    NAME_CHILD(pipelines[ForwardShader::getPermutationIndex(false, true)], "Pipeline (Without Textures, With Blending)");
 
    {
@@ -187,7 +187,7 @@ void ForwardPass::initializePipelines(vk::SampleCountFlagBits sampleCount)
       skyboxPipelineInfo.positionOnly = false;
 
       PipelineData skyboxPipelineData(skyboxPipelineInfo, skyboxShader->getStages(), { colorBlendDisabledAttachmentState });
-      pipelines[4] = device.createGraphicsPipeline(nullptr, skyboxPipelineData.getCreateInfo()).value;
+      pipelines[4] = device.createGraphicsPipeline(context.getPipelineCache(), skyboxPipelineData.getCreateInfo()).value;
       NAME_CHILD(pipelines[4], "Skybox pipeline");
    }
 }

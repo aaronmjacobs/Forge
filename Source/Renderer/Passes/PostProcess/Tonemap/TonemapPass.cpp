@@ -119,11 +119,11 @@ void TonemapPass::initializePipelines(vk::SampleCountFlagBits sampleCount)
    pipelineInfo.positionOnly = false;
 
    PipelineData pipelineData(pipelineInfo, tonemapShader->getStages(false), { attachmentState });
-   pipelines[TonemapShader::getPermutationIndex(false)] = device.createGraphicsPipeline(nullptr, pipelineData.getCreateInfo()).value;
+   pipelines[TonemapShader::getPermutationIndex(false)] = device.createGraphicsPipeline(context.getPipelineCache(), pipelineData.getCreateInfo()).value;
    NAME_CHILD(pipelines[TonemapShader::getPermutationIndex(false)], "Pipeline (SDR)");
 
    pipelineData.setShaderStages(tonemapShader->getStages(true));
-   pipelines[TonemapShader::getPermutationIndex(true)] = device.createGraphicsPipeline(nullptr, pipelineData.getCreateInfo()).value;
+   pipelines[TonemapShader::getPermutationIndex(true)] = device.createGraphicsPipeline(context.getPipelineCache(), pipelineData.getCreateInfo()).value;
    NAME_CHILD(pipelines[TonemapShader::getPermutationIndex(true)], "Pipeline (HDR)");
 }
 

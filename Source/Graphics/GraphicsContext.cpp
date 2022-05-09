@@ -9,6 +9,8 @@
 
 #include "Platform/Window.h"
 
+#include <PlatformUtils/IOUtils.h>
+
 #include <algorithm>
 #include <array>
 #include <cstring>
@@ -282,6 +284,11 @@ namespace
 
       return bestPhysicalDevice;
    }
+
+   std::optional<std::filesystem::path> getPipelineCachePath()
+   {
+      return IOUtils::getAbsoluteAppDataPath(FORGE_PROJECT_NAME, "PipelineCache.bin");
+   }
 }
 
 // static
@@ -433,6 +440,20 @@ GraphicsContext::GraphicsContext(Window& window)
 
    transientCommandPool = device.createCommandPool(commandPoolCreateInfo);
 
+   std::optional<std::vector<uint8_t>> pipelineCacheData;
+   if (std::optional<std::filesystem::path> pipelineCachePath = getPipelineCachePath())
+   {
+      pipelineCacheData = IOUtils::readBinaryFile(*pipelineCachePath);
+   }
+
+   vk::PipelineCacheCreateInfo pipelineCacheCreateInfo;
+   if (pipelineCacheData)
+   {
+      pipelineCacheCreateInfo.setInitialData<uint8_t>(*pipelineCacheData);
+   }
+
+   pipelineCache = device.createPipelineCache(pipelineCacheCreateInfo);
+
    delayedObjectDestroyer = std::make_unique<DelayedObjectDestroyer>(*this);
    layoutCache = std::make_unique<DescriptorSetLayoutCache>(*this);
 }
@@ -442,6 +463,13 @@ GraphicsContext::~GraphicsContext()
    layoutCache = nullptr;
    delayedObjectDestroyer = nullptr;
 
+   if (std::optional<std::filesystem::path> pipelineCachePath = getPipelineCachePath())
+   {
+      std::vector<uint8_t> pipelineCacheData = device.getPipelineCacheData(pipelineCache);
+      IOUtils::writeBinaryFile(*pipelineCachePath, pipelineCacheData);
+   }
+
+   device.destroyPipelineCache(pipelineCache);
    device.destroyCommandPool(transientCommandPool);
 
    device.destroy();
