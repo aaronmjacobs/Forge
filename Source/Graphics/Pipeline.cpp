@@ -38,7 +38,7 @@ PipelineData::PipelineData(const PipelineInfo& info, std::vector<vk::PipelineSha
    rasterizationStateCreateInfo = vk::PipelineRasterizationStateCreateInfo()
       .setPolygonMode(vk::PolygonMode::eFill)
       .setLineWidth(1.0f)
-      .setCullMode(vk::CullModeFlagBits::eBack)
+      .setCullMode(info.twoSided ? vk::CullModeFlagBits::eNone : vk::CullModeFlagBits::eBack)
       .setFrontFace(vk::FrontFace::eCounterClockwise);
 
    multisampleStateCreateInfo = vk::PipelineMultisampleStateCreateInfo()
@@ -129,6 +129,11 @@ void PipelineData::enableDepthBias()
 void PipelineData::setFrontFace(vk::FrontFace frontFace)
 {
    rasterizationStateCreateInfo.setFrontFace(frontFace);
+}
+
+void PipelineData::setTwoSided(bool twoSided)
+{
+   rasterizationStateCreateInfo.setCullMode(twoSided ? vk::CullModeFlagBits::eNone : vk::CullModeFlagBits::eBack);
 }
 
 void PipelineData::updatePointers()

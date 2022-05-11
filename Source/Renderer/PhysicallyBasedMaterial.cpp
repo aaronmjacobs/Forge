@@ -41,13 +41,15 @@ const std::string PhysicallyBasedMaterial::kNormalTextureParameterName = "normal
 // static
 const std::string PhysicallyBasedMaterial::kAoRoughnessMetalnessTextureParameterName = "aoRoughnessMetalness";
 
-PhysicallyBasedMaterial::PhysicallyBasedMaterial(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, vk::Sampler sampler, const Texture& albedoTexture, const Texture& normalTexture, const Texture& aoRoughnessMetalnessTexture, bool interpretAlphaAsMask)
+PhysicallyBasedMaterial::PhysicallyBasedMaterial(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, vk::Sampler sampler, const Texture& albedoTexture, const Texture& normalTexture, const Texture& aoRoughnessMetalnessTexture, bool interpretAlphaAsMask, bool twoSides)
    : Material(graphicsContext, dynamicDescriptorPool, DescriptorSetLayout::getCreateInfo<PhysicallyBasedMaterial>())
 {
    if (albedoTexture.getImageProperties().hasAlpha)
    {
       blendMode = interpretAlphaAsMask ? BlendMode::Masked : BlendMode::Translucent;
    }
+
+   twoSided = twoSides;
 
    std::array<vk::DescriptorImageInfo, GraphicsContext::kMaxFramesInFlight * 3> imageInfo;
    std::array<vk::WriteDescriptorSet, GraphicsContext::kMaxFramesInFlight * 3> descriptorWrites;

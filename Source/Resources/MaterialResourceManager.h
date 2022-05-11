@@ -41,6 +41,7 @@ struct MaterialParameters
    std::vector<TextureMaterialParameter> textureParameters;
    std::vector<VectorMaterialParameter> vectorParameters;
    std::vector<FloatMaterialParameter> scalarParameters;
+   bool twoSided = false;
 
    bool operator==(const MaterialParameters& other) const;
 };

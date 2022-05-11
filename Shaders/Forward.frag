@@ -73,6 +73,11 @@ void main()
 
    surfaceInfo.position = inPosition;
 
+   if (!gl_FrontFacing)
+   {
+      surfaceInfo.normal = -surfaceInfo.normal;
+   }
+
    vec3 color = vec3(0.0);
 
    for (int i = 0; i < numDirectionalLights; ++i)

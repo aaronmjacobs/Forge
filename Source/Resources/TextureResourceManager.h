@@ -12,7 +12,8 @@ enum class DefaultTextureType
    None,
    Black,
    White,
-   NormalMap
+   NormalMap,
+   AoRoughnessMetalnessMap
 };
 
 struct TextureLoadOptions
@@ -40,4 +41,5 @@ protected:
    TextureHandle defaultBlackTextureHandle;
    TextureHandle defaultWhiteTextureHandle;
    TextureHandle defaultNormalMapTextureHandle;
+   TextureHandle defaultAoRoughnessMetalnessMapTextureHandle;
 };

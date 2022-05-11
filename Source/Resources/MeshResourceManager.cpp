@@ -110,7 +110,7 @@ namespace
    TextureHandle loadMaterialTexture(const aiMaterial& assimpMaterial, std::span<const aiTextureType> textureTypes, const std::filesystem::path& directory, ResourceManager& resourceManager)
    {
       std::filesystem::path texturePath;
-      aiTextureType textureType = aiTextureType_NONE;
+      aiTextureType textureType = textureTypes.empty() ? aiTextureType_NONE : textureTypes[0];
 
       for (aiTextureType type : textureTypes)
       {
@@ -128,7 +128,25 @@ namespace
 
       TextureLoadOptions loadOptions;
       loadOptions.sRGB = textureType == aiTextureType_BASE_COLOR || textureType == aiTextureType_DIFFUSE;
-      loadOptions.fallbackDefaultTextureType = textureType == aiTextureType_NORMALS ? DefaultTextureType::NormalMap : DefaultTextureType::White;
+      switch (textureType)
+      {
+      case aiTextureType_BASE_COLOR:
+      case aiTextureType_DIFFUSE:
+         loadOptions.fallbackDefaultTextureType = DefaultTextureType::White;
+         break;
+      case aiTextureType_NORMALS:
+         loadOptions.fallbackDefaultTextureType = DefaultTextureType::NormalMap;
+         break;
+      case aiTextureType_AMBIENT_OCCLUSION:
+      case aiTextureType_DIFFUSE_ROUGHNESS:
+      case aiTextureType_METALNESS:
+      case aiTextureType_UNKNOWN:
+         loadOptions.fallbackDefaultTextureType = DefaultTextureType::AoRoughnessMetalnessMap;
+         break;
+      default:
+         loadOptions.fallbackDefaultTextureType = DefaultTextureType::Black;
+         break;
+      }
 
       return resourceManager.loadTexture(texturePath, loadOptions);
    }
@@ -160,6 +178,10 @@ namespace
       materialParameters.textureParameters.push_back(albedoParameter);
       materialParameters.textureParameters.push_back(normalParameter);
       materialParameters.textureParameters.push_back(aoRoughnessMetalnessParameter);
+
+      int twoSided = 0;
+      assimpMaterial.Get(AI_MATKEY_TWOSIDED, twoSided);
+      materialParameters.twoSided = twoSided != 0;
 
       return resourceManager.loadMaterial(materialParameters);
    }
@@ -256,7 +278,7 @@ namespace
    {
       std::vector<MeshSectionSourceData> sourceData;
 
-      unsigned int flags = aiProcess_CalcTangentSpace | aiProcess_JoinIdenticalVertices | aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs;
+      unsigned int flags = aiProcess_CalcTangentSpace | aiProcess_JoinIdenticalVertices | aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_PreTransformVertices | aiProcess_FlipUVs;
 
       Assimp::Importer importer;
       const aiScene* assimpScene = importer.ReadFile(path.string().c_str(), flags);

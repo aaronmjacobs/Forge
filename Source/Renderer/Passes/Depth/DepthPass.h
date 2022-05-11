@@ -14,11 +14,12 @@ template<>
 struct PipelineDescription<DepthPass>
 {
    bool masked = false;
+   bool twoSided = false;
    bool cubemap = false;
 
    std::size_t hash() const
    {
-      return (masked * 0b01) | (cubemap * 0b10);
+      return (masked * 0b001) | (twoSided * 0b010) | (cubemap * 0b100);
    }
 
    bool operator==(const PipelineDescription<DepthPass>& other) const = default;

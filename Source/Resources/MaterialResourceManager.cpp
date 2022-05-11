@@ -33,7 +33,8 @@ bool MaterialParameters::operator==(const MaterialParameters& other) const
 {
    return textureParameters == other.textureParameters
       && vectorParameters == other.vectorParameters
-      && scalarParameters == other.scalarParameters;
+      && scalarParameters == other.scalarParameters
+      && twoSided == other.twoSided;
 }
 
 namespace std
@@ -76,6 +77,7 @@ namespace std
       Hash::combine(hash, materialParameters.textureParameters);
       Hash::combine(hash, materialParameters.vectorParameters);
       Hash::combine(hash, materialParameters.scalarParameters);
+      Hash::combine(hash, materialParameters.twoSided);
 
       return hash;
    }
@@ -171,7 +173,7 @@ std::unique_ptr<Material> MaterialResourceManager::createMaterial(const Material
 
    if (albedoTexture && normalTexture && aoRoughnessMetalnessTexture)
    {
-      std::unique_ptr<Material> material = std::make_unique<PhysicallyBasedMaterial>(context, dynamicDescriptorPool, sampler, *albedoTexture, *normalTexture, *aoRoughnessMetalnessTexture, interpretAlphaAsMask);
+      std::unique_ptr<Material> material = std::make_unique<PhysicallyBasedMaterial>(context, dynamicDescriptorPool, sampler, *albedoTexture, *normalTexture, *aoRoughnessMetalnessTexture, interpretAlphaAsMask, parameters.twoSided);
       NAME_POINTER(context.getDevice(), material, "Physically Based Material (Albedo = " + albedoTexture->getName() + ", Normal = " + normalTexture->getName() + ", Ambient Occlusion / Roughness / Metalness = " + aoRoughnessMetalnessTexture->getName() + ")");
 
       return material;

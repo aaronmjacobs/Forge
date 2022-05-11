@@ -15,11 +15,12 @@ struct PipelineDescription<ForwardPass>
 {
    bool withTextures = true;
    bool withBlending = false;
+   bool twoSided = false;
    bool skybox = false;
 
    std::size_t hash() const
    {
-      return (withTextures * 0b001) | (withBlending * 0b010) | (skybox * 0b100);
+      return (withTextures * 0b0001) | (withBlending * 0b0010) | (twoSided * 0b0100) | (skybox * 0b1000);
    }
 
    bool operator==(const PipelineDescription<ForwardPass>& other) const = default;

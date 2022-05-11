@@ -129,6 +129,7 @@ PipelineDescription<DepthPass> DepthPass::getPipelineDescription(const View& vie
    PipelineDescription<DepthPass> description;
 
    description.masked = material.getBlendMode() == BlendMode::Masked;
+   description.twoSided = material.isTwoSided();
    description.cubemap = view.getInfo().cubeFace.has_value();
 
    return description;
@@ -143,6 +144,7 @@ vk::Pipeline DepthPass::createPipeline(const PipelineDescription<DepthPass>& des
    pipelineInfo.passType = PipelinePassType::Mesh;
    pipelineInfo.writeDepth = true;
    pipelineInfo.positionOnly = !description.masked;
+   pipelineInfo.twoSided = description.twoSided;
 
    PipelineData pipelineData(pipelineInfo, description.masked ? depthMaskedShader->getStages() : depthShader->getStages(), {});
 
@@ -157,7 +159,7 @@ vk::Pipeline DepthPass::createPipeline(const PipelineDescription<DepthPass>& des
    }
 
    vk::Pipeline pipeline = device.createGraphicsPipeline(context.getPipelineCache(), pipelineData.getCreateInfo()).value;
-   NAME_CHILD(pipeline, "Pipeline (" + std::string(description.masked ? "" : "Not ") + "Masked, " + std::string(description.cubemap ? "" : "Not ") + "Cubemap)");
+   NAME_CHILD(pipeline, "Pipeline (" + std::string(description.masked ? "" : "Not ") + "Masked, " + std::string(description.twoSided ? "" : "Not ") + "Two Sided, " + std::string(description.cubemap ? "" : "Not ") + "Cubemap)");
 
    return pipeline;
 }

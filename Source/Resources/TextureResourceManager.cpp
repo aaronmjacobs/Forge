@@ -120,6 +120,9 @@ TextureHandle TextureResourceManager::getDefault(DefaultTextureType type) const
    case DefaultTextureType::NormalMap:
       handle = defaultNormalMapTextureHandle;
       break;
+   case DefaultTextureType::AoRoughnessMetalnessMap:
+      handle = defaultAoRoughnessMetalnessMapTextureHandle;
+      break;
    default:
       break;
    }
@@ -158,6 +161,7 @@ void TextureResourceManager::createDefaultTextures()
    SinglePixelImage defaultBlackImage = createDefaultImage(glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
    SinglePixelImage defaultWhiteImage = createDefaultImage(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f));
    SinglePixelImage defaultNormalMapImage = createDefaultImage(glm::vec4(0.5f, 0.5f, 1.0f, 1.0f));
+   SinglePixelImage defaultAoRoughnessMetalnessMapImage = createDefaultImage(glm::vec4(0.0f, 0.75f, 0.0f, 1.0f));
 
    TextureProperties defaultTextureProperties = getDefaultProperties();
    defaultTextureProperties.generateMipMaps = false;
@@ -172,4 +176,7 @@ void TextureResourceManager::createDefaultTextures()
 
    defaultNormalMapTextureHandle = emplaceResource(context, defaultNormalMapImage.getProperties(), defaultTextureProperties, defaultTextureInitialLayout, defaultNormalMapImage.getTextureData());
    NAME_POINTER(context.getDevice(), get(defaultNormalMapTextureHandle), "Default Normal Map Texture");
+
+   defaultAoRoughnessMetalnessMapTextureHandle = emplaceResource(context, defaultAoRoughnessMetalnessMapImage.getProperties(), defaultTextureProperties, defaultTextureInitialLayout, defaultAoRoughnessMetalnessMapImage.getTextureData());
+   NAME_POINTER(context.getDevice(), get(defaultAoRoughnessMetalnessMapTextureHandle), "Default AO Roughness Metalness Map Texture");
 }

@@ -167,6 +167,7 @@ PipelineDescription<ForwardPass> ForwardPass::getPipelineDescription(const View&
 
    description.withTextures = meshSection.hasValidTexCoords;
    description.withBlending = material.getBlendMode() == BlendMode::Translucent;
+   description.twoSided = material.isTwoSided();
 
    return description;
 }
@@ -193,36 +194,19 @@ vk::Pipeline ForwardPass::createPipeline(const PipelineDescription<ForwardPass>&
                                       .setBlendEnable(false));
    }
 
-   vk::Pipeline pipeline;
-   if (description.skybox)
-   {
-      PipelineInfo pipelineInfo;
-      pipelineInfo.renderPass = getRenderPass();
-      pipelineInfo.layout = skyboxPipelineLayout;
-      pipelineInfo.sampleCount = getSampleCount();
-      pipelineInfo.passType = PipelinePassType::Screen;
-      pipelineInfo.enableDepthTest = true;
-      pipelineInfo.writeDepth = false;
-      pipelineInfo.positionOnly = false;
+   PipelineInfo pipelineInfo;
+   pipelineInfo.renderPass = getRenderPass();
+   pipelineInfo.layout = description.skybox ? skyboxPipelineLayout : forwardPipelineLayout;
+   pipelineInfo.sampleCount = getSampleCount();
+   pipelineInfo.passType = description.skybox ? PipelinePassType::Screen : PipelinePassType::Mesh;
+   pipelineInfo.enableDepthTest = true;
+   pipelineInfo.writeDepth = false;
+   pipelineInfo.positionOnly = false;
+   pipelineInfo.twoSided = description.twoSided;
 
-      PipelineData pipelineData(pipelineInfo, skyboxShader->getStages(), { blendAttachmentStates });
-      pipeline = device.createGraphicsPipeline(context.getPipelineCache(), pipelineData.getCreateInfo()).value;
-      NAME_CHILD(pipeline, "Skybox Pipeline");
-   }
-   else
-   {
-      PipelineInfo pipelineInfo;
-      pipelineInfo.renderPass = getRenderPass();
-      pipelineInfo.layout = forwardPipelineLayout;
-      pipelineInfo.sampleCount = getSampleCount();
-      pipelineInfo.passType = PipelinePassType::Mesh;
-      pipelineInfo.writeDepth = false;
-      pipelineInfo.positionOnly = false;
-
-      PipelineData pipelineData(pipelineInfo, forwardShader->getStages(description.withTextures, description.withBlending), blendAttachmentStates);
-      pipeline = device.createGraphicsPipeline(context.getPipelineCache(), pipelineData.getCreateInfo()).value;
-      NAME_CHILD(pipeline, "Pipeline (" + std::string(description.withTextures ? "With" : "Without") + " Textures, " + std::string(description.withBlending ? "With" : "Without") + " Blending)");
-   }
+   PipelineData pipelineData(pipelineInfo, description.skybox ? skyboxShader->getStages() : forwardShader->getStages(description.withTextures, description.withBlending), blendAttachmentStates);
+   vk::Pipeline pipeline = device.createGraphicsPipeline(context.getPipelineCache(), pipelineData.getCreateInfo()).value;
+   NAME_CHILD(pipeline, description.skybox ? "Skybox Pipeline" : ("Pipeline (" + std::string(description.withTextures ? "With" : "Without") + " Textures, " + std::string(description.withBlending ? "With" : "Without") + " Blending" + (description.twoSided ? ", Two Sided" : "") + ")"));
 
    return pipeline;
 }

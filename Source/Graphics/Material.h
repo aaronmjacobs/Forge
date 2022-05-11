@@ -21,7 +21,13 @@ public:
       return blendMode;
    }
 
+   bool isTwoSided() const
+   {
+      return twoSided;
+   }
+
 protected:
    DescriptorSet descriptorSet;
    BlendMode blendMode = BlendMode::Opaque;
+   bool twoSided = false;
 };

@@ -22,6 +22,7 @@ struct PipelineInfo
    bool enableDepthTest = true;
    bool writeDepth = false;
    bool positionOnly = false;
+   bool twoSided = false;
 };
 
 class PipelineDataBase
@@ -68,6 +69,7 @@ public:
 
    void enableDepthBias();
    void setFrontFace(vk::FrontFace frontFace);
+   void setTwoSided(bool twoSided);
 
 private:
    void updatePointers();
