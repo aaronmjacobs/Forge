@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Core/Enum.h"
+
 #include "Graphics/DescriptorSet.h"
 
 #include "Renderer/Passes/Composite/CompositeShader.h"
@@ -7,9 +9,25 @@
 
 #include <memory>
 
+class CompositePass;
 class DynamicDescriptorPool;
 class ResourceManager;
 class Texture;
+
+template<>
+struct PipelineDescription<CompositePass>
+{
+   CompositeShader::Mode mode = CompositeShader::Mode::Passthrough;
+
+   std::size_t hash() const
+   {
+      return Enum::cast(mode);
+   }
+
+   bool operator==(const PipelineDescription<CompositePass>& other) const = default;
+};
+
+USE_MEMBER_HASH_FUNCTION(PipelineDescription<CompositePass>);
 
 class CompositePass : public SceneRenderPass<CompositePass>
 {
@@ -22,11 +40,14 @@ public:
 protected:
    friend class SceneRenderPass<CompositePass>;
 
-   void initializePipelines(vk::SampleCountFlagBits sampleCount) override;
    std::vector<vk::SubpassDependency> getSubpassDependencies() const override;
+
+   vk::Pipeline createPipeline(const PipelineDescription<CompositePass>& description);
 
 private:
    std::unique_ptr<CompositeShader> compositeShader;
+
+   vk::PipelineLayout pipelineLayout;
 
    DescriptorSet descriptorSet;
    vk::Sampler sampler;

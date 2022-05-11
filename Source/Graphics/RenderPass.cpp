@@ -7,7 +7,7 @@
 
 namespace
 {
-   std::optional<vk::SampleCountFlagBits> getSampleCount(const BasicAttachmentInfo& info)
+   std::optional<vk::SampleCountFlagBits> determineSampleCount(const BasicAttachmentInfo& info)
    {
       std::optional<vk::SampleCountFlagBits> sampleCount;
 
@@ -45,7 +45,6 @@ RenderPass::~RenderPass()
 {
    framebufferMap.clear();
 
-   terminatePipelines();
    terminateRenderPass();
 }
 
@@ -55,18 +54,12 @@ void RenderPass::updateAttachmentSetup(const BasicAttachmentInfo& setup)
 
    if (setup != attachmentSetup)
    {
-      terminatePipelines();
       terminateRenderPass();
 
       attachmentSetup = setup;
+      sampleCount = determineSampleCount(attachmentSetup).value_or(vk::SampleCountFlagBits::e1);
 
       initializeRenderPass();
-      initializePipelines(getSampleCount(attachmentSetup).value_or(vk::SampleCountFlagBits::e1));
-
-      for (std::size_t i = 0; i < pipelineLayouts.size(); ++i)
-      {
-         NAME_CHILD(pipelineLayouts[i], "Pipeline Layout " + DebugUtils::toString(i));
-      }
    }
 }
 
@@ -178,6 +171,8 @@ void RenderPass::initializeRenderPass()
 
    renderPass = device.createRenderPass(renderPassCreateInfo);
    NAME_CHILD(renderPass, "Render Pass");
+
+   postRenderPassInitialized();
 }
 
 void RenderPass::terminateRenderPass()
@@ -186,23 +181,6 @@ void RenderPass::terminateRenderPass()
    {
       context.delayedDestroy(std::move(renderPass));
    }
-}
-
-void RenderPass::terminatePipelines()
-{
-   for (vk::Pipeline& pipeline : pipelines)
-   {
-      if (pipeline)
-      {
-         context.delayedDestroy(std::move(pipeline));
-      }
-   }
-
-   for (vk::PipelineLayout& pipelineLayout : pipelineLayouts)
-   {
-      context.delayedDestroy(std::move(pipelineLayout));
-   }
-   pipelineLayouts.clear();
 }
 
 void RenderPass::beginRenderPass(vk::CommandBuffer commandBuffer, const Framebuffer& framebuffer, std::span<vk::ClearValue> clearValues)

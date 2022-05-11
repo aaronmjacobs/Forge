@@ -59,7 +59,7 @@ namespace
 
 uint32_t ForwardShader::getPermutationIndex(bool withTextures, bool withBlending)
 {
-   return (withTextures ? 0b01 : 0b00) | (withBlending ? 0b10 : 0b00);
+   return (withTextures ? 0b10 : 0b00) | (withBlending ? 0b01 : 0b00);
 }
 
 ForwardShader::ForwardShader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager)

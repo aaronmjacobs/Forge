@@ -20,10 +20,27 @@ ForwardPass::ForwardPass(const GraphicsContext& graphicsContext, DynamicDescript
 {
    clearDepth = false;
    clearColor = true;
-   pipelines.resize(5);
 
    forwardShader = std::make_unique<ForwardShader>(context, resourceManager);
    skyboxShader = std::make_unique<SkyboxShader>(context, resourceManager);
+
+   {
+      std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = forwardShader->getSetLayouts();
+      std::vector<vk::PushConstantRange> pushConstantRanges = forwardShader->getPushConstantRanges();
+      vk::PipelineLayoutCreateInfo pipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo()
+         .setSetLayouts(descriptorSetLayouts)
+         .setPushConstantRanges(pushConstantRanges);
+      forwardPipelineLayout = device.createPipelineLayout(pipelineLayoutCreateInfo);
+      NAME_CHILD(forwardPipelineLayout, "Forward Pipeline Layout");
+   }
+
+   {
+      std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = skyboxShader->getSetLayouts();
+      vk::PipelineLayoutCreateInfo pipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo()
+         .setSetLayouts(descriptorSetLayouts);
+      skyboxPipelineLayout = device.createPipelineLayout(pipelineLayoutCreateInfo);
+      NAME_CHILD(skyboxPipelineLayout, "Skybox Pipeline Layout");
+   }
 
    vk::SamplerCreateInfo skyboxSamplerCreateInfo = vk::SamplerCreateInfo()
       .setMagFilter(vk::Filter::eLinear)
@@ -48,6 +65,9 @@ ForwardPass::ForwardPass(const GraphicsContext& graphicsContext, DynamicDescript
 ForwardPass::~ForwardPass()
 {
    context.delayedDestroy(std::move(skyboxSampler));
+
+   context.delayedDestroy(std::move(forwardPipelineLayout));
+   context.delayedDestroy(std::move(skyboxPipelineLayout));
 
    forwardShader.reset();
    skyboxShader.reset();
@@ -101,95 +121,16 @@ void ForwardPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo&
          .setPImageInfo(&imageInfo);
       device.updateDescriptorSets(descriptorWrite, {});
 
-      skyboxShader->bindDescriptorSets(commandBuffer, pipelineLayouts[1], sceneRenderInfo.view, skyboxDescriptorSet);
-      renderScreenMesh(commandBuffer, pipelines[4]);
+      PipelineDescription<ForwardPass> pipelineDescription;
+      pipelineDescription.withBlending = false;
+      pipelineDescription.withTextures = true;
+      pipelineDescription.skybox = true;
+
+      skyboxShader->bindDescriptorSets(commandBuffer, skyboxPipelineLayout, sceneRenderInfo.view, skyboxDescriptorSet);
+      renderScreenMesh(commandBuffer, getPipeline(pipelineDescription));
    }
 
    endRenderPass(commandBuffer);
-}
-
-void ForwardPass::initializePipelines(vk::SampleCountFlagBits sampleCount)
-{
-   pipelineLayouts.resize(2);
-
-   {
-      std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = forwardShader->getSetLayouts();
-      std::vector<vk::PushConstantRange> pushConstantRanges = forwardShader->getPushConstantRanges();
-      vk::PipelineLayoutCreateInfo pipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo()
-         .setSetLayouts(descriptorSetLayouts)
-         .setPushConstantRanges(pushConstantRanges);
-      pipelineLayouts[0] = device.createPipelineLayout(pipelineLayoutCreateInfo);
-   }
-
-   {
-      std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = skyboxShader->getSetLayouts();
-      vk::PipelineLayoutCreateInfo pipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo()
-         .setSetLayouts(descriptorSetLayouts);
-      pipelineLayouts[1] = device.createPipelineLayout(pipelineLayoutCreateInfo);
-   }
-
-   std::array<std::vector<vk::PipelineShaderStageCreateInfo>, 4> shaderStages =
-   {
-      forwardShader->getStages(false, false),
-      forwardShader->getStages(false, true),
-      forwardShader->getStages(true, false),
-      forwardShader->getStages(true, true)
-   };
-
-   vk::PipelineColorBlendAttachmentState colorBlendDisabledAttachmentState = vk::PipelineColorBlendAttachmentState()
-      .setColorWriteMask(vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA)
-      .setBlendEnable(false);
-   vk::PipelineColorBlendAttachmentState colorBlendEnabledAttachmentState = vk::PipelineColorBlendAttachmentState()
-      .setColorWriteMask(vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA)
-      .setBlendEnable(true)
-      .setSrcColorBlendFactor(vk::BlendFactor::eSrcAlpha)
-      .setDstColorBlendFactor(vk::BlendFactor::eOneMinusSrcAlpha)
-      .setColorBlendOp(vk::BlendOp::eAdd)
-      .setSrcAlphaBlendFactor(vk::BlendFactor::eOne)
-      .setDstAlphaBlendFactor(vk::BlendFactor::eZero)
-      .setAlphaBlendOp(vk::BlendOp::eAdd);
-   std::vector<vk::PipelineColorBlendAttachmentState> colorBlendDisabledAttachments = { colorBlendDisabledAttachmentState };
-   std::vector<vk::PipelineColorBlendAttachmentState> colorBlendEnabledAttachments = { colorBlendEnabledAttachmentState };
-
-   PipelineInfo pipelineInfo;
-   pipelineInfo.renderPass = getRenderPass();
-   pipelineInfo.layout = pipelineLayouts[0];
-   pipelineInfo.sampleCount = sampleCount;
-   pipelineInfo.passType = PipelinePassType::Mesh;
-   pipelineInfo.writeDepth = false;
-   pipelineInfo.positionOnly = false;
-
-   PipelineData pipelineData(pipelineInfo, shaderStages[ForwardShader::getPermutationIndex(false, false)], colorBlendDisabledAttachments);
-   pipelines[ForwardShader::getPermutationIndex(false, false)] = device.createGraphicsPipeline(context.getPipelineCache(), pipelineData.getCreateInfo()).value;
-   NAME_CHILD(pipelines[ForwardShader::getPermutationIndex(false, false)], "Pipeline (Without Textures, Without Blending)");
-
-   pipelineData.setShaderStages(shaderStages[ForwardShader::getPermutationIndex(true, false)]);
-   pipelines[ForwardShader::getPermutationIndex(true, false)] = device.createGraphicsPipeline(context.getPipelineCache(), pipelineData.getCreateInfo()).value;
-   NAME_CHILD(pipelines[ForwardShader::getPermutationIndex(true, false)], "Pipeline (With Textures, Without Blending)");
-
-   pipelineData.setShaderStages(shaderStages[ForwardShader::getPermutationIndex(true, true)]);
-   pipelineData.setColorBlendAttachmentStates(colorBlendEnabledAttachments);
-   pipelines[ForwardShader::getPermutationIndex(true, true)] = device.createGraphicsPipeline(context.getPipelineCache(), pipelineData.getCreateInfo()).value;
-   NAME_CHILD(pipelines[ForwardShader::getPermutationIndex(true, true)], "Pipeline (With Textures, With Blending)");
-
-   pipelineData.setShaderStages(shaderStages[ForwardShader::getPermutationIndex(false, true)]);
-   pipelines[ForwardShader::getPermutationIndex(false, true)] = device.createGraphicsPipeline(context.getPipelineCache(), pipelineData.getCreateInfo()).value;
-   NAME_CHILD(pipelines[ForwardShader::getPermutationIndex(false, true)], "Pipeline (Without Textures, With Blending)");
-
-   {
-      PipelineInfo skyboxPipelineInfo;
-      skyboxPipelineInfo.renderPass = getRenderPass();
-      skyboxPipelineInfo.layout = pipelineLayouts[1];
-      skyboxPipelineInfo.sampleCount = sampleCount;
-      skyboxPipelineInfo.passType = PipelinePassType::Screen;
-      skyboxPipelineInfo.enableDepthTest = true;
-      skyboxPipelineInfo.writeDepth = false;
-      skyboxPipelineInfo.positionOnly = false;
-
-      PipelineData skyboxPipelineData(skyboxPipelineInfo, skyboxShader->getStages(), { colorBlendDisabledAttachmentState });
-      pipelines[4] = device.createGraphicsPipeline(context.getPipelineCache(), skyboxPipelineData.getCreateInfo()).value;
-      NAME_CHILD(pipelines[4], "Skybox pipeline");
-   }
 }
 
 std::vector<vk::SubpassDependency> ForwardPass::getSubpassDependencies() const
@@ -215,7 +156,73 @@ void ForwardPass::renderMesh(vk::CommandBuffer commandBuffer, vk::PipelineLayout
    SceneRenderPass::renderMesh(commandBuffer, pipelineLayout, view, mesh, section, material);
 }
 
-vk::Pipeline ForwardPass::selectPipeline(const View& view, const MeshSection& meshSection, const Material& material) const
+vk::PipelineLayout ForwardPass::selectPipelineLayout(BlendMode blendMode) const
 {
-   return pipelines[ForwardShader::getPermutationIndex(meshSection.hasValidTexCoords, material.getBlendMode() == BlendMode::Translucent)];
+   return forwardPipelineLayout;
+}
+
+PipelineDescription<ForwardPass> ForwardPass::getPipelineDescription(const View& view, const MeshSection& meshSection, const Material& material) const
+{
+   PipelineDescription<ForwardPass> description;
+
+   description.withTextures = meshSection.hasValidTexCoords;
+   description.withBlending = material.getBlendMode() == BlendMode::Translucent;
+
+   return description;
+}
+
+vk::Pipeline ForwardPass::createPipeline(const PipelineDescription<ForwardPass>& description)
+{
+   std::vector<vk::PipelineColorBlendAttachmentState> blendAttachmentStates;
+   if (description.withBlending)
+   {
+      blendAttachmentStates.push_back(vk::PipelineColorBlendAttachmentState()
+                                      .setColorWriteMask(vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA)
+                                      .setBlendEnable(true)
+                                      .setSrcColorBlendFactor(vk::BlendFactor::eSrcAlpha)
+                                      .setDstColorBlendFactor(vk::BlendFactor::eOneMinusSrcAlpha)
+                                      .setColorBlendOp(vk::BlendOp::eAdd)
+                                      .setSrcAlphaBlendFactor(vk::BlendFactor::eOne)
+                                      .setDstAlphaBlendFactor(vk::BlendFactor::eZero)
+                                      .setAlphaBlendOp(vk::BlendOp::eAdd));
+   }
+   else
+   {
+      blendAttachmentStates.push_back(vk::PipelineColorBlendAttachmentState()
+                                      .setColorWriteMask(vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA)
+                                      .setBlendEnable(false));
+   }
+
+   vk::Pipeline pipeline;
+   if (description.skybox)
+   {
+      PipelineInfo pipelineInfo;
+      pipelineInfo.renderPass = getRenderPass();
+      pipelineInfo.layout = skyboxPipelineLayout;
+      pipelineInfo.sampleCount = getSampleCount();
+      pipelineInfo.passType = PipelinePassType::Screen;
+      pipelineInfo.enableDepthTest = true;
+      pipelineInfo.writeDepth = false;
+      pipelineInfo.positionOnly = false;
+
+      PipelineData pipelineData(pipelineInfo, skyboxShader->getStages(), { blendAttachmentStates });
+      pipeline = device.createGraphicsPipeline(context.getPipelineCache(), pipelineData.getCreateInfo()).value;
+      NAME_CHILD(pipeline, "Skybox Pipeline");
+   }
+   else
+   {
+      PipelineInfo pipelineInfo;
+      pipelineInfo.renderPass = getRenderPass();
+      pipelineInfo.layout = forwardPipelineLayout;
+      pipelineInfo.sampleCount = getSampleCount();
+      pipelineInfo.passType = PipelinePassType::Mesh;
+      pipelineInfo.writeDepth = false;
+      pipelineInfo.positionOnly = false;
+
+      PipelineData pipelineData(pipelineInfo, forwardShader->getStages(description.withTextures, description.withBlending), blendAttachmentStates);
+      pipeline = device.createGraphicsPipeline(context.getPipelineCache(), pipelineData.getCreateInfo()).value;
+      NAME_CHILD(pipeline, "Pipeline (" + std::string(description.withTextures ? "With" : "Without") + " Textures, " + std::string(description.withBlending ? "With" : "Without") + " Blending)");
+   }
+
+   return pipeline;
 }

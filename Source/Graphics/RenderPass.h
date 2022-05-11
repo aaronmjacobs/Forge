@@ -51,17 +51,7 @@ private:
    uint64_t id = 0;
 };
 
-namespace std
-{
-   template<>
-   struct hash<FramebufferHandle>
-   {
-      size_t operator()(const FramebufferHandle& value) const
-      {
-         return value.hash();
-      }
-   };
-}
+USE_MEMBER_HASH_FUNCTION(FramebufferHandle);
 
 class RenderPass : public GraphicsResource
 {
@@ -74,7 +64,15 @@ public:
    FramebufferHandle createFramebuffer(const AttachmentInfo& attachmentInfo);
    void destroyFramebuffer(FramebufferHandle& handle);
 
-   vk::RenderPass getRenderPass() const { return renderPass; }
+   vk::RenderPass getRenderPass() const
+   {
+      return renderPass;
+   }
+
+   vk::SampleCountFlagBits getSampleCount() const
+   {
+      return sampleCount;
+   }
 
    void setIsFinalRenderPass(bool isFinalPass)
    {
@@ -83,10 +81,9 @@ public:
 
 protected:
    void initializeRenderPass();
-   virtual void initializePipelines(vk::SampleCountFlagBits sampleCount) = 0;
-
    void terminateRenderPass();
-   void terminatePipelines();
+
+   virtual void postRenderPassInitialized() {}
 
    virtual std::vector<vk::SubpassDependency> getSubpassDependencies() const = 0;
 
@@ -96,9 +93,6 @@ protected:
 
    const Framebuffer* getFramebuffer(FramebufferHandle handle) const;
 
-   std::vector<vk::PipelineLayout> pipelineLayouts;
-   std::vector<vk::Pipeline> pipelines;
-
    bool clearDepth = false;
    bool clearColor = false;
 
@@ -107,5 +101,6 @@ private:
    std::unordered_map<FramebufferHandle, Framebuffer> framebufferMap;
 
    BasicAttachmentInfo attachmentSetup;
+   vk::SampleCountFlagBits sampleCount = vk::SampleCountFlagBits::e1;
    bool isFinalRenderPass = false;
 };

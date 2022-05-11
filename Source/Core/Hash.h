@@ -6,6 +6,16 @@
 #include <utility>
 #include <vector>
 
+#define USE_MEMBER_HASH_FUNCTION(type_name)\
+template<>\
+struct std::hash<type_name>\
+{\
+   std::size_t operator()(const type_name& value) const\
+   {\
+      return value.hash();\
+   }\
+}
+
 namespace Hash
 {
    template<typename T>

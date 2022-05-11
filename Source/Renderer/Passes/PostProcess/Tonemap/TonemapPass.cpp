@@ -14,9 +14,14 @@ TonemapPass::TonemapPass(const GraphicsContext& graphicsContext, DynamicDescript
 {
    clearDepth = false;
    clearColor = true;
-   pipelines.resize(2);
 
    tonemapShader = std::make_unique<TonemapShader>(context, resourceManager);
+
+   std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = tonemapShader->getSetLayouts();
+   vk::PipelineLayoutCreateInfo pipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo()
+      .setSetLayouts(descriptorSetLayouts);
+   pipelineLayout = device.createPipelineLayout(pipelineLayoutCreateInfo);
+   NAME_CHILD(pipelineLayout, "Pipeline Layout");
 
    vk::SamplerCreateInfo samplerCreateInfo = vk::SamplerCreateInfo()
       .setMagFilter(vk::Filter::eNearest)
@@ -41,6 +46,7 @@ TonemapPass::TonemapPass(const GraphicsContext& graphicsContext, DynamicDescript
 TonemapPass::~TonemapPass()
 {
    context.delayedDestroy(std::move(sampler));
+   context.delayedDestroy(std::move(pipelineLayout));
 
    tonemapShader.reset();
 }
@@ -80,12 +86,12 @@ void TonemapPass::render(vk::CommandBuffer commandBuffer, FramebufferHandle fram
       .setPImageInfo(&imageInfo);
    device.updateDescriptorSets(descriptorWrite, {});
 
-
+   PipelineDescription<TonemapPass> pipelineDescription;
    const AttachmentInfo& attachmentInfo = framebuffer->getAttachmentInfo();
-   bool outputHDR = attachmentInfo.colorInfo.size() > 0 && attachmentInfo.colorInfo[0].format == vk::Format::eA2R10G10B10UnormPack32;
+   pipelineDescription.hdr = attachmentInfo.colorInfo.size() > 0 && attachmentInfo.colorInfo[0].format == vk::Format::eA2R10G10B10UnormPack32;
 
-   tonemapShader->bindDescriptorSets(commandBuffer, pipelineLayouts[0], descriptorSet);
-   renderScreenMesh(commandBuffer, pipelines[TonemapShader::getPermutationIndex(outputHDR)]);
+   tonemapShader->bindDescriptorSets(commandBuffer, pipelineLayout, descriptorSet);
+   renderScreenMesh(commandBuffer, getPipeline(pipelineDescription));
 
    endRenderPass(commandBuffer);
 
@@ -94,37 +100,6 @@ void TonemapPass::render(vk::CommandBuffer commandBuffer, FramebufferHandle fram
       TextureMemoryBarrierFlags dstMemoryBarrierFlags(vk::AccessFlagBits::eColorAttachmentWrite, vk::PipelineStageFlagBits::eColorAttachmentOutput);
       hdrColorTexture.transitionLayout(commandBuffer, vk::ImageLayout::eColorAttachmentOptimal, srcMemoryBarrierFlags, dstMemoryBarrierFlags);
    }
-}
-
-void TonemapPass::initializePipelines(vk::SampleCountFlagBits sampleCount)
-{
-   pipelineLayouts.resize(1);
-
-   std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = tonemapShader->getSetLayouts();
-   vk::PipelineLayoutCreateInfo pipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo()
-      .setSetLayouts(descriptorSetLayouts);
-   pipelineLayouts[0] = device.createPipelineLayout(pipelineLayoutCreateInfo);
-
-   vk::PipelineColorBlendAttachmentState attachmentState = vk::PipelineColorBlendAttachmentState()
-      .setColorWriteMask(vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA)
-      .setBlendEnable(false);
-
-   PipelineInfo pipelineInfo;
-   pipelineInfo.renderPass = getRenderPass();
-   pipelineInfo.layout = pipelineLayouts[0];
-   pipelineInfo.sampleCount = sampleCount;
-   pipelineInfo.passType = PipelinePassType::Screen;
-   pipelineInfo.enableDepthTest = false;
-   pipelineInfo.writeDepth = false;
-   pipelineInfo.positionOnly = false;
-
-   PipelineData pipelineData(pipelineInfo, tonemapShader->getStages(false), { attachmentState });
-   pipelines[TonemapShader::getPermutationIndex(false)] = device.createGraphicsPipeline(context.getPipelineCache(), pipelineData.getCreateInfo()).value;
-   NAME_CHILD(pipelines[TonemapShader::getPermutationIndex(false)], "Pipeline (SDR)");
-
-   pipelineData.setShaderStages(tonemapShader->getStages(true));
-   pipelines[TonemapShader::getPermutationIndex(true)] = device.createGraphicsPipeline(context.getPipelineCache(), pipelineData.getCreateInfo()).value;
-   NAME_CHILD(pipelines[TonemapShader::getPermutationIndex(true)], "Pipeline (HDR)");
 }
 
 std::vector<vk::SubpassDependency> TonemapPass::getSubpassDependencies() const
@@ -140,4 +115,26 @@ std::vector<vk::SubpassDependency> TonemapPass::getSubpassDependencies() const
       .setDstAccessMask(vk::AccessFlagBits::eColorAttachmentRead | vk::AccessFlagBits::eColorAttachmentWrite));
 
    return subpassDependencies;
+}
+
+vk::Pipeline TonemapPass::createPipeline(const PipelineDescription<TonemapPass>& description)
+{
+   vk::PipelineColorBlendAttachmentState attachmentState = vk::PipelineColorBlendAttachmentState()
+      .setColorWriteMask(vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA)
+      .setBlendEnable(false);
+
+   PipelineInfo pipelineInfo;
+   pipelineInfo.renderPass = getRenderPass();
+   pipelineInfo.layout = pipelineLayout;
+   pipelineInfo.sampleCount = getSampleCount();
+   pipelineInfo.passType = PipelinePassType::Screen;
+   pipelineInfo.enableDepthTest = false;
+   pipelineInfo.writeDepth = false;
+   pipelineInfo.positionOnly = false;
+
+   PipelineData pipelineData(pipelineInfo, tonemapShader->getStages(description.hdr), { attachmentState });
+   vk::Pipeline pipeline = device.createGraphicsPipeline(context.getPipelineCache(), pipelineData.getCreateInfo()).value;
+   NAME_CHILD(pipeline, std::string("Pipeline ") + (description.hdr ? "(HDR)" : "(SDR)"));
+
+   return pipeline;
 }

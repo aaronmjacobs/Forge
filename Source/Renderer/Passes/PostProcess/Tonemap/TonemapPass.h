@@ -9,7 +9,23 @@
 class DynamicDescriptorPool;
 class ResourceManager;
 class Texture;
+class TonemapPass;
 class TonemapShader;
+
+template<>
+struct PipelineDescription<TonemapPass>
+{
+   bool hdr = false;
+
+   std::size_t hash() const
+   {
+      return (hdr * 0b01);
+   }
+
+   bool operator==(const PipelineDescription<TonemapPass>& other) const = default;
+};
+
+USE_MEMBER_HASH_FUNCTION(PipelineDescription<TonemapPass>);
 
 class TonemapPass : public SceneRenderPass<TonemapPass>
 {
@@ -22,11 +38,14 @@ public:
 protected:
    friend class SceneRenderPass<TonemapPass>;
 
-   void initializePipelines(vk::SampleCountFlagBits sampleCount) override;
    std::vector<vk::SubpassDependency> getSubpassDependencies() const override;
+
+   vk::Pipeline createPipeline(const PipelineDescription<TonemapPass>& description);
 
 private:
    std::unique_ptr<TonemapShader> tonemapShader;
+
+   vk::PipelineLayout pipelineLayout;
 
    DescriptorSet descriptorSet;
    vk::Sampler sampler;

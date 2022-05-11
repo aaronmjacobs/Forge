@@ -6,13 +6,36 @@
 
 #include <utility>
 
+namespace
+{
+   const char* getModeName(CompositeShader::Mode mode)
+   {
+      switch (mode)
+      {
+      case CompositeShader::Mode::Passthrough:
+         return "Passthrough";
+      case CompositeShader::Mode::LinearToSrgb:
+         return "LinearToSrgb";
+      case CompositeShader::Mode::SrgbToLinear:
+         return "SrgbToLinear";
+      default:
+         ASSERT(false);
+         return nullptr;
+      }
+   }
+}
+
 CompositePass::CompositePass(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, ResourceManager& resourceManager)
    : SceneRenderPass(graphicsContext)
    , descriptorSet(graphicsContext, dynamicDescriptorPool, CompositeShader::getLayoutCreateInfo())
 {
-   pipelines.resize(CompositeShader::kNumModes);
-
    compositeShader = std::make_unique<CompositeShader>(context, resourceManager);
+
+   std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = compositeShader->getSetLayouts();
+   vk::PipelineLayoutCreateInfo pipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo()
+      .setSetLayouts(descriptorSetLayouts);
+   pipelineLayout = device.createPipelineLayout(pipelineLayoutCreateInfo);
+   NAME_CHILD(pipelineLayout, "Pipeline Layout");
 
    vk::SamplerCreateInfo samplerCreateInfo = vk::SamplerCreateInfo()
       .setMagFilter(vk::Filter::eNearest)
@@ -37,6 +60,7 @@ CompositePass::CompositePass(const GraphicsContext& graphicsContext, DynamicDesc
 CompositePass::~CompositePass()
 {
    context.delayedDestroy(std::move(sampler));
+   context.delayedDestroy(std::move(pipelineLayout));
 
    compositeShader.reset();
 }
@@ -75,8 +99,11 @@ void CompositePass::render(vk::CommandBuffer commandBuffer, FramebufferHandle fr
       .setPImageInfo(&imageInfo);
    device.updateDescriptorSets(descriptorWrite, {});
 
-   compositeShader->bindDescriptorSets(commandBuffer, pipelineLayouts[0], descriptorSet);
-   renderScreenMesh(commandBuffer, pipelines[Enum::cast(mode)]);
+   PipelineDescription<CompositePass> pipelineDescription;
+   pipelineDescription.mode = mode;
+
+   compositeShader->bindDescriptorSets(commandBuffer, pipelineLayout, descriptorSet);
+   renderScreenMesh(commandBuffer, getPipeline(pipelineDescription));
 
    endRenderPass(commandBuffer);
 
@@ -86,47 +113,6 @@ void CompositePass::render(vk::CommandBuffer commandBuffer, FramebufferHandle fr
       TextureMemoryBarrierFlags dstMemoryBarrierFlags(vk::AccessFlagBits::eColorAttachmentWrite, vk::PipelineStageFlagBits::eColorAttachmentOutput);
       sourceTexture.transitionLayout(commandBuffer, vk::ImageLayout::eColorAttachmentOptimal, srcMemoryBarrierFlags, dstMemoryBarrierFlags);
    }
-}
-
-void CompositePass::initializePipelines(vk::SampleCountFlagBits sampleCount)
-{
-   pipelineLayouts.resize(1);
-
-   std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = compositeShader->getSetLayouts();
-   vk::PipelineLayoutCreateInfo pipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo()
-      .setSetLayouts(descriptorSetLayouts);
-   pipelineLayouts[0] = device.createPipelineLayout(pipelineLayoutCreateInfo);
-
-   vk::PipelineColorBlendAttachmentState attachmentState = vk::PipelineColorBlendAttachmentState()
-      .setColorWriteMask(vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA)
-      .setBlendEnable(true)
-      .setSrcColorBlendFactor(vk::BlendFactor::eSrcAlpha)
-      .setDstColorBlendFactor(vk::BlendFactor::eOneMinusSrcAlpha)
-      .setColorBlendOp(vk::BlendOp::eAdd)
-      .setSrcAlphaBlendFactor(vk::BlendFactor::eOne)
-      .setDstAlphaBlendFactor(vk::BlendFactor::eZero)
-      .setAlphaBlendOp(vk::BlendOp::eAdd);
-
-   PipelineInfo pipelineInfo;
-   pipelineInfo.renderPass = getRenderPass();
-   pipelineInfo.layout = pipelineLayouts[0];
-   pipelineInfo.sampleCount = sampleCount;
-   pipelineInfo.passType = PipelinePassType::Screen;
-   pipelineInfo.enableDepthTest = false;
-   pipelineInfo.writeDepth = false;
-   pipelineInfo.positionOnly = false;
-
-   PipelineData pipelineData(pipelineInfo, compositeShader->getStages(CompositeShader::Mode::Passthrough), { attachmentState });
-   pipelines[Enum::cast(CompositeShader::Mode::Passthrough)] = device.createGraphicsPipeline(context.getPipelineCache(), pipelineData.getCreateInfo()).value;
-   NAME_CHILD(pipelines[Enum::cast(CompositeShader::Mode::Passthrough)], "Pipeline (Passthrough)");
-
-   pipelineData.setShaderStages(compositeShader->getStages(CompositeShader::Mode::LinearToSrgb));
-   pipelines[Enum::cast(CompositeShader::Mode::LinearToSrgb)] = device.createGraphicsPipeline(context.getPipelineCache(), pipelineData.getCreateInfo()).value;
-   NAME_CHILD(pipelines[Enum::cast(CompositeShader::Mode::LinearToSrgb)], "Pipeline (LinearToSrgb)");
-
-   pipelineData.setShaderStages(compositeShader->getStages(CompositeShader::Mode::SrgbToLinear));
-   pipelines[Enum::cast(CompositeShader::Mode::SrgbToLinear)] = device.createGraphicsPipeline(context.getPipelineCache(), pipelineData.getCreateInfo()).value;
-   NAME_CHILD(pipelines[Enum::cast(CompositeShader::Mode::SrgbToLinear)], "Pipeline (SrgbToLinear)");
 }
 
 std::vector<vk::SubpassDependency> CompositePass::getSubpassDependencies() const
@@ -142,4 +128,32 @@ std::vector<vk::SubpassDependency> CompositePass::getSubpassDependencies() const
       .setDstAccessMask(vk::AccessFlagBits::eColorAttachmentRead | vk::AccessFlagBits::eColorAttachmentWrite));
 
    return subpassDependencies;
+}
+
+vk::Pipeline CompositePass::createPipeline(const PipelineDescription<CompositePass>& description)
+{
+   vk::PipelineColorBlendAttachmentState attachmentState = vk::PipelineColorBlendAttachmentState()
+      .setColorWriteMask(vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA)
+      .setBlendEnable(true)
+      .setSrcColorBlendFactor(vk::BlendFactor::eSrcAlpha)
+      .setDstColorBlendFactor(vk::BlendFactor::eOneMinusSrcAlpha)
+      .setColorBlendOp(vk::BlendOp::eAdd)
+      .setSrcAlphaBlendFactor(vk::BlendFactor::eOne)
+      .setDstAlphaBlendFactor(vk::BlendFactor::eZero)
+      .setAlphaBlendOp(vk::BlendOp::eAdd);
+
+   PipelineInfo pipelineInfo;
+   pipelineInfo.renderPass = getRenderPass();
+   pipelineInfo.layout = pipelineLayout;
+   pipelineInfo.sampleCount = getSampleCount();
+   pipelineInfo.passType = PipelinePassType::Screen;
+   pipelineInfo.enableDepthTest = false;
+   pipelineInfo.writeDepth = false;
+   pipelineInfo.positionOnly = false;
+
+   PipelineData pipelineData(pipelineInfo, compositeShader->getStages(description.mode), { attachmentState });
+   vk::Pipeline pipeline = device.createGraphicsPipeline(context.getPipelineCache(), pipelineData.getCreateInfo()).value;
+   NAME_CHILD(pipeline, std::string("Pipeline (") + getModeName(description.mode) + ")");
+
+   return pipeline;
 }

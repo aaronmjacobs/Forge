@@ -14,7 +14,7 @@ public:
    void render(vk::CommandBuffer commandBuffer, FramebufferHandle framebufferHandle);
 
 protected:
-   void initializePipelines(vk::SampleCountFlagBits sampleCount) override;
+   void postRenderPassInitialized() override;
    std::vector<vk::SubpassDependency> getSubpassDependencies() const override;
 
 private:

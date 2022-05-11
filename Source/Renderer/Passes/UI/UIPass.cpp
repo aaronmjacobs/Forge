@@ -71,7 +71,7 @@ void UIPass::render(vk::CommandBuffer commandBuffer, FramebufferHandle framebuff
    endRenderPass(commandBuffer);
 }
 
-void UIPass::initializePipelines(vk::SampleCountFlagBits sampleCount)
+void UIPass::postRenderPassInitialized()
 {
    terminateImgui();
    initializeImgui();
