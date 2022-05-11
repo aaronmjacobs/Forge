@@ -35,10 +35,7 @@ public:
       return isValid();
    }
 
-   bool operator==(const FramebufferHandle& other) const
-   {
-      return id == other.id;
-   }
+   bool operator==(const FramebufferHandle& other) const = default;
 
    std::size_t hash() const
    {

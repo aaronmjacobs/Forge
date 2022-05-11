@@ -164,18 +164,27 @@ struct KeyChord
    {
    }
 
-   bool operator==(const KeyChord& other) const
-   {
-      return key == other.key && mods == other.mods;
-   }
+   bool operator==(const KeyChord& other) const = default;
 
    bool matches(const KeyChord& other) const
    {
       return key == other.key && KeyMod::matches(mods, other.mods);
    }
 
+   std::size_t hash() const
+   {
+      std::size_t hash = 0;
+
+      Hash::combine(hash, key);
+      Hash::combine(hash, mods);
+
+      return hash;
+   }
+
    using EnumType = Key;
 };
+
+USE_MEMBER_HASH_FUNCTION(KeyChord);
 
 struct KeyAxisChord
 {
@@ -190,18 +199,27 @@ struct KeyAxisChord
    {
    }
 
-   bool operator==(const KeyAxisChord& other) const
-   {
-      return key == other.key && invert == other.invert;
-   }
+   bool operator==(const KeyAxisChord& other) const = default;
 
    bool matches(const KeyAxisChord& other) const
    {
       return *this == other;
    }
 
+   std::size_t hash() const
+   {
+      std::size_t hash = 0;
+
+      Hash::combine(hash, key);
+      Hash::combine(hash, invert);
+
+      return hash;
+   }
+
    using EnumType = Key;
 };
+
+USE_MEMBER_HASH_FUNCTION(KeyAxisChord);
 
 enum class MouseButton
 {
@@ -232,18 +250,27 @@ struct MouseButtonChord
    {
    }
 
-   bool operator==(const MouseButtonChord& other) const
-   {
-      return button == other.button && mods == other.mods;
-   }
+   bool operator==(const MouseButtonChord& other) const = default;
 
    bool matches(const MouseButtonChord& other) const
    {
       return button == other.button && KeyMod::matches(mods, other.mods);
    }
 
+   std::size_t hash() const
+   {
+      std::size_t hash = 0;
+
+      Hash::combine(hash, button);
+      Hash::combine(hash, mods);
+
+      return hash;
+   }
+
    using EnumType = MouseButton;
 };
+
+USE_MEMBER_HASH_FUNCTION(MouseButtonChord);
 
 enum class CursorAxis
 {
@@ -264,18 +291,27 @@ struct CursorAxisChord
    {
    }
 
-   bool operator==(const CursorAxisChord& other) const
-   {
-      return axis == other.axis && invert == other.invert;
-   }
+   bool operator==(const CursorAxisChord& other) const = default;
 
    bool matches(const CursorAxisChord& other) const
    {
       return axis == other.axis && invert == other.invert;
    }
 
+   std::size_t hash() const
+   {
+      std::size_t hash = 0;
+
+      Hash::combine(hash, axis);
+      Hash::combine(hash, invert);
+
+      return hash;
+   }
+
    using EnumType = CursorAxis;
 };
+
+USE_MEMBER_HASH_FUNCTION(CursorAxisChord);
 
 enum class GamepadButton
 {
@@ -314,18 +350,27 @@ struct GamepadButtonChord
    {
    }
 
-   bool operator==(const GamepadButtonChord& other) const
-   {
-      return button == other.button && gamepadId == other.gamepadId;
-   }
+   bool operator==(const GamepadButtonChord& other) const = default;
 
    bool matches(const GamepadButtonChord& other) const
    {
       return *this == other;
    }
 
+   std::size_t hash() const
+   {
+      std::size_t hash = 0;
+
+      Hash::combine(hash, button);
+      Hash::combine(hash, gamepadId);
+
+      return hash;
+   }
+
    using EnumType = GamepadButton;
 };
+
+USE_MEMBER_HASH_FUNCTION(GamepadButtonChord);
 
 enum class GamepadAxis
 {
@@ -352,103 +397,25 @@ struct GamepadAxisChord
    {
    }
 
-   bool operator==(const GamepadAxisChord& other) const
-   {
-      return axis == other.axis && invert == other.invert && gamepadId == other.gamepadId;
-   }
+   bool operator==(const GamepadAxisChord& other) const = default;
 
    bool matches(const GamepadAxisChord& other) const
    {
       return *this == other;
    }
 
+   std::size_t hash() const
+   {
+      std::size_t hash = 0;
+
+      Hash::combine(hash, axis);
+      Hash::combine(hash, invert);
+      Hash::combine(hash, gamepadId);
+
+      return hash;
+   }
+
    using EnumType = GamepadAxis;
 };
 
-namespace std
-{
-   template<>
-   struct hash<KeyChord>
-   {
-      size_t operator()(const KeyChord& keyChord) const
-      {
-         size_t hash = 0;
-
-         Hash::combine(hash, keyChord.key);
-         Hash::combine(hash, keyChord.mods);
-
-         return hash;
-      }
-   };
-
-   template<>
-   struct hash<KeyAxisChord>
-   {
-      size_t operator()(const KeyAxisChord& keyAxisChord) const
-      {
-         size_t hash = 0;
-
-         Hash::combine(hash, keyAxisChord.key);
-         Hash::combine(hash, keyAxisChord.invert);
-
-         return hash;
-      }
-   };
-
-   template<>
-   struct hash<MouseButtonChord>
-   {
-      size_t operator()(const MouseButtonChord& mouseButtonChord) const
-      {
-         size_t hash = 0;
-
-         Hash::combine(hash, mouseButtonChord.button);
-         Hash::combine(hash, mouseButtonChord.mods);
-
-         return hash;
-      }
-   };
-
-   template<>
-   struct hash<CursorAxisChord>
-   {
-      size_t operator()(const CursorAxisChord& cursorAxisChord) const
-      {
-         size_t hash = 0;
-
-         Hash::combine(hash, cursorAxisChord.axis);
-         Hash::combine(hash, cursorAxisChord.invert);
-
-         return hash;
-      }
-   };
-
-   template<>
-   struct hash<GamepadButtonChord>
-   {
-      size_t operator()(const GamepadButtonChord& gamepadButtonChord) const
-      {
-         size_t hash = 0;
-
-         Hash::combine(hash, gamepadButtonChord.button);
-         Hash::combine(hash, gamepadButtonChord.gamepadId);
-
-         return hash;
-      }
-   };
-
-   template<>
-   struct hash<GamepadAxisChord>
-   {
-      size_t operator()(const GamepadAxisChord& gamepadAxisChord) const
-      {
-         size_t hash = 0;
-
-         Hash::combine(hash, gamepadAxisChord.axis);
-         Hash::combine(hash, gamepadAxisChord.invert);
-         Hash::combine(hash, gamepadAxisChord.gamepadId);
-
-         return hash;
-      }
-   };
-}
+USE_MEMBER_HASH_FUNCTION(GamepadAxisChord);

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Core/Assert.h"
+#include "Core/Hash.h"
 #include "Core/Log.h"
 
 #include <cstdint>
@@ -35,10 +36,7 @@ public:
       return isValid();
    }
 
-   bool operator==(const GenerationalArrayHandle& other) const
-   {
-      return index == other.index && version == other.version;
-   }
+   bool operator==(const GenerationalArrayHandle& other) const = default;
 
    std::size_t hash() const
    {
@@ -61,17 +59,7 @@ private:
    uint32_t version : 8;
 };
 
-namespace std
-{
-   template<typename T>
-   struct hash<GenerationalArrayHandle<T>>
-   {
-      std::size_t operator()(const GenerationalArrayHandle<T>& handle) const
-      {
-         return handle.hash();
-      }
-   };
-}
+USE_MEMBER_HASH_FUNCTION_TEMPLATE(typename T, GenerationalArrayHandle<T>);
 
 template<typename T>
 class GenerationalArray

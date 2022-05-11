@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Core/Hash.h"
+
 #include "Graphics/DynamicDescriptorPool.h"
 #include "Graphics/Material.h"
 
@@ -17,24 +19,33 @@ struct TextureMaterialParameter
    TextureHandle value;
    bool interpretAlphaAsMask = false;
 
-   bool operator==(const TextureMaterialParameter& other) const;
+   bool operator==(const TextureMaterialParameter& other) const = default;
+   std::size_t hash() const;
 };
+
+USE_MEMBER_HASH_FUNCTION(TextureMaterialParameter);
 
 struct VectorMaterialParameter
 {
    std::string name;
    glm::vec4 value;
 
-   bool operator==(const VectorMaterialParameter& other) const;
+   bool operator==(const VectorMaterialParameter& other) const = default;
+   std::size_t hash() const;
 };
+
+USE_MEMBER_HASH_FUNCTION(VectorMaterialParameter);
 
 struct FloatMaterialParameter
 {
    std::string name;
    float value = 0.0f;
 
-   bool operator==(const FloatMaterialParameter& other) const;
+   bool operator==(const FloatMaterialParameter& other) const = default;
+   std::size_t hash() const;
 };
+
+USE_MEMBER_HASH_FUNCTION(FloatMaterialParameter);
 
 struct MaterialParameters
 {
@@ -43,35 +54,11 @@ struct MaterialParameters
    std::vector<FloatMaterialParameter> scalarParameters;
    bool twoSided = false;
 
-   bool operator==(const MaterialParameters& other) const;
+   bool operator==(const MaterialParameters& other) const = default;
+   std::size_t hash() const;
 };
 
-namespace std
-{
-   template<>
-   struct hash<TextureMaterialParameter>
-   {
-      size_t operator()(const TextureMaterialParameter& textureMaterialParameters) const;
-   };
-
-   template<>
-   struct hash<VectorMaterialParameter>
-   {
-      size_t operator()(const VectorMaterialParameter& vectorMaterialParameters) const;
-   };
-
-   template<>
-   struct hash<FloatMaterialParameter>
-   {
-      size_t operator()(const FloatMaterialParameter& floatMaterialParameters) const;
-   };
-
-   template<>
-   struct hash<MaterialParameters>
-   {
-      size_t operator()(const MaterialParameters& materialParameters) const;
-   };
-}
+USE_MEMBER_HASH_FUNCTION(MaterialParameters);
 
 class MaterialResourceManager : public ResourceManagerBase<Material, MaterialParameters>
 {

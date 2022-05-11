@@ -1,7 +1,5 @@
 #include "MaterialResourceManager.h"
 
-#include "Core/Hash.h"
-
 #include "Graphics/DebugUtils.h"
 
 #include "Renderer/PhysicallyBasedMaterial.h"
@@ -9,79 +7,6 @@
 #include "Resources/ResourceManager.h"
 
 #include <utility>
-
-bool TextureMaterialParameter::operator==(const TextureMaterialParameter& other) const
-{
-   return name == other.name
-      && value == other.value
-      && interpretAlphaAsMask == other.interpretAlphaAsMask;
-}
-
-bool VectorMaterialParameter::operator==(const VectorMaterialParameter& other) const
-{
-   return name == other.name
-      && value == other.value;
-}
-
-bool FloatMaterialParameter::operator==(const FloatMaterialParameter& other) const
-{
-   return name == other.name
-      && value == other.value;
-}
-
-bool MaterialParameters::operator==(const MaterialParameters& other) const
-{
-   return textureParameters == other.textureParameters
-      && vectorParameters == other.vectorParameters
-      && scalarParameters == other.scalarParameters
-      && twoSided == other.twoSided;
-}
-
-namespace std
-{
-   size_t hash<TextureMaterialParameter>::operator()(const TextureMaterialParameter& textureMaterialParameters) const
-   {
-      size_t hash = 0;
-
-      Hash::combine(hash, textureMaterialParameters.name);
-      Hash::combine(hash, textureMaterialParameters.value);
-      Hash::combine(hash, textureMaterialParameters.interpretAlphaAsMask);
-
-      return hash;
-   }
-
-   size_t hash<VectorMaterialParameter>::operator()(const VectorMaterialParameter& vectorMaterialParameters) const
-   {
-      size_t hash = 0;
-
-      Hash::combine(hash, vectorMaterialParameters.name);
-      Hash::combine(hash, vectorMaterialParameters.value);
-
-      return hash;
-   }
-
-   size_t hash<FloatMaterialParameter>::operator()(const FloatMaterialParameter& floatMaterialParameters) const
-   {
-      size_t hash = 0;
-
-      Hash::combine(hash, floatMaterialParameters.name);
-      Hash::combine(hash, floatMaterialParameters.value);
-
-      return hash;
-   }
-
-   size_t hash<MaterialParameters>::operator()(const MaterialParameters& materialParameters) const
-   {
-      size_t hash = 0;
-
-      Hash::combine(hash, materialParameters.textureParameters);
-      Hash::combine(hash, materialParameters.vectorParameters);
-      Hash::combine(hash, materialParameters.scalarParameters);
-      Hash::combine(hash, materialParameters.twoSided);
-
-      return hash;
-   }
-}
 
 namespace
 {
@@ -95,6 +20,49 @@ namespace
 
       return sizes;
    }
+}
+
+std::size_t TextureMaterialParameter::hash() const
+{
+   std::size_t hash = 0;
+
+   Hash::combine(hash, name);
+   Hash::combine(hash, value);
+   Hash::combine(hash, interpretAlphaAsMask);
+
+   return hash;
+}
+
+std::size_t VectorMaterialParameter::hash() const
+{
+   std::size_t hash = 0;
+
+   Hash::combine(hash, name);
+   Hash::combine(hash, value);
+
+   return hash;
+}
+
+std::size_t FloatMaterialParameter::hash() const
+{
+   std::size_t hash = 0;
+
+   Hash::combine(hash, name);
+   Hash::combine(hash, value);
+
+   return hash;
+}
+
+std::size_t MaterialParameters::hash() const
+{
+   std::size_t hash = 0;
+
+   Hash::combine(hash, textureParameters);
+   Hash::combine(hash, vectorParameters);
+   Hash::combine(hash, scalarParameters);
+   Hash::combine(hash, twoSided);
+
+   return hash;
 }
 
 MaterialResourceManager::MaterialResourceManager(const GraphicsContext& graphicsContext, ResourceManager& owningResourceManager)

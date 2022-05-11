@@ -25,9 +25,11 @@ public:
       id = 0;
    }
 
-   friend bool operator==(const DelegateHandle& first, const DelegateHandle& second)
+   friend bool operator==(const DelegateHandle& first, const DelegateHandle& second) = default;
+
+   std::size_t hash() const
    {
-      return first.id == second.id;
+      return Hash::of(id);
    }
 
 private:
@@ -38,17 +40,7 @@ private:
    uint64_t id = 0;
 };
 
-namespace std
-{
-   template<>
-   struct hash<DelegateHandle>
-   {
-      size_t operator()(const DelegateHandle& delegateHandle) const
-      {
-         return Hash::of(delegateHandle.id);
-      }
-   };
-}
+USE_MEMBER_HASH_FUNCTION(DelegateHandle);
 
 template<typename RetType, typename... Params>
 class Delegate

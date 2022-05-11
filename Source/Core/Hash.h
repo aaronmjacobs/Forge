@@ -16,6 +16,16 @@ struct std::hash<type_name>\
    }\
 }
 
+#define USE_MEMBER_HASH_FUNCTION_TEMPLATE(template_args, type_name)\
+template<template_args>\
+struct std::hash<type_name>\
+{\
+   std::size_t operator()(const type_name& value) const\
+   {\
+      return value.hash();\
+   }\
+}
+
 namespace Hash
 {
    template<typename T>
