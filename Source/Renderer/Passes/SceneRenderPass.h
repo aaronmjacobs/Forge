@@ -3,6 +3,7 @@
 #include "Graphics/DebugUtils.h"
 #include "Graphics/Material.h"
 #include "Graphics/Mesh.h"
+#include "Graphics/Pipeline.h"
 #include "Graphics/RenderPass.h"
 
 #include "Renderer/SceneRenderInfo.h"
@@ -25,13 +26,13 @@ public:
 
    ~SceneRenderPass()
    {
-      terminatePipelines();
+      pipelineMap.clear();
    }
 
 protected:
    void postRenderPassInitialized() override
    {
-      terminatePipelines();
+      pipelineMap.clear();
    }
 
    template<BlendMode blendMode>
@@ -63,28 +64,30 @@ protected:
                ASSERT(material);
 
                PipelineDescription<Derived> pipelineDescription = derivedThis->getPipelineDescription(sceneRenderInfo.view, meshRenderInfo.mesh->getSection(section), *material);
-               vk::Pipeline desiredPipeline = getPipeline(pipelineDescription);
-               if (desiredPipeline != lastPipeline)
+               const Pipeline& pipeline = getPipeline(pipelineDescription);
+               ASSERT(pipeline.getLayout() == pipelineLayout);
+
+               if (pipeline.getVkPipeline() != lastPipeline)
                {
-                  commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, desiredPipeline);
-                  lastPipeline = desiredPipeline;
+                  commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline.getVkPipeline());
+                  lastPipeline = pipeline.getVkPipeline();
                }
 
-               derivedThis->renderMesh(commandBuffer, pipelineLayout, sceneRenderInfo.view, *meshRenderInfo.mesh, section, *material);
+               derivedThis->renderMesh(commandBuffer, pipeline, sceneRenderInfo.view, *meshRenderInfo.mesh, section, *material);
             }
          }
       }
    }
 
-   void renderMesh(vk::CommandBuffer commandBuffer, vk::PipelineLayout pipelineLayout, const View& view, const Mesh& mesh, uint32_t section, const Material& material)
+   void renderMesh(vk::CommandBuffer commandBuffer, const Pipeline& pipeline, const View& view, const Mesh& mesh, uint32_t section, const Material& material)
    {
-      mesh.bindBuffers(commandBuffer, section);
+      mesh.bindBuffers(commandBuffer, section, pipeline.getInfo().positionOnly);
       mesh.draw(commandBuffer, section);
    }
 
-   void renderScreenMesh(vk::CommandBuffer commandBuffer, vk::Pipeline pipeline)
+   void renderScreenMesh(vk::CommandBuffer commandBuffer, const Pipeline& pipeline)
    {
-      commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline);
+      commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline.getVkPipeline());
       commandBuffer.draw(3, 1, 0, 0);
    }
 
@@ -98,12 +101,12 @@ protected:
       return PipelineDescription<Derived>{};
    }
 
-   vk::Pipeline createPipeline(const PipelineDescription<Derived>& description)
+   Pipeline createPipeline(const PipelineDescription<Derived>& description)
    {
       return nullptr;
    }
 
-   vk::Pipeline getPipeline(const PipelineDescription<Derived>& description)
+   const Pipeline& getPipeline(const PipelineDescription<Derived>& description)
    {
       auto location = pipelineMap.find(description);
       if (location == pipelineMap.end())
@@ -115,18 +118,5 @@ protected:
    }
 
 private:
-   void terminatePipelines()
-   {
-      for (auto& pair : pipelineMap)
-      {
-         if (pair.second)
-         {
-            context.delayedDestroy(std::move(pair.second));
-         }
-      }
-
-      pipelineMap.clear();
-   }
-
-   std::unordered_map<PipelineDescription<Derived>, vk::Pipeline> pipelineMap;
+   std::unordered_map<PipelineDescription<Derived>, Pipeline> pipelineMap;
 };

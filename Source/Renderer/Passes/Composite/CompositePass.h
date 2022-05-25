@@ -42,7 +42,7 @@ protected:
 
    std::vector<vk::SubpassDependency> getSubpassDependencies() const override;
 
-   vk::Pipeline createPipeline(const PipelineDescription<CompositePass>& description);
+   Pipeline createPipeline(const PipelineDescription<CompositePass>& description);
 
 private:
    std::unique_ptr<CompositeShader> compositeShader;

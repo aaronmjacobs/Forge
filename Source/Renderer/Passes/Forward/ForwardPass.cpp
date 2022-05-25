@@ -148,12 +148,12 @@ std::vector<vk::SubpassDependency> ForwardPass::getSubpassDependencies() const
    return subpassDependencies;
 }
 
-void ForwardPass::renderMesh(vk::CommandBuffer commandBuffer, vk::PipelineLayout pipelineLayout, const View& view, const Mesh& mesh, uint32_t section, const Material& material)
+void ForwardPass::renderMesh(vk::CommandBuffer commandBuffer, const Pipeline& pipeline, const View& view, const Mesh& mesh, uint32_t section, const Material& material)
 {
    ASSERT(lighting);
-   forwardShader->bindDescriptorSets(commandBuffer, pipelineLayout, view, *lighting, material);
+   forwardShader->bindDescriptorSets(commandBuffer, pipeline.getLayout(), view, *lighting, material);
 
-   SceneRenderPass::renderMesh(commandBuffer, pipelineLayout, view, mesh, section, material);
+   SceneRenderPass::renderMesh(commandBuffer, pipeline, view, mesh, section, material);
 }
 
 vk::PipelineLayout ForwardPass::selectPipelineLayout(BlendMode blendMode) const
@@ -172,7 +172,7 @@ PipelineDescription<ForwardPass> ForwardPass::getPipelineDescription(const View&
    return description;
 }
 
-vk::Pipeline ForwardPass::createPipeline(const PipelineDescription<ForwardPass>& description)
+Pipeline ForwardPass::createPipeline(const PipelineDescription<ForwardPass>& description)
 {
    std::vector<vk::PipelineColorBlendAttachmentState> blendAttachmentStates;
    if (description.withBlending)
@@ -195,18 +195,19 @@ vk::Pipeline ForwardPass::createPipeline(const PipelineDescription<ForwardPass>&
    }
 
    PipelineInfo pipelineInfo;
-   pipelineInfo.renderPass = getRenderPass();
-   pipelineInfo.layout = description.skybox ? skyboxPipelineLayout : forwardPipelineLayout;
-   pipelineInfo.sampleCount = getSampleCount();
    pipelineInfo.passType = description.skybox ? PipelinePassType::Screen : PipelinePassType::Mesh;
    pipelineInfo.enableDepthTest = true;
-   pipelineInfo.writeDepth = false;
-   pipelineInfo.positionOnly = false;
    pipelineInfo.twoSided = description.twoSided;
 
-   PipelineData pipelineData(pipelineInfo, description.skybox ? skyboxShader->getStages() : forwardShader->getStages(description.withTextures, description.withBlending), blendAttachmentStates);
-   vk::Pipeline pipeline = device.createGraphicsPipeline(context.getPipelineCache(), pipelineData.getCreateInfo()).value;
-   NAME_CHILD(pipeline, description.skybox ? "Skybox Pipeline" : ("Pipeline (" + std::string(description.withTextures ? "With" : "Without") + " Textures, " + std::string(description.withBlending ? "With" : "Without") + " Blending" + (description.twoSided ? ", Two Sided" : "") + ")"));
+   PipelineData pipelineData;
+   pipelineData.renderPass = getRenderPass();
+   pipelineData.layout = description.skybox ? skyboxPipelineLayout : forwardPipelineLayout;
+   pipelineData.sampleCount = getSampleCount();
+   pipelineData.shaderStages = description.skybox ? skyboxShader->getStages() : forwardShader->getStages(description.withTextures, description.withBlending);
+   pipelineData.colorBlendStates = { blendAttachmentStates };
+
+   Pipeline pipeline(context, pipelineInfo, pipelineData);
+   NAME_CHILD(pipeline, description.skybox ? "Skybox" : (std::string(description.withTextures ? "With" : "Without") + " Textures, " + std::string(description.withBlending ? "With" : "Without") + " Blending" + (description.twoSided ? ", Two Sided" : "")));
 
    return pipeline;
 }

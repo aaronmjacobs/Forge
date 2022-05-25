@@ -40,7 +40,7 @@ protected:
 
    std::vector<vk::SubpassDependency> getSubpassDependencies() const override;
 
-   vk::Pipeline createPipeline(const PipelineDescription<TonemapPass>& description);
+   Pipeline createPipeline(const PipelineDescription<TonemapPass>& description);
 
 private:
    std::unique_ptr<TonemapShader> tonemapShader;

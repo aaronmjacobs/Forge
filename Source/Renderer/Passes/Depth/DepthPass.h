@@ -40,11 +40,11 @@ protected:
 
    std::vector<vk::SubpassDependency> getSubpassDependencies() const override;
 
-   void renderMesh(vk::CommandBuffer commandBuffer, vk::PipelineLayout pipelineLayout, const View& view, const Mesh& mesh, uint32_t section, const Material& material);
+   void renderMesh(vk::CommandBuffer commandBuffer, const Pipeline& pipeline, const View& view, const Mesh& mesh, uint32_t section, const Material& material);
    vk::PipelineLayout selectPipelineLayout(BlendMode blendMode) const;
 
    PipelineDescription<DepthPass> getPipelineDescription(const View& view, const MeshSection& meshSection, const Material& material) const;
-   vk::Pipeline createPipeline(const PipelineDescription<DepthPass>& description);
+   Pipeline createPipeline(const PipelineDescription<DepthPass>& description);
 
 private:
    std::unique_ptr<DepthShader> depthShader;

@@ -1,10 +1,8 @@
 #pragma once
 
-#include "Graphics/Vulkan.h"
+#include "Graphics/GraphicsResource.h"
 
 #include <vector>
-
-class GraphicsContext;
 
 enum class PipelinePassType
 {
@@ -14,63 +12,51 @@ enum class PipelinePassType
 
 struct PipelineInfo
 {
+   PipelinePassType passType = PipelinePassType::Mesh;
+
+   bool enableDepthTest = false;
+   bool writeDepth = false;
+   bool enableDepthBias = false;
+
+   bool positionOnly = false;
+   bool twoSided = false;
+   bool swapFrontFace = false;
+};
+
+struct PipelineData
+{
    vk::RenderPass renderPass;
    vk::PipelineLayout layout;
    vk::SampleCountFlagBits sampleCount = vk::SampleCountFlagBits::e1;
 
-   PipelinePassType passType = PipelinePassType::Mesh;
-   bool enableDepthTest = true;
-   bool writeDepth = false;
-   bool positionOnly = false;
-   bool twoSided = false;
+   std::vector<vk::PipelineShaderStageCreateInfo> shaderStages;
+   std::vector<vk::PipelineColorBlendAttachmentState> colorBlendStates;
 };
 
-class PipelineDataBase
-{
-protected:
-   vk::Viewport viewport;
-   vk::Rect2D scissor;
-
-   std::vector<vk::PipelineShaderStageCreateInfo> shaderStageCreateInfo;
-   std::vector<vk::PipelineColorBlendAttachmentState> colorBlendAttachmentStates;
-   std::vector<vk::DynamicState> dynamicStates;
-
-   vk::PipelineVertexInputStateCreateInfo vertexInputStateCreateInfo;
-   vk::PipelineInputAssemblyStateCreateInfo inputAssemblyStateCreateInfo;
-   vk::PipelineViewportStateCreateInfo viewportStateCreateInfo;
-   vk::PipelineRasterizationStateCreateInfo rasterizationStateCreateInfo;
-   vk::PipelineMultisampleStateCreateInfo multisampleStateCreateInfo;
-   vk::PipelineDepthStencilStateCreateInfo depthStencilStateCreateInfo;
-   vk::PipelineColorBlendStateCreateInfo colorBlendStateCreateInfo;
-   vk::PipelineDynamicStateCreateInfo dynamicStateCreateInfo;
-
-   vk::GraphicsPipelineCreateInfo graphicsPipelineCreateInfo;
-};
-
-class PipelineData : public PipelineDataBase
+class Pipeline : public GraphicsResource
 {
 public:
-   PipelineData(const PipelineInfo& info, std::vector<vk::PipelineShaderStageCreateInfo> shaderStages, std::vector<vk::PipelineColorBlendAttachmentState> colorBlendStates);
-   PipelineData(const PipelineData& other);
-   PipelineData(PipelineData&& other);
+   Pipeline(const GraphicsContext& graphicsContext, const PipelineInfo& pipelineInfo, const PipelineData& pipelineData);
+   Pipeline(Pipeline&& other);
+   ~Pipeline();
 
-   ~PipelineData() = default;
-
-   PipelineData& operator=(const PipelineData& other);
-   PipelineData& operator=(PipelineData&& other);
-
-   const vk::GraphicsPipelineCreateInfo& getCreateInfo() const
+   const PipelineInfo& getInfo() const
    {
-      return graphicsPipelineCreateInfo;
+      return info;
    }
 
-   void setShaderStages(std::vector<vk::PipelineShaderStageCreateInfo> shaderStages);
-   void setColorBlendAttachmentStates(std::vector<vk::PipelineColorBlendAttachmentState> colorBlendStates);
+   vk::Pipeline getVkPipeline() const
+   {
+      return pipeline;
+   }
 
-   void enableDepthBias();
-   void setFrontFace(vk::FrontFace frontFace);
-   void setTwoSided(bool twoSided);
+   vk::PipelineLayout getLayout() const
+   {
+      return layout;
+   }
 
 private:
-   void updatePointers();
+   const PipelineInfo info;
+   vk::Pipeline pipeline;
+   vk::PipelineLayout layout;
 };

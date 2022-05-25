@@ -109,14 +109,14 @@ std::vector<vk::SubpassDependency> DepthPass::getSubpassDependencies() const
    return subpassDependencies;
 }
 
-void DepthPass::renderMesh(vk::CommandBuffer commandBuffer, vk::PipelineLayout pipelineLayout, const View& view, const Mesh& mesh, uint32_t section, const Material& material)
+void DepthPass::renderMesh(vk::CommandBuffer commandBuffer, const Pipeline& pipeline, const View& view, const Mesh& mesh, uint32_t section, const Material& material)
 {
-   if (pipelineLayout == maskedPipelineLayout)
+   if (pipeline.getLayout() == maskedPipelineLayout)
    {
-      depthMaskedShader->bindDescriptorSets(commandBuffer, pipelineLayout, view, material);
+      depthMaskedShader->bindDescriptorSets(commandBuffer, pipeline.getLayout(), view, material);
    }
 
-   SceneRenderPass::renderMesh(commandBuffer, pipelineLayout, view, mesh, section, material);
+   SceneRenderPass::renderMesh(commandBuffer, pipeline, view, mesh, section, material);
 }
 
 vk::PipelineLayout DepthPass::selectPipelineLayout(BlendMode blendMode) const
@@ -135,31 +135,26 @@ PipelineDescription<DepthPass> DepthPass::getPipelineDescription(const View& vie
    return description;
 }
 
-vk::Pipeline DepthPass::createPipeline(const PipelineDescription<DepthPass>& description)
+Pipeline DepthPass::createPipeline(const PipelineDescription<DepthPass>& description)
 {
    PipelineInfo pipelineInfo;
-   pipelineInfo.renderPass = getRenderPass();
-   pipelineInfo.layout = description.masked ? maskedPipelineLayout : opaquePipelineLayout;
-   pipelineInfo.sampleCount = getSampleCount();
    pipelineInfo.passType = PipelinePassType::Mesh;
+   pipelineInfo.enableDepthTest = true;
    pipelineInfo.writeDepth = true;
+   pipelineInfo.enableDepthBias = isShadowPass;
    pipelineInfo.positionOnly = !description.masked;
    pipelineInfo.twoSided = description.twoSided;
+   pipelineInfo.swapFrontFace = description.cubemap; // Projection matrix Y values will be inverted when rendering to a cubemap, which swaps which faces are "front" facing
 
-   PipelineData pipelineData(pipelineInfo, description.masked ? depthMaskedShader->getStages() : depthShader->getStages(), {});
+   PipelineData pipelineData;
+   pipelineData.renderPass = getRenderPass();
+   pipelineData.layout = description.masked ? maskedPipelineLayout : opaquePipelineLayout;
+   pipelineData.sampleCount = getSampleCount();
+   pipelineData.shaderStages = description.masked ? depthMaskedShader->getStages() : depthShader->getStages();
+   pipelineData.colorBlendStates = {};
 
-   if (isShadowPass)
-   {
-      pipelineData.enableDepthBias();
-   }
-
-   if (description.cubemap)
-   {
-      pipelineData.setFrontFace(vk::FrontFace::eClockwise); // Projection matrix Y values will be inverted when rendering to a cubemap, which swaps which faces are "front" facing
-   }
-
-   vk::Pipeline pipeline = device.createGraphicsPipeline(context.getPipelineCache(), pipelineData.getCreateInfo()).value;
-   NAME_CHILD(pipeline, "Pipeline (" + std::string(description.masked ? "" : "Not ") + "Masked, " + std::string(description.twoSided ? "" : "Not ") + "Two Sided, " + std::string(description.cubemap ? "" : "Not ") + "Cubemap)");
+   Pipeline pipeline(context, pipelineInfo, pipelineData);
+   NAME_CHILD(pipeline, std::string(description.masked ? "" : "Not ") + "Masked, " + std::string(description.twoSided ? "" : "Not ") + "Two Sided, " + std::string(description.cubemap ? "" : "Not ") + "Cubemap");
 
    return pipeline;
 }

@@ -117,24 +117,24 @@ std::vector<vk::SubpassDependency> TonemapPass::getSubpassDependencies() const
    return subpassDependencies;
 }
 
-vk::Pipeline TonemapPass::createPipeline(const PipelineDescription<TonemapPass>& description)
+Pipeline TonemapPass::createPipeline(const PipelineDescription<TonemapPass>& description)
 {
    vk::PipelineColorBlendAttachmentState attachmentState = vk::PipelineColorBlendAttachmentState()
       .setColorWriteMask(vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA)
       .setBlendEnable(false);
 
    PipelineInfo pipelineInfo;
-   pipelineInfo.renderPass = getRenderPass();
-   pipelineInfo.layout = pipelineLayout;
-   pipelineInfo.sampleCount = getSampleCount();
    pipelineInfo.passType = PipelinePassType::Screen;
-   pipelineInfo.enableDepthTest = false;
-   pipelineInfo.writeDepth = false;
-   pipelineInfo.positionOnly = false;
 
-   PipelineData pipelineData(pipelineInfo, tonemapShader->getStages(description.hdr), { attachmentState });
-   vk::Pipeline pipeline = device.createGraphicsPipeline(context.getPipelineCache(), pipelineData.getCreateInfo()).value;
-   NAME_CHILD(pipeline, std::string("Pipeline ") + (description.hdr ? "(HDR)" : "(SDR)"));
+   PipelineData pipelineData;
+   pipelineData.renderPass = getRenderPass();
+   pipelineData.layout = pipelineLayout;
+   pipelineData.sampleCount = getSampleCount();
+   pipelineData.shaderStages = tonemapShader->getStages(description.hdr);
+   pipelineData.colorBlendStates = { attachmentState };
+
+   Pipeline pipeline(context, pipelineInfo, pipelineData);
+   NAME_CHILD(pipeline, description.hdr ? "HDR" : "SDR");
 
    return pipeline;
 }

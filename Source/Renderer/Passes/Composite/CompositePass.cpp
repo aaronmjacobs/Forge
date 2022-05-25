@@ -130,7 +130,7 @@ std::vector<vk::SubpassDependency> CompositePass::getSubpassDependencies() const
    return subpassDependencies;
 }
 
-vk::Pipeline CompositePass::createPipeline(const PipelineDescription<CompositePass>& description)
+Pipeline CompositePass::createPipeline(const PipelineDescription<CompositePass>& description)
 {
    vk::PipelineColorBlendAttachmentState attachmentState = vk::PipelineColorBlendAttachmentState()
       .setColorWriteMask(vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA)
@@ -143,17 +143,17 @@ vk::Pipeline CompositePass::createPipeline(const PipelineDescription<CompositePa
       .setAlphaBlendOp(vk::BlendOp::eAdd);
 
    PipelineInfo pipelineInfo;
-   pipelineInfo.renderPass = getRenderPass();
-   pipelineInfo.layout = pipelineLayout;
-   pipelineInfo.sampleCount = getSampleCount();
    pipelineInfo.passType = PipelinePassType::Screen;
-   pipelineInfo.enableDepthTest = false;
-   pipelineInfo.writeDepth = false;
-   pipelineInfo.positionOnly = false;
 
-   PipelineData pipelineData(pipelineInfo, compositeShader->getStages(description.mode), { attachmentState });
-   vk::Pipeline pipeline = device.createGraphicsPipeline(context.getPipelineCache(), pipelineData.getCreateInfo()).value;
-   NAME_CHILD(pipeline, std::string("Pipeline (") + getModeName(description.mode) + ")");
+   PipelineData pipelineData;
+   pipelineData.renderPass = getRenderPass();
+   pipelineData.layout = pipelineLayout;
+   pipelineData.sampleCount = getSampleCount();
+   pipelineData.shaderStages = compositeShader->getStages(description.mode);
+   pipelineData.colorBlendStates = { attachmentState };
+
+   Pipeline pipeline(context, pipelineInfo, pipelineData);
+   NAME_CHILD(pipeline, getModeName(description.mode));
 
    return pipeline;
 }
