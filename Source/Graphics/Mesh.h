@@ -20,7 +20,7 @@ struct Vertex
    glm::vec4 color;
    glm::vec2 texCoord;
 
-   static const std::vector<vk::VertexInputBindingDescription>& getBindingDescriptions();
+   static const std::vector<vk::VertexInputBindingDescription>& getBindingDescriptions(bool positionOnly);
    static const std::vector<vk::VertexInputAttributeDescription>& getAttributeDescriptions(bool positionOnly);
 };
 
@@ -36,6 +36,7 @@ struct MeshSectionSourceData
 struct MeshSection
 {
    vk::DeviceSize vertexOffset = 0;
+   vk::DeviceSize positionOnlyVertexOffset = 0;
    vk::DeviceSize indexOffset = 0;
    uint32_t numIndices = 0;
    bool hasValidTexCoords = false;
@@ -64,7 +65,7 @@ public:
       return sections[index];
    }
 
-   void bindBuffers(vk::CommandBuffer commandBuffer, uint32_t section) const;
+   void bindBuffers(vk::CommandBuffer commandBuffer, uint32_t section, bool positionOnly) const;
    void draw(vk::CommandBuffer commandBuffer, uint32_t section) const;
 
 private:

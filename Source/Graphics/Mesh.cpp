@@ -11,17 +11,32 @@
 #include <utility>
 
 // static
-const std::vector<vk::VertexInputBindingDescription>& Vertex::getBindingDescriptions()
+const std::vector<vk::VertexInputBindingDescription>& Vertex::getBindingDescriptions(bool positionOnly)
 {
-   static std::vector<vk::VertexInputBindingDescription> bindingDescriptions =
+   if (positionOnly)
    {
-      vk::VertexInputBindingDescription()
-      .setBinding(0)
-      .setStride(sizeof(Vertex))
-      .setInputRate(vk::VertexInputRate::eVertex)
-   };
+      static std::vector<vk::VertexInputBindingDescription> positionOnlyBindingDescriptions =
+      {
+         vk::VertexInputBindingDescription()
+         .setBinding(0)
+         .setStride(sizeof(glm::vec3))
+         .setInputRate(vk::VertexInputRate::eVertex)
+      };
 
-   return bindingDescriptions;
+      return positionOnlyBindingDescriptions;
+   }
+   else
+   {
+      static std::vector<vk::VertexInputBindingDescription> defaultBindingDescriptions =
+      {
+         vk::VertexInputBindingDescription()
+         .setBinding(0)
+         .setStride(sizeof(Vertex))
+         .setInputRate(vk::VertexInputRate::eVertex)
+      };
+
+      return defaultBindingDescriptions;
+   }
 }
 
 // static
@@ -35,7 +50,7 @@ const std::vector<vk::VertexInputAttributeDescription>& Vertex::getAttributeDesc
             .setLocation(0)
             .setBinding(0)
             .setFormat(vk::Format::eR32G32B32Sfloat)
-            .setOffset(offsetof(Vertex, position))
+            .setOffset(0)
       };
 
       return positionOnlyAttributeDescriptions;
@@ -87,6 +102,7 @@ Mesh::Mesh(const GraphicsContext& graphicsContext, std::span<const MeshSectionSo
    for (const MeshSectionSourceData& sectionData : sourceData)
    {
       bufferSize += sectionData.vertices.size() * sizeof(Vertex);
+      bufferSize += sectionData.vertices.size() * sizeof(glm::vec3);
       bufferSize += sectionData.indices.size() * sizeof(uint32_t);
    }
 
@@ -137,11 +153,19 @@ Mesh::Mesh(const GraphicsContext& graphicsContext, std::span<const MeshSectionSo
       meshSection.hasValidTexCoords = sectionData.hasValidTexCoords;
 
       std::size_t vertexDataSize = sectionData.vertices.size() * sizeof(Vertex);
+      std::size_t positionOnlyVertexDataSize = sectionData.vertices.size() * sizeof(glm::vec3);
       std::size_t indexDataSize = sectionData.indices.size() * sizeof(uint32_t);
 
       meshSection.vertexOffset = mappedDataOffset;
       std::memcpy(static_cast<uint8_t*>(mappedData) + mappedDataOffset, sectionData.vertices.data(), vertexDataSize);
       mappedDataOffset += vertexDataSize;
+
+      meshSection.positionOnlyVertexOffset = mappedDataOffset;
+      for (std::size_t i = 0; i < sectionData.vertices.size(); ++i)
+      {
+         std::memcpy(static_cast<uint8_t*>(mappedData) + mappedDataOffset + i * sizeof(glm::vec3), &sectionData.vertices[i], sizeof(glm::vec3));
+      }
+      mappedDataOffset += positionOnlyVertexDataSize;
 
       meshSection.indexOffset = mappedDataOffset;
       std::memcpy(static_cast<uint8_t*>(mappedData) + mappedDataOffset, sectionData.indices.data(), indexDataSize);
@@ -178,9 +202,9 @@ Mesh::~Mesh()
    context.delayedFree(std::move(deviceMemory));
 }
 
-void Mesh::bindBuffers(vk::CommandBuffer commandBuffer, uint32_t section) const
+void Mesh::bindBuffers(vk::CommandBuffer commandBuffer, uint32_t section, bool positionOnly) const
 {
-   commandBuffer.bindVertexBuffers(0, { buffer }, { sections[section].vertexOffset });
+   commandBuffer.bindVertexBuffers(0, { buffer }, { positionOnly ? sections[section].positionOnlyVertexOffset : sections[section].vertexOffset });
    commandBuffer.bindIndexBuffer(buffer, sections[section].indexOffset, vk::IndexType::eUint32);
 }
 

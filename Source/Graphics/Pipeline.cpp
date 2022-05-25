@@ -25,7 +25,7 @@ namespace
       if (info.passType == PipelinePassType::Mesh)
       {
          vertexInputStateCreateInfo = vk::PipelineVertexInputStateCreateInfo()
-            .setVertexBindingDescriptions(Vertex::getBindingDescriptions())
+            .setVertexBindingDescriptions(Vertex::getBindingDescriptions(info.positionOnly))
             .setVertexAttributeDescriptions(Vertex::getAttributeDescriptions(info.positionOnly));
       }
 
