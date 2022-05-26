@@ -19,7 +19,7 @@ namespace std
       {
          for (uint32_t i = 0; i < value.descriptorCount; ++i)
          {
-            Hash::combine(hash, value.pImmutableSamplers[i]);
+            Hash::combine(hash, static_cast<VkSampler>(value.pImmutableSamplers[i]));
          }
       }
 

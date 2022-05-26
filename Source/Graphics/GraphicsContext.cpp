@@ -54,7 +54,7 @@ namespace
          }
       }
 
-      std::vector<const char*> optionalDeviceExtensions = { VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME };
+      std::vector<const char*> optionalDeviceExtensions = { VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME, VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME };
 #if FORGE_DEBUG
       optionalDeviceExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 #endif // FORGE_DEBUG
@@ -139,7 +139,7 @@ namespace
       return VK_FALSE;
    }
 
-   VkDebugUtilsMessengerCreateInfoEXT createDebugMessengerCreateInfo()
+   vk::DebugUtilsMessengerCreateInfoEXT createDebugMessengerCreateInfo()
    {
       return vk::DebugUtilsMessengerCreateInfoEXT()
          .setPfnUserCallback(vulkanDebugMessageCallback)
@@ -349,10 +349,11 @@ GraphicsContext::GraphicsContext(Window& window)
    vk::InstanceCreateInfo createInfo = vk::InstanceCreateInfo()
       .setPApplicationInfo(&applicationInfo)
       .setPEnabledExtensionNames(extensions)
-      .setPEnabledLayerNames(layers);
+      .setPEnabledLayerNames(layers)
+      .setFlags(vk::InstanceCreateFlagBits::eEnumeratePortabilityKHR);
 
 #if FORGE_DEBUG
-   VkDebugUtilsMessengerCreateInfoEXT debugUtilsMessengerCreateInfo = createDebugMessengerCreateInfo();
+   VkDebugUtilsMessengerCreateInfoEXT debugUtilsMessengerCreateInfo = static_cast<VkDebugUtilsMessengerCreateInfoEXT>(createDebugMessengerCreateInfo());
    createInfo.setPNext(&debugUtilsMessengerCreateInfo);
 #endif // FORGE_DEBUG
 
@@ -367,7 +368,6 @@ GraphicsContext::GraphicsContext(Window& window)
 
    if (pfnCreateDebugUtilsMessengerEXT)
    {
-      VkDebugUtilsMessengerCreateInfoEXT debugUtilsMessengerCreateInfo = createDebugMessengerCreateInfo();
       if (pfnCreateDebugUtilsMessengerEXT(instance, &debugUtilsMessengerCreateInfo, nullptr, &debugMessenger) != VK_SUCCESS)
       {
          ASSERT(false);
