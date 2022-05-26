@@ -101,11 +101,6 @@ protected:
       return PipelineDescription<Derived>{};
    }
 
-   Pipeline createPipeline(const PipelineDescription<Derived>& description)
-   {
-      return nullptr;
-   }
-
    const Pipeline& getPipeline(const PipelineDescription<Derived>& description)
    {
       auto location = pipelineMap.find(description);
