@@ -10,6 +10,7 @@
 #include "Renderer/Passes/Composite/CompositePass.h"
 #include "Renderer/Passes/Depth/DepthPass.h"
 #include "Renderer/Passes/Forward/ForwardPass.h"
+#include "Renderer/Passes/Normal/NormalPass.h"
 #include "Renderer/Passes/PostProcess/Tonemap/TonemapPass.h"
 #include "Renderer/Passes/UI/UIPass.h"
 #include "Renderer/SceneRenderInfo.h"
@@ -527,8 +528,8 @@ Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& reso
    }
 
    {
-      prePass = std::make_unique<DepthPass>(context, resourceManager);
-      NAME_POINTER(device, prePass, "Pre Pass");
+      normalPass = std::make_unique<NormalPass>(context, resourceManager);
+      NAME_POINTER(device, normalPass, "Normal Pass");
 
       shadowPass = std::make_unique<DepthPass>(context, resourceManager, true);
       NAME_POINTER(device, shadowPass, "Shadow Pass");
@@ -593,7 +594,7 @@ Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& reso
 
 Renderer::~Renderer()
 {
-   prePass = nullptr;
+   normalPass = nullptr;
    shadowPass = nullptr;
    forwardPass = nullptr;
    uiPass = nullptr;
@@ -601,6 +602,7 @@ Renderer::~Renderer()
    tonemapPass = nullptr;
 
    depthTexture = nullptr;
+   normalTexture = nullptr;
    hdrColorTexture = nullptr;
    hdrResolveTexture = nullptr;
    uiColorTexture = nullptr;
@@ -632,7 +634,7 @@ void Renderer::render(vk::CommandBuffer commandBuffer, const Scene& scene)
 
    SceneRenderInfo sceneRenderInfo = computeSceneRenderInfo(resourceManager, scene, *view, false);
 
-   prePass->render(commandBuffer, sceneRenderInfo, prePassFramebufferHandle);
+   normalPass->render(commandBuffer, sceneRenderInfo, normalPassFramebufferHandle);
 
    renderShadowMaps(commandBuffer, scene, sceneRenderInfo);
 
@@ -645,7 +647,7 @@ void Renderer::render(vk::CommandBuffer commandBuffer, const Scene& scene)
       skyboxTexture = resourceManager.getTexture(skyboxComponent.textureHandle);
    });
 
-   forwardPass->render(commandBuffer, sceneRenderInfo, forwardPassFramebufferHandle, skyboxTexture);
+   forwardPass->render(commandBuffer, sceneRenderInfo, forwardPassFramebufferHandle, *normalTexture, skyboxTexture);
 
    uiPass->render(commandBuffer, uiPassFramebufferHandle);
    compositePass->render(commandBuffer, compositePassFramebufferHandle, *uiColorTexture, CompositeShader::Mode::SrgbToLinear);
@@ -656,6 +658,7 @@ void Renderer::render(vk::CommandBuffer commandBuffer, const Scene& scene)
 void Renderer::onSwapchainRecreated()
 {
    depthTexture = createDepthTexture(context, depthStencilFormat, context.getSwapchain().getExtent(), enableMSAA);
+   normalTexture = createColorTexture(context, vk::Format::eR16G16B16A16Snorm, true, enableMSAA);
    hdrColorTexture = createColorTexture(context, vk::Format::eR16G16B16A16Sfloat, !enableMSAA, enableMSAA);
    if (enableMSAA)
    {
@@ -668,6 +671,7 @@ void Renderer::onSwapchainRecreated()
    uiColorTexture = createColorTexture(context, vk::Format::eR8G8B8A8Unorm, true, false);
 
    NAME_POINTER(device, depthTexture, "Depth Texture");
+   NAME_POINTER(device, normalTexture, "Normal Texture");
    NAME_POINTER(device, hdrColorTexture, "HDR Color Texture");
    NAME_POINTER(device, hdrResolveTexture, "HDR Resolve Texture");
    NAME_POINTER(device, uiColorTexture, "UI Color Texture");
@@ -761,11 +765,12 @@ void Renderer::renderShadowMaps(vk::CommandBuffer commandBuffer, const Scene& sc
 void Renderer::updateSwapchainDependentFramebuffers()
 {
    {
-      AttachmentInfo prePassInfo;
-      prePassInfo.depthInfo = depthTexture->getInfo();
+      AttachmentInfo normalInfo;
+      normalInfo.depthInfo = depthTexture->getInfo();
+      normalInfo.colorInfo = { normalTexture->getInfo() };
 
-      prePass->updateAttachmentSetup(prePassInfo.asBasic());
-      prePassFramebufferHandle = prePass->createFramebuffer(prePassInfo);
+      normalPass->updateAttachmentSetup(normalInfo.asBasic());
+      normalPassFramebufferHandle = normalPass->createFramebuffer(normalInfo);
    }
 
    {

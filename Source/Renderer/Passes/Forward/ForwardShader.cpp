@@ -1,5 +1,8 @@
 #include "Renderer/Passes/Forward/ForwardShader.h"
 
+#include "Graphics/DescriptorSet.h"
+#include "Graphics/DescriptorSetLayout.h"
+
 #include "Renderer/ForwardLighting.h"
 #include "Renderer/PhysicallyBasedMaterial.h"
 #include "Renderer/UniformData.h"
@@ -62,14 +65,39 @@ uint32_t ForwardShader::getPermutationIndex(bool withTextures, bool withBlending
    return (withTextures ? 0b10 : 0b00) | (withBlending ? 0b01 : 0b00);
 }
 
+// static
+std::array<vk::DescriptorSetLayoutBinding, 1> ForwardShader::getBindings()
+{
+   return
+   {
+      vk::DescriptorSetLayoutBinding()
+         .setBinding(0)
+         .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+         .setDescriptorCount(1)
+         .setStageFlags(vk::ShaderStageFlagBits::eFragment)
+   };
+}
+
+// static
+const vk::DescriptorSetLayoutCreateInfo& ForwardShader::getLayoutCreateInfo()
+{
+   return DescriptorSetLayout::getCreateInfo<ForwardShader>();
+}
+
+// static
+vk::DescriptorSetLayout ForwardShader::getLayout(const GraphicsContext& context)
+{
+   return DescriptorSetLayout::get<ForwardShader>(context);
+}
+
 ForwardShader::ForwardShader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager)
    : Shader(graphicsContext, resourceManager, getInitializationInfo())
 {
 }
 
-void ForwardShader::bindDescriptorSets(vk::CommandBuffer commandBuffer, vk::PipelineLayout pipelineLayout, const View& view, const ForwardLighting& lighting, const Material& material)
+void ForwardShader::bindDescriptorSets(vk::CommandBuffer commandBuffer, vk::PipelineLayout pipelineLayout, const View& view, const DescriptorSet& descriptorSet, const ForwardLighting& lighting, const Material& material)
 {
-   commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, 0, { view.getDescriptorSet().getCurrentSet(), lighting.getDescriptorSet().getCurrentSet(), material.getDescriptorSet().getCurrentSet() }, {});
+   commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, 0, { view.getDescriptorSet().getCurrentSet(), descriptorSet.getCurrentSet(), lighting.getDescriptorSet().getCurrentSet(), material.getDescriptorSet().getCurrentSet() }, {});
 }
 
 std::vector<vk::PipelineShaderStageCreateInfo> ForwardShader::getStages(bool withTextures, bool withBlending) const
@@ -79,7 +107,7 @@ std::vector<vk::PipelineShaderStageCreateInfo> ForwardShader::getStages(bool wit
 
 std::vector<vk::DescriptorSetLayout> ForwardShader::getSetLayouts() const
 {
-   return { View::getLayout(context), ForwardLighting::getLayout(context), PhysicallyBasedMaterial::getLayout(context) };
+   return { View::getLayout(context), getLayout(context), ForwardLighting::getLayout(context), PhysicallyBasedMaterial::getLayout(context) };
 }
 
 std::vector<vk::PushConstantRange> ForwardShader::getPushConstantRanges() const

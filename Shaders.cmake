@@ -14,6 +14,8 @@ set(SHADER_SOURCE_FILES
    "${SHADER_DIR}/DepthMasked.vert"
    "${SHADER_DIR}/Forward.frag"
    "${SHADER_DIR}/Forward.vert"
+   "${SHADER_DIR}/Normal.frag"
+   "${SHADER_DIR}/Normal.vert"
    "${SHADER_DIR}/Tonemap.frag"
    "${SHADER_DIR}/Screen.vert"
    "${SHADER_DIR}/Skybox.frag"

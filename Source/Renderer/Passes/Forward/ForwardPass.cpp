@@ -16,6 +16,7 @@
 ForwardPass::ForwardPass(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, ResourceManager& resourceManager, const ForwardLighting* forwardLighting)
    : SceneRenderPass(graphicsContext)
    , lighting(forwardLighting)
+   , forwardDescriptorSet(graphicsContext, dynamicDescriptorPool, ForwardShader::getLayoutCreateInfo())
    , skyboxDescriptorSet(graphicsContext, dynamicDescriptorPool, SkyboxShader::getLayoutCreateInfo())
 {
    clearDepth = false;
@@ -60,10 +61,30 @@ ForwardPass::ForwardPass(const GraphicsContext& graphicsContext, DynamicDescript
       .setMaxLod(16.0f);
    skyboxSampler = context.getDevice().createSampler(skyboxSamplerCreateInfo);
    NAME_CHILD(skyboxSampler, "Skybox Sampler");
+
+   vk::SamplerCreateInfo normalSamplerCreateInfo = vk::SamplerCreateInfo()
+      .setMagFilter(vk::Filter::eNearest)
+      .setMinFilter(vk::Filter::eNearest)
+      .setAddressModeU(vk::SamplerAddressMode::eClampToEdge)
+      .setAddressModeV(vk::SamplerAddressMode::eClampToEdge)
+      .setAddressModeW(vk::SamplerAddressMode::eClampToEdge)
+      .setBorderColor(vk::BorderColor::eIntOpaqueBlack)
+      .setAnisotropyEnable(false)
+      .setMaxAnisotropy(1.0f)
+      .setUnnormalizedCoordinates(false)
+      .setCompareEnable(false)
+      .setCompareOp(vk::CompareOp::eAlways)
+      .setMipmapMode(vk::SamplerMipmapMode::eNearest)
+      .setMipLodBias(0.0f)
+      .setMinLod(0.0f)
+      .setMaxLod(16.0f);
+   normalSampler = context.getDevice().createSampler(normalSamplerCreateInfo);
+   NAME_CHILD(normalSampler, "Normal Sampler");
 }
 
 ForwardPass::~ForwardPass()
 {
+   context.delayedDestroy(std::move(normalSampler));
    context.delayedDestroy(std::move(skyboxSampler));
 
    context.delayedDestroy(std::move(forwardPipelineLayout));
@@ -73,7 +94,7 @@ ForwardPass::~ForwardPass()
    skyboxShader.reset();
 }
 
-void ForwardPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, FramebufferHandle framebufferHandle, const Texture* skyboxTexture)
+void ForwardPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, FramebufferHandle framebufferHandle, Texture& normalBuffer, const Texture* skyboxTexture)
 {
    SCOPED_LABEL(getName());
 
@@ -84,10 +105,31 @@ void ForwardPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo&
       return;
    }
 
+   vk::ImageLayout normalBufferInitialLayout = normalBuffer.getLayout();
+   if (normalBufferInitialLayout != vk::ImageLayout::eShaderReadOnlyOptimal)
+   {
+      TextureMemoryBarrierFlags srcMemoryBarrierFlags(vk::AccessFlagBits::eColorAttachmentWrite, vk::PipelineStageFlagBits::eColorAttachmentOutput);
+      TextureMemoryBarrierFlags dstMemoryBarrierFlags(vk::AccessFlagBits::eShaderRead, vk::PipelineStageFlagBits::eFragmentShader);
+      normalBuffer.transitionLayout(commandBuffer, vk::ImageLayout::eShaderReadOnlyOptimal, srcMemoryBarrierFlags, dstMemoryBarrierFlags);
+   }
+
    std::array<float, 4> clearColorValues = { 1.0f, 1.0f, 1.0f, 1.0f };
    std::array<vk::ClearValue, 2> clearValues = { vk::ClearDepthStencilValue(1.0f, 0), vk::ClearColorValue(clearColorValues) };
 
    beginRenderPass(commandBuffer, *framebuffer, clearValues);
+
+   vk::DescriptorImageInfo normalBufferImageInfo = vk::DescriptorImageInfo()
+      .setImageLayout(normalBuffer.getLayout())
+      .setImageView(normalBuffer.getDefaultView())
+      .setSampler(normalSampler);
+   vk::WriteDescriptorSet normalBufferDescriptorWrite = vk::WriteDescriptorSet()
+      .setDstSet(forwardDescriptorSet.getCurrentSet())
+      .setDstBinding(0)
+      .setDstArrayElement(0)
+      .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+      .setDescriptorCount(1)
+      .setPImageInfo(&normalBufferImageInfo);
+   device.updateDescriptorSets(normalBufferDescriptorWrite, {});
 
    {
       SCOPED_LABEL("Opaque");
@@ -131,6 +173,13 @@ void ForwardPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo&
    }
 
    endRenderPass(commandBuffer);
+
+   if (normalBufferInitialLayout == vk::ImageLayout::eColorAttachmentOptimal)
+   {
+      TextureMemoryBarrierFlags srcMemoryBarrierFlags(vk::AccessFlagBits::eShaderRead, vk::PipelineStageFlagBits::eFragmentShader);
+      TextureMemoryBarrierFlags dstMemoryBarrierFlags(vk::AccessFlagBits::eColorAttachmentWrite, vk::PipelineStageFlagBits::eColorAttachmentOutput);
+      normalBuffer.transitionLayout(commandBuffer, vk::ImageLayout::eColorAttachmentOptimal, srcMemoryBarrierFlags, dstMemoryBarrierFlags);
+   }
 }
 
 std::vector<vk::SubpassDependency> ForwardPass::getSubpassDependencies() const
@@ -151,7 +200,7 @@ std::vector<vk::SubpassDependency> ForwardPass::getSubpassDependencies() const
 void ForwardPass::renderMesh(vk::CommandBuffer commandBuffer, const Pipeline& pipeline, const View& view, const Mesh& mesh, uint32_t section, const Material& material)
 {
    ASSERT(lighting);
-   forwardShader->bindDescriptorSets(commandBuffer, pipeline.getLayout(), view, *lighting, material);
+   forwardShader->bindDescriptorSets(commandBuffer, pipeline.getLayout(), view, forwardDescriptorSet, *lighting, material);
 
    SceneRenderPass::renderMesh(commandBuffer, pipeline, view, mesh, section, material);
 }

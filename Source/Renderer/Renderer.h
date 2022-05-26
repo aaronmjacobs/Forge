@@ -16,6 +16,7 @@ class CompositePass;
 class DepthPass;
 class ForwardLighting;
 class ForwardPass;
+class NormalPass;
 class ResourceManager;
 class Scene;
 class SimpleRenderPass;
@@ -55,18 +56,19 @@ private:
    std::unique_ptr<ForwardLighting> forwardLighting;
 
    std::unique_ptr<Texture> depthTexture;
+   std::unique_ptr<Texture> normalTexture;
    std::unique_ptr<Texture> hdrColorTexture;
    std::unique_ptr<Texture> hdrResolveTexture;
    std::unique_ptr<Texture> uiColorTexture;
 
-   std::unique_ptr<DepthPass> prePass;
+   std::unique_ptr<NormalPass> normalPass;
    std::unique_ptr<DepthPass> shadowPass;
    std::unique_ptr<ForwardPass> forwardPass;
    std::unique_ptr<UIPass> uiPass;
    std::unique_ptr<CompositePass> compositePass;
    std::unique_ptr<TonemapPass> tonemapPass;
 
-   FramebufferHandle prePassFramebufferHandle;
+   FramebufferHandle normalPassFramebufferHandle;
    std::array<FramebufferHandle, ForwardLighting::kMaxSpotShadowMaps * kNumCubeFaces> pointShadowPassFramebufferHandles;
    std::array<FramebufferHandle, ForwardLighting::kMaxSpotShadowMaps> spotShadowPassFramebufferHandles;
    std::array<FramebufferHandle, ForwardLighting::kMaxDirectionalShadowMaps> directionalShadowPassFramebufferHandles;

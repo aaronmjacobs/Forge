@@ -9,7 +9,9 @@
 layout(constant_id = 0) const bool kWithTextures = false;
 layout(constant_id = 1) const bool kWithBlending = false;
 
-layout(std430, set = 1, binding = 0) uniform Lights
+layout(set = 1, binding = 0) uniform sampler2D normalBuffer;
+
+layout(std430, set = 2, binding = 0) uniform Lights
 {
    SpotLight spotLights[8];
    PointLight pointLights[8];
@@ -19,18 +21,16 @@ layout(std430, set = 1, binding = 0) uniform Lights
    int numPointLights;
    int numDirectionalLights;
 };
-layout(set = 1, binding = 1) uniform samplerCubeArrayShadow pointLightShadowMaps;
-layout(set = 1, binding = 2) uniform sampler2DArrayShadow spotLightShadowMaps;
-layout(set = 1, binding = 3) uniform sampler2DArrayShadow directionalLightShadowMaps;
+layout(set = 2, binding = 1) uniform samplerCubeArrayShadow pointLightShadowMaps;
+layout(set = 2, binding = 2) uniform sampler2DArrayShadow spotLightShadowMaps;
+layout(set = 2, binding = 3) uniform sampler2DArrayShadow directionalLightShadowMaps;
 
-layout(set = 2, binding = 0) uniform sampler2D albedoTexture;
-layout(set = 2, binding = 1) uniform sampler2D normalTexture;
-layout(set = 2, binding = 2) uniform sampler2D aoRoughnessMetalnessTexture;
+layout(set = 3, binding = 0) uniform sampler2D albedoTexture;
+layout(set = 3, binding = 2) uniform sampler2D aoRoughnessMetalnessTexture;
 
 layout(location = 0) in vec3 inPosition;
 layout(location = 1) in vec4 inColor;
 layout(location = 2) in vec2 inTexCoord;
-layout(location = 3) in mat3 inTBN;
 
 layout(location = 0) out vec4 outColor;
 
@@ -45,11 +45,6 @@ void main()
       surfaceInfo.albedo = inColor.rgb * albedoSample.rgb;
       alpha = inColor.a * albedoSample.a;
 
-      vec3 tangentSpaceNormal = texture(normalTexture, inTexCoord).rgb * 2.0 - 1.0;
-      tangentSpaceNormal.z = sqrt(clamp(1.0 - dot(tangentSpaceNormal.xy, tangentSpaceNormal.xy), 0.0, 1.0));
-      tangentSpaceNormal = normalize(tangentSpaceNormal);
-      surfaceInfo.normal = normalize(inTBN * tangentSpaceNormal);
-
       vec4 aoRoughnessMetalnessSample = texture(aoRoughnessMetalnessTexture, inTexCoord);
       surfaceInfo.roughness = aoRoughnessMetalnessSample.g;
       surfaceInfo.metalness = aoRoughnessMetalnessSample.b;
@@ -60,7 +55,6 @@ void main()
       surfaceInfo.albedo = inColor.rgb;
       alpha = inColor.a;
 
-      surfaceInfo.normal = normalize(inTBN[2]);
       surfaceInfo.roughness = 0.5;
       surfaceInfo.metalness = 0.0;
       surfaceInfo.ambientOcclusion = 1.0;
@@ -72,6 +66,9 @@ void main()
    }
 
    surfaceInfo.position = inPosition;
+
+   vec2 screenTexCoord = gl_FragCoord.xy / textureSize(normalBuffer, 0);
+   surfaceInfo.normal = texture(normalBuffer, screenTexCoord).rgb;
 
    if (!gl_FrontFacing)
    {

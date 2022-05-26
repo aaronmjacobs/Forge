@@ -2,6 +2,8 @@
 
 #include "Renderer/Passes/SceneRenderPass.h"
 
+#include "Graphics/DescriptorSet.h"
+
 #include <memory>
 
 class ResourceManager;
@@ -34,7 +36,7 @@ public:
    ForwardPass(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, ResourceManager& resourceManager, const ForwardLighting* forwardLighting);
    ~ForwardPass();
 
-   void render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, FramebufferHandle framebufferHandle, const Texture* skyboxTexture);
+   void render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, FramebufferHandle framebufferHandle, Texture& normalBuffer, const Texture* skyboxTexture);
 
 protected:
    friend class SceneRenderPass<ForwardPass>;
@@ -53,6 +55,9 @@ private:
 
    vk::PipelineLayout forwardPipelineLayout;
    vk::PipelineLayout skyboxPipelineLayout;
+
+   DescriptorSet forwardDescriptorSet;
+   vk::Sampler normalSampler;
 
    const ForwardLighting* lighting = nullptr;
    DescriptorSet skyboxDescriptorSet;
