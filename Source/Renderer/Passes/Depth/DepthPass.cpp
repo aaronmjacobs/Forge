@@ -67,13 +67,6 @@ void DepthPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& s
 
    if (isShadowPass)
    {
-#if defined(__APPLE__)
-      PipelineDescription<DepthPass> description;
-      description.cubemap = true;
-      // Workaround for bug in MoltenVK - need to set the pipeline before setting the depth bias
-      commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, getPipeline(description).getVkPipeline());
-#endif // defined(__APPLE__)
-
       const ViewInfo& viewInfo = sceneRenderInfo.view.getInfo();
       commandBuffer.setDepthBias(viewInfo.depthBiasConstantFactor, viewInfo.depthBiasClamp, viewInfo.depthBiasSlopeFactor);
    }
