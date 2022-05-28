@@ -80,6 +80,7 @@ target_link_libraries(${PROJECT_NAME} PUBLIC PlatformUtils)
 # PPK_ASSERT
 set(PPK_DIR "${LIB_DIR}/PPK_ASSERT")
 target_sources(${PROJECT_NAME} PRIVATE "${PPK_DIR}/src/ppk_assert.h" "${PPK_DIR}/src/ppk_assert.cpp")
+set_source_files_properties("${PPK_DIR}/src/ppk_assert.cpp" PROPERTIES SKIP_PRECOMPILE_HEADERS ON) # Don't use PCH for ppk_assert.cpp to avoid warnings
 target_include_directories(${PROJECT_NAME} PUBLIC "${PPK_DIR}/src")
 source_group("Libraries\\PPK_ASSERT" "${PPK_DIR}/src")
 

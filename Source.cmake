@@ -4,6 +4,7 @@ target_sources(${PROJECT_NAME} PRIVATE
    "${SRC_DIR}/ForgeApplication.cpp"
    "${SRC_DIR}/ForgeApplication.h"
    "${SRC_DIR}/Main.cpp"
+   "${SRC_DIR}/PCH.h"
 
    "${SRC_DIR}/Core/Assert.h"
    "${SRC_DIR}/Core/Containers/GenerationalArray.h"
@@ -162,3 +163,5 @@ target_include_directories(${PROJECT_NAME} PUBLIC "${SRC_DIR}")
 
 get_target_property(SOURCE_FILES ${PROJECT_NAME} SOURCES)
 source_group(TREE "${SRC_DIR}" PREFIX Source FILES ${SOURCE_FILES})
+
+target_precompile_headers(${PROJECT_NAME} PUBLIC "${SRC_DIR}/PCH.h")

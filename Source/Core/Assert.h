@@ -1,5 +1,7 @@
 #pragma once
 
+#define PPK_ASSERT_DISABLE_STL // Reduce compile times
+
 #include <ppk_assert.h>
 
 #if defined(ASSERT)
