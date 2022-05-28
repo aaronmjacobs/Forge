@@ -9,7 +9,7 @@ namespace
    {
       vk::SpecializationMapEntry specializationMapEntry = vk::SpecializationMapEntry()
             .setConstantID(0)
-            .setOffset(0)
+            .setOffset(0 * sizeof(VkBool32))
             .setSize(sizeof(VkBool32));
 
       std::array<std::array<VkBool32, 1>, 2> specializationData =

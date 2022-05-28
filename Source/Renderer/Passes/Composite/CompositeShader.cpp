@@ -11,7 +11,7 @@ namespace
    {
       vk::SpecializationMapEntry specializationMapEntry = vk::SpecializationMapEntry()
             .setConstantID(0)
-            .setOffset(0)
+            .setOffset(0 * sizeof(int))
             .setSize(sizeof(int));
 
       std::array<std::array<int, 1>, CompositeShader::kNumModes> specializationData =

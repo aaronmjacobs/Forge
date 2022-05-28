@@ -12,11 +12,11 @@ namespace
       {
          vk::SpecializationMapEntry()
             .setConstantID(0)
-            .setOffset(0)
+            .setOffset(0 * sizeof(VkBool32))
             .setSize(sizeof(VkBool32)),
          vk::SpecializationMapEntry()
             .setConstantID(1)
-            .setOffset(1)
+            .setOffset(1 * sizeof(VkBool32))
             .setSize(sizeof(VkBool32))
       };
 
