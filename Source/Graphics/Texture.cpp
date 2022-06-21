@@ -124,8 +124,11 @@ Texture::Texture(const GraphicsContext& graphicsContext, const ImageProperties& 
 
 Texture::~Texture()
 {
-   ASSERT(defaultView);
-   context.delayedDestroy(std::move(defaultView));
+   for (auto& [desc, view] : viewMap)
+   {
+      ASSERT(view);
+      context.delayedDestroy(std::move(view));
+   }
 
    ASSERT(image);
    context.delayedDestroy(std::move(image));
@@ -134,8 +137,24 @@ Texture::~Texture()
    context.delayedFree(std::move(memory));
 }
 
-vk::ImageView Texture::createView(vk::ImageViewType viewType, uint32_t baseLayer, uint32_t layerCount, std::optional<vk::ImageAspectFlags> aspectFlags) const
+vk::ImageView Texture::getOrCreateView(vk::ImageViewType viewType, uint32_t baseLayer, uint32_t layerCount, std::optional<vk::ImageAspectFlags> aspectFlags, bool* created)
 {
+   ImageViewDesc desc;
+   desc.viewType = viewType;
+   desc.baseLayer = baseLayer;
+   desc.layerCount = layerCount;
+   desc.aspectFlags = aspectFlags.value_or(textureProperties.aspects);
+
+   auto location = viewMap.find(desc);
+   if (location != viewMap.end())
+   {
+      if (created)
+      {
+         *created = false;
+      }
+      return location->second;
+   }
+
    vk::ImageSubresourceRange subresourceRange = vk::ImageSubresourceRange()
       .setAspectMask(aspectFlags.value_or(textureProperties.aspects))
       .setBaseMipLevel(0)
@@ -149,7 +168,15 @@ vk::ImageView Texture::createView(vk::ImageViewType viewType, uint32_t baseLayer
       .setFormat(imageProperties.format)
       .setSubresourceRange(subresourceRange);
 
-   return device.createImageView(createInfo);
+   vk::ImageView view = device.createImageView(createInfo);
+   NAME_CHILD(view, "View " + DebugUtils::toString(viewMap.size()));
+   viewMap[desc] = view;
+
+   if (created)
+   {
+      *created = true;
+   }
+   return view;
 }
 
 void Texture::transitionLayout(vk::CommandBuffer commandBuffer, vk::ImageLayout newLayout, const TextureMemoryBarrierFlags& srcMemoryBarrierFlags, const TextureMemoryBarrierFlags& dstMemoryBarrierFlags)
@@ -241,7 +268,7 @@ void Texture::createDefaultView()
 {
    ASSERT(!defaultView);
 
-   defaultView = createView(getDefaultViewType(imageProperties), 0, imageProperties.cubeCompatible ? 6 : 1);
+   defaultView = getOrCreateView(getDefaultViewType(imageProperties), 0, imageProperties.cubeCompatible ? 6 : 1);
    NAME_CHILD(defaultView, "Default View");
 }
 
