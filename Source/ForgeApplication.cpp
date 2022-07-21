@@ -559,7 +559,7 @@ void ForgeApplication::loadScene()
       directionalLightComponent.setBrightness(3.0f);
       directionalLightComponent.setShadowWidth(20.0f);
       directionalLightComponent.setShadowHeight(15.0f);
-      directionalLightComponent.setShadowDepth(20.0f);
+      directionalLightComponent.setShadowDepth(25.0f);
 
       scene.addTickDelegate([this, directionalLightEntity](float dt) mutable
       {
