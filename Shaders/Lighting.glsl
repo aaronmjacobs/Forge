@@ -41,6 +41,7 @@ struct SurfaceInfo
 };
 
 const float kPI = 3.14159265359;
+const float kIndirectAmount = 0.03;
 
 float positiveDot(vec3 first, vec3 second)
 {
@@ -108,7 +109,7 @@ vec3 calcOutgoingRadiance(SurfaceInfo surfaceInfo, vec3 viewDirection, vec3 ligh
 
 vec3 calcAmbient(vec3 lightColor, vec3 albedo, float ambientOcclusion, float attenuation)
 {
-   return lightColor * albedo * ambientOcclusion * attenuation * 0.005;
+   return lightColor * albedo * ambientOcclusion * attenuation;
 }
 
 float vec3Max(vec3 vec)
@@ -177,7 +178,7 @@ vec3 calcDirectionalLighting(vec3 viewPosition, SurfaceInfo surfaceInfo, Directi
       directLighting *= visibility;
    }
 
-   return directLighting + indirectLighting;
+   return mix(directLighting, indirectLighting, kIndirectAmount);
 }
 
 vec3 calcPointLighting(vec3 viewPosition, SurfaceInfo surfaceInfo, PointLight pointLight, samplerCubeArrayShadow shadowMaps)
@@ -201,7 +202,7 @@ vec3 calcPointLighting(vec3 viewPosition, SurfaceInfo surfaceInfo, PointLight po
       directLighting *= visibility;
    }
 
-   return directLighting + indirectLighting;
+   return mix(directLighting, indirectLighting, kIndirectAmount);
 }
 
 vec3 calcSpotLighting(vec3 viewPosition, SurfaceInfo surfaceInfo, SpotLight spotLight, sampler2DArrayShadow shadowMaps)
@@ -232,7 +233,7 @@ vec3 calcSpotLighting(vec3 viewPosition, SurfaceInfo surfaceInfo, SpotLight spot
       directLighting *= visibility;
    }
 
-   return directLighting + indirectLighting;
+   return mix(directLighting, indirectLighting, kIndirectAmount);
 }
 
 #endif

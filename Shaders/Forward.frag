@@ -10,6 +10,7 @@ layout(constant_id = 0) const bool kWithTextures = false;
 layout(constant_id = 1) const bool kWithBlending = false;
 
 layout(set = 1, binding = 0) uniform sampler2D normalBuffer;
+layout(set = 1, binding = 1) uniform sampler2D ssaoBuffer;
 
 layout(std430, set = 2, binding = 0) uniform Lights
 {
@@ -69,6 +70,7 @@ void main()
 
    vec2 screenTexCoord = gl_FragCoord.xy / textureSize(normalBuffer, 0);
    surfaceInfo.normal = texture(normalBuffer, screenTexCoord).rgb;
+   surfaceInfo.ambientOcclusion *= texture(ssaoBuffer, screenTexCoord).r;
 
    if (!gl_FrontFacing)
    {

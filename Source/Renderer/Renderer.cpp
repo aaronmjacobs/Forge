@@ -12,6 +12,7 @@
 #include "Renderer/Passes/Forward/ForwardPass.h"
 #include "Renderer/Passes/Normal/NormalPass.h"
 #include "Renderer/Passes/PostProcess/Tonemap/TonemapPass.h"
+#include "Renderer/Passes/SSAO/SSAOPass.h"
 #include "Renderer/Passes/UI/UIPass.h"
 #include "Renderer/SceneRenderInfo.h"
 #include "Renderer/View.h"
@@ -165,7 +166,7 @@ namespace
       return std::make_unique<Texture>(context, colorImageProperties, colorTextureProperties, colorInitialLayout);
    }
 
-   std::unique_ptr<Texture> createDepthTexture(const GraphicsContext& context, vk::Format format, vk::Extent2D extent, bool enableMSAA)
+   std::unique_ptr<Texture> createDepthTexture(const GraphicsContext& context, vk::Format format, vk::Extent2D extent, bool sampled, bool enableMSAA)
    {
       ImageProperties depthImageProperties;
       depthImageProperties.format = format;
@@ -175,6 +176,10 @@ namespace
       TextureProperties depthTextureProperties;
       depthTextureProperties.sampleCount = enableMSAA ? getMaxSampleCount(context) : vk::SampleCountFlagBits::e1;
       depthTextureProperties.usage = vk::ImageUsageFlagBits::eDepthStencilAttachment;
+      if (sampled)
+      {
+         depthTextureProperties.usage |= vk::ImageUsageFlagBits::eSampled;
+      }
       depthTextureProperties.aspects = vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil;
 
       TextureInitialLayout depthInitialLayout;
@@ -531,6 +536,9 @@ Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& reso
       normalPass = std::make_unique<NormalPass>(context, resourceManager);
       NAME_POINTER(device, normalPass, "Normal Pass");
 
+      ssaoPass = std::make_unique<SSAOPass>(context, dynamicDescriptorPool, resourceManager);
+      NAME_POINTER(device, ssaoPass, "SSAO Pass");
+
       shadowPass = std::make_unique<DepthPass>(context, resourceManager, true);
       NAME_POINTER(device, shadowPass, "Shadow Pass");
 
@@ -595,6 +603,7 @@ Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& reso
 Renderer::~Renderer()
 {
    normalPass = nullptr;
+   ssaoPass = nullptr;
    shadowPass = nullptr;
    forwardPass = nullptr;
    uiPass = nullptr;
@@ -603,6 +612,8 @@ Renderer::~Renderer()
 
    depthTexture = nullptr;
    normalTexture = nullptr;
+   ssaoTexture = nullptr;
+   ssaoBlurTexture = nullptr;
    hdrColorTexture = nullptr;
    hdrResolveTexture = nullptr;
    uiColorTexture = nullptr;
@@ -636,6 +647,8 @@ void Renderer::render(vk::CommandBuffer commandBuffer, const Scene& scene)
 
    normalPass->render(commandBuffer, sceneRenderInfo, normalPassFramebufferHandle);
 
+   ssaoPass->render(commandBuffer, sceneRenderInfo, ssaoPassFramebufferHandle, ssaoBlurPassFramebufferHandle, *depthTexture, *normalTexture, *ssaoTexture, *ssaoBlurTexture);
+
    renderShadowMaps(commandBuffer, scene, sceneRenderInfo);
 
    INLINE_LABEL("Update lighting");
@@ -647,7 +660,7 @@ void Renderer::render(vk::CommandBuffer commandBuffer, const Scene& scene)
       skyboxTexture = resourceManager.getTexture(skyboxComponent.textureHandle);
    });
 
-   forwardPass->render(commandBuffer, sceneRenderInfo, forwardPassFramebufferHandle, *normalTexture, skyboxTexture);
+   forwardPass->render(commandBuffer, sceneRenderInfo, forwardPassFramebufferHandle, *normalTexture, *ssaoTexture, skyboxTexture);
 
    uiPass->render(commandBuffer, uiPassFramebufferHandle);
    compositePass->render(commandBuffer, compositePassFramebufferHandle, *uiColorTexture, CompositeShader::Mode::SrgbToLinear);
@@ -657,8 +670,10 @@ void Renderer::render(vk::CommandBuffer commandBuffer, const Scene& scene)
 
 void Renderer::onSwapchainRecreated()
 {
-   depthTexture = createDepthTexture(context, depthStencilFormat, context.getSwapchain().getExtent(), enableMSAA);
+   depthTexture = createDepthTexture(context, depthStencilFormat, context.getSwapchain().getExtent(), true, enableMSAA);
    normalTexture = createColorTexture(context, vk::Format::eR16G16B16A16Snorm, true, enableMSAA);
+   ssaoTexture = createColorTexture(context, vk::Format::eR8Unorm, true, enableMSAA);
+   ssaoBlurTexture = createColorTexture(context, vk::Format::eR8Unorm, true, enableMSAA);
    hdrColorTexture = createColorTexture(context, vk::Format::eR16G16B16A16Sfloat, !enableMSAA, enableMSAA);
    if (enableMSAA)
    {
@@ -672,6 +687,8 @@ void Renderer::onSwapchainRecreated()
 
    NAME_POINTER(device, depthTexture, "Depth Texture");
    NAME_POINTER(device, normalTexture, "Normal Texture");
+   NAME_POINTER(device, ssaoTexture, "SSAO Texture");
+   NAME_POINTER(device, ssaoBlurTexture, "SSAO Blur Texture");
    NAME_POINTER(device, hdrColorTexture, "HDR Color Texture");
    NAME_POINTER(device, hdrResolveTexture, "HDR Resolve Texture");
    NAME_POINTER(device, uiColorTexture, "UI Color Texture");
@@ -771,6 +788,18 @@ void Renderer::updateSwapchainDependentFramebuffers()
 
       normalPass->updateAttachmentSetup(normalInfo.asBasic());
       normalPassFramebufferHandle = normalPass->createFramebuffer(normalInfo);
+   }
+
+   {
+      AttachmentInfo ssaoInfo;
+      ssaoInfo.colorInfo = { ssaoTexture->getInfo() };
+      AttachmentInfo ssaoBlurInfo;
+      ssaoBlurInfo.colorInfo = { ssaoBlurTexture->getInfo() };
+
+      ASSERT(ssaoInfo.asBasic() == ssaoBlurInfo.asBasic());
+      ssaoPass->updateAttachmentSetup(ssaoInfo.asBasic());
+      ssaoPassFramebufferHandle = ssaoPass->createFramebuffer(ssaoInfo);
+      ssaoBlurPassFramebufferHandle = ssaoPass->createFramebuffer(ssaoBlurInfo);
    }
 
    {

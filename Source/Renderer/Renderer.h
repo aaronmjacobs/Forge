@@ -20,6 +20,7 @@ class NormalPass;
 class ResourceManager;
 class Scene;
 class SimpleRenderPass;
+class SSAOPass;
 class Swapchain;
 class Texture;
 class TonemapPass;
@@ -57,11 +58,14 @@ private:
 
    std::unique_ptr<Texture> depthTexture;
    std::unique_ptr<Texture> normalTexture;
+   std::unique_ptr<Texture> ssaoTexture;
+   std::unique_ptr<Texture> ssaoBlurTexture;
    std::unique_ptr<Texture> hdrColorTexture;
    std::unique_ptr<Texture> hdrResolveTexture;
    std::unique_ptr<Texture> uiColorTexture;
 
    std::unique_ptr<NormalPass> normalPass;
+   std::unique_ptr<SSAOPass> ssaoPass;
    std::unique_ptr<DepthPass> shadowPass;
    std::unique_ptr<ForwardPass> forwardPass;
    std::unique_ptr<UIPass> uiPass;
@@ -69,6 +73,8 @@ private:
    std::unique_ptr<TonemapPass> tonemapPass;
 
    FramebufferHandle normalPassFramebufferHandle;
+   FramebufferHandle ssaoPassFramebufferHandle;
+   FramebufferHandle ssaoBlurPassFramebufferHandle;
    std::array<FramebufferHandle, ForwardLighting::kMaxSpotShadowMaps * kNumCubeFaces> pointShadowPassFramebufferHandles;
    std::array<FramebufferHandle, ForwardLighting::kMaxSpotShadowMaps> spotShadowPassFramebufferHandles;
    std::array<FramebufferHandle, ForwardLighting::kMaxDirectionalShadowMaps> directionalShadowPassFramebufferHandles;

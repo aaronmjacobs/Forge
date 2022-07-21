@@ -66,12 +66,17 @@ uint32_t ForwardShader::getPermutationIndex(bool withTextures, bool withBlending
 }
 
 // static
-std::array<vk::DescriptorSetLayoutBinding, 1> ForwardShader::getBindings()
+std::array<vk::DescriptorSetLayoutBinding, 2> ForwardShader::getBindings()
 {
    return
    {
       vk::DescriptorSetLayoutBinding()
          .setBinding(0)
+         .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+         .setDescriptorCount(1)
+         .setStageFlags(vk::ShaderStageFlagBits::eFragment),
+      vk::DescriptorSetLayoutBinding()
+         .setBinding(1)
          .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
          .setDescriptorCount(1)
          .setStageFlags(vk::ShaderStageFlagBits::eFragment)

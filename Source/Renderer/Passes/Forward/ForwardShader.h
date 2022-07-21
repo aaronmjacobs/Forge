@@ -14,7 +14,7 @@ class ForwardShader : public Shader
 public:
    static uint32_t getPermutationIndex(bool withTextures, bool withBlending);
 
-   static std::array<vk::DescriptorSetLayoutBinding, 1> getBindings();
+   static std::array<vk::DescriptorSetLayoutBinding, 2> getBindings();
    static const vk::DescriptorSetLayoutCreateInfo& getLayoutCreateInfo();
    static vk::DescriptorSetLayout getLayout(const GraphicsContext& context);
 

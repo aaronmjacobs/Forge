@@ -84,7 +84,7 @@ protected:
 
    virtual std::vector<vk::SubpassDependency> getSubpassDependencies() const = 0;
 
-   void beginRenderPass(vk::CommandBuffer commandBuffer, const Framebuffer& framebuffer, std::span<vk::ClearValue> clearValues);
+   void beginRenderPass(vk::CommandBuffer commandBuffer, const Framebuffer& framebuffer, std::span<vk::ClearValue> clearValues = {});
    void endRenderPass(vk::CommandBuffer commandBuffer);
    void setViewport(vk::CommandBuffer commandBuffer, const vk::Rect2D& rect);
 

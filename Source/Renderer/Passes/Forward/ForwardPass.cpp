@@ -94,7 +94,7 @@ ForwardPass::~ForwardPass()
    skyboxShader.reset();
 }
 
-void ForwardPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, FramebufferHandle framebufferHandle, Texture& normalBuffer, const Texture* skyboxTexture)
+void ForwardPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, FramebufferHandle framebufferHandle, Texture& normalBuffer, Texture& ssaoBuffer, const Texture* skyboxTexture)
 {
    SCOPED_LABEL(getName());
 
@@ -113,6 +113,14 @@ void ForwardPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo&
       normalBuffer.transitionLayout(commandBuffer, vk::ImageLayout::eShaderReadOnlyOptimal, srcMemoryBarrierFlags, dstMemoryBarrierFlags);
    }
 
+   vk::ImageLayout ssaoBufferInitialLayout = ssaoBuffer.getLayout();
+   if (ssaoBufferInitialLayout != vk::ImageLayout::eShaderReadOnlyOptimal)
+   {
+      TextureMemoryBarrierFlags srcMemoryBarrierFlags(vk::AccessFlagBits::eColorAttachmentWrite, vk::PipelineStageFlagBits::eColorAttachmentOutput);
+      TextureMemoryBarrierFlags dstMemoryBarrierFlags(vk::AccessFlagBits::eShaderRead, vk::PipelineStageFlagBits::eFragmentShader);
+      ssaoBuffer.transitionLayout(commandBuffer, vk::ImageLayout::eShaderReadOnlyOptimal, srcMemoryBarrierFlags, dstMemoryBarrierFlags);
+   }
+
    std::array<float, 4> clearColorValues = { 1.0f, 1.0f, 1.0f, 1.0f };
    std::array<vk::ClearValue, 2> clearValues = { vk::ClearDepthStencilValue(1.0f, 0), vk::ClearColorValue(clearColorValues) };
 
@@ -122,14 +130,28 @@ void ForwardPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo&
       .setImageLayout(normalBuffer.getLayout())
       .setImageView(normalBuffer.getDefaultView())
       .setSampler(normalSampler);
-   vk::WriteDescriptorSet normalBufferDescriptorWrite = vk::WriteDescriptorSet()
-      .setDstSet(forwardDescriptorSet.getCurrentSet())
-      .setDstBinding(0)
-      .setDstArrayElement(0)
-      .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-      .setDescriptorCount(1)
-      .setPImageInfo(&normalBufferImageInfo);
-   device.updateDescriptorSets(normalBufferDescriptorWrite, {});
+   vk::DescriptorImageInfo ssaoBufferImageInfo = vk::DescriptorImageInfo()
+      .setImageLayout(ssaoBuffer.getLayout())
+      .setImageView(ssaoBuffer.getDefaultView())
+      .setSampler(normalSampler);
+   std::vector<vk::WriteDescriptorSet> descriptorWrites =
+   {
+      vk::WriteDescriptorSet()
+         .setDstSet(forwardDescriptorSet.getCurrentSet())
+         .setDstBinding(0)
+         .setDstArrayElement(0)
+         .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+         .setDescriptorCount(1)
+         .setPImageInfo(&normalBufferImageInfo),
+      vk::WriteDescriptorSet()
+         .setDstSet(forwardDescriptorSet.getCurrentSet())
+         .setDstBinding(1)
+         .setDstArrayElement(0)
+         .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+         .setDescriptorCount(1)
+         .setPImageInfo(&ssaoBufferImageInfo)
+   };
+   device.updateDescriptorSets(descriptorWrites, {});
 
    {
       SCOPED_LABEL("Opaque");
@@ -179,6 +201,13 @@ void ForwardPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo&
       TextureMemoryBarrierFlags srcMemoryBarrierFlags(vk::AccessFlagBits::eShaderRead, vk::PipelineStageFlagBits::eFragmentShader);
       TextureMemoryBarrierFlags dstMemoryBarrierFlags(vk::AccessFlagBits::eColorAttachmentWrite, vk::PipelineStageFlagBits::eColorAttachmentOutput);
       normalBuffer.transitionLayout(commandBuffer, vk::ImageLayout::eColorAttachmentOptimal, srcMemoryBarrierFlags, dstMemoryBarrierFlags);
+   }
+
+   if (ssaoBufferInitialLayout == vk::ImageLayout::eColorAttachmentOptimal)
+   {
+      TextureMemoryBarrierFlags srcMemoryBarrierFlags(vk::AccessFlagBits::eShaderRead, vk::PipelineStageFlagBits::eFragmentShader);
+      TextureMemoryBarrierFlags dstMemoryBarrierFlags(vk::AccessFlagBits::eColorAttachmentWrite, vk::PipelineStageFlagBits::eColorAttachmentOutput);
+      ssaoBuffer.transitionLayout(commandBuffer, vk::ImageLayout::eColorAttachmentOptimal, srcMemoryBarrierFlags, dstMemoryBarrierFlags);
    }
 }
 

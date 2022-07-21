@@ -18,6 +18,7 @@ public:
    ~UniformBuffer();
 
    void update(const DataType& data);
+   void updateAll(const DataType& data);
    vk::DescriptorBufferInfo getDescriptorBufferInfo(uint32_t frameIndex) const;
 
 private:
@@ -66,6 +67,21 @@ inline void UniformBuffer<DataType>::update(const DataType& data)
    vk::DeviceSize offset = size * context.getFrameIndex();
 
    std::memcpy(static_cast<char*>(mappedMemory) + offset, &data, sizeof(data));
+}
+
+template<typename DataType>
+inline void UniformBuffer<DataType>::updateAll(const DataType& data)
+{
+   ASSERT(buffer && memory && mappedMemory);
+
+   vk::DeviceSize size = getPaddedDataSize(context);
+
+   for (uint32_t frameIndex = 0; frameIndex < GraphicsContext::kMaxFramesInFlight; ++frameIndex)
+   {
+      vk::DeviceSize offset = size * frameIndex;
+
+      std::memcpy(static_cast<char*>(mappedMemory) + offset, &data, sizeof(data));
+   }
 }
 
 template<typename DataType>

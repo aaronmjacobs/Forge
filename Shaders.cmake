@@ -19,6 +19,8 @@ set(SHADER_SOURCE_FILES
    "${SHADER_DIR}/Tonemap.frag"
    "${SHADER_DIR}/Screen.vert"
    "${SHADER_DIR}/Skybox.frag"
+   "${SHADER_DIR}/SSAO.frag"
+   "${SHADER_DIR}/SSAOBlur.frag"
 )
 
 find_program(GLSLC glslc)

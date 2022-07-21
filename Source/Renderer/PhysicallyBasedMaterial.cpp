@@ -86,7 +86,7 @@ PhysicallyBasedMaterial::PhysicallyBasedMaterial(const GraphicsContext& graphics
          .setDescriptorCount(1)
          .setPImageInfo(&imageInfo[frameIndex * 3 + 1]);
 
-         descriptorWrites[frameIndex * 3 + 2] = vk::WriteDescriptorSet()
+      descriptorWrites[frameIndex * 3 + 2] = vk::WriteDescriptorSet()
          .setDstSet(descriptorSet.getSet(frameIndex))
          .setDstBinding(2)
          .setDstArrayElement(0)
