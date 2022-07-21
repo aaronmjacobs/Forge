@@ -4,7 +4,7 @@
 
 #include "View.glsl"
 
-const uint kNumSamples = 64;
+const uint kNumSamples = 32;
 const uint kNoiseSize = 4;
 const uint kNumNoiseValues = (kNoiseSize * kNoiseSize) / 2; // Half size since only two elements per value
 

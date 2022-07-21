@@ -20,7 +20,7 @@ struct SceneRenderInfo;
 
 struct SSAOUniformData
 {
-   alignas(16) std::array<glm::vec4, 64> samples;
+   alignas(16) std::array<glm::vec4, 32> samples;
    alignas(16) std::array<glm::vec4, 16> noise;
 };
 
