@@ -168,7 +168,8 @@ vk::DescriptorPool DynamicDescriptorPool::obtainPool(const vk::DescriptorSetLayo
    for (uint32_t i = 0; i < createInfo.bindingCount; ++i)
    {
       const vk::DescriptorSetLayoutBinding& binding = createInfo.pBindings[i];
-      DescriptorAllocationInfo& descriptorAllocationInfo = poolInfo->descriptorAllocationInfo[getIndexForDescriptorType(binding.descriptorType)];
+      uint32_t descriptorAllocationIndex = getIndexForDescriptorType(binding.descriptorType);
+      DescriptorAllocationInfo& descriptorAllocationInfo = poolInfo->descriptorAllocationInfo[descriptorAllocationIndex];
 
       ASSERT(descriptorAllocationInfo.size - descriptorAllocationInfo.used >= binding.descriptorCount);
       descriptorAllocationInfo.used += binding.descriptorCount;
@@ -183,13 +184,21 @@ DynamicDescriptorPool::PoolInfo* DynamicDescriptorPool::findPool(const vk::Descr
    {
       if (poolInfo.usedSets < sizes.maxSets)
       {
+         std::array<uint32_t, kNumDescriptorIndices> usedDescriptors{};
+         for (uint32_t i = 0; i < createInfo.bindingCount; ++i)
+         {
+            const vk::DescriptorSetLayoutBinding& binding = createInfo.pBindings[i];
+            ++usedDescriptors[getIndexForDescriptorType(binding.descriptorType)];
+         }
+
          bool poolMatches = true;
          for (uint32_t i = 0; i < createInfo.bindingCount; ++i)
          {
             const vk::DescriptorSetLayoutBinding& binding = createInfo.pBindings[i];
-            const DescriptorAllocationInfo& descriptorAllocationInfo = poolInfo.descriptorAllocationInfo[getIndexForDescriptorType(binding.descriptorType)];
+            uint32_t descriptorAllocationIndex = getIndexForDescriptorType(binding.descriptorType);
+            const DescriptorAllocationInfo& descriptorAllocationInfo = poolInfo.descriptorAllocationInfo[descriptorAllocationIndex];
 
-            if (descriptorAllocationInfo.size - descriptorAllocationInfo.used < binding.descriptorCount)
+            if (descriptorAllocationInfo.size - descriptorAllocationInfo.used < usedDescriptors[descriptorAllocationIndex])
             {
                // Not enough descriptors left
                poolMatches = false;

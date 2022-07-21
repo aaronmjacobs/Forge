@@ -29,6 +29,8 @@ public:
       uint32_t mutableVALVECount = 0;
    };
 
+   static constexpr const uint32_t kNumDescriptorIndices = 15;
+
    DynamicDescriptorPool(const GraphicsContext& graphicsContext, const Sizes& poolSizes);
    ~DynamicDescriptorPool();
 
@@ -43,7 +45,7 @@ private:
 
    struct PoolInfo
    {
-      std::array<DescriptorAllocationInfo, 15> descriptorAllocationInfo;
+      std::array<DescriptorAllocationInfo, kNumDescriptorIndices> descriptorAllocationInfo;
       uint32_t usedSets = 0;
       vk::DescriptorPool pool;
    };
