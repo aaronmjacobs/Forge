@@ -35,12 +35,10 @@ public:
    CompositePass(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, ResourceManager& resourceManager);
    ~CompositePass();
 
-   void render(vk::CommandBuffer commandBuffer, FramebufferHandle framebufferHandle, Texture& sourceTexture, CompositeShader::Mode mode);
+   void render(vk::CommandBuffer commandBuffer, Texture& destinationTexture, Texture& sourceTexture, CompositeShader::Mode mode);
 
 protected:
    friend class SceneRenderPass<CompositePass>;
-
-   std::vector<vk::SubpassDependency> getSubpassDependencies() const override;
 
    Pipeline createPipeline(const PipelineDescription<CompositePass>& description);
 

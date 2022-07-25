@@ -1,6 +1,7 @@
 #include "Graphics/Swapchain.h"
 
 #include "Graphics/DebugUtils.h"
+#include "Graphics/Texture.h"
 
 namespace
 {
@@ -71,24 +72,6 @@ namespace
 
       return extent;
    }
-
-   vk::ImageView createImageView(const GraphicsContext& context, vk::Image image, vk::Format format)
-   {
-      vk::ImageSubresourceRange subresourceRange = vk::ImageSubresourceRange()
-         .setAspectMask(vk::ImageAspectFlagBits::eColor)
-         .setBaseMipLevel(0)
-         .setLevelCount(1)
-         .setBaseArrayLayer(0)
-         .setLayerCount(1);
-
-      vk::ImageViewCreateInfo createInfo = vk::ImageViewCreateInfo()
-         .setImage(image)
-         .setViewType(vk::ImageViewType::e2D)
-         .setFormat(format)
-         .setSubresourceRange(subresourceRange);
-
-      return context.getDevice().createImageView(createInfo);
-   }
 }
 
 // static
@@ -145,39 +128,35 @@ Swapchain::Swapchain(const GraphicsContext& graphicsContext, vk::Extent2D desire
    }
 
    swapchainKHR = context.getDevice().createSwapchainKHR(createInfo);
-   images = context.getDevice().getSwapchainImagesKHR(swapchainKHR);
+   std::vector<vk::Image> images = context.getDevice().getSwapchainImagesKHR(swapchainKHR);
 
-   imageViews.reserve(images.size());
+   ImageProperties imageProperties;
+   imageProperties.format = surfaceFormat.format;
+   imageProperties.width = extent.width;
+   imageProperties.height = extent.height;
+   imageProperties.hasAlpha = FormatHelpers::hasAlpha(imageProperties.format);
+
+   textures.reserve(images.size());
    uint32_t index = 0;
    for (vk::Image image : images)
    {
-      imageViews.push_back(createImageView(context, image, format));
-
-      NAME_CHILD(images[index], "Image " + DebugUtils::toString(index));
-      NAME_CHILD(imageViews[index], "Image View " + DebugUtils::toString(index));
+      textures.push_back(std::make_unique<Texture>(context, imageProperties, image));
+      NAME_CHILD_POINTER(textures[index], "Texture " + DebugUtils::toString(index));
       ++index;
    }
 }
 
 Swapchain::~Swapchain()
 {
-   for (vk::ImageView imageView : imageViews)
-   {
-      device.destroyImageView(imageView);
-   }
+   textures.clear();
 
    device.destroySwapchainKHR(swapchainKHR);
 }
 
-TextureInfo Swapchain::getTextureInfo() const
+Texture& Swapchain::getCurrentTexture() const
 {
-   TextureInfo info;
+   uint32_t index = context.getSwapchainIndex();
+   ASSERT(index < textures.size() && textures[index] != nullptr);
 
-   info.format = format;
-   info.extent = extent;
-   info.sampleCount = vk::SampleCountFlagBits::e1;
-   info.view = nullptr;
-   info.isSwapchainTexture = true;
-
-   return info;
+   return *textures[index];
 }

@@ -46,18 +46,18 @@ public:
    SSAOPass(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, ResourceManager& resourceManager);
    ~SSAOPass();
 
-   void render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, FramebufferHandle ssaoFramebufferHandle, FramebufferHandle blurFramebufferHandle, Texture& depthBuffer, Texture& normalBuffer, Texture& ssaoBuffer, Texture& ssaoBlurBuffer);
+   void render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, Texture& depthTexture, Texture& normalTexture, Texture& ssaoTexture, Texture& ssaoBlurTexture);
 
 protected:
    friend class SceneRenderPass<SSAOPass>;
 
-   std::vector<vk::SubpassDependency> getSubpassDependencies() const override;
-
    Pipeline createPipeline(const PipelineDescription<SSAOPass>& description);
 
 private:
-   void renderSSAO(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, const Framebuffer& framebuffer, Texture& depthBuffer, Texture& normalBuffer);
-   void renderBlur(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, const Framebuffer& framebuffer, Texture& sourceBuffer, Texture& depthBuffer, bool horizontal);
+   void renderSSAO(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, Texture& depthTexture, Texture& normalTexture, Texture& ssaoTexture);
+   void renderBlur(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, Texture& depthTexture, Texture& inputTexture, Texture& outputTexture, bool horizontal);
+
+   vk::ImageView getDepthView(Texture& depthTexture);
 
    std::unique_ptr<SSAOShader> ssaoShader;
    std::unique_ptr<SSAOBlurShader> blurShader;

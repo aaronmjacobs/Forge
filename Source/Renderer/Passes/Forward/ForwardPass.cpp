@@ -19,9 +19,6 @@ ForwardPass::ForwardPass(const GraphicsContext& graphicsContext, DynamicDescript
    , forwardDescriptorSet(graphicsContext, dynamicDescriptorPool, ForwardShader::getLayoutCreateInfo())
    , skyboxDescriptorSet(graphicsContext, dynamicDescriptorPool, SkyboxShader::getLayoutCreateInfo())
 {
-   clearDepth = false;
-   clearColor = true;
-
    forwardShader = std::make_unique<ForwardShader>(context, resourceManager);
    skyboxShader = std::make_unique<SkyboxShader>(context, resourceManager);
 
@@ -94,45 +91,47 @@ ForwardPass::~ForwardPass()
    skyboxShader.reset();
 }
 
-void ForwardPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, FramebufferHandle framebufferHandle, Texture& normalBuffer, Texture& ssaoBuffer, const Texture* skyboxTexture)
+void ForwardPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, Texture& depthTexture, Texture& colorTexture, Texture* colorResolveTexture, Texture& normalTexture, Texture& ssaoTexture, const Texture* skyboxTexture)
 {
    SCOPED_LABEL(getName());
 
-   const Framebuffer* framebuffer = getFramebuffer(framebufferHandle);
-   if (!framebuffer)
+   depthTexture.transitionLayout(commandBuffer, TextureLayoutType::AttachmentWrite);
+   colorTexture.transitionLayout(commandBuffer, TextureLayoutType::AttachmentWrite);
+   if (colorResolveTexture)
    {
-      ASSERT(false);
-      return;
+      colorResolveTexture->transitionLayout(commandBuffer, TextureLayoutType::AttachmentWrite);
+   }
+   normalTexture.transitionLayout(commandBuffer, TextureLayoutType::ShaderRead);
+   ssaoTexture.transitionLayout(commandBuffer, TextureLayoutType::ShaderRead);
+   ASSERT(!skyboxTexture || skyboxTexture->getLayout() == vk::ImageLayout::eShaderReadOnlyOptimal);
+
+   vk::RenderingAttachmentInfo depthStencilAttachmentInfo = vk::RenderingAttachmentInfo()
+      .setImageView(depthTexture.getDefaultView())
+      .setImageLayout(depthTexture.getLayout())
+      .setLoadOp(vk::AttachmentLoadOp::eLoad);
+
+   vk::RenderingAttachmentInfo colorAttachmentInfo = vk::RenderingAttachmentInfo()
+      .setImageView(colorTexture.getDefaultView())
+      .setImageLayout(colorTexture.getLayout())
+      .setLoadOp(vk::AttachmentLoadOp::eClear)
+      .setClearValue(vk::ClearColorValue(std::array<float, 4>{ 1.0f, 1.0f, 1.0f, 1.0f }));
+   if (colorResolveTexture)
+   {
+      colorAttachmentInfo.setResolveMode(vk::ResolveModeFlagBits::eAverage);
+      colorAttachmentInfo.setResolveImageView(colorResolveTexture->getDefaultView());
+      colorAttachmentInfo.setResolveImageLayout(colorResolveTexture->getLayout());
    }
 
-   vk::ImageLayout normalBufferInitialLayout = normalBuffer.getLayout();
-   if (normalBufferInitialLayout != vk::ImageLayout::eShaderReadOnlyOptimal)
-   {
-      TextureMemoryBarrierFlags srcMemoryBarrierFlags(vk::AccessFlagBits::eColorAttachmentWrite, vk::PipelineStageFlagBits::eColorAttachmentOutput);
-      TextureMemoryBarrierFlags dstMemoryBarrierFlags(vk::AccessFlagBits::eShaderRead, vk::PipelineStageFlagBits::eFragmentShader);
-      normalBuffer.transitionLayout(commandBuffer, vk::ImageLayout::eShaderReadOnlyOptimal, srcMemoryBarrierFlags, dstMemoryBarrierFlags);
-   }
-
-   vk::ImageLayout ssaoBufferInitialLayout = ssaoBuffer.getLayout();
-   if (ssaoBufferInitialLayout != vk::ImageLayout::eShaderReadOnlyOptimal)
-   {
-      TextureMemoryBarrierFlags srcMemoryBarrierFlags(vk::AccessFlagBits::eColorAttachmentWrite, vk::PipelineStageFlagBits::eColorAttachmentOutput);
-      TextureMemoryBarrierFlags dstMemoryBarrierFlags(vk::AccessFlagBits::eShaderRead, vk::PipelineStageFlagBits::eFragmentShader);
-      ssaoBuffer.transitionLayout(commandBuffer, vk::ImageLayout::eShaderReadOnlyOptimal, srcMemoryBarrierFlags, dstMemoryBarrierFlags);
-   }
-
-   std::array<float, 4> clearColorValues = { 1.0f, 1.0f, 1.0f, 1.0f };
-   std::array<vk::ClearValue, 2> clearValues = { vk::ClearDepthStencilValue(1.0f, 0), vk::ClearColorValue(clearColorValues) };
-
-   beginRenderPass(commandBuffer, *framebuffer, clearValues);
+   ASSERT(depthTexture.getExtent() == colorTexture.getExtent());
+   beginRenderPass(commandBuffer, depthTexture.getExtent(), &depthStencilAttachmentInfo, &colorAttachmentInfo);
 
    vk::DescriptorImageInfo normalBufferImageInfo = vk::DescriptorImageInfo()
-      .setImageLayout(normalBuffer.getLayout())
-      .setImageView(normalBuffer.getDefaultView())
+      .setImageLayout(normalTexture.getLayout())
+      .setImageView(normalTexture.getDefaultView())
       .setSampler(normalSampler);
    vk::DescriptorImageInfo ssaoBufferImageInfo = vk::DescriptorImageInfo()
-      .setImageLayout(ssaoBuffer.getLayout())
-      .setImageView(ssaoBuffer.getDefaultView())
+      .setImageLayout(ssaoTexture.getLayout())
+      .setImageView(ssaoTexture.getDefaultView())
       .setSampler(normalSampler);
    std::vector<vk::WriteDescriptorSet> descriptorWrites =
    {
@@ -195,35 +194,6 @@ void ForwardPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo&
    }
 
    endRenderPass(commandBuffer);
-
-   if (normalBufferInitialLayout == vk::ImageLayout::eColorAttachmentOptimal)
-   {
-      TextureMemoryBarrierFlags srcMemoryBarrierFlags(vk::AccessFlagBits::eShaderRead, vk::PipelineStageFlagBits::eFragmentShader);
-      TextureMemoryBarrierFlags dstMemoryBarrierFlags(vk::AccessFlagBits::eColorAttachmentWrite, vk::PipelineStageFlagBits::eColorAttachmentOutput);
-      normalBuffer.transitionLayout(commandBuffer, vk::ImageLayout::eColorAttachmentOptimal, srcMemoryBarrierFlags, dstMemoryBarrierFlags);
-   }
-
-   if (ssaoBufferInitialLayout == vk::ImageLayout::eColorAttachmentOptimal)
-   {
-      TextureMemoryBarrierFlags srcMemoryBarrierFlags(vk::AccessFlagBits::eShaderRead, vk::PipelineStageFlagBits::eFragmentShader);
-      TextureMemoryBarrierFlags dstMemoryBarrierFlags(vk::AccessFlagBits::eColorAttachmentWrite, vk::PipelineStageFlagBits::eColorAttachmentOutput);
-      ssaoBuffer.transitionLayout(commandBuffer, vk::ImageLayout::eColorAttachmentOptimal, srcMemoryBarrierFlags, dstMemoryBarrierFlags);
-   }
-}
-
-std::vector<vk::SubpassDependency> ForwardPass::getSubpassDependencies() const
-{
-   std::vector<vk::SubpassDependency> subpassDependencies;
-
-   subpassDependencies.push_back(vk::SubpassDependency()
-      .setSrcSubpass(VK_SUBPASS_EXTERNAL)
-      .setDstSubpass(0)
-      .setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
-      .setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
-      .setDstStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
-      .setDstAccessMask(vk::AccessFlagBits::eColorAttachmentRead | vk::AccessFlagBits::eColorAttachmentWrite));
-
-   return subpassDependencies;
 }
 
 void ForwardPass::renderMesh(vk::CommandBuffer commandBuffer, const Pipeline& pipeline, const View& view, const Mesh& mesh, uint32_t section, const Material& material)
@@ -278,9 +248,10 @@ Pipeline ForwardPass::createPipeline(const PipelineDescription<ForwardPass>& des
    pipelineInfo.twoSided = description.twoSided;
 
    PipelineData pipelineData;
-   pipelineData.renderPass = getRenderPass();
    pipelineData.layout = description.skybox ? skyboxPipelineLayout : forwardPipelineLayout;
    pipelineData.sampleCount = getSampleCount();
+   pipelineData.depthStencilFormat = getDepthStencilFormat();
+   pipelineData.colorFormats = getColorFormats();
    pipelineData.shaderStages = description.skybox ? skyboxShader->getStages() : forwardShader->getStages(description.withTextures, description.withBlending);
    pipelineData.colorBlendStates = { blendAttachmentStates };
 

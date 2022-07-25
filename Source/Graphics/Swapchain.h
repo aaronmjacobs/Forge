@@ -3,7 +3,10 @@
 #include "Graphics/GraphicsResource.h"
 #include "Graphics/TextureInfo.h"
 
+#include <memory>
 #include <vector>
+
+class Texture;
 
 struct SwapchainSupportDetails
 {
@@ -47,15 +50,10 @@ public:
 
    uint32_t getImageCount() const
    {
-      return static_cast<uint32_t>(images.size());
+      return static_cast<uint32_t>(textures.size());
    }
 
-   const std::vector<vk::ImageView>& getImageViews() const
-   {
-      return imageViews;
-   }
-
-   TextureInfo getTextureInfo() const;
+   Texture& getCurrentTexture() const;
 
 private:
    vk::Format format;
@@ -63,6 +61,5 @@ private:
 
    uint32_t minImageCount = 0;
    vk::SwapchainKHR swapchainKHR;
-   std::vector<vk::Image> images;
-   std::vector<vk::ImageView> imageViews;
+   std::vector<std::unique_ptr<Texture>> textures;
 };

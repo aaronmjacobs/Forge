@@ -54,16 +54,16 @@ namespace
          }
       }
 
-      std::vector<const char*> optionalDeviceExtensions = { VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME, VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME };
+      std::vector<const char*> optionalExtensions = { VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME, VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME };
 #if FORGE_DEBUG
-      optionalDeviceExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+      optionalExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 #endif // FORGE_DEBUG
 
-      for (const char* optionalDeviceExtension : optionalDeviceExtensions)
+      for (const char* optionalExtension : optionalExtensions)
       {
-         if (hasExtensionProperty(extensionProperties, optionalDeviceExtension))
+         if (hasExtensionProperty(extensionProperties, optionalExtension))
          {
-            extensions.push_back(optionalDeviceExtension);
+            extensions.push_back(optionalExtension);
          }
       }
 
@@ -95,8 +95,25 @@ namespace
    }
 
 #if FORGE_DEBUG
+   bool isDebugMessageIgnored(int32_t messageId)
+   {
+      // VUID-vkCmdBindPipeline-pipeline-06195, etc.
+      // https://github.com/KhronosGroup/Vulkan-ValidationLayers/issues/4235
+      return messageId == 296975921
+         || messageId == 354377306
+         || messageId == -690520546
+         || messageId == 1813430196
+         || messageId == 604302748
+         || messageId == -945112042;
+   }
+
    VKAPI_ATTR VkBool32 VKAPI_CALL vulkanDebugMessageCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData)
    {
+      if (pCallbackData && isDebugMessageIgnored(pCallbackData->messageIdNumber))
+      {
+         return VK_FALSE;
+      }
+
       const char* typeName = nullptr;
       switch (messageType)
       {
@@ -150,9 +167,12 @@ namespace
 
    std::vector<const char*> getDeviceExtensions(vk::PhysicalDevice physicalDevice)
    {
-      static const std::array<const char*, 1> kRequiredDeviceExtensions =
+      static const std::array<const char*, 4> kRequiredDeviceExtensions =
       {
-         VK_KHR_SWAPCHAIN_EXTENSION_NAME
+         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+         VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
+         VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME,
+         VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME
       };
 
       static const std::array<const char*, 2> kOptionalDeviceExtensions =
@@ -410,7 +430,7 @@ GraphicsContext::GraphicsContext(Window& window)
    deviceFeatures.setImageCubeArray(true);
    deviceFeatures.setDepthBiasClamp(true);
 
-   void* deviceCreateInfoNext = nullptr;
+   void* portabilityFeaturesPointer = nullptr;
    vk::PhysicalDevicePortabilitySubsetFeaturesKHR portabilityFeatures;
    if (std::find(deviceExtensions.begin(), deviceExtensions.end(), VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME) != deviceExtensions.end())
    {
@@ -418,15 +438,19 @@ GraphicsContext::GraphicsContext(Window& window)
       physicalDeviceFeatures2.setPNext(&portabilityFeatures);
 
       physicalDevice.getFeatures2(&physicalDeviceFeatures2);
-      deviceCreateInfoNext = &portabilityFeatures;
+      portabilityFeaturesPointer = &portabilityFeatures;
    }
+
+   vk::PhysicalDeviceDynamicRenderingFeatures dynamicRenderingFeatures = vk::PhysicalDeviceDynamicRenderingFeatures()
+      .setDynamicRendering(true)
+      .setPNext(portabilityFeaturesPointer);
 
    vk::DeviceCreateInfo deviceCreateInfo = vk::DeviceCreateInfo()
       .setQueueCreateInfos(deviceQueueCreateInfos)
       .setPEnabledLayerNames(layers)
       .setPEnabledExtensionNames(deviceExtensions)
       .setPEnabledFeatures(&deviceFeatures)
-      .setPNext(deviceCreateInfoNext);
+      .setPNext(&dynamicRenderingFeatures);
 
    device = physicalDevice.createDevice(deviceCreateInfo);
    dispatchLoaderDynamic.init(device);

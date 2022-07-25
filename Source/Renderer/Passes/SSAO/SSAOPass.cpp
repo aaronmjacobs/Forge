@@ -13,44 +13,6 @@
 #include <random>
 #include <utility>
 
-class ScopedTextureLayoutTransition
-{
-public:
-   ScopedTextureLayoutTransition(vk::CommandBuffer cmdBuffer, Texture& tex, vk::ImageLayout desiredLayout, const TextureMemoryBarrierFlags& startSrcFlags, const TextureMemoryBarrierFlags& startDstFlags, const TextureMemoryBarrierFlags& endSrcFlags, const TextureMemoryBarrierFlags& endDstFlags)
-      : commandBuffer(cmdBuffer)
-      , texture(tex)
-      , initialLayout(tex.getLayout())
-      , startSrcBarrierFlags(startSrcFlags)
-      , startDstBarrierFlags(startDstFlags)
-      , endSrcBarrierFlags(endSrcFlags)
-      , endDstBarrierFlags(endDstFlags)
-   {
-      if (initialLayout != desiredLayout)
-      {
-         texture.transitionLayout(commandBuffer, desiredLayout, startSrcBarrierFlags, startDstBarrierFlags);
-      }
-   }
-
-   ~ScopedTextureLayoutTransition()
-   {
-      if (texture.getLayout() != initialLayout)
-      {
-         texture.transitionLayout(commandBuffer, initialLayout, endSrcBarrierFlags, endDstBarrierFlags);
-      }
-   }
-
-private:
-   vk::CommandBuffer commandBuffer;
-   Texture& texture;
-
-   vk::ImageLayout initialLayout = vk::ImageLayout::eUndefined;
-
-   TextureMemoryBarrierFlags startSrcBarrierFlags;
-   TextureMemoryBarrierFlags startDstBarrierFlags;
-   TextureMemoryBarrierFlags endSrcBarrierFlags;
-   TextureMemoryBarrierFlags endDstBarrierFlags;
-};
-
 SSAOPass::SSAOPass(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, ResourceManager& resourceManager)
    : SceneRenderPass(graphicsContext)
    , ssaoDescriptorSet(graphicsContext, dynamicDescriptorPool, SSAOShader::getLayoutCreateInfo())
@@ -58,9 +20,6 @@ SSAOPass::SSAOPass(const GraphicsContext& graphicsContext, DynamicDescriptorPool
    , verticalBlurDescriptorSet(graphicsContext, dynamicDescriptorPool, SSAOBlurShader::getLayoutCreateInfo())
    , uniformBuffer(graphicsContext)
 {
-   clearColor = true;
-   clearDepth = false;
-
    NAME_CHILD(ssaoDescriptorSet, "SSAO");
    NAME_CHILD(blurPipelineLayout, "Blur");
    NAME_CHILD(uniformBuffer, "");
@@ -155,37 +114,14 @@ SSAOPass::~SSAOPass()
    blurShader.reset();
 }
 
-void SSAOPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, FramebufferHandle ssaoFramebufferHandle, FramebufferHandle blurFramebufferHandle, Texture& depthBuffer, Texture& normalBuffer, Texture& ssaoBuffer, Texture& ssaoBlurBuffer)
+void SSAOPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, Texture& depthTexture, Texture& normalTexture, Texture& ssaoTexture, Texture& ssaoBlurTexture)
 {
    SCOPED_LABEL(getName());
 
-   const Framebuffer* ssaoFramebuffer = getFramebuffer(ssaoFramebufferHandle);
-   const Framebuffer* blurFramebuffer = getFramebuffer(blurFramebufferHandle);
-   if (!ssaoFramebuffer || !blurFramebuffer)
-   {
-      ASSERT(false);
-      return;
-   }
+   renderSSAO(commandBuffer, sceneRenderInfo, depthTexture, normalTexture, ssaoTexture);
 
-   renderSSAO(commandBuffer, sceneRenderInfo, *ssaoFramebuffer, depthBuffer, normalBuffer);
-
-   renderBlur(commandBuffer, sceneRenderInfo, *blurFramebuffer, ssaoBuffer, depthBuffer, true);
-   renderBlur(commandBuffer, sceneRenderInfo, *ssaoFramebuffer, ssaoBlurBuffer, depthBuffer, false);
-}
-
-std::vector<vk::SubpassDependency> SSAOPass::getSubpassDependencies() const
-{
-   std::vector<vk::SubpassDependency> subpassDependencies;
-
-   subpassDependencies.push_back(vk::SubpassDependency()
-      .setSrcSubpass(VK_SUBPASS_EXTERNAL)
-      .setDstSubpass(0)
-      .setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
-      .setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
-      .setDstStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
-      .setDstAccessMask(vk::AccessFlagBits::eColorAttachmentRead | vk::AccessFlagBits::eColorAttachmentWrite));
-
-   return subpassDependencies;
+   renderBlur(commandBuffer, sceneRenderInfo, depthTexture, ssaoTexture, ssaoBlurTexture, true);
+   renderBlur(commandBuffer, sceneRenderInfo, depthTexture, ssaoBlurTexture, ssaoTexture, false);
 }
 
 Pipeline SSAOPass::createPipeline(const PipelineDescription<SSAOPass>& description)
@@ -198,9 +134,10 @@ Pipeline SSAOPass::createPipeline(const PipelineDescription<SSAOPass>& descripti
    pipelineInfo.passType = PipelinePassType::Screen;
 
    PipelineData pipelineData;
-   pipelineData.renderPass = getRenderPass();
    pipelineData.layout = description.blur ? blurPipelineLayout : ssaoPipelineLayout;
    pipelineData.sampleCount = getSampleCount();
+   pipelineData.depthStencilFormat = getDepthStencilFormat();
+   pipelineData.colorFormats = getColorFormats();
    pipelineData.shaderStages = description.blur ? blurShader->getStages(description.horizontal) : ssaoShader->getStages();
    pipelineData.colorBlendStates = { attachmentState };
 
@@ -210,31 +147,24 @@ Pipeline SSAOPass::createPipeline(const PipelineDescription<SSAOPass>& descripti
    return pipeline;
 }
 
-void SSAOPass::renderSSAO(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, const Framebuffer& framebuffer, Texture& depthBuffer, Texture& normalBuffer)
+void SSAOPass::renderSSAO(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, Texture& depthTexture, Texture& normalTexture, Texture& ssaoTexture)
 {
    SCOPED_LABEL("SSAO");
 
-   bool depthViewCreated = false;
-   vk::ImageView depthView = depthBuffer.getOrCreateView(vk::ImageViewType::e2D, 0, 1, vk::ImageAspectFlagBits::eDepth, &depthViewCreated);
-   if (depthViewCreated)
-   {
-      NAME_CHILD(depthView, "Depth View");
-   }
+   depthTexture.transitionLayout(commandBuffer, TextureLayoutType::ShaderRead);
+   normalTexture.transitionLayout(commandBuffer, TextureLayoutType::ShaderRead);
+   ssaoTexture.transitionLayout(commandBuffer, TextureLayoutType::AttachmentWrite);
 
-   static const TextureMemoryBarrierFlags kDepthWriteFlags(vk::AccessFlagBits::eDepthStencilAttachmentWrite, vk::PipelineStageFlagBits::eLateFragmentTests);
-   static const TextureMemoryBarrierFlags kColorWriteFlags(vk::AccessFlagBits::eColorAttachmentWrite, vk::PipelineStageFlagBits::eColorAttachmentOutput);
-   static const TextureMemoryBarrierFlags kShaderReadFlags(vk::AccessFlagBits::eShaderRead, vk::PipelineStageFlagBits::eFragmentShader);
+   vk::RenderingAttachmentInfo colorAttachmentInfo = vk::RenderingAttachmentInfo()
+      .setImageView(ssaoTexture.getDefaultView())
+      .setImageLayout(ssaoTexture.getLayout())
+      .setLoadOp(vk::AttachmentLoadOp::eDontCare);
 
-   ScopedTextureLayoutTransition depthBufferTransition(commandBuffer, depthBuffer, vk::ImageLayout::eShaderReadOnlyOptimal, kDepthWriteFlags, kShaderReadFlags, kShaderReadFlags, kDepthWriteFlags);
-   ScopedTextureLayoutTransition normalBufferTransition(commandBuffer, normalBuffer, vk::ImageLayout::eShaderReadOnlyOptimal, kColorWriteFlags, kShaderReadFlags, kShaderReadFlags, kColorWriteFlags);
-
-   std::array<float, 4> clearColorValues = { 1.0f, 1.0f, 1.0f, 1.0f };
-   std::array<vk::ClearValue, 1> clearValues = { vk::ClearColorValue(clearColorValues) };
-   beginRenderPass(commandBuffer, framebuffer, clearValues);
+   beginRenderPass(commandBuffer, ssaoTexture.getExtent(), nullptr, &colorAttachmentInfo);
 
    vk::DescriptorImageInfo depthBufferImageInfo = vk::DescriptorImageInfo()
-      .setImageLayout(depthBuffer.getLayout())
-      .setImageView(depthView)
+      .setImageLayout(depthTexture.getLayout())
+      .setImageView(getDepthView(depthTexture))
       .setSampler(sampler);
    vk::WriteDescriptorSet depthBufferDescriptorWrite = vk::WriteDescriptorSet()
       .setDstSet(ssaoDescriptorSet.getCurrentSet())
@@ -244,8 +174,8 @@ void SSAOPass::renderSSAO(vk::CommandBuffer commandBuffer, const SceneRenderInfo
       .setDescriptorCount(1)
       .setPImageInfo(&depthBufferImageInfo);
    vk::DescriptorImageInfo normalBufferImageInfo = vk::DescriptorImageInfo()
-      .setImageLayout(normalBuffer.getLayout())
-      .setImageView(normalBuffer.getDefaultView())
+      .setImageLayout(normalTexture.getLayout())
+      .setImageView(normalTexture.getDefaultView())
       .setSampler(sampler);
    vk::WriteDescriptorSet normalBufferDescriptorWrite = vk::WriteDescriptorSet()
       .setDstSet(ssaoDescriptorSet.getCurrentSet())
@@ -265,33 +195,26 @@ void SSAOPass::renderSSAO(vk::CommandBuffer commandBuffer, const SceneRenderInfo
    endRenderPass(commandBuffer);
 }
 
-void SSAOPass::renderBlur(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, const Framebuffer& framebuffer, Texture& sourceBuffer, Texture& depthBuffer, bool horizontal)
+void SSAOPass::renderBlur(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, Texture& depthTexture, Texture& inputTexture, Texture& outputTexture, bool horizontal)
 {
    SCOPED_LABEL(std::string(horizontal ? "Horizontal" : "Vertical") + " Blur");
 
-   bool depthViewCreated = false;
-   vk::ImageView depthView = depthBuffer.getOrCreateView(vk::ImageViewType::e2D, 0, 1, vk::ImageAspectFlagBits::eDepth, &depthViewCreated);
-   if (depthViewCreated)
-   {
-      NAME_CHILD(depthView, "Depth View");
-   }
+   depthTexture.transitionLayout(commandBuffer, TextureLayoutType::ShaderRead);
+   inputTexture.transitionLayout(commandBuffer, TextureLayoutType::ShaderRead);
+   outputTexture.transitionLayout(commandBuffer, TextureLayoutType::AttachmentWrite);
 
-   static const TextureMemoryBarrierFlags kDepthWriteFlags(vk::AccessFlagBits::eDepthStencilAttachmentWrite, vk::PipelineStageFlagBits::eLateFragmentTests);
-   static const TextureMemoryBarrierFlags kColorWriteFlags(vk::AccessFlagBits::eColorAttachmentWrite, vk::PipelineStageFlagBits::eColorAttachmentOutput);
-   static const TextureMemoryBarrierFlags kShaderReadFlags(vk::AccessFlagBits::eShaderRead, vk::PipelineStageFlagBits::eFragmentShader);
+   vk::RenderingAttachmentInfo colorAttachmentInfo = vk::RenderingAttachmentInfo()
+      .setImageView(outputTexture.getDefaultView())
+      .setImageLayout(outputTexture.getLayout())
+      .setLoadOp(vk::AttachmentLoadOp::eDontCare);
 
-   ScopedTextureLayoutTransition depthBufferTransition(commandBuffer, depthBuffer, vk::ImageLayout::eShaderReadOnlyOptimal, kDepthWriteFlags, kShaderReadFlags, kShaderReadFlags, kDepthWriteFlags);
-   ScopedTextureLayoutTransition sourceBufferTransition(commandBuffer, sourceBuffer, vk::ImageLayout::eShaderReadOnlyOptimal, kColorWriteFlags, kShaderReadFlags, kShaderReadFlags, kColorWriteFlags);
-
-   std::array<float, 4> clearColorValues = { 1.0f, 1.0f, 1.0f, 1.0f };
-   std::array<vk::ClearValue, 1> clearValues = { vk::ClearColorValue(clearColorValues) };
-   beginRenderPass(commandBuffer, framebuffer, clearValues);
+   beginRenderPass(commandBuffer, outputTexture.getExtent(), nullptr, &colorAttachmentInfo);
 
    DescriptorSet& blurDescriptorSet = horizontal ? horizontalBlurDescriptorSet : verticalBlurDescriptorSet;
 
    vk::DescriptorImageInfo sourceBufferImageInfo = vk::DescriptorImageInfo()
-      .setImageLayout(sourceBuffer.getLayout())
-      .setImageView(sourceBuffer.getDefaultView())
+      .setImageLayout(inputTexture.getLayout())
+      .setImageView(inputTexture.getDefaultView())
       .setSampler(sampler);
    vk::WriteDescriptorSet sourceBufferDescriptorWrite = vk::WriteDescriptorSet()
       .setDstSet(blurDescriptorSet.getCurrentSet())
@@ -301,8 +224,8 @@ void SSAOPass::renderBlur(vk::CommandBuffer commandBuffer, const SceneRenderInfo
       .setDescriptorCount(1)
       .setPImageInfo(&sourceBufferImageInfo);
    vk::DescriptorImageInfo depthBufferImageInfo = vk::DescriptorImageInfo()
-      .setImageLayout(depthBuffer.getLayout())
-      .setImageView(depthView)
+      .setImageLayout(depthTexture.getLayout())
+      .setImageView(getDepthView(depthTexture))
       .setSampler(sampler);
    vk::WriteDescriptorSet depthBufferDescriptorWrite = vk::WriteDescriptorSet()
       .setDstSet(blurDescriptorSet.getCurrentSet())
@@ -321,4 +244,17 @@ void SSAOPass::renderBlur(vk::CommandBuffer commandBuffer, const SceneRenderInfo
    renderScreenMesh(commandBuffer, getPipeline(pipelineDescription));
 
    endRenderPass(commandBuffer);
+}
+
+vk::ImageView SSAOPass::getDepthView(Texture& depthTexture)
+{
+   bool depthViewCreated = false;
+   vk::ImageView depthView = depthTexture.getOrCreateView(vk::ImageViewType::e2D, 0, 1, vk::ImageAspectFlagBits::eDepth, &depthViewCreated);
+
+   if (depthViewCreated)
+   {
+      NAME_CHILD(depthView, "Depth View");
+   }
+
+   return depthView;
 }

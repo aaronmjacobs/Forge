@@ -14,9 +14,6 @@
 NormalPass::NormalPass(const GraphicsContext& graphicsContext, ResourceManager& resourceManager)
    : SceneRenderPass(graphicsContext)
 {
-   clearDepth = true;
-   clearColor = true;
-
    normalShader = std::make_unique<NormalShader>(context, resourceManager);
 
    {
@@ -37,21 +34,27 @@ NormalPass::~NormalPass()
    normalShader.reset();
 }
 
-void NormalPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, FramebufferHandle framebufferHandle)
+void NormalPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, Texture& depthTexture, Texture& normalTexture)
 {
    SCOPED_LABEL(getName());
 
-   const Framebuffer* framebuffer = getFramebuffer(framebufferHandle);
-   if (!framebuffer)
-   {
-      ASSERT(false);
-      return;
-   }
+   depthTexture.transitionLayout(commandBuffer, TextureLayoutType::AttachmentWrite);
+   normalTexture.transitionLayout(commandBuffer, TextureLayoutType::AttachmentWrite);
 
-   std::array<float, 4> clearColorValues = { 0.0f, 0.0f, 0.0f, 1.0f };
-   std::array<vk::ClearValue, 2> clearValues = { vk::ClearDepthStencilValue(1.0f, 0), vk::ClearColorValue(clearColorValues) };
+   vk::RenderingAttachmentInfo depthStencilAttachmentInfo = vk::RenderingAttachmentInfo()
+      .setImageView(depthTexture.getDefaultView())
+      .setImageLayout(depthTexture.getLayout())
+      .setLoadOp(vk::AttachmentLoadOp::eClear)
+      .setClearValue(vk::ClearDepthStencilValue(1.0f, 0));
 
-   beginRenderPass(commandBuffer, *framebuffer, clearValues);
+   vk::RenderingAttachmentInfo colorAttachmentInfo = vk::RenderingAttachmentInfo()
+      .setImageView(normalTexture.getDefaultView())
+      .setImageLayout(normalTexture.getLayout())
+      .setLoadOp(vk::AttachmentLoadOp::eClear)
+      .setClearValue(vk::ClearColorValue(std::array<float, 4>{ 0.0f, 0.0f, 0.0f, 1.0f }));
+
+   ASSERT(depthTexture.getExtent() == normalTexture.getExtent());
+   beginRenderPass(commandBuffer, depthTexture.getExtent(), &depthStencilAttachmentInfo, &colorAttachmentInfo);
 
    {
       SCOPED_LABEL("Opaque");
@@ -64,21 +67,6 @@ void NormalPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& 
    }
 
    endRenderPass(commandBuffer);
-}
-
-std::vector<vk::SubpassDependency> NormalPass::getSubpassDependencies() const
-{
-   std::vector<vk::SubpassDependency> subpassDependencies;
-
-   subpassDependencies.push_back(vk::SubpassDependency()
-      .setSrcSubpass(VK_SUBPASS_EXTERNAL)
-      .setDstSubpass(0)
-      .setSrcStageMask(vk::PipelineStageFlagBits::eEarlyFragmentTests | vk::PipelineStageFlagBits::eLateFragmentTests | vk::PipelineStageFlagBits::eColorAttachmentOutput)
-      .setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite | vk::AccessFlagBits::eDepthStencilAttachmentWrite)
-      .setDstStageMask(vk::PipelineStageFlagBits::eEarlyFragmentTests | vk::PipelineStageFlagBits::eLateFragmentTests | vk::PipelineStageFlagBits::eColorAttachmentOutput)
-      .setDstAccessMask(vk::AccessFlagBits::eDepthStencilAttachmentRead | vk::AccessFlagBits::eDepthStencilAttachmentWrite | vk::AccessFlagBits::eColorAttachmentRead | vk::AccessFlagBits::eColorAttachmentWrite));
-
-   return subpassDependencies;
 }
 
 void NormalPass::renderMesh(vk::CommandBuffer commandBuffer, const Pipeline& pipeline, const View& view, const Mesh& mesh, uint32_t section, const Material& material)
@@ -117,9 +105,10 @@ Pipeline NormalPass::createPipeline(const PipelineDescription<NormalPass>& descr
    pipelineInfo.twoSided = description.twoSided;
 
    PipelineData pipelineData;
-   pipelineData.renderPass = getRenderPass();
    pipelineData.layout = pipelineLayout;
    pipelineData.sampleCount = getSampleCount();
+   pipelineData.depthStencilFormat = getDepthStencilFormat();
+   pipelineData.colorFormats = getColorFormats();
    pipelineData.shaderStages = normalShader->getStages(description.withTextures, description.masked);
    pipelineData.colorBlendStates = { attachmentState };
 

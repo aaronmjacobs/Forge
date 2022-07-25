@@ -30,7 +30,7 @@ public:
    }
 
 protected:
-   void postRenderPassInitialized() override
+   void postUpdateAttachmentFormats() override
    {
       pipelineMap.clear();
    }

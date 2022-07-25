@@ -12,9 +12,6 @@ TonemapPass::TonemapPass(const GraphicsContext& graphicsContext, DynamicDescript
    : SceneRenderPass(graphicsContext)
    , descriptorSet(graphicsContext, dynamicDescriptorPool, TonemapShader::getLayoutCreateInfo())
 {
-   clearDepth = false;
-   clearColor = true;
-
    tonemapShader = std::make_unique<TonemapShader>(context, resourceManager);
 
    std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = tonemapShader->getSetLayouts();
@@ -51,27 +48,19 @@ TonemapPass::~TonemapPass()
    tonemapShader.reset();
 }
 
-void TonemapPass::render(vk::CommandBuffer commandBuffer, FramebufferHandle framebufferHandle, Texture& hdrColorTexture)
+void TonemapPass::render(vk::CommandBuffer commandBuffer, Texture& outputTexture, Texture& hdrColorTexture)
 {
    SCOPED_LABEL(getName());
 
-   const Framebuffer* framebuffer = getFramebuffer(framebufferHandle);
-   if (!framebuffer)
-   {
-      ASSERT(false);
-      return;
-   }
+   outputTexture.transitionLayout(commandBuffer, TextureLayoutType::AttachmentWrite);
+   hdrColorTexture.transitionLayout(commandBuffer, TextureLayoutType::ShaderRead);
 
-   {
-      TextureMemoryBarrierFlags srcMemoryBarrierFlags(vk::AccessFlagBits::eColorAttachmentWrite, vk::PipelineStageFlagBits::eColorAttachmentOutput);
-      TextureMemoryBarrierFlags dstMemoryBarrierFlags(vk::AccessFlagBits::eShaderRead, vk::PipelineStageFlagBits::eFragmentShader);
-      hdrColorTexture.transitionLayout(commandBuffer, vk::ImageLayout::eShaderReadOnlyOptimal, srcMemoryBarrierFlags, dstMemoryBarrierFlags);
-   }
+   vk::RenderingAttachmentInfo colorAttachmentInfo = vk::RenderingAttachmentInfo()
+      .setImageView(outputTexture.getDefaultView())
+      .setImageLayout(outputTexture.getLayout())
+      .setLoadOp(vk::AttachmentLoadOp::eDontCare);
 
-   std::array<float, 4> clearColorValues = { 0.0f, 0.0f, 0.0f, 1.0f };
-   std::array<vk::ClearValue, 1> clearValues = { vk::ClearColorValue(clearColorValues) };
-
-   beginRenderPass(commandBuffer, *framebuffer, clearValues);
+   beginRenderPass(commandBuffer, outputTexture.getExtent(), nullptr, &colorAttachmentInfo);
 
    vk::DescriptorImageInfo imageInfo = vk::DescriptorImageInfo()
       .setImageLayout(hdrColorTexture.getLayout())
@@ -87,34 +76,12 @@ void TonemapPass::render(vk::CommandBuffer commandBuffer, FramebufferHandle fram
    device.updateDescriptorSets(descriptorWrite, {});
 
    PipelineDescription<TonemapPass> pipelineDescription;
-   const AttachmentInfo& attachmentInfo = framebuffer->getAttachmentInfo();
-   pipelineDescription.hdr = attachmentInfo.colorInfo.size() > 0 && attachmentInfo.colorInfo[0].format == vk::Format::eA2R10G10B10UnormPack32;
+   pipelineDescription.hdr = outputTexture.getImageProperties().format == vk::Format::eA2R10G10B10UnormPack32;
 
    tonemapShader->bindDescriptorSets(commandBuffer, pipelineLayout, descriptorSet);
    renderScreenMesh(commandBuffer, getPipeline(pipelineDescription));
 
    endRenderPass(commandBuffer);
-
-   {
-      TextureMemoryBarrierFlags srcMemoryBarrierFlags(vk::AccessFlagBits::eShaderRead, vk::PipelineStageFlagBits::eFragmentShader);
-      TextureMemoryBarrierFlags dstMemoryBarrierFlags(vk::AccessFlagBits::eColorAttachmentWrite, vk::PipelineStageFlagBits::eColorAttachmentOutput);
-      hdrColorTexture.transitionLayout(commandBuffer, vk::ImageLayout::eColorAttachmentOptimal, srcMemoryBarrierFlags, dstMemoryBarrierFlags);
-   }
-}
-
-std::vector<vk::SubpassDependency> TonemapPass::getSubpassDependencies() const
-{
-   std::vector<vk::SubpassDependency> subpassDependencies;
-
-   subpassDependencies.push_back(vk::SubpassDependency()
-      .setSrcSubpass(VK_SUBPASS_EXTERNAL)
-      .setDstSubpass(0)
-      .setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
-      .setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
-      .setDstStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
-      .setDstAccessMask(vk::AccessFlagBits::eColorAttachmentRead | vk::AccessFlagBits::eColorAttachmentWrite));
-
-   return subpassDependencies;
 }
 
 Pipeline TonemapPass::createPipeline(const PipelineDescription<TonemapPass>& description)
@@ -127,9 +94,10 @@ Pipeline TonemapPass::createPipeline(const PipelineDescription<TonemapPass>& des
    pipelineInfo.passType = PipelinePassType::Screen;
 
    PipelineData pipelineData;
-   pipelineData.renderPass = getRenderPass();
    pipelineData.layout = pipelineLayout;
    pipelineData.sampleCount = getSampleCount();
+   pipelineData.depthStencilFormat = getDepthStencilFormat();
+   pipelineData.colorFormats = getColorFormats();
    pipelineData.shaderStages = tonemapShader->getStages(description.hdr);
    pipelineData.colorBlendStates = { attachmentState };
 

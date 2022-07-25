@@ -5,21 +5,33 @@
 
 #include <memory>
 
+class Texture;
+
 class UIPass : public RenderPass
 {
 public:
    UIPass(const GraphicsContext& graphicsContext);
    ~UIPass();
 
-   void render(vk::CommandBuffer commandBuffer, FramebufferHandle framebufferHandle);
+   void render(vk::CommandBuffer commandBuffer, Texture& uiTexture);
+
+   void updateFramebuffer(const Texture& uiTexture);
 
 protected:
-   void postRenderPassInitialized() override;
-   std::vector<vk::SubpassDependency> getSubpassDependencies() const override;
+   void postUpdateAttachmentFormats() override;
 
 private:
+   void initializeRenderPass();
+   void terminateRenderPass();
+
+   void initializeFramebuffer(const Texture& uiTexture);
+   void terminateFramebuffer();
+
    void initializeImgui();
    void terminateImgui();
+
+   vk::RenderPass renderPass;
+   vk::Framebuffer framebuffer;
 
    vk::DescriptorPool descriptorPool;
    bool imguiInitialized = false;

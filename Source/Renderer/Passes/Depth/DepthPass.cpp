@@ -15,9 +15,6 @@ DepthPass::DepthPass(const GraphicsContext& graphicsContext, ResourceManager& re
    : SceneRenderPass(graphicsContext)
    , isShadowPass(shadowPass)
 {
-   clearDepth = true;
-   clearColor = false;
-
    depthShader = std::make_unique<DepthShader>(context, resourceManager);
    depthMaskedShader = std::make_unique<DepthMaskedShader>(context, resourceManager);
 
@@ -51,19 +48,19 @@ DepthPass::~DepthPass()
    depthMaskedShader.reset();
 }
 
-void DepthPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, FramebufferHandle framebufferHandle)
+void DepthPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, Texture& depthTexture, vk::ImageView depthTextureView)
 {
    SCOPED_LABEL(getName());
 
-   const Framebuffer* framebuffer = getFramebuffer(framebufferHandle);
-   if (!framebuffer)
-   {
-      ASSERT(false);
-      return;
-   }
+   depthTexture.transitionLayout(commandBuffer, TextureLayoutType::AttachmentWrite);
 
-   std::array<vk::ClearValue, 2> clearValues = { vk::ClearDepthStencilValue(1.0f, 0) };
-   beginRenderPass(commandBuffer, *framebuffer, clearValues);
+   vk::RenderingAttachmentInfo depthStencilAttachmentInfo = vk::RenderingAttachmentInfo()
+      .setImageView(depthTextureView ? depthTextureView : depthTexture.getDefaultView())
+      .setImageLayout(depthTexture.getLayout())
+      .setLoadOp(vk::AttachmentLoadOp::eClear)
+      .setClearValue(vk::ClearDepthStencilValue(1.0f, 0));
+
+   beginRenderPass(commandBuffer, depthTexture.getExtent(), &depthStencilAttachmentInfo, nullptr);
 
    if (isShadowPass)
    {
@@ -85,21 +82,6 @@ void DepthPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& s
    }
 
    endRenderPass(commandBuffer);
-}
-
-std::vector<vk::SubpassDependency> DepthPass::getSubpassDependencies() const
-{
-   std::vector<vk::SubpassDependency> subpassDependencies;
-
-   subpassDependencies.push_back(vk::SubpassDependency()
-      .setSrcSubpass(VK_SUBPASS_EXTERNAL)
-      .setDstSubpass(0)
-      .setSrcStageMask(vk::PipelineStageFlagBits::eEarlyFragmentTests | vk::PipelineStageFlagBits::eLateFragmentTests)
-      .setSrcAccessMask(vk::AccessFlagBits::eDepthStencilAttachmentWrite)
-      .setDstStageMask(vk::PipelineStageFlagBits::eEarlyFragmentTests | vk::PipelineStageFlagBits::eLateFragmentTests)
-      .setDstAccessMask(vk::AccessFlagBits::eDepthStencilAttachmentRead | vk::AccessFlagBits::eDepthStencilAttachmentWrite));
-
-   return subpassDependencies;
 }
 
 void DepthPass::renderMesh(vk::CommandBuffer commandBuffer, const Pipeline& pipeline, const View& view, const Mesh& mesh, uint32_t section, const Material& material)
@@ -140,9 +122,10 @@ Pipeline DepthPass::createPipeline(const PipelineDescription<DepthPass>& descrip
    pipelineInfo.swapFrontFace = description.cubemap; // Projection matrix Y values will be inverted when rendering to a cubemap, which swaps which faces are "front" facing
 
    PipelineData pipelineData;
-   pipelineData.renderPass = getRenderPass();
    pipelineData.layout = description.masked ? maskedPipelineLayout : opaquePipelineLayout;
    pipelineData.sampleCount = getSampleCount();
+   pipelineData.depthStencilFormat = getDepthStencilFormat();
+   pipelineData.colorFormats = getColorFormats();
    pipelineData.shaderStages = description.masked ? depthMaskedShader->getStages() : depthShader->getStages();
    pipelineData.colorBlendStates = {};
 

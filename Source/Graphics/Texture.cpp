@@ -40,6 +40,58 @@ namespace
       uint32_t maxDimension = std::max(imageProperties.width, std::max(imageProperties.height, imageProperties.depth));
       return static_cast<uint32_t>(std::log2(maxDimension)) + 1;
    }
+
+   vk::ImageLayout getImageLayout(TextureLayoutType layoutType, bool isDepthStencil)
+   {
+      switch (layoutType)
+      {
+      case TextureLayoutType::AttachmentWrite:
+         return isDepthStencil ? vk::ImageLayout::eDepthStencilAttachmentOptimal : vk::ImageLayout::eColorAttachmentOptimal;
+      case TextureLayoutType::ShaderRead:
+         return vk::ImageLayout::eShaderReadOnlyOptimal;
+      case TextureLayoutType::Present:
+         return vk::ImageLayout::ePresentSrcKHR;
+      default:
+         ASSERT(false);
+         return vk::ImageLayout::eUndefined;
+      }
+   }
+
+   TextureMemoryBarrierFlags getSrcMemoryBarrierFlags(vk::ImageLayout layout)
+   {
+      switch (layout)
+      {
+      case vk::ImageLayout::eUndefined:
+         return TextureMemoryBarrierFlags(vk::AccessFlagBits::eNone, vk::PipelineStageFlagBits::eTopOfPipe);
+      case vk::ImageLayout::eColorAttachmentOptimal:
+         return TextureMemoryBarrierFlags(vk::AccessFlagBits::eColorAttachmentWrite, vk::PipelineStageFlagBits::eColorAttachmentOutput);
+      case vk::ImageLayout::eDepthStencilAttachmentOptimal:
+         return TextureMemoryBarrierFlags(vk::AccessFlagBits::eDepthStencilAttachmentWrite, vk::PipelineStageFlagBits::eLateFragmentTests);
+      case vk::ImageLayout::eShaderReadOnlyOptimal:
+         return TextureMemoryBarrierFlags(vk::AccessFlagBits::eShaderRead, vk::PipelineStageFlagBits::eFragmentShader);
+      case vk::ImageLayout::ePresentSrcKHR:
+         return TextureMemoryBarrierFlags(vk::AccessFlagBits::eNone, vk::PipelineStageFlagBits::eTopOfPipe);
+      default:
+         ASSERT(false);
+         return TextureMemoryBarrierFlags{};
+      }
+   }
+
+   TextureMemoryBarrierFlags getDstMemoryBarrierFlags(TextureLayoutType layoutType, bool isDepthStencil)
+   {
+      switch (layoutType)
+      {
+      case TextureLayoutType::AttachmentWrite:
+         return isDepthStencil ? TextureMemoryBarrierFlags(vk::AccessFlagBits::eDepthStencilAttachmentWrite, vk::PipelineStageFlagBits::eLateFragmentTests) : TextureMemoryBarrierFlags(vk::AccessFlagBits::eColorAttachmentWrite, vk::PipelineStageFlagBits::eColorAttachmentOutput) ;
+      case TextureLayoutType::ShaderRead:
+         return TextureMemoryBarrierFlags(vk::AccessFlagBits::eShaderRead, vk::PipelineStageFlagBits::eFragmentShader);
+      case TextureLayoutType::Present:
+         return TextureMemoryBarrierFlags(vk::AccessFlagBits::eNone, vk::PipelineStageFlagBits::eBottomOfPipe);
+      default:
+         ASSERT(false);
+         return TextureMemoryBarrierFlags{};
+      }
+   }
 }
 
 // static
@@ -122,6 +174,20 @@ Texture::Texture(const GraphicsContext& graphicsContext, const ImageProperties& 
    }
 }
 
+Texture::Texture(const GraphicsContext& graphicsContext, const ImageProperties& imageProps, vk::Image swapchainImage)
+   : GraphicsResource(graphicsContext)
+   , image(swapchainImage)
+   , imageProperties(imageProps)
+{
+   textureProperties.sampleCount = vk::SampleCountFlagBits::e1;
+   textureProperties.tiling = vk::ImageTiling::eOptimal;
+   textureProperties.usage = vk::ImageUsageFlagBits::eColorAttachment;
+   textureProperties.memoryProperties = vk::MemoryPropertyFlagBits::eDeviceLocal;
+   textureProperties.aspects = vk::ImageAspectFlagBits::eColor;
+
+   createDefaultView();
+}
+
 Texture::~Texture()
 {
    for (auto& [desc, view] : viewMap)
@@ -130,11 +196,13 @@ Texture::~Texture()
       context.delayedDestroy(std::move(view));
    }
 
-   ASSERT(image);
-   context.delayedDestroy(std::move(image));
+   if (memory)
+   {
+      ASSERT(image);
+      context.delayedDestroy(std::move(image));
 
-   ASSERT(memory);
-   context.delayedFree(std::move(memory));
+      context.delayedFree(std::move(memory));
+   }
 }
 
 vk::ImageView Texture::getOrCreateView(vk::ImageViewType viewType, uint32_t baseLayer, uint32_t layerCount, std::optional<vk::ImageAspectFlags> aspectFlags, bool* created)
@@ -219,18 +287,18 @@ void Texture::transitionLayout(vk::CommandBuffer commandBuffer, vk::ImageLayout 
    }
 }
 
-TextureInfo Texture::getInfo() const
+void Texture::transitionLayout(vk::CommandBuffer commandBuffer, TextureLayoutType layoutType)
 {
-   TextureInfo info;
+   bool isDepthStencil = FormatHelpers::isDepthStencil(imageProperties.format);
 
-   info.format = imageProperties.format;
-   info.extent.width = imageProperties.width;
-   info.extent.height = imageProperties.height;
-   info.sampleCount = textureProperties.sampleCount;
-   info.view = defaultView;
-   info.isSwapchainTexture = false;
+   vk::ImageLayout newLayout = getImageLayout(layoutType, isDepthStencil);
+   if (layout != newLayout)
+   {
+      TextureMemoryBarrierFlags srcMemoryBarrierFlags = getSrcMemoryBarrierFlags(layout);
+      TextureMemoryBarrierFlags dstMemoryBarrierFlags = getDstMemoryBarrierFlags(layoutType, isDepthStencil);
 
-   return info;
+      transitionLayout(commandBuffer, newLayout, srcMemoryBarrierFlags, dstMemoryBarrierFlags);
+   }
 }
 
 void Texture::createImage()

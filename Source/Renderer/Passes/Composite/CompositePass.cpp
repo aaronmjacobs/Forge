@@ -65,26 +65,19 @@ CompositePass::~CompositePass()
    compositeShader.reset();
 }
 
-void CompositePass::render(vk::CommandBuffer commandBuffer, FramebufferHandle framebufferHandle, Texture& sourceTexture, CompositeShader::Mode mode)
+void CompositePass::render(vk::CommandBuffer commandBuffer, Texture& destinationTexture, Texture& sourceTexture, CompositeShader::Mode mode)
 {
    SCOPED_LABEL(getName());
 
-   const Framebuffer* framebuffer = getFramebuffer(framebufferHandle);
-   if (!framebuffer)
-   {
-      ASSERT(false);
-      return;
-   }
+   destinationTexture.transitionLayout(commandBuffer, TextureLayoutType::AttachmentWrite);
+   sourceTexture.transitionLayout(commandBuffer, TextureLayoutType::ShaderRead);
 
-   vk::ImageLayout initialLayout = sourceTexture.getLayout();
-   if (initialLayout != vk::ImageLayout::eShaderReadOnlyOptimal)
-   {
-      TextureMemoryBarrierFlags srcMemoryBarrierFlags(vk::AccessFlagBits::eColorAttachmentWrite, vk::PipelineStageFlagBits::eColorAttachmentOutput);
-      TextureMemoryBarrierFlags dstMemoryBarrierFlags(vk::AccessFlagBits::eShaderRead, vk::PipelineStageFlagBits::eFragmentShader);
-      sourceTexture.transitionLayout(commandBuffer, vk::ImageLayout::eShaderReadOnlyOptimal, srcMemoryBarrierFlags, dstMemoryBarrierFlags);
-   }
+   vk::RenderingAttachmentInfo colorAttachmentInfo = vk::RenderingAttachmentInfo()
+      .setImageView(destinationTexture.getDefaultView())
+      .setImageLayout(destinationTexture.getLayout())
+      .setLoadOp(vk::AttachmentLoadOp::eLoad);
 
-   beginRenderPass(commandBuffer, *framebuffer, std::span<vk::ClearValue>{});
+   beginRenderPass(commandBuffer, destinationTexture.getExtent(), nullptr, &colorAttachmentInfo);
 
    vk::DescriptorImageInfo imageInfo = vk::DescriptorImageInfo()
       .setImageLayout(sourceTexture.getLayout())
@@ -106,28 +99,6 @@ void CompositePass::render(vk::CommandBuffer commandBuffer, FramebufferHandle fr
    renderScreenMesh(commandBuffer, getPipeline(pipelineDescription));
 
    endRenderPass(commandBuffer);
-
-   if (initialLayout == vk::ImageLayout::eColorAttachmentOptimal)
-   {
-      TextureMemoryBarrierFlags srcMemoryBarrierFlags(vk::AccessFlagBits::eShaderRead, vk::PipelineStageFlagBits::eFragmentShader);
-      TextureMemoryBarrierFlags dstMemoryBarrierFlags(vk::AccessFlagBits::eColorAttachmentWrite, vk::PipelineStageFlagBits::eColorAttachmentOutput);
-      sourceTexture.transitionLayout(commandBuffer, vk::ImageLayout::eColorAttachmentOptimal, srcMemoryBarrierFlags, dstMemoryBarrierFlags);
-   }
-}
-
-std::vector<vk::SubpassDependency> CompositePass::getSubpassDependencies() const
-{
-   std::vector<vk::SubpassDependency> subpassDependencies;
-
-   subpassDependencies.push_back(vk::SubpassDependency()
-      .setSrcSubpass(VK_SUBPASS_EXTERNAL)
-      .setDstSubpass(0)
-      .setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
-      .setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
-      .setDstStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
-      .setDstAccessMask(vk::AccessFlagBits::eColorAttachmentRead | vk::AccessFlagBits::eColorAttachmentWrite));
-
-   return subpassDependencies;
 }
 
 Pipeline CompositePass::createPipeline(const PipelineDescription<CompositePass>& description)
@@ -146,9 +117,10 @@ Pipeline CompositePass::createPipeline(const PipelineDescription<CompositePass>&
    pipelineInfo.passType = PipelinePassType::Screen;
 
    PipelineData pipelineData;
-   pipelineData.renderPass = getRenderPass();
    pipelineData.layout = pipelineLayout;
    pipelineData.sampleCount = getSampleCount();
+   pipelineData.depthStencilFormat = getDepthStencilFormat();
+   pipelineData.colorFormats = getColorFormats();
    pipelineData.shaderStages = compositeShader->getStages(description.mode);
    pipelineData.colorBlendStates = { attachmentState };
 

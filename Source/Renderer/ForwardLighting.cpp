@@ -156,14 +156,11 @@ ForwardLighting::~ForwardLighting()
 
 void ForwardLighting::transitionShadowMapLayout(vk::CommandBuffer commandBuffer, bool forReading)
 {
-   vk::ImageLayout layout = forReading ? vk::ImageLayout::eShaderReadOnlyOptimal : vk::ImageLayout::eDepthStencilAttachmentOptimal;
+   TextureLayoutType layoutType = forReading ? TextureLayoutType::ShaderRead : TextureLayoutType::AttachmentWrite;
 
-   TextureMemoryBarrierFlags srcMemoryBarrierFlags = forReading ? TextureMemoryBarrierFlags(vk::AccessFlagBits::eDepthStencilAttachmentRead | vk::AccessFlagBits::eDepthStencilAttachmentWrite, vk::PipelineStageFlagBits::eEarlyFragmentTests) : TextureMemoryBarrierFlags(vk::AccessFlagBits::eShaderRead, vk::PipelineStageFlagBits::eFragmentShader);
-   TextureMemoryBarrierFlags dstMemoryBarrierFlags = forReading ? TextureMemoryBarrierFlags(vk::AccessFlagBits::eShaderRead, vk::PipelineStageFlagBits::eFragmentShader) : TextureMemoryBarrierFlags(vk::AccessFlagBits::eDepthStencilAttachmentRead | vk::AccessFlagBits::eDepthStencilAttachmentWrite, vk::PipelineStageFlagBits::eEarlyFragmentTests);
-
-   pointShadowMapTextureArray->transitionLayout(commandBuffer, layout, srcMemoryBarrierFlags, dstMemoryBarrierFlags);
-   spotShadowMapTextureArray->transitionLayout(commandBuffer, layout, srcMemoryBarrierFlags, dstMemoryBarrierFlags);
-   directionalShadowMapTextureArray->transitionLayout(commandBuffer, layout, srcMemoryBarrierFlags, dstMemoryBarrierFlags);
+   pointShadowMapTextureArray->transitionLayout(commandBuffer, layoutType);
+   spotShadowMapTextureArray->transitionLayout(commandBuffer, layoutType);
+   directionalShadowMapTextureArray->transitionLayout(commandBuffer, layoutType);
 }
 
 void ForwardLighting::update(const SceneRenderInfo& sceneRenderInfo)
@@ -229,37 +226,27 @@ void ForwardLighting::update(const SceneRenderInfo& sceneRenderInfo)
    uniformBuffer.update(lightUniformData);
 }
 
-TextureInfo ForwardLighting::getPointShadowInfo(uint32_t shadowMapIndex, uint32_t faceIndex) const
+vk::ImageView ForwardLighting::getPointShadowView(uint32_t shadowMapIndex, uint32_t faceIndex) const
 {
    ASSERT(shadowMapIndex < kMaxPointShadowMaps);
    ASSERT(faceIndex < kNumCubeFaces);
 
    uint32_t viewIndex = getPointViewIndex(shadowMapIndex, faceIndex);
-
-   TextureInfo info = pointShadowMapTextureArray->getInfo();
-   info.view = pointShadowViews[viewIndex];
-
-   return info;
+   return pointShadowViews[viewIndex];
 }
 
-TextureInfo ForwardLighting::getSpotShadowInfo(uint32_t index) const
+vk::ImageView ForwardLighting::getSpotShadowView(uint32_t index) const
 {
    ASSERT(index < kMaxSpotShadowMaps);
 
-   TextureInfo info = spotShadowMapTextureArray->getInfo();
-   info.view = spotShadowViews[index];
-
-   return info;
+   return spotShadowViews[index];
 }
 
-TextureInfo ForwardLighting::getDirectionalShadowInfo(uint32_t index) const
+vk::ImageView ForwardLighting::getDirectionalShadowView(uint32_t index) const
 {
    ASSERT(index < kMaxDirectionalShadowMaps);
 
-   TextureInfo info = directionalShadowMapTextureArray->getInfo();
-   info.view = directionalShadowViews[index];
-
-   return info;
+   return directionalShadowViews[index];
 }
 
 void ForwardLighting::updateDescriptorSets()

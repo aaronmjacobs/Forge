@@ -4,9 +4,10 @@
 
 #include <memory>
 
-class ResourceManager;
 class NormalPass;
 class NormalShader;
+class ResourceManager;
+class Texture;
 
 template<>
 struct PipelineDescription<NormalPass>
@@ -31,12 +32,10 @@ public:
    NormalPass(const GraphicsContext& graphicsContext, ResourceManager& resourceManager);
    ~NormalPass();
 
-   void render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, FramebufferHandle framebufferHandle);
+   void render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, Texture& depthTexture, Texture& normalTexture);
 
 protected:
    friend class SceneRenderPass<NormalPass>;
-
-   std::vector<vk::SubpassDependency> getSubpassDependencies() const override;
 
    void renderMesh(vk::CommandBuffer commandBuffer, const Pipeline& pipeline, const View& view, const Mesh& mesh, uint32_t section, const Material& material);
    vk::PipelineLayout selectPipelineLayout(BlendMode blendMode) const;

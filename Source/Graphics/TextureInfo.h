@@ -6,46 +6,20 @@
 #include <span>
 #include <vector>
 
-struct BasicTextureInfo
+class Texture;
+
+struct AttachmentFormats
 {
-   vk::Format format = vk::Format::eUndefined;
+   vk::Format depthStencilFormat = vk::Format::eUndefined;
+   std::vector<vk::Format> colorFormats;
+
    vk::SampleCountFlagBits sampleCount = vk::SampleCountFlagBits::e1;
 
-   bool isSwapchainTexture = false;
+   AttachmentFormats() = default;
+   AttachmentFormats(const Texture* depthStencilAttachment, std::span<const Texture> colorAttachments);
+   AttachmentFormats(const Texture* depthStencilAttachment, const Texture* colorAttachment);
 
-   bool operator==(const BasicTextureInfo& other) const = default;
-};
-
-struct TextureInfo
-{
-   vk::Format format = vk::Format::eUndefined;
-   vk::Extent2D extent;
-   vk::SampleCountFlagBits sampleCount = vk::SampleCountFlagBits::e1;
-
-   vk::ImageView view;
-   bool isSwapchainTexture = false;
-
-   BasicTextureInfo asBasic() const;
-   bool operator==(const TextureInfo& other) const = default;
-};
-
-struct BasicAttachmentInfo
-{
-   std::optional<BasicTextureInfo> depthInfo;
-   std::vector<BasicTextureInfo> colorInfo;
-   std::vector<BasicTextureInfo> resolveInfo;
-
-   bool operator==(const BasicAttachmentInfo& other) const = default;
-};
-
-struct AttachmentInfo
-{
-   std::optional<TextureInfo> depthInfo;
-   std::vector<TextureInfo> colorInfo;
-   std::vector<TextureInfo> resolveInfo;
-
-   BasicAttachmentInfo asBasic() const;
-   bool operator==(const AttachmentInfo& other) const = default;
+   bool operator==(const AttachmentFormats& other) const = default;
 };
 
 struct ImageProperties
@@ -86,6 +60,7 @@ struct TextureData
 
 namespace FormatHelpers
 {
+   bool isDepthStencil(vk::Format format);
    bool hasAlpha(vk::Format format);
    uint32_t bitsPerPixel(vk::Format format);
    uint32_t bytesPerBlock(vk::Format format);

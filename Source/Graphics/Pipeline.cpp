@@ -67,6 +67,11 @@ namespace
       vk::PipelineDynamicStateCreateInfo dynamicStateCreateInfo = vk::PipelineDynamicStateCreateInfo()
          .setDynamicStates(dynamicStates);
 
+      vk::PipelineRenderingCreateInfo renderingCreateInfo = vk::PipelineRenderingCreateInfo()
+         .setDepthAttachmentFormat(data.depthStencilFormat)
+         .setStencilAttachmentFormat(data.depthStencilFormat)
+         .setColorAttachmentFormats(data.colorFormats);
+
       vk::GraphicsPipelineCreateInfo graphicsPipelineCreateInfo = vk::GraphicsPipelineCreateInfo()
          .setStages(data.shaderStages)
          .setPVertexInputState(&vertexInputStateCreateInfo)
@@ -78,10 +83,10 @@ namespace
          .setPColorBlendState(&colorBlendStateCreateInfo)
          .setPDynamicState(&dynamicStateCreateInfo)
          .setLayout(data.layout)
-         .setRenderPass(data.renderPass)
          .setSubpass(0)
          .setBasePipelineHandle(nullptr)
-         .setBasePipelineIndex(-1);
+         .setBasePipelineIndex(-1)
+         .setPNext(&renderingCreateInfo);
 
       return context.getDevice().createGraphicsPipeline(context.getPipelineCache(), graphicsPipelineCreateInfo).value;
    }

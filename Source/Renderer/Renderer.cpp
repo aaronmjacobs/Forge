@@ -552,49 +552,14 @@ Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& reso
       NAME_POINTER(device, compositePass, "Composite Pass");
 
       tonemapPass = std::make_unique<TonemapPass>(context, dynamicDescriptorPool, resourceManager);
-      tonemapPass->setIsFinalRenderPass(true);
       NAME_POINTER(device, tonemapPass, "Tonemap Pass");
    }
 
    {
-      BasicTextureInfo shadowPassDepthSetupInfo;
-      shadowPassDepthSetupInfo.format = depthStencilFormat;
-      shadowPassDepthSetupInfo.sampleCount = vk::SampleCountFlagBits::e1;
-      shadowPassDepthSetupInfo.isSwapchainTexture = false;
+      AttachmentFormats shadowPassAttachmentFormats;
+      shadowPassAttachmentFormats.depthStencilFormat = depthStencilFormat;
 
-      BasicAttachmentInfo shadowPassSetupInfo;
-      shadowPassSetupInfo.depthInfo = shadowPassDepthSetupInfo;
-
-      shadowPass->updateAttachmentSetup(shadowPassSetupInfo);
-
-      for (uint32_t shadowMapIndex = 0; shadowMapIndex < ForwardLighting::kMaxPointShadowMaps; ++shadowMapIndex)
-      {
-         for (uint32_t faceIndex = 0; faceIndex < kNumCubeFaces; ++faceIndex)
-         {
-            uint32_t viewIndex = ForwardLighting::getPointViewIndex(shadowMapIndex, faceIndex);
-
-            AttachmentInfo shadowPassInfo;
-            shadowPassInfo.depthInfo = forwardLighting->getPointShadowInfo(shadowMapIndex, faceIndex);
-
-            pointShadowPassFramebufferHandles[viewIndex] = shadowPass->createFramebuffer(shadowPassInfo);
-         }
-      }
-
-      for (uint32_t i = 0; i < ForwardLighting::kMaxSpotShadowMaps; ++i)
-      {
-         AttachmentInfo shadowPassInfo;
-         shadowPassInfo.depthInfo = forwardLighting->getSpotShadowInfo(i);
-
-         spotShadowPassFramebufferHandles[i] = shadowPass->createFramebuffer(shadowPassInfo);
-      }
-
-      for (uint32_t i = 0; i < ForwardLighting::kMaxDirectionalShadowMaps; ++i)
-      {
-         AttachmentInfo shadowPassInfo;
-         shadowPassInfo.depthInfo = forwardLighting->getDirectionalShadowInfo(i);
-
-         directionalShadowPassFramebufferHandles[i] = shadowPass->createFramebuffer(shadowPassInfo);
-      }
+      shadowPass->updateAttachmentFormats(shadowPassAttachmentFormats);
    }
 
    onSwapchainRecreated();
@@ -645,9 +610,9 @@ void Renderer::render(vk::CommandBuffer commandBuffer, const Scene& scene)
 
    SceneRenderInfo sceneRenderInfo = computeSceneRenderInfo(resourceManager, scene, *view, false);
 
-   normalPass->render(commandBuffer, sceneRenderInfo, normalPassFramebufferHandle);
+   normalPass->render(commandBuffer, sceneRenderInfo, *depthTexture, *normalTexture);
 
-   ssaoPass->render(commandBuffer, sceneRenderInfo, ssaoPassFramebufferHandle, ssaoBlurPassFramebufferHandle, *depthTexture, *normalTexture, *ssaoTexture, *ssaoBlurTexture);
+   ssaoPass->render(commandBuffer, sceneRenderInfo, *depthTexture, *normalTexture, *ssaoTexture, *ssaoBlurTexture);
 
    renderShadowMaps(commandBuffer, scene, sceneRenderInfo);
 
@@ -660,20 +625,23 @@ void Renderer::render(vk::CommandBuffer commandBuffer, const Scene& scene)
       skyboxTexture = resourceManager.getTexture(skyboxComponent.textureHandle);
    });
 
-   forwardPass->render(commandBuffer, sceneRenderInfo, forwardPassFramebufferHandle, *normalTexture, *ssaoTexture, skyboxTexture);
+   forwardPass->render(commandBuffer, sceneRenderInfo, *depthTexture, *hdrColorTexture, hdrResolveTexture.get(), *normalTexture, *ssaoTexture, skyboxTexture);
 
-   uiPass->render(commandBuffer, uiPassFramebufferHandle);
-   compositePass->render(commandBuffer, compositePassFramebufferHandle, *uiColorTexture, CompositeShader::Mode::SrgbToLinear);
+   uiPass->render(commandBuffer, *uiColorTexture);
+   compositePass->render(commandBuffer, *hdrColorTexture, *uiColorTexture, CompositeShader::Mode::SrgbToLinear);
 
-   tonemapPass->render(commandBuffer, tonemapPassFramebufferHandle, hdrResolveTexture ? *hdrResolveTexture : *hdrColorTexture);
+   Texture& currentSwapchainTexture = context.getSwapchain().getCurrentTexture();
+   tonemapPass->render(commandBuffer, currentSwapchainTexture, hdrResolveTexture ? *hdrResolveTexture : *hdrColorTexture);
+
+   currentSwapchainTexture.transitionLayout(commandBuffer, TextureLayoutType::Present);
 }
 
 void Renderer::onSwapchainRecreated()
 {
    depthTexture = createDepthTexture(context, depthStencilFormat, context.getSwapchain().getExtent(), true, enableMSAA);
    normalTexture = createColorTexture(context, vk::Format::eR16G16B16A16Snorm, true, enableMSAA);
-   ssaoTexture = createColorTexture(context, vk::Format::eR8Unorm, true, enableMSAA);
-   ssaoBlurTexture = createColorTexture(context, vk::Format::eR8Unorm, true, enableMSAA);
+   ssaoTexture = createColorTexture(context, vk::Format::eR8Unorm, true, false);
+   ssaoBlurTexture = createColorTexture(context, vk::Format::eR8Unorm, true, false);
    hdrColorTexture = createColorTexture(context, vk::Format::eR16G16B16A16Sfloat, !enableMSAA, enableMSAA);
    if (enableMSAA)
    {
@@ -693,7 +661,7 @@ void Renderer::onSwapchainRecreated()
    NAME_POINTER(device, hdrResolveTexture, "HDR Resolve Texture");
    NAME_POINTER(device, uiColorTexture, "UI Color Texture");
 
-   updateSwapchainDependentFramebuffers();
+   updateSwapchainDependentPasses();
 }
 
 void Renderer::toggleMSAA()
@@ -730,7 +698,7 @@ void Renderer::renderShadowMaps(vk::CommandBuffer commandBuffer, const Scene& sc
                pointShadowView->update(pointLightViewInfo);
                SceneRenderInfo shadowSceneRenderInfo = computeSceneRenderInfo(resourceManager, scene, *pointShadowView, true);
 
-               shadowPass->render(commandBuffer, shadowSceneRenderInfo, pointShadowPassFramebufferHandles[viewIndex]);
+               shadowPass->render(commandBuffer, shadowSceneRenderInfo, forwardLighting->getPointShadowTextureArray(), forwardLighting->getPointShadowView(shadowMapIndex, faceIndex));
             }
          }
       }
@@ -751,7 +719,7 @@ void Renderer::renderShadowMaps(vk::CommandBuffer commandBuffer, const Scene& sc
             spotShadowView->update(spotLightInfo.shadowViewInfo.value());
             SceneRenderInfo shadowSceneRenderInfo = computeSceneRenderInfo(resourceManager, scene, *spotShadowView, true);
 
-            shadowPass->render(commandBuffer, shadowSceneRenderInfo, spotShadowPassFramebufferHandles[shadowMapIndex]);
+            shadowPass->render(commandBuffer, shadowSceneRenderInfo, forwardLighting->getSpotShadowTextureArray(), forwardLighting->getSpotShadowView(shadowMapIndex));
          }
       }
    }
@@ -771,7 +739,7 @@ void Renderer::renderShadowMaps(vk::CommandBuffer commandBuffer, const Scene& sc
             directionalShadowView->update(directionalLightInfo.shadowViewInfo.value());
             SceneRenderInfo shadowSceneRenderInfo = computeSceneRenderInfo(resourceManager, scene, *directionalShadowView, true);
 
-            shadowPass->render(commandBuffer, shadowSceneRenderInfo, directionalShadowPassFramebufferHandles[shadowMapIndex]);
+            shadowPass->render(commandBuffer, shadowSceneRenderInfo, forwardLighting->getDirectionalShadowTextureArray(), forwardLighting->getDirectionalShadowView(shadowMapIndex));
          }
       }
    }
@@ -779,64 +747,20 @@ void Renderer::renderShadowMaps(vk::CommandBuffer commandBuffer, const Scene& sc
    forwardLighting->transitionShadowMapLayout(commandBuffer, true);
 }
 
-void Renderer::updateSwapchainDependentFramebuffers()
+void Renderer::updateSwapchainDependentPasses()
 {
-   {
-      AttachmentInfo normalInfo;
-      normalInfo.depthInfo = depthTexture->getInfo();
-      normalInfo.colorInfo = { normalTexture->getInfo() };
+   normalPass->updateAttachmentFormats(depthTexture.get(), normalTexture.get());
 
-      normalPass->updateAttachmentSetup(normalInfo.asBasic());
-      normalPassFramebufferHandle = normalPass->createFramebuffer(normalInfo);
-   }
+   ASSERT(ssaoTexture->getImageProperties().format == ssaoBlurTexture->getImageProperties().format);
+   ssaoPass->updateAttachmentFormats(nullptr, ssaoTexture.get());
 
-   {
-      AttachmentInfo ssaoInfo;
-      ssaoInfo.colorInfo = { ssaoTexture->getInfo() };
-      AttachmentInfo ssaoBlurInfo;
-      ssaoBlurInfo.colorInfo = { ssaoBlurTexture->getInfo() };
+   forwardPass->updateAttachmentFormats(depthTexture.get(), hdrColorTexture.get());
 
-      ASSERT(ssaoInfo.asBasic() == ssaoBlurInfo.asBasic());
-      ssaoPass->updateAttachmentSetup(ssaoInfo.asBasic());
-      ssaoPassFramebufferHandle = ssaoPass->createFramebuffer(ssaoInfo);
-      ssaoBlurPassFramebufferHandle = ssaoPass->createFramebuffer(ssaoBlurInfo);
-   }
+   uiPass->updateAttachmentFormats(nullptr, uiColorTexture.get());
+   uiPass->updateFramebuffer(*uiColorTexture);
 
-   {
-      AttachmentInfo forwardInfo;
-      forwardInfo.depthInfo = depthTexture->getInfo();
-      forwardInfo.colorInfo = { hdrColorTexture->getInfo() };
-      if (hdrResolveTexture)
-      {
-         forwardInfo.resolveInfo = { hdrResolveTexture->getInfo() };
-      }
+   Texture* compositeColorAttachment = hdrResolveTexture ? hdrResolveTexture.get() : hdrColorTexture.get();
+   compositePass->updateAttachmentFormats(nullptr, compositeColorAttachment);
 
-      forwardPass->updateAttachmentSetup(forwardInfo.asBasic());
-      forwardPassFramebufferHandle = forwardPass->createFramebuffer(forwardInfo);
-   }
-
-   {
-      AttachmentInfo uiInfo;
-      uiInfo.colorInfo = { uiColorTexture->getInfo() };
-
-      uiPass->updateAttachmentSetup(uiInfo.asBasic());
-      uiPassFramebufferHandle = uiPass->createFramebuffer(uiInfo);
-   }
-
-   {
-      AttachmentInfo compositeInfo;
-      Texture* compositeColorAttachment = hdrResolveTexture ? hdrResolveTexture.get() : hdrColorTexture.get();
-      compositeInfo.colorInfo = { compositeColorAttachment->getInfo() };
-
-      compositePass->updateAttachmentSetup(compositeInfo.asBasic());
-      compositePassFramebufferHandle = compositePass->createFramebuffer(compositeInfo);
-   }
-
-   {
-      AttachmentInfo tonemapInfo;
-      tonemapInfo.colorInfo = { context.getSwapchain().getTextureInfo() };
-
-      tonemapPass->updateAttachmentSetup(tonemapInfo.asBasic());
-      tonemapPassFramebufferHandle = tonemapPass->createFramebuffer(tonemapInfo);
-   }
+   tonemapPass->updateAttachmentFormats(nullptr, &context.getSwapchain().getCurrentTexture());
 }

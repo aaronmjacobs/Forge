@@ -51,16 +51,25 @@ struct ImageViewDesc
 
 USE_MEMBER_HASH_FUNCTION(ImageViewDesc);
 
+enum class TextureLayoutType
+{
+   AttachmentWrite,
+   ShaderRead,
+   Present
+};
+
 class Texture : public GraphicsResource
 {
 public:
    static vk::Format findSupportedFormat(const GraphicsContext& context, std::span<const vk::Format> candidates, vk::ImageTiling tiling, vk::FormatFeatureFlags features);
 
    Texture(const GraphicsContext& graphicsContext, const ImageProperties& imageProps, const TextureProperties& textureProps, const TextureInitialLayout& initialLayout, const TextureData& textureData = {});
+   Texture(const GraphicsContext& graphicsContext, const ImageProperties& imageProps, vk::Image swapchainImage);
    ~Texture();
 
    vk::ImageView getOrCreateView(vk::ImageViewType viewType, uint32_t baseLayer = 0, uint32_t layerCount = 1, std::optional<vk::ImageAspectFlags> aspectFlags = {}, bool* created = nullptr);
    void transitionLayout(vk::CommandBuffer commandBuffer, vk::ImageLayout newLayout, const TextureMemoryBarrierFlags& srcMemoryBarrierFlags, const TextureMemoryBarrierFlags& dstMemoryBarrierFlags);
+   void transitionLayout(vk::CommandBuffer commandBuffer, TextureLayoutType layoutType);
 
    vk::ImageView getDefaultView() const
    {
@@ -87,7 +96,10 @@ public:
       return mipLevels;
    }
 
-   TextureInfo getInfo() const;
+   vk::Extent2D getExtent() const
+   {
+      return vk::Extent2D(imageProperties.width, imageProperties.height);
+   }
 
 private:
    void createImage();

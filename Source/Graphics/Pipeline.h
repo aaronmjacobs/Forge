@@ -2,6 +2,7 @@
 
 #include "Graphics/GraphicsResource.h"
 
+#include <span>
 #include <vector>
 
 enum class PipelinePassType
@@ -25,9 +26,11 @@ struct PipelineInfo
 
 struct PipelineData
 {
-   vk::RenderPass renderPass;
    vk::PipelineLayout layout;
    vk::SampleCountFlagBits sampleCount = vk::SampleCountFlagBits::e1;
+
+   vk::Format depthStencilFormat = vk::Format::eUndefined;
+   std::span<const vk::Format> colorFormats;
 
    std::vector<vk::PipelineShaderStageCreateInfo> shaderStages;
    std::vector<vk::PipelineColorBlendAttachmentState> colorBlendStates;

@@ -8,6 +8,7 @@ class DepthMaskedShader;
 class DepthPass;
 class DepthShader;
 class ResourceManager;
+class Texture;
 struct SceneRenderInfo;
 
 template<>
@@ -33,12 +34,10 @@ public:
    DepthPass(const GraphicsContext& graphicsContext, ResourceManager& resourceManager, bool shadowPass = false);
    ~DepthPass();
 
-   void render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, FramebufferHandle framebufferHandle);
+   void render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, Texture& depthTexture, vk::ImageView depthTextureView = nullptr);
 
 protected:
    friend class SceneRenderPass<DepthPass>;
-
-   std::vector<vk::SubpassDependency> getSubpassDependencies() const override;
 
    void renderMesh(vk::CommandBuffer commandBuffer, const Pipeline& pipeline, const View& view, const Mesh& mesh, uint32_t section, const Material& material);
    vk::PipelineLayout selectPipelineLayout(BlendMode blendMode) const;

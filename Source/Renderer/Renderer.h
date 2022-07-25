@@ -42,7 +42,7 @@ public:
 private:
    void renderShadowMaps(vk::CommandBuffer commandBuffer, const Scene& scene, const SceneRenderInfo& sceneRenderInfo);
 
-   void updateSwapchainDependentFramebuffers();
+   void updateSwapchainDependentPasses();
 
    ResourceManager& resourceManager;
 
@@ -71,17 +71,6 @@ private:
    std::unique_ptr<UIPass> uiPass;
    std::unique_ptr<CompositePass> compositePass;
    std::unique_ptr<TonemapPass> tonemapPass;
-
-   FramebufferHandle normalPassFramebufferHandle;
-   FramebufferHandle ssaoPassFramebufferHandle;
-   FramebufferHandle ssaoBlurPassFramebufferHandle;
-   std::array<FramebufferHandle, ForwardLighting::kMaxSpotShadowMaps * kNumCubeFaces> pointShadowPassFramebufferHandles;
-   std::array<FramebufferHandle, ForwardLighting::kMaxSpotShadowMaps> spotShadowPassFramebufferHandles;
-   std::array<FramebufferHandle, ForwardLighting::kMaxDirectionalShadowMaps> directionalShadowPassFramebufferHandles;
-   FramebufferHandle forwardPassFramebufferHandle;
-   FramebufferHandle tonemapPassFramebufferHandle;
-   FramebufferHandle uiPassFramebufferHandle;
-   FramebufferHandle compositePassFramebufferHandle;
 
    bool enableMSAA = false;
 };

@@ -75,9 +75,24 @@ public:
       return descriptorSet;
    }
 
-   TextureInfo getPointShadowInfo(uint32_t shadowMapIndex, uint32_t faceIndex) const;
-   TextureInfo getSpotShadowInfo(uint32_t index) const;
-   TextureInfo getDirectionalShadowInfo(uint32_t index) const;
+   Texture& getPointShadowTextureArray()
+   {
+      return *pointShadowMapTextureArray;
+   }
+
+   Texture& getSpotShadowTextureArray()
+   {
+      return *spotShadowMapTextureArray;
+   }
+
+   Texture& getDirectionalShadowTextureArray()
+   {
+      return *directionalShadowMapTextureArray;
+   }
+
+   vk::ImageView getPointShadowView(uint32_t shadowMapIndex, uint32_t faceIndex) const;
+   vk::ImageView getSpotShadowView(uint32_t index) const;
+   vk::ImageView getDirectionalShadowView(uint32_t index) const;
 
 protected:
    void updateDescriptorSets();

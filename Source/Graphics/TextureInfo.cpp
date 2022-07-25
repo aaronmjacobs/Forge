@@ -1,42 +1,70 @@
 #include "Graphics/TextureInfo.h"
 
-BasicTextureInfo TextureInfo::asBasic() const
+#include "Graphics/Texture.h"
+
+AttachmentFormats::AttachmentFormats(const Texture* depthStencilAttachment, std::span<const Texture> colorAttachments)
 {
-   BasicTextureInfo basicInfo;
+   if (depthStencilAttachment)
+   {
+      depthStencilFormat = depthStencilAttachment->getImageProperties().format;
+   }
 
-   basicInfo.format = format;
-   basicInfo.sampleCount = sampleCount;
-   basicInfo.isSwapchainTexture = isSwapchainTexture;
+   colorFormats.reserve(colorAttachments.size());
+   for (const Texture& colorAttachment : colorAttachments)
+   {
+      colorFormats.push_back(colorAttachment.getImageProperties().format);
+   }
 
-   return basicInfo;
+   if (depthStencilAttachment)
+   {
+      sampleCount = depthStencilAttachment->getTextureProperties().sampleCount;
+   }
+   else
+   {
+      for (const Texture& colorAttachment : colorAttachments)
+      {
+         sampleCount = colorAttachment.getTextureProperties().sampleCount;
+         break;
+      }
+   }
+
+#if FORGE_DEBUG
+   if (depthStencilAttachment)
+   {
+      ASSERT(sampleCount == depthStencilAttachment->getTextureProperties().sampleCount, "Not all attachments have the same sample count");
+   }
+
+   for (const Texture& colorAttachment : colorAttachments)
+   {
+      ASSERT(sampleCount == colorAttachment.getTextureProperties().sampleCount, "Not all attachments have the same sample count");
+   }
+#endif // FORGE_DEBUG
 }
 
-BasicAttachmentInfo AttachmentInfo::asBasic() const
+AttachmentFormats::AttachmentFormats(const Texture* depthStencilAttachment, const Texture* colorAttachment)
+   : AttachmentFormats(depthStencilAttachment, colorAttachment ? std::span<const Texture>(colorAttachment, 1) : std::span<const Texture>{})
 {
-   BasicAttachmentInfo basicInfo;
-
-   if (depthInfo.has_value())
-   {
-      basicInfo.depthInfo = depthInfo->asBasic();
-   }
-
-   basicInfo.colorInfo.reserve(colorInfo.size());
-   for (const TextureInfo& color : colorInfo)
-   {
-      basicInfo.colorInfo.push_back(color.asBasic());
-   }
-
-   basicInfo.resolveInfo.reserve(resolveInfo.size());
-   for (const TextureInfo& resolve : resolveInfo)
-   {
-      basicInfo.resolveInfo.push_back(resolve.asBasic());
-   }
-
-   return basicInfo;
 }
 
 namespace FormatHelpers
 {
+   bool isDepthStencil(vk::Format format)
+   {
+      switch (format)
+      {
+      case vk::Format::eD16Unorm:
+      case vk::Format::eX8D24UnormPack32:
+      case vk::Format::eD32Sfloat:
+      case vk::Format::eS8Uint:
+      case vk::Format::eD16UnormS8Uint:
+      case vk::Format::eD24UnormS8Uint:
+      case vk::Format::eD32SfloatS8Uint:
+         return true;
+      default:
+         return false;
+      }
+   }
+
    bool hasAlpha(vk::Format format)
    {
       switch (format)

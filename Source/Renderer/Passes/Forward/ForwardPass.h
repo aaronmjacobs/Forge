@@ -36,12 +36,10 @@ public:
    ForwardPass(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, ResourceManager& resourceManager, const ForwardLighting* forwardLighting);
    ~ForwardPass();
 
-   void render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, FramebufferHandle framebufferHandle, Texture& normalBuffer, Texture& ssaoBuffer, const Texture* skyboxTexture);
+   void render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, Texture& depthTexture, Texture& colorTexture, Texture* colorResolveTexture, Texture& normalTexture, Texture& ssaoTexture, const Texture* skyboxTexture);
 
 protected:
    friend class SceneRenderPass<ForwardPass>;
-
-   std::vector<vk::SubpassDependency> getSubpassDependencies() const override;
 
    void renderMesh(vk::CommandBuffer commandBuffer, const Pipeline& pipeline, const View& view, const Mesh& mesh, uint32_t section, const Material& material);
    vk::PipelineLayout selectPipelineLayout(BlendMode blendMode) const;

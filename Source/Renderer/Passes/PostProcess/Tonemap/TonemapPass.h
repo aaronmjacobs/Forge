@@ -33,12 +33,10 @@ public:
    TonemapPass(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, ResourceManager& resourceManager);
    ~TonemapPass();
 
-   void render(vk::CommandBuffer commandBuffer, FramebufferHandle framebufferHandle, Texture& hdrColorTexture);
+   void render(vk::CommandBuffer commandBuffer, Texture& outputTexture, Texture& hdrColorTexture);
 
 protected:
    friend class SceneRenderPass<TonemapPass>;
-
-   std::vector<vk::SubpassDependency> getSubpassDependencies() const override;
 
    Pipeline createPipeline(const PipelineDescription<TonemapPass>& description);
 
