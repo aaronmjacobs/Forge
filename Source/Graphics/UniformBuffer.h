@@ -7,7 +7,6 @@
 #include "Graphics/GraphicsContext.h"
 #include "Graphics/Memory.h"
 
-#include <cstring>
 #include <utility>
 
 template<typename DataType>
@@ -17,8 +16,15 @@ public:
    UniformBuffer(const GraphicsContext& context);
    ~UniformBuffer();
 
-   void update(const DataType& data);
-   void updateAll(const DataType& data);
+   void update(const DataType& value);
+   void updateAll(const DataType& value);
+
+   template<typename MemberType>
+   void updateMember(MemberType DataType::* member, const MemberType& value);
+
+   template<typename MemberType>
+   void updateAllMembers(MemberType DataType::* member, const MemberType& value);
+
    vk::DescriptorBufferInfo getDescriptorBufferInfo(uint32_t frameIndex) const;
 
 private:
@@ -26,6 +32,8 @@ private:
    {
       return Memory::getAlignedSize(static_cast<vk::DeviceSize>(sizeof(DataType)), context.getPhysicalDeviceProperties().limits.minUniformBufferOffsetAlignment);
    }
+
+   DataType* getMappedData(uint32_t index);
 
    vk::Buffer buffer;
    vk::DeviceMemory memory;
@@ -59,28 +67,40 @@ inline UniformBuffer<DataType>::~UniformBuffer()
 }
 
 template<typename DataType>
-inline void UniformBuffer<DataType>::update(const DataType& data)
+inline void UniformBuffer<DataType>::update(const DataType& value)
 {
-   ASSERT(buffer && memory && mappedMemory);
-
-   vk::DeviceSize size = getPaddedDataSize(context);
-   vk::DeviceSize offset = size * context.getFrameIndex();
-
-   std::memcpy(static_cast<char*>(mappedMemory) + offset, &data, sizeof(data));
+   DataType* mappedData = getMappedData(context.getFrameIndex());
+   *mappedData = value;
 }
 
 template<typename DataType>
-inline void UniformBuffer<DataType>::updateAll(const DataType& data)
+inline void UniformBuffer<DataType>::updateAll(const DataType& value)
 {
-   ASSERT(buffer && memory && mappedMemory);
+   for (uint32_t frameIndex = 0; frameIndex < GraphicsContext::kMaxFramesInFlight; ++frameIndex)
+   {
+      DataType* mappedData = getMappedData(frameIndex);
+      *mappedData = value;
+   }
+}
 
-   vk::DeviceSize size = getPaddedDataSize(context);
+template<typename DataType> template<typename MemberType>
+void UniformBuffer<DataType>::updateMember(MemberType DataType::* member, const MemberType& value)
+{
+   ASSERT(member);
+
+   DataType* mappedData = getMappedData(context.getFrameIndex());
+   mappedData->*member = value;
+}
+
+template<typename DataType> template<typename MemberType>
+void UniformBuffer<DataType>::updateAllMembers(MemberType DataType::* member, const MemberType& value)
+{
+   ASSERT(member);
 
    for (uint32_t frameIndex = 0; frameIndex < GraphicsContext::kMaxFramesInFlight; ++frameIndex)
    {
-      vk::DeviceSize offset = size * frameIndex;
-
-      std::memcpy(static_cast<char*>(mappedMemory) + offset, &data, sizeof(data));
+      DataType* mappedData = getMappedData(frameIndex);
+      mappedData->*member = value;
    }
 }
 
@@ -91,4 +111,15 @@ inline vk::DescriptorBufferInfo UniformBuffer<DataType>::getDescriptorBufferInfo
       .setBuffer(buffer)
       .setOffset(static_cast<vk::DeviceSize>(getPaddedDataSize(context) * frameIndex))
       .setRange(sizeof(DataType));
+}
+
+template<typename DataType>
+DataType* UniformBuffer<DataType>::getMappedData(uint32_t index)
+{
+   ASSERT(buffer && memory && mappedMemory);
+
+   vk::DeviceSize size = getPaddedDataSize(context);
+   vk::DeviceSize offset = size * index;
+
+   return reinterpret_cast<DataType*>(static_cast<char*>(mappedMemory) + offset);
 }
