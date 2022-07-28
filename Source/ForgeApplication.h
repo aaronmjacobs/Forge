@@ -2,6 +2,8 @@
 
 #include "Graphics/Vulkan.h"
 
+#include "Renderer/RenderSettings.h"
+
 #include "Scene/Scene.h"
 
 #include "UI/UI.h"
@@ -28,6 +30,8 @@ private:
 
    bool recreateSwapchain();
 
+   void updateRenderSettings(const RenderSettings& newRenderSettings);
+
    void initializeGlfw();
    void terminateGlfw();
 
@@ -51,6 +55,9 @@ private:
 
    void loadScene();
 
+   RenderCapabilities renderCapabilities;
+   RenderSettings renderSettings;
+
    std::unique_ptr<ResourceManager> resourceManager;
 
    std::unique_ptr<Window> window;
@@ -71,5 +78,4 @@ private:
    uint32_t frameIndex = 0;
 
    bool framebufferSizeChanged = false;
-   bool preferHDR = false;
 };

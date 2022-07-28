@@ -122,22 +122,7 @@ namespace
       return viewInfo;
    }
 
-   vk::SampleCountFlagBits getMaxSampleCount(const GraphicsContext& context)
-   {
-      const vk::PhysicalDeviceLimits& limits = context.getPhysicalDeviceProperties().limits;
-      vk::SampleCountFlags flags = limits.framebufferColorSampleCounts & limits.framebufferDepthSampleCounts;
-
-      if (flags & vk::SampleCountFlagBits::e64) { return vk::SampleCountFlagBits::e64; }
-      if (flags & vk::SampleCountFlagBits::e32) { return vk::SampleCountFlagBits::e32; }
-      if (flags & vk::SampleCountFlagBits::e16) { return vk::SampleCountFlagBits::e16; }
-      if (flags & vk::SampleCountFlagBits::e8) { return vk::SampleCountFlagBits::e8; }
-      if (flags & vk::SampleCountFlagBits::e4) { return vk::SampleCountFlagBits::e4; }
-      if (flags & vk::SampleCountFlagBits::e2) { return vk::SampleCountFlagBits::e2; }
-
-      return vk::SampleCountFlagBits::e1;
-   }
-
-   std::unique_ptr<Texture> createColorTexture(const GraphicsContext& context, vk::Format format, bool canBeSampled, bool enableMSAA)
+   std::unique_ptr<Texture> createColorTexture(const GraphicsContext& context, vk::Format format, bool canBeSampled, vk::SampleCountFlagBits sampleCount = vk::SampleCountFlagBits::e1)
    {
       const Swapchain& swapchain = context.getSwapchain();
 
@@ -147,7 +132,7 @@ namespace
       colorImageProperties.height = swapchain.getExtent().height;
 
       TextureProperties colorTextureProperties;
-      colorTextureProperties.sampleCount = enableMSAA ? getMaxSampleCount(context) : vk::SampleCountFlagBits::e1;
+      colorTextureProperties.sampleCount = sampleCount;
       colorTextureProperties.usage = vk::ImageUsageFlagBits::eColorAttachment;
       if (canBeSampled)
       {
@@ -166,7 +151,7 @@ namespace
       return std::make_unique<Texture>(context, colorImageProperties, colorTextureProperties, colorInitialLayout);
    }
 
-   std::unique_ptr<Texture> createDepthTexture(const GraphicsContext& context, vk::Format format, vk::Extent2D extent, bool sampled, bool enableMSAA)
+   std::unique_ptr<Texture> createDepthTexture(const GraphicsContext& context, vk::Format format, vk::Extent2D extent, bool sampled, vk::SampleCountFlagBits sampleCount = vk::SampleCountFlagBits::e1)
    {
       ImageProperties depthImageProperties;
       depthImageProperties.format = format;
@@ -174,7 +159,7 @@ namespace
       depthImageProperties.height = extent.height;
 
       TextureProperties depthTextureProperties;
-      depthTextureProperties.sampleCount = enableMSAA ? getMaxSampleCount(context) : vk::SampleCountFlagBits::e1;
+      depthTextureProperties.sampleCount = sampleCount;
       depthTextureProperties.usage = vk::ImageUsageFlagBits::eDepthStencilAttachment;
       if (sampled)
       {
@@ -494,9 +479,10 @@ namespace
    }
 }
 
-Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& resourceManagerRef)
+Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& resourceManagerRef, const RenderSettings& settings)
    : GraphicsResource(graphicsContext)
    , resourceManager(resourceManagerRef)
+   , renderSettings(settings)
    , dynamicDescriptorPool(graphicsContext, getDynamicDescriptorPoolSizes())
 {
    NAME_ITEM(context.getDevice(), dynamicDescriptorPool, "Renderer Dynamic Descriptor Pool");
@@ -575,6 +561,8 @@ Renderer::~Renderer()
    compositePass = nullptr;
    tonemapPass = nullptr;
 
+   defaultBlackTexture = nullptr;
+   defaultWhiteTexture = nullptr;
    depthTexture = nullptr;
    normalTexture = nullptr;
    ssaoTexture = nullptr;
@@ -612,7 +600,11 @@ void Renderer::render(vk::CommandBuffer commandBuffer, const Scene& scene)
 
    normalPass->render(commandBuffer, sceneRenderInfo, *depthTexture, *normalTexture);
 
-   ssaoPass->render(commandBuffer, sceneRenderInfo, *depthTexture, *normalTexture, *ssaoTexture, *ssaoBlurTexture);
+   bool ssaoEnabled = renderSettings.ssaoQuality != RenderQuality::Disabled;
+   if (ssaoEnabled)
+   {
+      ssaoPass->render(commandBuffer, sceneRenderInfo, *depthTexture, *normalTexture, *ssaoTexture, *ssaoBlurTexture, renderSettings.ssaoQuality);
+   }
 
    renderShadowMaps(commandBuffer, scene, sceneRenderInfo);
 
@@ -625,7 +617,7 @@ void Renderer::render(vk::CommandBuffer commandBuffer, const Scene& scene)
       skyboxTexture = resourceManager.getTexture(skyboxComponent.textureHandle);
    });
 
-   forwardPass->render(commandBuffer, sceneRenderInfo, *depthTexture, *hdrColorTexture, hdrResolveTexture.get(), *normalTexture, *ssaoTexture, skyboxTexture);
+   forwardPass->render(commandBuffer, sceneRenderInfo, *depthTexture, *hdrColorTexture, hdrResolveTexture.get(), *normalTexture, ssaoEnabled ? *ssaoTexture : *defaultWhiteTexture, skyboxTexture);
 
    uiPass->render(commandBuffer, *uiColorTexture);
    compositePass->render(commandBuffer, *hdrColorTexture, *uiColorTexture, CompositeShader::Mode::SrgbToLinear);
@@ -638,21 +630,28 @@ void Renderer::render(vk::CommandBuffer commandBuffer, const Scene& scene)
 
 void Renderer::onSwapchainRecreated()
 {
-   depthTexture = createDepthTexture(context, depthStencilFormat, context.getSwapchain().getExtent(), true, enableMSAA);
-   normalTexture = createColorTexture(context, vk::Format::eR16G16B16A16Snorm, true, enableMSAA);
-   ssaoTexture = createColorTexture(context, vk::Format::eR8Unorm, true, false);
-   ssaoBlurTexture = createColorTexture(context, vk::Format::eR8Unorm, true, false);
-   hdrColorTexture = createColorTexture(context, vk::Format::eR16G16B16A16Sfloat, !enableMSAA, enableMSAA);
-   if (enableMSAA)
+   defaultBlackTexture = resourceManager.createDefaultTexture(DefaultTextureType::Black);
+   defaultWhiteTexture = resourceManager.createDefaultTexture(DefaultTextureType::White);
+
+   bool msaaEnabled = renderSettings.msaaSamples != vk::SampleCountFlagBits::e1;
+
+   depthTexture = createDepthTexture(context, depthStencilFormat, context.getSwapchain().getExtent(), true, renderSettings.msaaSamples);
+   normalTexture = createColorTexture(context, vk::Format::eR16G16B16A16Snorm, true, renderSettings.msaaSamples);
+   ssaoTexture = createColorTexture(context, vk::Format::eR8Unorm, true);
+   ssaoBlurTexture = createColorTexture(context, vk::Format::eR8Unorm, true);
+   hdrColorTexture = createColorTexture(context, vk::Format::eR16G16B16A16Sfloat, !msaaEnabled, renderSettings.msaaSamples);
+   if (msaaEnabled)
    {
-      hdrResolveTexture = createColorTexture(context, vk::Format::eR16G16B16A16Sfloat, true, false);
+      hdrResolveTexture = createColorTexture(context, vk::Format::eR16G16B16A16Sfloat, true);
    }
    else
    {
       hdrResolveTexture = nullptr;
    }
-   uiColorTexture = createColorTexture(context, vk::Format::eR8G8B8A8Unorm, true, false);
+   uiColorTexture = createColorTexture(context, vk::Format::eR8G8B8A8Unorm, true);
 
+   NAME_POINTER(device, defaultBlackTexture, "Default Black Texture");
+   NAME_POINTER(device, defaultWhiteTexture, "Default White Texture");
    NAME_POINTER(device, depthTexture, "Depth Texture");
    NAME_POINTER(device, normalTexture, "Normal Texture");
    NAME_POINTER(device, ssaoTexture, "SSAO Texture");
@@ -664,10 +663,15 @@ void Renderer::onSwapchainRecreated()
    updateSwapchainDependentPasses();
 }
 
-void Renderer::toggleMSAA()
+void Renderer::updateRenderSettings(const RenderSettings& settings)
 {
-   enableMSAA = !enableMSAA;
-   onSwapchainRecreated();
+   bool msaaSamplesChanged = renderSettings.msaaSamples != settings.msaaSamples;
+   renderSettings = settings;
+
+   if (msaaSamplesChanged)
+   {
+      onSwapchainRecreated();
+   }
 }
 
 void Renderer::renderShadowMaps(vk::CommandBuffer commandBuffer, const Scene& scene, const SceneRenderInfo& sceneRenderInfo)

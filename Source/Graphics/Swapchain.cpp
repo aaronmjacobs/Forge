@@ -5,60 +5,6 @@
 
 namespace
 {
-   vk::SurfaceFormatKHR chooseSurfaceFormat(const std::vector<vk::SurfaceFormatKHR>& formats, bool preferHDR)
-   {
-      if (preferHDR)
-      {
-         for (const vk::SurfaceFormatKHR& format : formats)
-         {
-            if (format.format == vk::Format::eA2R10G10B10UnormPack32 && format.colorSpace == vk::ColorSpaceKHR::eHdr10St2084EXT)
-            {
-               return format;
-            }
-         }
-      }
-
-      for (const vk::SurfaceFormatKHR& format : formats)
-      {
-         if (format.format == vk::Format::eB8G8R8A8Srgb && format.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear)
-         {
-            return format;
-         }
-      }
-
-      if (!formats.empty())
-      {
-         return formats[0];
-      }
-
-      throw std::runtime_error("No swapchain formats available");
-   }
-
-   vk::PresentModeKHR choosePresentMode(const std::vector<vk::PresentModeKHR>& presentModes)
-   {
-      static const auto containsPresentMode = [](const std::vector<vk::PresentModeKHR>& presentModes, vk::PresentModeKHR presentMode)
-      {
-         return std::find(presentModes.begin(), presentModes.end(), presentMode) != presentModes.end();
-      };
-
-      if (containsPresentMode(presentModes, vk::PresentModeKHR::eMailbox))
-      {
-         return vk::PresentModeKHR::eMailbox;
-      }
-
-      if (containsPresentMode(presentModes, vk::PresentModeKHR::eFifo))
-      {
-         return vk::PresentModeKHR::eFifo;
-      }
-
-      if (!presentModes.empty())
-      {
-         return presentModes[0];
-      }
-
-      throw std::runtime_error("No swapchain present modes available");
-   }
-
    vk::Extent2D chooseExtent(const vk::SurfaceCapabilitiesKHR& capabilities, vk::Extent2D desiredExtent)
    {
       if (capabilities.currentExtent.width != UINT32_MAX)
@@ -72,6 +18,79 @@ namespace
 
       return extent;
    }
+}
+
+// static
+const vk::SurfaceFormatKHR SwapchainSupportDetails::kDefaultSurfaceFormat(vk::Format::eB8G8R8A8Srgb, vk::ColorSpaceKHR::eSrgbNonlinear);
+
+// static
+const vk::SurfaceFormatKHR SwapchainSupportDetails::kHDRSurfaceFormat(vk::Format::eA2R10G10B10UnormPack32, vk::ColorSpaceKHR::eHdr10St2084EXT);
+
+bool SwapchainSupportDetails::supportsHDR() const
+{
+   for (const vk::SurfaceFormatKHR& format : formats)
+   {
+      if (format == kHDRSurfaceFormat)
+      {
+         return true;
+      }
+   }
+
+   return false;
+}
+
+vk::SurfaceFormatKHR SwapchainSupportDetails::chooseSurfaceFormat(bool preferHDR) const
+{
+   if (preferHDR)
+   {
+      for (const vk::SurfaceFormatKHR& format : formats)
+      {
+         if (format == kHDRSurfaceFormat)
+         {
+            return format;
+         }
+      }
+   }
+
+   for (const vk::SurfaceFormatKHR& format : formats)
+   {
+      if (format == kDefaultSurfaceFormat)
+      {
+         return format;
+      }
+   }
+
+   if (!formats.empty())
+   {
+      return formats[0];
+   }
+
+   throw std::runtime_error("No swapchain formats available");
+}
+
+vk::PresentModeKHR SwapchainSupportDetails::choosePresentMode() const
+{
+   static const auto containsPresentMode = [](const std::vector<vk::PresentModeKHR>& presentModes, vk::PresentModeKHR presentMode)
+   {
+      return std::find(presentModes.begin(), presentModes.end(), presentMode) != presentModes.end();
+   };
+
+   if (containsPresentMode(presentModes, vk::PresentModeKHR::eMailbox))
+   {
+      return vk::PresentModeKHR::eMailbox;
+   }
+
+   if (containsPresentMode(presentModes, vk::PresentModeKHR::eFifo))
+   {
+      return vk::PresentModeKHR::eFifo;
+   }
+
+   if (!presentModes.empty())
+   {
+      return presentModes[0];
+   }
+
+   throw std::runtime_error("No swapchain present modes available");
 }
 
 // static
@@ -92,8 +111,10 @@ Swapchain::Swapchain(const GraphicsContext& graphicsContext, vk::Extent2D desire
    SwapchainSupportDetails supportDetails = getSupportDetails(context.getPhysicalDevice(), context.getSurface());
    ASSERT(supportDetails.isValid());
 
-   vk::SurfaceFormatKHR surfaceFormat = chooseSurfaceFormat(supportDetails.formats, preferHDR);
-   vk::PresentModeKHR presentMode = choosePresentMode(supportDetails.presentModes);
+   supportsHDRFormat = supportDetails.supportsHDR();
+
+   vk::SurfaceFormatKHR surfaceFormat = supportDetails.chooseSurfaceFormat(preferHDR);
+   vk::PresentModeKHR presentMode = supportDetails.choosePresentMode();
 
    format = surfaceFormat.format;
    extent = chooseExtent(supportDetails.capabilities, desiredExtent);

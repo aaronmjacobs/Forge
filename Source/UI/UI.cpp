@@ -1,6 +1,12 @@
 #include "UI/UI.h"
 
+#include "Core/Enum.h"
+
+#include "Graphics/GraphicsContext.h"
+
 #include "Math/MathUtils.h"
+
+#include "Renderer/RenderSettings.h"
 
 #include "Resources/ResourceManager.h"
 
@@ -305,7 +311,32 @@ namespace
       }
    }
 
+   const char* getMSAAPreviewText(vk::SampleCountFlagBits sampleCount)
+   {
+      switch (sampleCount)
+      {
+      case vk::SampleCountFlagBits::e1:
+         return "Disabled";
+      case vk::SampleCountFlagBits::e2:
+         return "2x";
+      case vk::SampleCountFlagBits::e4:
+         return "4x";
+      case vk::SampleCountFlagBits::e8:
+         return "8x";
+      case vk::SampleCountFlagBits::e16:
+         return "16x";
+      case vk::SampleCountFlagBits::e32:
+         return "32x";
+      case vk::SampleCountFlagBits::e64:
+         return "64x";
+      default:
+         return "Invalid";
+      }
+   }
+
    const float kSceneWindowHeight = 320.0f;
+
+   const std::array<const char*, 4> kRenderQualityNames = { "Disabled", "Low", "Medium", "High" };
 }
 
 // static
@@ -377,7 +408,7 @@ void UI::setIgnoreMouse(bool ignore)
 // static
 bool UI::visible = true;
 
-void UI::render(Scene& scene, const ResourceManager& resourceManager)
+void UI::render(const GraphicsContext& graphicsContext, Scene& scene, const RenderCapabilities& capabilities, RenderSettings& settings, const ResourceManager& resourceManager)
 {
    static const float kTimeBetweenFrameRateUpdates = 1.0f / frameRates.size();
 
@@ -404,19 +435,21 @@ void UI::render(Scene& scene, const ResourceManager& resourceManager)
 
    if (isVisible())
    {
-      renderSceneWindow(scene, resourceManager);
+      renderSceneWindow(graphicsContext, scene, capabilities, settings, resourceManager);
    }
 
    ImGui::Render();
 }
 
-void UI::renderSceneWindow(Scene& scene, const ResourceManager& resourceManager)
+void UI::renderSceneWindow(const GraphicsContext& graphicsContext, Scene& scene, const RenderCapabilities& capabilities, RenderSettings& settings, const ResourceManager& resourceManager)
 {
-   ImGui::SetNextWindowSize(ImVec2(1000.0f, 0.0f), ImGuiCond_FirstUseEver);
+   ImGui::SetNextWindowSize(ImVec2(1100.0f, 0.0f), ImGuiCond_FirstUseEver);
    ImGui::SetNextWindowContentSize(ImVec2(0.0f, kSceneWindowHeight));
    ImGui::Begin("Scene", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
 
    renderTime(scene);
+   ImGui::SameLine();
+   renderSettings(graphicsContext, capabilities, settings);
    ImGui::SameLine();
    renderEntityList(scene);
    ImGui::SameLine();
@@ -447,6 +480,61 @@ void UI::renderTime(Scene& scene)
    std::string overlay = std::to_string(static_cast<int>(ImGui::GetIO().Framerate + 0.5f)) + " FPS";
    ImGui::PlotLines("###Frame Rate", frameRates.data(), static_cast<int>(frameRates.size()), static_cast<int>(frameIndex), overlay.c_str(), 0.0f, maxFrameRate, ImVec2(0, 250.0f));
    ImGui::PopItemWidth();
+
+   ImGui::EndChild();
+}
+
+void UI::renderSettings(const GraphicsContext& graphicsContext, const RenderCapabilities& capabilities, RenderSettings& settings)
+{
+   ImGui::BeginChild("Features", ImVec2(ImGui::GetContentRegionAvail().x * 0.2f, kSceneWindowHeight), true, ImGuiWindowFlags_MenuBar);
+   if (ImGui::BeginMenuBar())
+   {
+      if (ImGui::BeginMenu("Features", false))
+      {
+         ImGui::EndMenu();
+      }
+      ImGui::EndMenuBar();
+   }
+
+   const vk::PhysicalDeviceLimits& limits = graphicsContext.getPhysicalDeviceProperties().limits;
+   vk::SampleCountFlags sampleCountFlags = limits.framebufferColorSampleCounts & limits.framebufferDepthSampleCounts;
+
+   static const std::array<vk::SampleCountFlagBits, 7> kSampleCountValues = { vk::SampleCountFlagBits::e1, vk::SampleCountFlagBits::e2, vk::SampleCountFlagBits::e4, vk::SampleCountFlagBits::e8, vk::SampleCountFlagBits::e16, vk::SampleCountFlagBits::e32, vk::SampleCountFlagBits::e64 };
+   if (ImGui::BeginCombo("MSAA", getMSAAPreviewText(settings.msaaSamples)))
+   {
+      for (vk::SampleCountFlagBits sampleCount : kSampleCountValues)
+      {
+         if (sampleCount & sampleCountFlags)
+         {
+            bool isSelected = settings.msaaSamples == sampleCount;
+            if (ImGui::Selectable(getMSAAPreviewText(sampleCount), isSelected))
+            {
+               settings.msaaSamples = sampleCount;
+            }
+
+            if (isSelected)
+            {
+               ImGui::SetItemDefaultFocus();
+            }
+         }
+      }
+
+      ImGui::EndCombo();
+   }
+
+   int ssaoQuality = Enum::cast(settings.ssaoQuality);
+   ImGui::Combo("SSAO", &ssaoQuality, kRenderQualityNames.data(), static_cast<int>(kRenderQualityNames.size()));
+   settings.ssaoQuality = static_cast<RenderQuality>(ssaoQuality);
+
+   if (!capabilities.canPresentHDR)
+   {
+      ImGui::BeginDisabled();
+   }
+   ImGui::Checkbox("Present HDR", &settings.presentHDR);
+   if (!capabilities.canPresentHDR)
+   {
+      ImGui::EndDisabled();
+   }
 
    ImGui::EndChild();
 }

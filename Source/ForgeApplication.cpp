@@ -36,7 +36,6 @@ namespace
       const char* kToggleFullscreen = "ToggleFullscreen";
       const char* kReleaseCursor = "ReleaseCursor";
 
-      const char* kToggleMSAA = "ToggleMSAA";
       const char* kToggleHDR = "ToggleHDR";
       const char* kToggleLabels = "ToggleLabels";
 
@@ -125,7 +124,10 @@ void ForgeApplication::run()
 
 void ForgeApplication::render()
 {
-   ui->render(scene, *resourceManager);
+   RenderSettings newRenderSettings = renderSettings;
+   ui->render(*context, scene, renderCapabilities, newRenderSettings, *resourceManager);
+
+   updateRenderSettings(newRenderSettings);
 
    if (framebufferSizeChanged)
    {
@@ -248,6 +250,26 @@ bool ForgeApplication::recreateSwapchain()
    return true;
 }
 
+void ForgeApplication::updateRenderSettings(const RenderSettings& newRenderSettings)
+{
+   if (renderSettings != newRenderSettings)
+   {
+      bool presentHDRChanged = newRenderSettings.presentHDR != renderSettings.presentHDR;
+
+      renderSettings = newRenderSettings;
+
+      if (presentHDRChanged)
+      {
+         recreateSwapchain();
+      }
+
+      if (renderer)
+      {
+         renderer->updateRenderSettings(newRenderSettings);
+      }
+   }
+}
+
 void ForgeApplication::initializeGlfw()
 {
    glfwSetErrorCallback(glfwErrorCallback);
@@ -335,9 +357,11 @@ void ForgeApplication::terminateVulkan()
 
 void ForgeApplication::initializeSwapchain()
 {
-   swapchain = std::make_unique<Swapchain>(*context, window->getExtent(), preferHDR);
+   swapchain = std::make_unique<Swapchain>(*context, window->getExtent(), renderSettings.presentHDR);
    NAME_POINTER(context->getDevice(), swapchain, "Swapchain");
    context->setSwapchain(swapchain.get());
+
+   renderCapabilities.canPresentHDR = swapchain->supportsHDR();
 }
 
 void ForgeApplication::terminateSwapchain()
@@ -348,26 +372,18 @@ void ForgeApplication::terminateSwapchain()
 
 void ForgeApplication::initializeRenderer()
 {
-   renderer = std::make_unique<Renderer>(*context, *resourceManager);
+   renderer = std::make_unique<Renderer>(*context, *resourceManager, renderSettings);
 
    InputManager& inputManager = window->getInputManager();
-
-   inputManager.createButtonMapping(InputActions::kToggleMSAA, KeyChord(Key::M), {}, {});
-   inputManager.bindButtonMapping(InputActions::kToggleMSAA, [this](bool pressed)
-   {
-      if (pressed && renderer)
-      {
-         renderer->toggleMSAA();
-      }
-   });
 
    inputManager.createButtonMapping(InputActions::kToggleHDR, KeyChord(Key::H), {}, {});
    inputManager.bindButtonMapping(InputActions::kToggleHDR, [this](bool pressed)
    {
       if (pressed)
       {
-         preferHDR = !preferHDR;
-         recreateSwapchain();
+         RenderSettings newRenderSettings = renderSettings;
+         newRenderSettings.presentHDR = !renderSettings.presentHDR;
+         updateRenderSettings(newRenderSettings);
       }
    });
 

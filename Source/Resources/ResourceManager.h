@@ -180,6 +180,11 @@ public:
       return textureResourceManager.getIdentifier(handle);
    }
 
+   std::unique_ptr<Texture> createDefaultTexture(DefaultTextureType type) const
+   {
+      return textureResourceManager.createDefault(type);
+   }
+
 private:
    MaterialResourceManager materialResourceManager;
    MeshResourceManager meshResourceManager;

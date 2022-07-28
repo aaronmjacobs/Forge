@@ -30,6 +30,7 @@ public:
    TextureHandle load(const std::filesystem::path& path, const TextureLoadOptions& loadOptions = {}, const TextureProperties& properties = getDefaultProperties(), const TextureInitialLayout& initialLayout = getDefaultInitialLayout());
 
    TextureHandle getDefault(DefaultTextureType type) const;
+   std::unique_ptr<Texture> createDefault(DefaultTextureType type) const;
 
    static TextureProperties getDefaultProperties();
    static TextureInitialLayout getDefaultInitialLayout();

@@ -4,7 +4,7 @@
 
 #include "View.glsl"
 
-const uint kNumSamples = 32;
+const uint kMaxSamples = 32;
 const uint kNoiseSize = 4;
 const uint kNumNoiseValues = (kNoiseSize * kNoiseSize) / 2; // Half size since only two elements per value
 
@@ -13,8 +13,9 @@ layout(set = 1, binding = 1) uniform sampler2D normalBuffer;
 
 layout(std430, set = 1, binding = 2) uniform SSAOData
 {
-   vec4 samples[kNumSamples];
+   vec4 samples[kMaxSamples];
    vec4 noise[kNumNoiseValues];
+   uint numSamples;
 };
 
 layout(location = 0) in vec2 inTexCoord;
@@ -56,7 +57,7 @@ void main()
    mat3 tbn = mat3(tangent, bitangent, normal);
 
    outSSAO = 0.0;
-   for (uint i = 0; i < kNumSamples; ++i)
+   for (uint i = 0; i < numSamples; ++i)
    {
       float radius = 1.0;
       vec3 samplePosition = position + (tbn * samples[i].xyz) * radius;
@@ -71,5 +72,5 @@ void main()
    }
 
    const float kStrength = 1.0;
-   outSSAO = pow(1.0 - (outSSAO / kNumSamples), kStrength);
+   outSSAO = pow(1.0 - (outSSAO / numSamples), kStrength);
 }

@@ -4,8 +4,11 @@
 
 #include <array>
 
+class GraphicsContext;
 class ResourceManager;
 class Scene;
+struct RenderCapabilities;
+struct RenderSettings;
 
 class UI
 {
@@ -20,11 +23,12 @@ public:
    static bool wantsKeyboardInput();
    static void setIgnoreMouse(bool ignore);
 
-   void render(Scene& scene, const ResourceManager& resourceManager);
+   void render(const GraphicsContext& graphicsContext, Scene& scene, const RenderCapabilities& renderCapabilities, RenderSettings& settings, const ResourceManager& resourceManager);
 
 private:
-   void renderSceneWindow(Scene& scene, const ResourceManager& resourceManager);
+   void renderSceneWindow(const GraphicsContext& graphicsContext, Scene& scene, const RenderCapabilities& renderCapabilities, RenderSettings& settings, const ResourceManager& resourceManager);
    void renderTime(Scene& scene);
+   void renderSettings(const GraphicsContext& graphicsContext, const RenderCapabilities& renderCapabilities, RenderSettings& settings);
    void renderEntityList(Scene& scene);
    void renderSelectedEntity(const ResourceManager& resourceManager);
 

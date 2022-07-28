@@ -1,7 +1,10 @@
 #pragma once
 
 #include "Graphics/DescriptorSet.h"
+#include "Graphics/FrameData.h"
 #include "Graphics/UniformBuffer.h"
+
+#include "Renderer/RenderSettings.h"
 
 #include "Renderer/Passes/SceneRenderPass.h"
 
@@ -21,7 +24,8 @@ struct SceneRenderInfo;
 struct SSAOUniformData
 {
    alignas(16) std::array<glm::vec4, 32> samples;
-   alignas(16) std::array<glm::vec4, 16> noise;
+   alignas(16) std::array<glm::vec4, 8> noise;
+   alignas(4) uint32_t numSamples = 0;
 };
 
 template<>
@@ -46,7 +50,7 @@ public:
    SSAOPass(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, ResourceManager& resourceManager);
    ~SSAOPass();
 
-   void render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, Texture& depthTexture, Texture& normalTexture, Texture& ssaoTexture, Texture& ssaoBlurTexture);
+   void render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, Texture& depthTexture, Texture& normalTexture, Texture& ssaoTexture, Texture& ssaoBlurTexture, RenderQuality quality);
 
 protected:
    friend class SceneRenderPass<SSAOPass>;
@@ -54,7 +58,7 @@ protected:
    Pipeline createPipeline(const PipelineDescription<SSAOPass>& description);
 
 private:
-   void renderSSAO(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, Texture& depthTexture, Texture& normalTexture, Texture& ssaoTexture);
+   void renderSSAO(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, Texture& depthTexture, Texture& normalTexture, Texture& ssaoTexture, RenderQuality quality);
    void renderBlur(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, Texture& depthTexture, Texture& inputTexture, Texture& outputTexture, bool horizontal);
 
    vk::ImageView getDepthView(Texture& depthTexture);
@@ -72,4 +76,5 @@ private:
    vk::Sampler sampler;
 
    UniformBuffer<SSAOUniformData> uniformBuffer;
+   FrameData<RenderQuality> ssaoQuality;
 };

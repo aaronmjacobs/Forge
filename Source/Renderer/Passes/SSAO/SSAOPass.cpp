@@ -1,5 +1,7 @@
 #include "Renderer/Passes/SSAO/SSAOPass.h"
 
+#include "Core/Assert.h"
+
 #include "Graphics/DebugUtils.h"
 #include "Graphics/Pipeline.h"
 #include "Graphics/Texture.h"
@@ -13,12 +15,34 @@
 #include <random>
 #include <utility>
 
+namespace
+{
+   uint32_t numSamplesForQuality(RenderQuality quality)
+   {
+      switch (quality)
+      {
+      case RenderQuality::Disabled:
+         return 0;
+      case RenderQuality::Low:
+         return 8;
+      case RenderQuality::Medium:
+         return 16;
+      case RenderQuality::High:
+         return 32;
+      default:
+         ASSERT(false);
+         return 0;
+      }
+   }
+}
+
 SSAOPass::SSAOPass(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, ResourceManager& resourceManager)
    : SceneRenderPass(graphicsContext)
    , ssaoDescriptorSet(graphicsContext, dynamicDescriptorPool, SSAOShader::getLayoutCreateInfo())
    , horizontalBlurDescriptorSet(graphicsContext, dynamicDescriptorPool, SSAOBlurShader::getLayoutCreateInfo())
    , verticalBlurDescriptorSet(graphicsContext, dynamicDescriptorPool, SSAOBlurShader::getLayoutCreateInfo())
    , uniformBuffer(graphicsContext)
+   , ssaoQuality(RenderQuality::Medium)
 {
    NAME_CHILD(ssaoDescriptorSet, "SSAO");
    NAME_CHILD(blurPipelineLayout, "Blur");
@@ -84,6 +108,8 @@ SSAOPass::SSAOPass(const GraphicsContext& graphicsContext, DynamicDescriptorPool
          noiseValue = glm::vec4(distribution(generator) * 2.0f - 1.0f, distribution(generator) * 2.0f - 1.0f, distribution(generator) * 2.0f - 1.0f, distribution(generator) * 2.0f - 1.0f);
       }
 
+      uniformData.numSamples = numSamplesForQuality(ssaoQuality.get(context));
+
       uniformBuffer.updateAll(uniformData);
 
       for (uint32_t frameIndex = 0; frameIndex < GraphicsContext::kMaxFramesInFlight; ++frameIndex)
@@ -114,11 +140,11 @@ SSAOPass::~SSAOPass()
    blurShader.reset();
 }
 
-void SSAOPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, Texture& depthTexture, Texture& normalTexture, Texture& ssaoTexture, Texture& ssaoBlurTexture)
+void SSAOPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, Texture& depthTexture, Texture& normalTexture, Texture& ssaoTexture, Texture& ssaoBlurTexture, RenderQuality quality)
 {
    SCOPED_LABEL(getName());
 
-   renderSSAO(commandBuffer, sceneRenderInfo, depthTexture, normalTexture, ssaoTexture);
+   renderSSAO(commandBuffer, sceneRenderInfo, depthTexture, normalTexture, ssaoTexture, quality);
 
    renderBlur(commandBuffer, sceneRenderInfo, depthTexture, ssaoTexture, ssaoBlurTexture, true);
    renderBlur(commandBuffer, sceneRenderInfo, depthTexture, ssaoBlurTexture, ssaoTexture, false);
@@ -147,13 +173,21 @@ Pipeline SSAOPass::createPipeline(const PipelineDescription<SSAOPass>& descripti
    return pipeline;
 }
 
-void SSAOPass::renderSSAO(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, Texture& depthTexture, Texture& normalTexture, Texture& ssaoTexture)
+void SSAOPass::renderSSAO(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, Texture& depthTexture, Texture& normalTexture, Texture& ssaoTexture, RenderQuality quality)
 {
    SCOPED_LABEL("SSAO");
 
    depthTexture.transitionLayout(commandBuffer, TextureLayoutType::ShaderRead);
    normalTexture.transitionLayout(commandBuffer, TextureLayoutType::ShaderRead);
    ssaoTexture.transitionLayout(commandBuffer, TextureLayoutType::AttachmentWrite);
+
+   if (ssaoQuality.get(context) != quality)
+   {
+      ssaoQuality.set(context, quality);
+
+      uint32_t numSamples = numSamplesForQuality(quality);
+      uniformBuffer.updateMember(&SSAOUniformData::numSamples, numSamples);
+   }
 
    vk::RenderingAttachmentInfo colorAttachmentInfo = vk::RenderingAttachmentInfo()
       .setImageView(ssaoTexture.getDefaultView())
