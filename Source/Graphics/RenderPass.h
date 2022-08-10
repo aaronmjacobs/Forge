@@ -1,11 +1,99 @@
 #pragma once
 
-#include "Core/Hash.h"
+#include "Core/Containers/StaticVector.h"
 
 #include "Graphics/GraphicsResource.h"
 #include "Graphics/TextureInfo.h"
 
 #include <span>
+
+constexpr std::size_t kMaxColorAttachments = 4;
+
+struct AttachmentFormats
+{
+   StaticVector<vk::Format, kMaxColorAttachments> colorFormats;
+   vk::Format depthStencilFormat = vk::Format::eUndefined;
+
+   vk::SampleCountFlagBits sampleCount = vk::SampleCountFlagBits::e1;
+
+   AttachmentFormats() = default;
+   AttachmentFormats(std::span<const Texture> colorAttachments, const Texture* depthStencilAttachment = nullptr);
+   AttachmentFormats(const Texture* colorAttachment, const Texture* depthStencilAttachment = nullptr);
+
+   bool operator==(const AttachmentFormats& other) const = default;
+};
+
+struct AttachmentInfo
+{
+   Texture* texture = nullptr;
+   vk::ImageView viewOverride = nullptr;
+
+   Texture* resolveTexture = nullptr;
+   vk::ImageView resolveViewOverride = nullptr;
+   vk::ResolveModeFlagBits resolveMode = vk::ResolveModeFlagBits::eNone;
+
+   vk::AttachmentLoadOp loadOp = vk::AttachmentLoadOp::eLoad;
+   vk::AttachmentStoreOp storeOp = vk::AttachmentStoreOp::eStore;
+   vk::ClearValue clearValue = {};
+
+   AttachmentInfo() = default;
+
+   explicit AttachmentInfo(Texture& tex)
+      : texture(&tex)
+   {
+   }
+
+   AttachmentInfo& setTexture(Texture& texture_)
+   {
+      texture = &texture_;
+      return *this;
+   }
+
+   AttachmentInfo& setViewOverride(vk::ImageView viewOverride_)
+   {
+      viewOverride = viewOverride_;
+      return *this;
+   }
+
+   AttachmentInfo& setResolveTexture(Texture& resolveTexture_)
+   {
+      resolveTexture = &resolveTexture_;
+      return *this;
+   }
+
+   AttachmentInfo& setResolveViewOverride(vk::ImageView resolveViewOverride_)
+   {
+      resolveViewOverride = resolveViewOverride_;
+      return *this;
+   }
+
+   AttachmentInfo& setResolveMode(vk::ResolveModeFlagBits resolveMode_)
+   {
+      resolveMode = resolveMode_;
+      return *this;
+   }
+
+   AttachmentInfo& setLoadOp(vk::AttachmentLoadOp loadOp_)
+   {
+      loadOp = loadOp_;
+      return *this;
+   }
+
+   AttachmentInfo& setStoreOp(vk::AttachmentStoreOp storeOp_)
+   {
+      storeOp = storeOp_;
+      return *this;
+   }
+
+   AttachmentInfo& setClearValue(vk::ClearValue clearValue_)
+   {
+      clearValue = clearValue_;
+      return *this;
+   }
+
+   vk::RenderingAttachmentInfo getRenderingAttachmentInfo() const;
+   bool matchesFormat(vk::Format format) const;
+};
 
 class RenderPass : public GraphicsResource
 {
@@ -13,8 +101,8 @@ public:
    RenderPass(const GraphicsContext& graphicsContext);
 
    void updateAttachmentFormats(const AttachmentFormats& formats);
-   void updateAttachmentFormats(const Texture* depthStencilAttachment, std::span<const Texture> colorAttachments);
-   void updateAttachmentFormats(const Texture* depthStencilAttachment, const Texture* colorAttachment);
+   void updateAttachmentFormats(std::span<const Texture> colorAttachments, const Texture* depthStencilAttachment = nullptr);
+   void updateAttachmentFormats(const Texture* colorAttachment, const Texture* depthStencilAttachment = nullptr);
 
    vk::SampleCountFlagBits getSampleCount() const
    {
@@ -24,8 +112,8 @@ public:
 protected:
    virtual void postUpdateAttachmentFormats() {}
 
-   void beginRenderPass(vk::CommandBuffer commandBuffer, vk::Extent2D extent, const vk::RenderingAttachmentInfo* depthStencilAttachment, std::span<const vk::RenderingAttachmentInfo> colorAttachments);
-   void beginRenderPass(vk::CommandBuffer commandBuffer, vk::Extent2D extent, const vk::RenderingAttachmentInfo* depthStencilAttachment, const vk::RenderingAttachmentInfo* colorAttachment);
+   void beginRenderPass(vk::CommandBuffer commandBuffer, std::span<const AttachmentInfo> colorAttachments, const AttachmentInfo* depthStencilAttachment = nullptr);
+   void beginRenderPass(vk::CommandBuffer commandBuffer, const AttachmentInfo* colorAttachment, const AttachmentInfo* depthStencilAttachment = nullptr);
    void endRenderPass(vk::CommandBuffer commandBuffer);
    void setViewport(vk::CommandBuffer commandBuffer, const vk::Rect2D& rect);
 

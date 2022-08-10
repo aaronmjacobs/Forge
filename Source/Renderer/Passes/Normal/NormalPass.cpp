@@ -41,20 +41,15 @@ void NormalPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& 
    depthTexture.transitionLayout(commandBuffer, TextureLayoutType::AttachmentWrite);
    normalTexture.transitionLayout(commandBuffer, TextureLayoutType::AttachmentWrite);
 
-   vk::RenderingAttachmentInfo depthStencilAttachmentInfo = vk::RenderingAttachmentInfo()
-      .setImageView(depthTexture.getDefaultView())
-      .setImageLayout(depthTexture.getLayout())
-      .setLoadOp(vk::AttachmentLoadOp::eClear)
-      .setClearValue(vk::ClearDepthStencilValue(1.0f, 0));
-
-   vk::RenderingAttachmentInfo colorAttachmentInfo = vk::RenderingAttachmentInfo()
-      .setImageView(normalTexture.getDefaultView())
-      .setImageLayout(normalTexture.getLayout())
+   AttachmentInfo colorAttachmentInfo = AttachmentInfo(normalTexture)
       .setLoadOp(vk::AttachmentLoadOp::eClear)
       .setClearValue(vk::ClearColorValue(std::array<float, 4>{ 0.0f, 0.0f, 0.0f, 1.0f }));
 
-   ASSERT(depthTexture.getExtent() == normalTexture.getExtent());
-   beginRenderPass(commandBuffer, depthTexture.getExtent(), &depthStencilAttachmentInfo, &colorAttachmentInfo);
+   AttachmentInfo depthStencilAttachmentInfo = AttachmentInfo(depthTexture)
+      .setLoadOp(vk::AttachmentLoadOp::eClear)
+      .setClearValue(vk::ClearDepthStencilValue(1.0f, 0));
+
+   beginRenderPass(commandBuffer, &colorAttachmentInfo, &depthStencilAttachmentInfo);
 
    {
       SCOPED_LABEL("Opaque");

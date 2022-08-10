@@ -2,50 +2,6 @@
 
 #include "Graphics/Texture.h"
 
-AttachmentFormats::AttachmentFormats(const Texture* depthStencilAttachment, std::span<const Texture> colorAttachments)
-{
-   if (depthStencilAttachment)
-   {
-      depthStencilFormat = depthStencilAttachment->getImageProperties().format;
-   }
-
-   colorFormats.reserve(colorAttachments.size());
-   for (const Texture& colorAttachment : colorAttachments)
-   {
-      colorFormats.push_back(colorAttachment.getImageProperties().format);
-   }
-
-   if (depthStencilAttachment)
-   {
-      sampleCount = depthStencilAttachment->getTextureProperties().sampleCount;
-   }
-   else
-   {
-      for (const Texture& colorAttachment : colorAttachments)
-      {
-         sampleCount = colorAttachment.getTextureProperties().sampleCount;
-         break;
-      }
-   }
-
-#if FORGE_DEBUG
-   if (depthStencilAttachment)
-   {
-      ASSERT(sampleCount == depthStencilAttachment->getTextureProperties().sampleCount, "Not all attachments have the same sample count");
-   }
-
-   for (const Texture& colorAttachment : colorAttachments)
-   {
-      ASSERT(sampleCount == colorAttachment.getTextureProperties().sampleCount, "Not all attachments have the same sample count");
-   }
-#endif // FORGE_DEBUG
-}
-
-AttachmentFormats::AttachmentFormats(const Texture* depthStencilAttachment, const Texture* colorAttachment)
-   : AttachmentFormats(depthStencilAttachment, colorAttachment ? std::span<const Texture>(colorAttachment, 1) : std::span<const Texture>{})
-{
-}
-
 namespace FormatHelpers
 {
    bool isDepthStencil(vk::Format format)

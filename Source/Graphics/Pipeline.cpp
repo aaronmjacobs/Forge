@@ -1,5 +1,7 @@
 #include "Graphics/Pipeline.h"
 
+#include "Core/Containers/StaticVector.h"
+
 #include "Graphics/DebugUtils.h"
 #include "Graphics/Mesh.h"
 #include "Graphics/GraphicsContext.h"
@@ -59,10 +61,10 @@ namespace
          .setLogicOpEnable(false)
          .setAttachments(data.colorBlendStates);
 
-      std::vector<vk::DynamicState> dynamicStates = { vk::DynamicState::eScissor, vk::DynamicState::eViewport };
+      StaticVector<vk::DynamicState, 3> dynamicStates = { vk::DynamicState::eScissor, vk::DynamicState::eViewport };
       if (info.enableDepthBias)
       {
-         dynamicStates.push_back(vk::DynamicState::eDepthBias);
+         dynamicStates.push(vk::DynamicState::eDepthBias);
       }
       vk::PipelineDynamicStateCreateInfo dynamicStateCreateInfo = vk::PipelineDynamicStateCreateInfo()
          .setDynamicStates(dynamicStates);

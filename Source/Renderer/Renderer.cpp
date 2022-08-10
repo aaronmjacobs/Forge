@@ -11,6 +11,7 @@
 #include "Renderer/Passes/Depth/DepthPass.h"
 #include "Renderer/Passes/Forward/ForwardPass.h"
 #include "Renderer/Passes/Normal/NormalPass.h"
+#include "Renderer/Passes/PostProcess/Bloom/BloomPass.h"
 #include "Renderer/Passes/PostProcess/Tonemap/TonemapPass.h"
 #include "Renderer/Passes/SSAO/SSAOPass.h"
 #include "Renderer/Passes/UI/UIPass.h"
@@ -122,14 +123,16 @@ namespace
       return viewInfo;
    }
 
-   std::unique_ptr<Texture> createColorTexture(const GraphicsContext& context, vk::Format format, bool canBeSampled, vk::SampleCountFlagBits sampleCount = vk::SampleCountFlagBits::e1)
+   std::unique_ptr<Texture> createColorTexture(const GraphicsContext& context, vk::Format format, bool canBeSampled, vk::SampleCountFlagBits sampleCount = vk::SampleCountFlagBits::e1, uint32_t downscalingFactor = 1)
    {
+      ASSERT(downscalingFactor > 0);
+
       const Swapchain& swapchain = context.getSwapchain();
 
       ImageProperties colorImageProperties;
       colorImageProperties.format = format;
-      colorImageProperties.width = swapchain.getExtent().width;
-      colorImageProperties.height = swapchain.getExtent().height;
+      colorImageProperties.width = swapchain.getExtent().width / downscalingFactor;
+      colorImageProperties.height = swapchain.getExtent().height / downscalingFactor;
 
       TextureProperties colorTextureProperties;
       colorTextureProperties.sampleCount = sampleCount;
@@ -531,6 +534,9 @@ Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& reso
       forwardPass = std::make_unique<ForwardPass>(context, dynamicDescriptorPool, resourceManager, forwardLighting.get());
       NAME_POINTER(device, forwardPass, "Forward Pass");
 
+      bloomPass = std::make_unique<BloomPass>(context, dynamicDescriptorPool, resourceManager);
+      NAME_POINTER(device, bloomPass, "Bloom Pass");
+
       uiPass = std::make_unique<UIPass>(context);
       NAME_POINTER(device, uiPass, "UI Pass");
 
@@ -557,6 +563,7 @@ Renderer::~Renderer()
    ssaoPass = nullptr;
    shadowPass = nullptr;
    forwardPass = nullptr;
+   bloomPass = nullptr;
    uiPass = nullptr;
    compositePass = nullptr;
    tonemapPass = nullptr;
@@ -619,11 +626,14 @@ void Renderer::render(vk::CommandBuffer commandBuffer, const Scene& scene)
 
    forwardPass->render(commandBuffer, sceneRenderInfo, *depthTexture, *hdrColorTexture, hdrResolveTexture.get(), *normalTexture, ssaoEnabled ? *ssaoTexture : *defaultWhiteTexture, skyboxTexture);
 
+   bloomPass->render(commandBuffer, *hdrColorTexture, *defaultBlackTexture);
+
    uiPass->render(commandBuffer, *uiColorTexture);
+
    compositePass->render(commandBuffer, *hdrColorTexture, *uiColorTexture, CompositeShader::Mode::SrgbToLinear);
 
    Texture& currentSwapchainTexture = context.getSwapchain().getCurrentTexture();
-   tonemapPass->render(commandBuffer, currentSwapchainTexture, hdrResolveTexture ? *hdrResolveTexture : *hdrColorTexture);
+   tonemapPass->render(commandBuffer, currentSwapchainTexture, hdrResolveTexture ? *hdrResolveTexture : *hdrColorTexture, *bloomPass->getOutputTexture());
 
    currentSwapchainTexture.transitionLayout(commandBuffer, TextureLayoutType::Present);
 }
@@ -753,18 +763,20 @@ void Renderer::renderShadowMaps(vk::CommandBuffer commandBuffer, const Scene& sc
 
 void Renderer::updateSwapchainDependentPasses()
 {
-   normalPass->updateAttachmentFormats(depthTexture.get(), normalTexture.get());
+   normalPass->updateAttachmentFormats(normalTexture.get(), depthTexture.get());
 
    ASSERT(ssaoTexture->getImageProperties().format == ssaoBlurTexture->getImageProperties().format);
-   ssaoPass->updateAttachmentFormats(nullptr, ssaoTexture.get());
+   ssaoPass->updateAttachmentFormats(ssaoTexture.get());
 
-   forwardPass->updateAttachmentFormats(depthTexture.get(), hdrColorTexture.get());
+   forwardPass->updateAttachmentFormats(hdrColorTexture.get(), depthTexture.get());
 
-   uiPass->updateAttachmentFormats(nullptr, uiColorTexture.get());
+   bloomPass->updateAttachmentFormats(hdrColorTexture.get());
+
+   uiPass->updateAttachmentFormats(uiColorTexture.get());
    uiPass->updateFramebuffer(*uiColorTexture);
 
    Texture* compositeColorAttachment = hdrResolveTexture ? hdrResolveTexture.get() : hdrColorTexture.get();
-   compositePass->updateAttachmentFormats(nullptr, compositeColorAttachment);
+   compositePass->updateAttachmentFormats(compositeColorAttachment);
 
-   tonemapPass->updateAttachmentFormats(nullptr, &context.getSwapchain().getCurrentTexture());
+   tonemapPass->updateAttachmentFormats(&context.getSwapchain().getCurrentTexture());
 }

@@ -45,12 +45,17 @@ namespace
 }
 
 // static
-std::array<vk::DescriptorSetLayoutBinding, 1> TonemapShader::getBindings()
+std::array<vk::DescriptorSetLayoutBinding, 2> TonemapShader::getBindings()
 {
    return
    {
       vk::DescriptorSetLayoutBinding()
          .setBinding(0)
+         .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+         .setDescriptorCount(1)
+         .setStageFlags(vk::ShaderStageFlagBits::eFragment),
+      vk::DescriptorSetLayoutBinding()
+         .setBinding(1)
          .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
          .setDescriptorCount(1)
          .setStageFlags(vk::ShaderStageFlagBits::eFragment)

@@ -8,7 +8,6 @@
 #include "Renderer/Passes/Depth/DepthMaskedShader.h"
 #include "Renderer/Passes/Depth/DepthShader.h"
 #include "Renderer/SceneRenderInfo.h"
-#include "Renderer/UniformData.h"
 #include "Renderer/View.h"
 
 DepthPass::DepthPass(const GraphicsContext& graphicsContext, ResourceManager& resourceManager, bool shadowPass)
@@ -54,13 +53,12 @@ void DepthPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& s
 
    depthTexture.transitionLayout(commandBuffer, TextureLayoutType::AttachmentWrite);
 
-   vk::RenderingAttachmentInfo depthStencilAttachmentInfo = vk::RenderingAttachmentInfo()
-      .setImageView(depthTextureView ? depthTextureView : depthTexture.getDefaultView())
-      .setImageLayout(depthTexture.getLayout())
+   AttachmentInfo depthStencilAttachmentInfo = AttachmentInfo(depthTexture)
+      .setViewOverride(depthTextureView)
       .setLoadOp(vk::AttachmentLoadOp::eClear)
       .setClearValue(vk::ClearDepthStencilValue(1.0f, 0));
 
-   beginRenderPass(commandBuffer, depthTexture.getExtent(), &depthStencilAttachmentInfo, nullptr);
+   beginRenderPass(commandBuffer, nullptr, &depthStencilAttachmentInfo);
 
    if (isShadowPass)
    {

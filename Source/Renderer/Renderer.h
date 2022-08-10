@@ -13,6 +13,7 @@
 #include <memory>
 #include <vector>
 
+class BloomPass;
 class CompositePass;
 class DepthPass;
 class ForwardLighting;
@@ -73,6 +74,7 @@ private:
    std::unique_ptr<SSAOPass> ssaoPass;
    std::unique_ptr<DepthPass> shadowPass;
    std::unique_ptr<ForwardPass> forwardPass;
+   std::unique_ptr<BloomPass> bloomPass;
    std::unique_ptr<UIPass> uiPass;
    std::unique_ptr<CompositePass> compositePass;
    std::unique_ptr<TonemapPass> tonemapPass;

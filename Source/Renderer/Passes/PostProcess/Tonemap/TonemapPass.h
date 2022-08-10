@@ -33,7 +33,7 @@ public:
    TonemapPass(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, ResourceManager& resourceManager);
    ~TonemapPass();
 
-   void render(vk::CommandBuffer commandBuffer, Texture& outputTexture, Texture& hdrColorTexture);
+   void render(vk::CommandBuffer commandBuffer, Texture& outputTexture, Texture& hdrColorTexture, Texture& bloomTexture);
 
 protected:
    friend class SceneRenderPass<TonemapPass>;

@@ -9,15 +9,14 @@
 #include "Renderer/Passes/Forward/ForwardShader.h"
 #include "Renderer/Passes/Forward/SkyboxShader.h"
 #include "Renderer/SceneRenderInfo.h"
-#include "Renderer/UniformData.h"
 
 #include <utility>
 
 ForwardPass::ForwardPass(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, ResourceManager& resourceManager, const ForwardLighting* forwardLighting)
    : SceneRenderPass(graphicsContext)
-   , lighting(forwardLighting)
    , forwardDescriptorSet(graphicsContext, dynamicDescriptorPool, ForwardShader::getLayoutCreateInfo())
    , skyboxDescriptorSet(graphicsContext, dynamicDescriptorPool, SkyboxShader::getLayoutCreateInfo())
+   , lighting(forwardLighting)
 {
    forwardShader = std::make_unique<ForwardShader>(context, resourceManager);
    skyboxShader = std::make_unique<SkyboxShader>(context, resourceManager);
@@ -105,25 +104,18 @@ void ForwardPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo&
    ssaoTexture.transitionLayout(commandBuffer, TextureLayoutType::ShaderRead);
    ASSERT(!skyboxTexture || skyboxTexture->getLayout() == vk::ImageLayout::eShaderReadOnlyOptimal);
 
-   vk::RenderingAttachmentInfo depthStencilAttachmentInfo = vk::RenderingAttachmentInfo()
-      .setImageView(depthTexture.getDefaultView())
-      .setImageLayout(depthTexture.getLayout())
-      .setLoadOp(vk::AttachmentLoadOp::eLoad);
-
-   vk::RenderingAttachmentInfo colorAttachmentInfo = vk::RenderingAttachmentInfo()
-      .setImageView(colorTexture.getDefaultView())
-      .setImageLayout(colorTexture.getLayout())
+   AttachmentInfo colorAttachmentInfo = AttachmentInfo(colorTexture)
       .setLoadOp(vk::AttachmentLoadOp::eClear)
       .setClearValue(vk::ClearColorValue(std::array<float, 4>{ 1.0f, 1.0f, 1.0f, 1.0f }));
    if (colorResolveTexture)
    {
+      colorAttachmentInfo.setResolveTexture(*colorResolveTexture);
       colorAttachmentInfo.setResolveMode(vk::ResolveModeFlagBits::eAverage);
-      colorAttachmentInfo.setResolveImageView(colorResolveTexture->getDefaultView());
-      colorAttachmentInfo.setResolveImageLayout(colorResolveTexture->getLayout());
    }
 
-   ASSERT(depthTexture.getExtent() == colorTexture.getExtent());
-   beginRenderPass(commandBuffer, depthTexture.getExtent(), &depthStencilAttachmentInfo, &colorAttachmentInfo);
+   AttachmentInfo depthStencilAttachmentInfo(depthTexture);
+
+   beginRenderPass(commandBuffer, &colorAttachmentInfo, &depthStencilAttachmentInfo);
 
    vk::DescriptorImageInfo normalBufferImageInfo = vk::DescriptorImageInfo()
       .setImageLayout(normalTexture.getLayout())

@@ -8,6 +8,8 @@ set(SHADER_HEADER_FILES
 )
 
 set(SHADER_SOURCE_FILES
+   "${SHADER_DIR}/BloomDownsample.frag"
+   "${SHADER_DIR}/BloomUpsample.frag"
    "${SHADER_DIR}/Composite.frag"
    "${SHADER_DIR}/Depth.vert"
    "${SHADER_DIR}/DepthMasked.frag"

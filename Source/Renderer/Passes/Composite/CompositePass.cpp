@@ -72,12 +72,8 @@ void CompositePass::render(vk::CommandBuffer commandBuffer, Texture& destination
    destinationTexture.transitionLayout(commandBuffer, TextureLayoutType::AttachmentWrite);
    sourceTexture.transitionLayout(commandBuffer, TextureLayoutType::ShaderRead);
 
-   vk::RenderingAttachmentInfo colorAttachmentInfo = vk::RenderingAttachmentInfo()
-      .setImageView(destinationTexture.getDefaultView())
-      .setImageLayout(destinationTexture.getLayout())
-      .setLoadOp(vk::AttachmentLoadOp::eLoad);
-
-   beginRenderPass(commandBuffer, destinationTexture.getExtent(), nullptr, &colorAttachmentInfo);
+   AttachmentInfo colorAttachmentInfo(destinationTexture);
+   beginRenderPass(commandBuffer, &colorAttachmentInfo);
 
    vk::DescriptorImageInfo imageInfo = vk::DescriptorImageInfo()
       .setImageLayout(sourceTexture.getLayout())

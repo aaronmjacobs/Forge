@@ -189,12 +189,10 @@ void SSAOPass::renderSSAO(vk::CommandBuffer commandBuffer, const SceneRenderInfo
       uniformBuffer.updateMember(&SSAOUniformData::numSamples, numSamples);
    }
 
-   vk::RenderingAttachmentInfo colorAttachmentInfo = vk::RenderingAttachmentInfo()
-      .setImageView(ssaoTexture.getDefaultView())
-      .setImageLayout(ssaoTexture.getLayout())
+   AttachmentInfo colorAttachmentInfo = AttachmentInfo(ssaoTexture)
       .setLoadOp(vk::AttachmentLoadOp::eDontCare);
 
-   beginRenderPass(commandBuffer, ssaoTexture.getExtent(), nullptr, &colorAttachmentInfo);
+   beginRenderPass(commandBuffer, &colorAttachmentInfo);
 
    vk::DescriptorImageInfo depthBufferImageInfo = vk::DescriptorImageInfo()
       .setImageLayout(depthTexture.getLayout())
@@ -237,12 +235,10 @@ void SSAOPass::renderBlur(vk::CommandBuffer commandBuffer, const SceneRenderInfo
    inputTexture.transitionLayout(commandBuffer, TextureLayoutType::ShaderRead);
    outputTexture.transitionLayout(commandBuffer, TextureLayoutType::AttachmentWrite);
 
-   vk::RenderingAttachmentInfo colorAttachmentInfo = vk::RenderingAttachmentInfo()
-      .setImageView(outputTexture.getDefaultView())
-      .setImageLayout(outputTexture.getLayout())
+   AttachmentInfo colorAttachmentInfo = AttachmentInfo(outputTexture)
       .setLoadOp(vk::AttachmentLoadOp::eDontCare);
 
-   beginRenderPass(commandBuffer, outputTexture.getExtent(), nullptr, &colorAttachmentInfo);
+   beginRenderPass(commandBuffer, &colorAttachmentInfo);
 
    DescriptorSet& blurDescriptorSet = horizontal ? horizontalBlurDescriptorSet : verticalBlurDescriptorSet;
 

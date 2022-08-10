@@ -21,8 +21,8 @@ TonemapPass::TonemapPass(const GraphicsContext& graphicsContext, DynamicDescript
    NAME_CHILD(pipelineLayout, "Pipeline Layout");
 
    vk::SamplerCreateInfo samplerCreateInfo = vk::SamplerCreateInfo()
-      .setMagFilter(vk::Filter::eNearest)
-      .setMinFilter(vk::Filter::eNearest)
+      .setMagFilter(vk::Filter::eLinear)
+      .setMinFilter(vk::Filter::eLinear)
       .setAddressModeU(vk::SamplerAddressMode::eRepeat)
       .setAddressModeV(vk::SamplerAddressMode::eRepeat)
       .setAddressModeW(vk::SamplerAddressMode::eRepeat)
@@ -48,32 +48,42 @@ TonemapPass::~TonemapPass()
    tonemapShader.reset();
 }
 
-void TonemapPass::render(vk::CommandBuffer commandBuffer, Texture& outputTexture, Texture& hdrColorTexture)
+void TonemapPass::render(vk::CommandBuffer commandBuffer, Texture& outputTexture, Texture& hdrColorTexture, Texture& bloomTexture)
 {
    SCOPED_LABEL(getName());
 
    outputTexture.transitionLayout(commandBuffer, TextureLayoutType::AttachmentWrite);
    hdrColorTexture.transitionLayout(commandBuffer, TextureLayoutType::ShaderRead);
+   bloomTexture.transitionLayout(commandBuffer, TextureLayoutType::ShaderRead);
 
-   vk::RenderingAttachmentInfo colorAttachmentInfo = vk::RenderingAttachmentInfo()
-      .setImageView(outputTexture.getDefaultView())
-      .setImageLayout(outputTexture.getLayout())
+   AttachmentInfo colorAttachmentInfo = AttachmentInfo(outputTexture)
       .setLoadOp(vk::AttachmentLoadOp::eDontCare);
 
-   beginRenderPass(commandBuffer, outputTexture.getExtent(), nullptr, &colorAttachmentInfo);
+   beginRenderPass(commandBuffer, &colorAttachmentInfo);
 
-   vk::DescriptorImageInfo imageInfo = vk::DescriptorImageInfo()
+   vk::DescriptorImageInfo hdrColorImageInfo = vk::DescriptorImageInfo()
       .setImageLayout(hdrColorTexture.getLayout())
       .setImageView(hdrColorTexture.getDefaultView())
       .setSampler(sampler);
-   vk::WriteDescriptorSet descriptorWrite = vk::WriteDescriptorSet()
+   vk::DescriptorImageInfo bloomImageInfo = vk::DescriptorImageInfo()
+      .setImageLayout(bloomTexture.getLayout())
+      .setImageView(bloomTexture.getDefaultView())
+      .setSampler(sampler);
+   vk::WriteDescriptorSet hdrColorDescriptorWrite = vk::WriteDescriptorSet()
       .setDstSet(descriptorSet.getCurrentSet())
       .setDstBinding(0)
       .setDstArrayElement(0)
       .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
       .setDescriptorCount(1)
-      .setPImageInfo(&imageInfo);
-   device.updateDescriptorSets(descriptorWrite, {});
+      .setPImageInfo(&hdrColorImageInfo);
+   vk::WriteDescriptorSet bloomDescriptorWrite = vk::WriteDescriptorSet()
+      .setDstSet(descriptorSet.getCurrentSet())
+      .setDstBinding(1)
+      .setDstArrayElement(0)
+      .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+      .setDescriptorCount(1)
+      .setPImageInfo(&bloomImageInfo);
+   device.updateDescriptorSets({ hdrColorDescriptorWrite, bloomDescriptorWrite }, {});
 
    PipelineDescription<TonemapPass> pipelineDescription;
    pipelineDescription.hdr = outputTexture.getImageProperties().format == vk::Format::eA2R10G10B10UnormPack32;

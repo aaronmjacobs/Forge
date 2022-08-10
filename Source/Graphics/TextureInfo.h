@@ -2,25 +2,9 @@
 
 #include "Graphics/Vulkan.h"
 
-#include <optional>
 #include <span>
-#include <vector>
 
 class Texture;
-
-struct AttachmentFormats
-{
-   vk::Format depthStencilFormat = vk::Format::eUndefined;
-   std::vector<vk::Format> colorFormats;
-
-   vk::SampleCountFlagBits sampleCount = vk::SampleCountFlagBits::e1;
-
-   AttachmentFormats() = default;
-   AttachmentFormats(const Texture* depthStencilAttachment, std::span<const Texture> colorAttachments);
-   AttachmentFormats(const Texture* depthStencilAttachment, const Texture* colorAttachment);
-
-   bool operator==(const AttachmentFormats& other) const = default;
-};
 
 struct ImageProperties
 {

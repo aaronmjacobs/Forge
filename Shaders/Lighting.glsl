@@ -57,7 +57,7 @@ float distributionGGX(vec3 normal, vec3 halfwayVector, float roughness)
 
    float numerator = alphaSquared;
    float denominator = (cosThetaSquared * (alphaSquared - 1.0) + 1.0);
-   denominator = kPI * denominator * denominator;
+   denominator = max(0.0001, kPI * denominator * denominator);
 
    return numerator / denominator;
 }
@@ -100,7 +100,7 @@ vec3 calcOutgoingRadiance(SurfaceInfo surfaceInfo, vec3 viewDirection, vec3 ligh
    vec3 specularContribution = fresnel;
    vec3 diffuseContribution = (vec3(1.0) - specularContribution) * (1.0 - surfaceInfo.metalness);
    vec3 diffuse = (surfaceInfo.albedo / kPI) * diffuseContribution;
-   vec3 specular = (distribution * geometry * fresnel) / (4.0 * positiveDot(surfaceInfo.normal, viewDirection) * positiveDot(surfaceInfo.normal, lightDirection) + 0.0001);
+   vec3 specular = (distribution * geometry * fresnel) / max(0.0001, 4.0 * positiveDot(surfaceInfo.normal, viewDirection) * positiveDot(surfaceInfo.normal, lightDirection));
 
    float nDotL = positiveDot(surfaceInfo.normal, lightDirection);
 

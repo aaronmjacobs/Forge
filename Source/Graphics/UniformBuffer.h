@@ -14,6 +14,7 @@ class UniformBuffer : public GraphicsResource
 {
 public:
    UniformBuffer(const GraphicsContext& context);
+   UniformBuffer(UniformBuffer&& other);
    ~UniformBuffer();
 
    void update(const DataType& value);
@@ -54,16 +55,34 @@ inline UniformBuffer<DataType>::UniformBuffer(const GraphicsContext& graphicsCon
 }
 
 template<typename DataType>
+inline UniformBuffer<DataType>::UniformBuffer(UniformBuffer&& other)
+   : GraphicsResource(other.context)
+   , buffer(other.buffer)
+   , memory(other.memory)
+   , mappedMemory(other.mappedMemory)
+{
+   other.buffer = nullptr;
+   other.memory = nullptr;
+   other.mappedMemory = nullptr;
+}
+
+template<typename DataType>
 inline UniformBuffer<DataType>::~UniformBuffer()
 {
-   ASSERT(memory);
-   device.unmapMemory(memory);
+   if (memory)
+   {
+      device.unmapMemory(memory);
+   }
 
-   ASSERT(buffer);
-   context.delayedDestroy(std::move(buffer));
+   if (buffer)
+   {
+      context.delayedDestroy(std::move(buffer));
+   }
 
-   ASSERT(memory);
-   context.delayedFree(std::move(memory));
+   if (memory)
+   {
+      context.delayedFree(std::move(memory));
+   }
 }
 
 template<typename DataType>
@@ -117,6 +136,7 @@ template<typename DataType>
 DataType* UniformBuffer<DataType>::getMappedData(uint32_t index)
 {
    ASSERT(buffer && memory && mappedMemory);
+   ASSERT(index < GraphicsContext::kMaxFramesInFlight);
 
    vk::DeviceSize size = getPaddedDataSize(context);
    vk::DeviceSize offset = size * index;
