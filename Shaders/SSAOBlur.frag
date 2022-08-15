@@ -51,7 +51,7 @@ void main()
       vec2 uv = inTexCoord + offset;
 
       float offsetDepth = getDepth(uv);
-      if (abs(offsetDepth - centerDepth) < 0.02)
+      if (abs(offsetDepth - centerDepth) < 0.05)
       {
          sum += texture(ssaoTexture, uv).r;
          ++numSamples;
