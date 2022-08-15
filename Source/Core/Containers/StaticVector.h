@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Core/Assert.h"
+
 #include <array>
 #include <initializer_list>
 #include <span>
