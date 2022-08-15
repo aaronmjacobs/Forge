@@ -16,6 +16,9 @@ class GraphicsResource;
 
 namespace DebugUtils
 {
+   const char* getResourceName(const GraphicsResource* resource);
+   const char* getObjectName(uint64_t objectHandle);
+
    void setResourceName(vk::Device device, GraphicsResource* resource, const char* name);
    void setObjectName(vk::Device device, uint64_t objectHandle, vk::ObjectType objectType, const char* name);
 
@@ -31,6 +34,18 @@ namespace DebugUtils
    const std::string& toString(T n)
    {
       return toString(static_cast<uint64_t>(n));
+   }
+
+   template<typename ItemType, std::enable_if_t<std::is_base_of_v<GraphicsResource, ItemType>, int> = 0>
+   const char* getItemName(ItemType& item)
+   {
+      return getResourceName(item);
+   }
+
+   template<typename ItemType, std::enable_if_t<!std::is_base_of_v<GraphicsResource, ItemType>, int> = 0>
+   const char* getItemName(ItemType& item)
+   {
+      return getObjectName(Types::bit_cast<uint64_t>(item));
    }
 
    template<typename ItemType, std::enable_if_t<std::is_base_of_v<GraphicsResource, ItemType>, int> = 0>
@@ -71,14 +86,14 @@ namespace DebugUtils
       setChildName(device, item, parent, name.c_str());
    }
 
-   bool AreLabelsEnabled();
-   void SetLabelsEnabled(bool enabled);
+   bool areLabelsEnabled();
+   void setLabelsEnabled(bool enabled);
 
-   void InsertInlineLabel(vk::CommandBuffer commandBuffer, const char* labelName, const std::array<float, 4>& color = {});
+   void insertInlineLabel(vk::CommandBuffer commandBuffer, const char* labelName, const std::array<float, 4>& color = {});
 
-   inline void InsertInlineLabel(vk::CommandBuffer commandBuffer, const std::string& labelName, const std::array<float, 4>& color = {})
+   inline void insertInlineLabel(vk::CommandBuffer commandBuffer, const std::string& labelName, const std::array<float, 4>& color = {})
    {
-      InsertInlineLabel(commandBuffer, labelName.c_str(), color);
+      insertInlineLabel(commandBuffer, labelName.c_str(), color);
    }
 
    struct ScopedCommandBufferLabel
@@ -99,14 +114,16 @@ namespace DebugUtils
 #  define SCOPED_LABEL(label_name) DebugUtils::ScopedCommandBufferLabel scopedCommandBufferLabel##__LINE__(commandBuffer, label_name)
 #  define SCOPED_COLORED_LABEL(label_name, color_value) DebugUtils::ScopedCommandBufferLabel scopedCommandBufferLabel##__LINE__(commandBuffer, label_name, color_value)
 
-#  define INLINE_LABEL(label_name) DebugUtils::InsertInlineLabel(commandBuffer, label_name)
-#  define INLINE_COLORED_LABEL(label_name, color_value) DebugUtils::InsertInlineLabel(commandBuffer, label_name, color_value)
+#  define INLINE_LABEL(label_name) DebugUtils::insertInlineLabel(commandBuffer, label_name)
+#  define INLINE_COLORED_LABEL(label_name, color_value) DebugUtils::insertInlineLabel(commandBuffer, label_name, color_value)
 
 #  define NAME_ITEM(device, object_variable, object_name) DebugUtils::setItemName(device, object_variable, object_name)
 #  define NAME_POINTER(device, object_pointer, object_name) do { if (object_pointer) { NAME_ITEM(device, *object_pointer, object_name); } } while(0)
 
 #  define NAME_CHILD(object_variable, object_name) DebugUtils::setChildName(device, object_variable, *this, object_name)
 #  define NAME_CHILD_POINTER(object_pointer, object_name) do { if (object_pointer) { NAME_CHILD(*object_pointer, object_name); } } while(0)
+
+#  define NAME_CHILD_IF_UNNAMED(object_variable, object_name) do { if (DebugUtils::getItemName(object_variable) == nullptr) { NAME_CHILD(object_variable, object_name); } } while (0)
 
 #else
 

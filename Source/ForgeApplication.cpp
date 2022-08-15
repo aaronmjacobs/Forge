@@ -393,7 +393,7 @@ void ForgeApplication::initializeRenderer()
    {
       if (pressed)
       {
-         DebugUtils::SetLabelsEnabled(!DebugUtils::AreLabelsEnabled());
+         DebugUtils::setLabelsEnabled(!DebugUtils::areLabelsEnabled());
       }
    });
 #endif // FORGE_WITH_DEBUG_UTILS

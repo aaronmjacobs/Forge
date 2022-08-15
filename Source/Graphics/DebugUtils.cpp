@@ -28,12 +28,12 @@ namespace DebugUtils
          vk::ObjectType objectType = vk::ObjectType::eUnknown;
       };
 
-      std::unordered_map<GraphicsResource*, std::unique_ptr<NameInfo>> namedResources;
+      std::unordered_map<const GraphicsResource*, std::unique_ptr<NameInfo>> namedResources;
       std::unordered_map<uint64_t, std::unique_ptr<NameInfo>> namedObjects;
 
       bool labelsEnabled = true;
 
-      NameInfo* getNameInfo(GraphicsResource* resource)
+      NameInfo* getNameInfo(const GraphicsResource* resource)
       {
          auto location = namedResources.find(resource);
          return location == namedResources.end() ? nullptr : location->second.get();
@@ -218,6 +218,32 @@ namespace DebugUtils
       }
    }
 
+   const char* getResourceName(const GraphicsResource* resource)
+   {
+      if (resource)
+      {
+         if (const NameInfo* nameInfo = getNameInfo(resource))
+         {
+            return nameInfo->compositeName.c_str();
+         }
+      }
+
+      return nullptr;
+   }
+
+   const char* getObjectName(uint64_t objectHandle)
+   {
+      if (objectHandle)
+      {
+         if (const NameInfo* nameInfo = getNameInfo(objectHandle))
+         {
+            return nameInfo->compositeName.c_str();
+         }
+      }
+
+      return nullptr;
+   }
+
    void setResourceName(vk::Device device, GraphicsResource* resource, const char* name)
    {
       if (device && resource)
@@ -303,7 +329,8 @@ namespace DebugUtils
    const std::string& toString(uint64_t n)
    {
       static std::array<std::string, 150> lookupTable;
-      static std::string dynamic;
+      static std::array<std::string, 10> dynamic;
+      static std::size_t dynamicIndex = 0;
       static bool initialized = false;
 
       if (!initialized)
@@ -320,23 +347,26 @@ namespace DebugUtils
          return lookupTable[n];
       }
 
-      dynamic = std::to_string(n);
-      return dynamic;
+      std::size_t index = dynamicIndex;
+      dynamicIndex = (dynamicIndex + 1) % dynamic.size();
+
+      dynamic[index] = std::to_string(n);
+      return dynamic[index];
    }
 
-   bool AreLabelsEnabled()
+   bool areLabelsEnabled()
    {
       return labelsEnabled;
    }
 
-   void SetLabelsEnabled(bool enabled)
+   void setLabelsEnabled(bool enabled)
    {
       labelsEnabled = enabled;
    }
 
-   void InsertInlineLabel(vk::CommandBuffer commandBuffer, const char* labelName, const std::array<float, 4>& color /*= {}*/)
+   void insertInlineLabel(vk::CommandBuffer commandBuffer, const char* labelName, const std::array<float, 4>& color /*= {}*/)
    {
-      if (AreLabelsEnabled())
+      if (areLabelsEnabled())
       {
          vk::DebugUtilsLabelEXT label(labelName);
          commandBuffer.insertDebugUtilsLabelEXT(label, GraphicsContext::GetDynamicLoader());
@@ -346,7 +376,7 @@ namespace DebugUtils
    ScopedCommandBufferLabel::ScopedCommandBufferLabel(vk::CommandBuffer commandBuffer_, const char* labelName, const std::array<float, 4>& color /*= {}*/)
       : commandBuffer(commandBuffer_)
    {
-      if (AreLabelsEnabled())
+      if (areLabelsEnabled())
       {
          vk::DebugUtilsLabelEXT label(labelName, color);
          commandBuffer.beginDebugUtilsLabelEXT(label, GraphicsContext::GetDynamicLoader());
