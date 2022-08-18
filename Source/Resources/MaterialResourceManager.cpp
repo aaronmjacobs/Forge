@@ -17,6 +17,7 @@ namespace
       sizes.maxSets = 50;
 
       sizes.combinedImageSamplerCount = 100;
+      sizes.uniformBufferCount = 100;
 
       return sizes;
    }

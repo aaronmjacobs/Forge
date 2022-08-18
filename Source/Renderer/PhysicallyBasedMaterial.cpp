@@ -4,7 +4,7 @@
 #include "Graphics/Texture.h"
 
 // static
-std::array<vk::DescriptorSetLayoutBinding, 3> PhysicallyBasedMaterial::getBindings()
+std::array<vk::DescriptorSetLayoutBinding, 4> PhysicallyBasedMaterial::getBindings()
 {
    return
    {
@@ -21,6 +21,11 @@ std::array<vk::DescriptorSetLayoutBinding, 3> PhysicallyBasedMaterial::getBindin
       vk::DescriptorSetLayoutBinding()
          .setBinding(2)
          .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+         .setDescriptorCount(1)
+         .setStageFlags(vk::ShaderStageFlagBits::eFragment),
+      vk::DescriptorSetLayoutBinding()
+         .setBinding(3)
+         .setDescriptorType(vk::DescriptorType::eUniformBuffer)
          .setDescriptorCount(1)
          .setStageFlags(vk::ShaderStageFlagBits::eFragment)
    };
@@ -43,7 +48,11 @@ const std::string PhysicallyBasedMaterial::kAoRoughnessMetalnessTextureParameter
 
 PhysicallyBasedMaterial::PhysicallyBasedMaterial(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, vk::Sampler sampler, const Texture& albedoTexture, const Texture& normalTexture, const Texture& aoRoughnessMetalnessTexture, bool interpretAlphaAsMask, bool twoSides)
    : Material(graphicsContext, dynamicDescriptorPool, DescriptorSetLayout::getCreateInfo<PhysicallyBasedMaterial>())
+   , uniformBuffer(graphicsContext)
 {
+   PhysicallyBasedMaterialUniformData defaultUniformData;
+   uniformBuffer.updateAll(defaultUniformData);
+
    if (albedoTexture.getImageProperties().hasAlpha)
    {
       blendMode = interpretAlphaAsMask ? BlendMode::Masked : BlendMode::Translucent;
@@ -52,7 +61,7 @@ PhysicallyBasedMaterial::PhysicallyBasedMaterial(const GraphicsContext& graphics
    twoSided = twoSides;
 
    std::array<vk::DescriptorImageInfo, GraphicsContext::kMaxFramesInFlight * 3> imageInfo;
-   std::array<vk::WriteDescriptorSet, GraphicsContext::kMaxFramesInFlight * 3> descriptorWrites;
+   std::array<vk::WriteDescriptorSet, GraphicsContext::kMaxFramesInFlight * 4> descriptorWrites;
    for (uint32_t frameIndex = 0; frameIndex < GraphicsContext::kMaxFramesInFlight; ++frameIndex)
    {
       imageInfo[frameIndex * 3 + 0] = vk::DescriptorImageInfo()
@@ -70,7 +79,7 @@ PhysicallyBasedMaterial::PhysicallyBasedMaterial(const GraphicsContext& graphics
          .setImageView(aoRoughnessMetalnessTexture.getDefaultView())
          .setSampler(sampler);
 
-      descriptorWrites[frameIndex * 3 + 0] = vk::WriteDescriptorSet()
+      descriptorWrites[frameIndex * 4 + 0] = vk::WriteDescriptorSet()
          .setDstSet(descriptorSet.getSet(frameIndex))
          .setDstBinding(0)
          .setDstArrayElement(0)
@@ -78,7 +87,7 @@ PhysicallyBasedMaterial::PhysicallyBasedMaterial(const GraphicsContext& graphics
          .setDescriptorCount(1)
          .setPImageInfo(&imageInfo[frameIndex * 3 + 0]);
 
-      descriptorWrites[frameIndex * 3 + 1] = vk::WriteDescriptorSet()
+      descriptorWrites[frameIndex * 4 + 1] = vk::WriteDescriptorSet()
          .setDstSet(descriptorSet.getSet(frameIndex))
          .setDstBinding(1)
          .setDstArrayElement(0)
@@ -86,14 +95,28 @@ PhysicallyBasedMaterial::PhysicallyBasedMaterial(const GraphicsContext& graphics
          .setDescriptorCount(1)
          .setPImageInfo(&imageInfo[frameIndex * 3 + 1]);
 
-      descriptorWrites[frameIndex * 3 + 2] = vk::WriteDescriptorSet()
+      descriptorWrites[frameIndex * 4 + 2] = vk::WriteDescriptorSet()
          .setDstSet(descriptorSet.getSet(frameIndex))
          .setDstBinding(2)
          .setDstArrayElement(0)
          .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
          .setDescriptorCount(1)
          .setPImageInfo(&imageInfo[frameIndex * 3 + 2]);
+
+      vk::DescriptorBufferInfo bufferInfo = uniformBuffer.getDescriptorBufferInfo(frameIndex);
+      descriptorWrites[frameIndex * 4 + 3] = vk::WriteDescriptorSet()
+         .setDstSet(descriptorSet.getSet(frameIndex))
+         .setDstBinding(3)
+         .setDstArrayElement(0)
+         .setDescriptorType(vk::DescriptorType::eUniformBuffer)
+         .setDescriptorCount(1)
+         .setBufferInfo(bufferInfo);
    }
 
    device.updateDescriptorSets(descriptorWrites, {});
+}
+
+void PhysicallyBasedMaterial::setEmissiveColor(const glm::vec4& emissive)
+{
+   uniformBuffer.updateAllMembers(&PhysicallyBasedMaterialUniformData::emissive, emissive); // TODO Only update current frame, but somehow queue up changes for the next two frames as well
 }

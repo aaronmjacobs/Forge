@@ -28,6 +28,15 @@ layout(set = 2, binding = 3) uniform sampler2DArrayShadow directionalLightShadow
 
 layout(set = 3, binding = 0) uniform sampler2D albedoTexture;
 layout(set = 3, binding = 2) uniform sampler2D aoRoughnessMetalnessTexture;
+layout(std430, set = 3, binding = 3) uniform Material
+{
+   vec4 albedo;
+   vec4 emissive;
+
+   float roughness;
+   float metalness;
+   float ambientOcclusion;
+} material;
 
 layout(location = 0) in vec3 inPosition;
 layout(location = 1) in vec4 inColor;
@@ -38,27 +47,23 @@ layout(location = 0) out vec4 outColor;
 void main()
 {
    SurfaceInfo surfaceInfo;
+   surfaceInfo.albedo = material.albedo.rgb * inColor.rgb;
+   surfaceInfo.roughness = material.roughness;
+   surfaceInfo.metalness = material.metalness;
+   surfaceInfo.ambientOcclusion = material.ambientOcclusion;
 
-   float alpha = 1.0;
+   float alpha = inColor.a * material.albedo.a;
+
    if (kWithTextures)
    {
       vec4 albedoSample = texture(albedoTexture, inTexCoord);
-      surfaceInfo.albedo = inColor.rgb * albedoSample.rgb;
-      alpha = inColor.a * albedoSample.a;
+      surfaceInfo.albedo *= albedoSample.rgb;
+      alpha *= albedoSample.a;
 
       vec4 aoRoughnessMetalnessSample = texture(aoRoughnessMetalnessTexture, inTexCoord);
       surfaceInfo.roughness = aoRoughnessMetalnessSample.g;
       surfaceInfo.metalness = aoRoughnessMetalnessSample.b;
-      surfaceInfo.ambientOcclusion = 1.0; // aoRoughnessMetalnessSample.r; // TODO Uncomment after fixing sponza textures
-   }
-   else
-   {
-      surfaceInfo.albedo = inColor.rgb;
-      alpha = inColor.a;
-
-      surfaceInfo.roughness = 0.5;
-      surfaceInfo.metalness = 0.0;
-      surfaceInfo.ambientOcclusion = 1.0;
+      //surfaceInfo.ambientOcclusion = aoRoughnessMetalnessSample.r; // TODO Uncomment after fixing sponza textures
    }
 
    if (!kWithBlending && !passesMaskThreshold(alpha))
@@ -77,22 +82,22 @@ void main()
       surfaceInfo.normal = -surfaceInfo.normal;
    }
 
-   vec3 color = vec3(0.0);
+   vec3 lighting = vec3(0.0);
 
    for (int i = 0; i < numDirectionalLights; ++i)
    {
-      color += calcDirectionalLighting(view.position.xyz, surfaceInfo, directionalLights[i], directionalLightShadowMaps);
+      lighting += calcDirectionalLighting(view.position.xyz, surfaceInfo, directionalLights[i], directionalLightShadowMaps);
    }
 
    for (int i = 0; i < numPointLights; ++i)
    {
-      color += calcPointLighting(view.position.xyz, surfaceInfo, pointLights[i], pointLightShadowMaps);
+      lighting += calcPointLighting(view.position.xyz, surfaceInfo, pointLights[i], pointLightShadowMaps);
    }
 
    for (int i = 0; i < numSpotLights; ++i)
    {
-      color += calcSpotLighting(view.position.xyz, surfaceInfo, spotLights[i], spotLightShadowMaps);
+      lighting += calcSpotLighting(view.position.xyz, surfaceInfo, spotLights[i], spotLightShadowMaps);
    }
 
-   outColor = vec4(color, alpha);
+   outColor = vec4(lighting + material.emissive.rgb, alpha);
 }

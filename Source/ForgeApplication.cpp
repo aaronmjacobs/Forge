@@ -4,6 +4,7 @@
 
 #include "Graphics/DebugUtils.h"
 #include "Graphics/GraphicsContext.h"
+#include "Graphics/Mesh.h"
 #include "Graphics/Swapchain.h"
 
 #if FORGE_WITH_MIDI
@@ -11,6 +12,7 @@
 #endif // FORGE_WITH_MIDI
 #include "Platform/Window.h"
 
+#include "Renderer/PhysicallyBasedMaterial.h"
 #include "Renderer/Renderer.h"
 
 #include "Resources/ResourceManager.h"
@@ -550,7 +552,7 @@ void ForgeApplication::loadScene()
       MeshComponent& meshComponent = sponzaEntity.createComponent<MeshComponent>();
 
       MeshLoadOptions meshLoadOptions;
-      meshLoadOptions.interpretTextureAlphaAsMask = false;
+      meshLoadOptions.interpretTextureAlphaAsMask = true;
       meshComponent.meshHandle = resourceManager->loadMesh("Resources/Meshes/Sponza/Sponza.gltf", meshLoadOptions);
    }
 
@@ -563,6 +565,19 @@ void ForgeApplication::loadScene()
 
       MeshComponent& meshComponent = bunnyEntity.createComponent<MeshComponent>();
       meshComponent.meshHandle = resourceManager->loadMesh("Resources/Meshes/Bunny.obj");
+      if (const Mesh* mesh = resourceManager->getMesh(meshComponent.meshHandle))
+      {
+         for (uint32_t i = 0; i < mesh->getNumSections(); ++i)
+         {
+            if (Material* material = resourceManager->getMaterial(mesh->getSection(i).materialHandle))
+            {
+               if (PhysicallyBasedMaterial* pbrMaterial = dynamic_cast<PhysicallyBasedMaterial*>(material))
+               {
+                  pbrMaterial->setEmissiveColor(glm::vec4(100.0f));
+               }
+            }
+         }
+      }
    }
 
    {
