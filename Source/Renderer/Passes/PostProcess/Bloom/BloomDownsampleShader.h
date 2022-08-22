@@ -2,6 +2,8 @@
 
 #include "Graphics/Shader.h"
 
+#include "Renderer/RenderSettings.h"
+
 #include <array>
 #include <vector>
 
@@ -14,10 +16,12 @@ public:
    static const vk::DescriptorSetLayoutCreateInfo& getLayoutCreateInfo();
    static vk::DescriptorSetLayout getLayout(const GraphicsContext& context);
 
+   static uint32_t getPermutationIndex(RenderQuality quality);
+
    BloomDownsampleShader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager);
 
    void bindDescriptorSets(vk::CommandBuffer commandBuffer, vk::PipelineLayout pipelineLayout, const DescriptorSet& descriptorSet);
 
-   std::vector<vk::PipelineShaderStageCreateInfo> getStages() const;
+   std::vector<vk::PipelineShaderStageCreateInfo> getStages(RenderQuality quality) const;
    std::vector<vk::DescriptorSetLayout> getSetLayouts() const;
 };

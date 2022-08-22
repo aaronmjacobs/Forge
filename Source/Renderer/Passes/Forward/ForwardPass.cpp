@@ -106,7 +106,7 @@ void ForwardPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo&
 
    AttachmentInfo colorAttachmentInfo = AttachmentInfo(colorTexture)
       .setLoadOp(vk::AttachmentLoadOp::eClear)
-      .setClearValue(vk::ClearColorValue(std::array<float, 4>{ 1.0f, 1.0f, 1.0f, 1.0f }));
+      .setClearValue(vk::ClearColorValue(std::array<float, 4>{ 10.0f, 10.0f, 10.0f, 1.0f }));
    if (colorResolveTexture)
    {
       colorAttachmentInfo.setResolveTexture(*colorResolveTexture);

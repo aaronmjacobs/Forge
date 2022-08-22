@@ -526,6 +526,10 @@ void UI::renderSettings(const GraphicsContext& graphicsContext, const RenderCapa
    ImGui::Combo("SSAO", &ssaoQuality, kRenderQualityNames.data(), static_cast<int>(kRenderQualityNames.size()));
    settings.ssaoQuality = static_cast<RenderQuality>(ssaoQuality);
 
+   int bloomQuality = Enum::cast(settings.bloomQuality);
+   ImGui::Combo("Bloom", &bloomQuality, kRenderQualityNames.data(), static_cast<int>(kRenderQualityNames.size()));
+   settings.bloomQuality = static_cast<RenderQuality>(bloomQuality);
+
    if (!capabilities.canPresentHDR)
    {
       ImGui::BeginDisabled();

@@ -120,6 +120,7 @@ target_sources(${PROJECT_NAME} PRIVATE
    "${SRC_DIR}/Renderer/PhysicallyBasedMaterial.h"
    "${SRC_DIR}/Renderer/Renderer.cpp"
    "${SRC_DIR}/Renderer/Renderer.h"
+   "${SRC_DIR}/Renderer/RenderSettings.cpp"
    "${SRC_DIR}/Renderer/RenderSettings.h"
    "${SRC_DIR}/Renderer/SceneRenderInfo.h"
    "${SRC_DIR}/Renderer/UniformData.h"

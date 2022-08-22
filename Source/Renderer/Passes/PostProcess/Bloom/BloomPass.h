@@ -4,6 +4,7 @@
 #include "Graphics/UniformBuffer.h"
 
 #include "Renderer/Passes/SceneRenderPass.h"
+#include "Renderer/RenderSettings.h"
 
 #include <array>
 #include <memory>
@@ -22,14 +23,22 @@ struct BloomUpsampleUniformData
    alignas(4) float colorMix = 0.0f;
 };
 
+enum class BloomPassType
+{
+   Downsample,
+   HorizontalUpsample,
+   VerticalUpsample
+};
+
 template<>
 struct PipelineDescription<BloomPass>
 {
-   bool upsample = false;
+   BloomPassType type = BloomPassType::Downsample;
+   RenderQuality quality = RenderQuality::High;
 
    std::size_t hash() const
    {
-      return (upsample * 0b01);
+      return (static_cast<std::size_t>(type) << 2) | static_cast<std::size_t>(quality);
    }
 
    bool operator==(const PipelineDescription<BloomPass>& other) const = default;
@@ -45,11 +54,11 @@ public:
    BloomPass(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, ResourceManager& resourceManager);
    ~BloomPass();
 
-   void render(vk::CommandBuffer commandBuffer, Texture& hdrColorTexture, Texture& defaultBlackTexture);
+   void render(vk::CommandBuffer commandBuffer, Texture& hdrColorTexture, Texture& defaultBlackTexture, RenderQuality quality);
 
    Texture* getOutputTexture() const
    {
-      return upsampleTextures[0].get();
+      return textures[0].get();
    }
 
 protected:
@@ -60,8 +69,8 @@ protected:
    Pipeline createPipeline(const PipelineDescription<BloomPass>& description);
 
 private:
-   void renderDownsample(vk::CommandBuffer commandBuffer, uint32_t step, Texture& hdrColorTexture);
-   void renderUpsample(vk::CommandBuffer commandBuffer, uint32_t step, Texture& defaultBlackTexture);
+   void renderDownsample(vk::CommandBuffer commandBuffer, uint32_t step, Texture& hdrColorTexture, RenderQuality quality);
+   void renderUpsample(vk::CommandBuffer commandBuffer, uint32_t step, Texture& defaultBlackTexture, RenderQuality quality, bool horizontal);
 
    void createTextures();
    void destroyTextures();
@@ -73,11 +82,12 @@ private:
    vk::PipelineLayout upsamplePipelineLayout;
 
    std::vector<DescriptorSet> downsampleDescriptorSets;
-   std::vector<DescriptorSet> upsampleDescriptorSets;
+   std::vector<DescriptorSet> horizontalUpsampleDescriptorSets;
+   std::vector<DescriptorSet> verticalUpsampleDescriptorSets;
    vk::Sampler sampler;
 
    std::vector<UniformBuffer<BloomUpsampleUniformData>> upsampleUniformBuffers;
 
-   std::array<std::unique_ptr<Texture>, kNumSteps> downsampleTextures;
-   std::array<std::unique_ptr<Texture>, kNumSteps> upsampleTextures;
+   std::array<std::unique_ptr<Texture>, kNumSteps> textures;
+   std::array<std::unique_ptr<Texture>, kNumSteps> horizontalBlurTextures;
 };

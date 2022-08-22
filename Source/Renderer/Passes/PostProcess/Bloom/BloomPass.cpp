@@ -1,5 +1,8 @@
 #include "Renderer/Passes/PostProcess/Bloom/BloomPass.h"
 
+#include "Core/Assert.h"
+#include "Core/Enum.h"
+
 #include "Graphics/DebugUtils.h"
 #include "Graphics/Pipeline.h"
 #include "Graphics/Swapchain.h"
@@ -36,11 +39,69 @@ namespace
       return std::make_unique<Texture>(context, imageProperties, textureProperties, initialLayout);
    }
 
+   RenderQuality getDownsampleStepQuality(RenderQuality overallQuality, uint32_t step)
+   {
+      switch (overallQuality)
+      {
+      case RenderQuality::Disabled:
+         return RenderQuality::Disabled;
+      case RenderQuality::Low:
+         // Low quality for the higher resolutions, medium quality for the lower resolutions
+         return step <= BloomPass::kNumSteps / 2 ? RenderQuality::Low : RenderQuality::Medium;
+      case RenderQuality::Medium:
+         // Low quality for the highest resolution, medium quality for the rest
+         return step == 0 ? RenderQuality::Low : RenderQuality::Medium;
+      case RenderQuality::High:
+         // Medium quality for the highest resolution, high quality for the rest
+         return step == 0 ? RenderQuality::Medium : RenderQuality::High;
+      default:
+         ASSERT(false);
+         return RenderQuality::Disabled;
+      }
+   }
+
+   RenderQuality getUpsampleStepQuality(RenderQuality overallQuality, uint32_t step)
+   {
+      switch (overallQuality)
+      {
+      case RenderQuality::Disabled:
+         return RenderQuality::Disabled;
+      case RenderQuality::Low:
+         // Low quality for the higher resolutions, medium quality for the lower resolutions
+         return step <= BloomPass::kNumSteps / 2 ? RenderQuality::Low : RenderQuality::Medium;
+      case RenderQuality::Medium:
+         // Medium quality for the higher resolutions, high quality for the lower resolutions
+         return step <= BloomPass::kNumSteps / 2 ? RenderQuality::Medium : RenderQuality::High;
+      case RenderQuality::High:
+         // Always high quality
+         return RenderQuality::High;
+      default:
+         ASSERT(false);
+         return RenderQuality::Disabled;
+      }
+   }
+
 #if FORGE_WITH_DEBUG_UTILS
    std::string getTextureResolutionString(const Texture& texture)
    {
       const ImageProperties& imageProperties = texture.getImageProperties();
       return DebugUtils::toString(imageProperties.width) + "x" + DebugUtils::toString(imageProperties.height);
+   }
+
+   const char* getBloomPassTypeString(BloomPassType type)
+   {
+      switch (type)
+      {
+      case BloomPassType::Downsample:
+         return "Downsample";
+      case BloomPassType::HorizontalUpsample:
+         return "Horizontal Upsample";
+      case BloomPassType::VerticalUpsample:
+         return "Vertical Upsample";
+      default:
+         ASSERT(false);
+         return nullptr;
+      }
    }
 #endif // FORGE_WITH_DEBUG_UTILS
 }
@@ -51,31 +112,42 @@ BloomPass::BloomPass(const GraphicsContext& graphicsContext, DynamicDescriptorPo
    , upsampleShader(std::make_unique<BloomUpsampleShader>(context, resourceManager))
 {
    downsampleDescriptorSets.reserve(kNumSteps);
-   upsampleDescriptorSets.reserve(kNumSteps);
+   horizontalUpsampleDescriptorSets.reserve(kNumSteps);
+   verticalUpsampleDescriptorSets.reserve(kNumSteps);
    upsampleUniformBuffers.reserve(kNumSteps);
    for (uint32_t i = 0; i < kNumSteps; ++i)
    {
       downsampleDescriptorSets.emplace_back(context, dynamicDescriptorPool, BloomDownsampleShader::getLayoutCreateInfo());
-      upsampleDescriptorSets.emplace_back(context, dynamicDescriptorPool, BloomUpsampleShader::getLayoutCreateInfo());
+      horizontalUpsampleDescriptorSets.emplace_back(context, dynamicDescriptorPool, BloomUpsampleShader::getLayoutCreateInfo());
+      verticalUpsampleDescriptorSets.emplace_back(context, dynamicDescriptorPool, BloomUpsampleShader::getLayoutCreateInfo());
       upsampleUniformBuffers.emplace_back(context);
 
       NAME_CHILD(downsampleDescriptorSets.back(), "Downsample Step " + DebugUtils::toString(i));
-      NAME_CHILD(upsampleDescriptorSets.back(), "Upsample Step " + DebugUtils::toString(i));
+      NAME_CHILD(horizontalUpsampleDescriptorSets.back(), "Horizontal Upsample Step " + DebugUtils::toString(i));
+      NAME_CHILD(verticalUpsampleDescriptorSets.back(), "Vertical Upsample Step " + DebugUtils::toString(i));
       NAME_CHILD(upsampleUniformBuffers.back(), "Step " + DebugUtils::toString(i));
 
       for (uint32_t frameIndex = 0; frameIndex < GraphicsContext::kMaxFramesInFlight; ++frameIndex)
       {
          vk::DescriptorBufferInfo bufferInfo = upsampleUniformBuffers[i].getDescriptorBufferInfo(frameIndex);
 
-         vk::WriteDescriptorSet bufferDescriptorWrite = vk::WriteDescriptorSet()
-            .setDstSet(upsampleDescriptorSets[i].getSet(frameIndex))
+         vk::WriteDescriptorSet horizontalBufferDescriptorWrite = vk::WriteDescriptorSet()
+            .setDstSet(horizontalUpsampleDescriptorSets[i].getSet(frameIndex))
             .setDstBinding(2)
             .setDstArrayElement(0)
             .setDescriptorType(vk::DescriptorType::eUniformBuffer)
             .setDescriptorCount(1)
             .setPBufferInfo(&bufferInfo);
 
-         device.updateDescriptorSets({ bufferDescriptorWrite }, {});
+         vk::WriteDescriptorSet verticalBufferDescriptorWrite = vk::WriteDescriptorSet()
+            .setDstSet(verticalUpsampleDescriptorSets[i].getSet(frameIndex))
+            .setDstBinding(2)
+            .setDstArrayElement(0)
+            .setDescriptorType(vk::DescriptorType::eUniformBuffer)
+            .setDescriptorCount(1)
+            .setPBufferInfo(&bufferInfo);
+
+         device.updateDescriptorSets({ horizontalBufferDescriptorWrite, verticalBufferDescriptorWrite }, {});
       }
    }
 
@@ -123,7 +195,7 @@ BloomPass::~BloomPass()
    upsampleShader.reset();
 }
 
-void BloomPass::render(vk::CommandBuffer commandBuffer, Texture& hdrColorTexture, Texture& defaultBlackTexture)
+void BloomPass::render(vk::CommandBuffer commandBuffer, Texture& hdrColorTexture, Texture& defaultBlackTexture, RenderQuality quality)
 {
    ASSERT(hdrColorTexture.getExtent() == context.getSwapchain().getExtent());
 
@@ -133,7 +205,7 @@ void BloomPass::render(vk::CommandBuffer commandBuffer, Texture& hdrColorTexture
       SCOPED_LABEL("Downsample");
       for (uint32_t step = 0; step < kNumSteps; ++step)
       {
-         renderDownsample(commandBuffer, step, hdrColorTexture);
+         renderDownsample(commandBuffer, step, hdrColorTexture, quality);
       }
    }
 
@@ -141,7 +213,8 @@ void BloomPass::render(vk::CommandBuffer commandBuffer, Texture& hdrColorTexture
       SCOPED_LABEL("Upsample");
       for (uint32_t step = kNumSteps; step > 0; --step)
       {
-         renderUpsample(commandBuffer, step - 1, defaultBlackTexture);
+         renderUpsample(commandBuffer, step - 1, defaultBlackTexture, quality, true);
+         renderUpsample(commandBuffer, step - 1, defaultBlackTexture, quality, false);
       }
    }
 }
@@ -164,28 +237,30 @@ Pipeline BloomPass::createPipeline(const PipelineDescription<BloomPass>& descrip
    pipelineInfo.passType = PipelinePassType::Screen;
 
    PipelineData pipelineData;
-   pipelineData.layout = description.upsample ? upsamplePipelineLayout : downsamplePipelineLayout;
+   pipelineData.layout = description.type == BloomPassType::Downsample ? downsamplePipelineLayout : upsamplePipelineLayout;
    pipelineData.sampleCount = getSampleCount();
    pipelineData.depthStencilFormat = getDepthStencilFormat();
    pipelineData.colorFormats = getColorFormats();
-   pipelineData.shaderStages = description.upsample ? upsampleShader->getStages() : downsampleShader->getStages();
+   pipelineData.shaderStages = description.type == BloomPassType::Downsample ? downsampleShader->getStages(description.quality) : upsampleShader->getStages(description.type == BloomPassType::HorizontalUpsample, description.quality);
    pipelineData.colorBlendStates = { attachmentState };
 
    Pipeline pipeline(context, pipelineInfo, pipelineData);
-   NAME_CHILD(pipeline, description.upsample ? "Upsample" : "Downsample");
+   NAME_CHILD(pipeline, getBloomPassTypeString(description.type));
 
    return pipeline;
 }
 
-void BloomPass::renderDownsample(vk::CommandBuffer commandBuffer, uint32_t step, Texture& hdrColorTexture)
+void BloomPass::renderDownsample(vk::CommandBuffer commandBuffer, uint32_t step, Texture& hdrColorTexture, RenderQuality quality)
 {
    ASSERT(step < kNumSteps);
 
-   Texture& inputTexture = step == 0 ? hdrColorTexture : *downsampleTextures[step - 1];
-   Texture& outputTexture = *downsampleTextures[step];
+   Texture& inputTexture = step == 0 ? hdrColorTexture : *textures[step - 1];
+   Texture& outputTexture = *textures[step];
    const DescriptorSet& descriptorSet = downsampleDescriptorSets[step];
 
-   SCOPED_LABEL(getTextureResolutionString(inputTexture) + " --> " + getTextureResolutionString(outputTexture));
+   RenderQuality stepQuality = getDownsampleStepQuality(quality, step);
+
+   SCOPED_LABEL(getTextureResolutionString(inputTexture) + " --> " + getTextureResolutionString(outputTexture) + " (" + RenderSettings::getQualityString(stepQuality) + ")");
 
    inputTexture.transitionLayout(commandBuffer, TextureLayoutType::ShaderRead);
    outputTexture.transitionLayout(commandBuffer, TextureLayoutType::AttachmentWrite);
@@ -209,7 +284,8 @@ void BloomPass::renderDownsample(vk::CommandBuffer commandBuffer, uint32_t step,
    device.updateDescriptorSets(descriptorWrite, {});
 
    PipelineDescription<BloomPass> pipelineDescription;
-   pipelineDescription.upsample = false;
+   pipelineDescription.type = BloomPassType::Downsample;
+   pipelineDescription.quality = stepQuality;
 
    downsampleShader->bindDescriptorSets(commandBuffer, downsamplePipelineLayout, descriptorSet);
    renderScreenMesh(commandBuffer, getPipeline(pipelineDescription));
@@ -217,25 +293,27 @@ void BloomPass::renderDownsample(vk::CommandBuffer commandBuffer, uint32_t step,
    endRenderPass(commandBuffer);
 }
 
-void BloomPass::renderUpsample(vk::CommandBuffer commandBuffer, uint32_t step, Texture& defaultBlackTexture)
+void BloomPass::renderUpsample(vk::CommandBuffer commandBuffer, uint32_t step, Texture& defaultBlackTexture, RenderQuality quality, bool horizontal)
 {
    ASSERT(step < kNumSteps);
 
-   Texture& downsampleTexture = *downsampleTextures[step];
-   Texture& previousUpsampleTexture = step == kNumSteps - 1 ? defaultBlackTexture : *upsampleTextures[step + 1];
-   Texture& outputTexture = *upsampleTextures[step];
-   const DescriptorSet& descriptorSet = upsampleDescriptorSets[step];
+   Texture& inputTexture = horizontal ? *textures[step] : *horizontalBlurTextures[step];
+   Texture& blendTexture = step == kNumSteps - 1 ? defaultBlackTexture : *textures[step + 1];
+   Texture& outputTexture = horizontal ? *horizontalBlurTextures[step] : *textures[step];
+   const DescriptorSet& descriptorSet = horizontal ? horizontalUpsampleDescriptorSets[step] : verticalUpsampleDescriptorSets[step];
    UniformBuffer<BloomUpsampleUniformData>& uniformBuffer = upsampleUniformBuffers[step];
 
-   SCOPED_LABEL(getTextureResolutionString(outputTexture));
+   RenderQuality stepQuality = getUpsampleStepQuality(quality, step);
+
+   SCOPED_LABEL(getTextureResolutionString(outputTexture) + (horizontal ? " Horizontal" : " Vertical") + " (" + RenderSettings::getQualityString(stepQuality) + ")");
 
    BloomUpsampleUniformData uniformData;
    uniformData.filterRadius = 1.0f + step * 0.35f;
    uniformData.colorMix = step == kNumSteps - 1 ? 0.0f : 0.5f;
    uniformBuffer.update(uniformData);
 
-   downsampleTexture.transitionLayout(commandBuffer, TextureLayoutType::ShaderRead);
-   previousUpsampleTexture.transitionLayout(commandBuffer, TextureLayoutType::ShaderRead);
+   inputTexture.transitionLayout(commandBuffer, TextureLayoutType::ShaderRead);
+   blendTexture.transitionLayout(commandBuffer, TextureLayoutType::ShaderRead);
    outputTexture.transitionLayout(commandBuffer, TextureLayoutType::AttachmentWrite);
 
    AttachmentInfo colorAttachmentInfo = AttachmentInfo(outputTexture)
@@ -243,32 +321,33 @@ void BloomPass::renderUpsample(vk::CommandBuffer commandBuffer, uint32_t step, T
 
    beginRenderPass(commandBuffer, &colorAttachmentInfo);
 
-   vk::DescriptorImageInfo downsampleImageInfo = vk::DescriptorImageInfo()
-      .setImageLayout(downsampleTexture.getLayout())
-      .setImageView(downsampleTexture.getDefaultView())
+   vk::DescriptorImageInfo inputImageInfo = vk::DescriptorImageInfo()
+      .setImageLayout(inputTexture.getLayout())
+      .setImageView(inputTexture.getDefaultView())
       .setSampler(sampler);
-   vk::DescriptorImageInfo previousUpsampleImageInfo = vk::DescriptorImageInfo()
-      .setImageLayout(previousUpsampleTexture.getLayout())
-      .setImageView(previousUpsampleTexture.getDefaultView())
+   vk::DescriptorImageInfo blendImageInfo = vk::DescriptorImageInfo()
+      .setImageLayout(blendTexture.getLayout())
+      .setImageView(blendTexture.getDefaultView())
       .setSampler(sampler);
-   vk::WriteDescriptorSet downsampleDescriptorWrite = vk::WriteDescriptorSet()
+   vk::WriteDescriptorSet inputDescriptorWrite = vk::WriteDescriptorSet()
       .setDstSet(descriptorSet.getCurrentSet())
       .setDstBinding(0)
       .setDstArrayElement(0)
       .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
       .setDescriptorCount(1)
-      .setPImageInfo(&downsampleImageInfo);
-   vk::WriteDescriptorSet previousUpsampleDescriptorWrite = vk::WriteDescriptorSet()
+      .setPImageInfo(&inputImageInfo);
+   vk::WriteDescriptorSet blendDescriptorWrite = vk::WriteDescriptorSet()
       .setDstSet(descriptorSet.getCurrentSet())
       .setDstBinding(1)
       .setDstArrayElement(0)
       .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
       .setDescriptorCount(1)
-      .setPImageInfo(&previousUpsampleImageInfo);
-   device.updateDescriptorSets({ downsampleDescriptorWrite, previousUpsampleDescriptorWrite }, {});
+      .setPImageInfo(&blendImageInfo);
+   device.updateDescriptorSets({ inputDescriptorWrite, blendDescriptorWrite }, {});
 
    PipelineDescription<BloomPass> pipelineDescription;
-   pipelineDescription.upsample = true;
+   pipelineDescription.type = horizontal ? BloomPassType::HorizontalUpsample : BloomPassType::VerticalUpsample;
+   pipelineDescription.quality = stepQuality;
 
    upsampleShader->bindDescriptorSets(commandBuffer, upsamplePipelineLayout, descriptorSet);
    renderScreenMesh(commandBuffer, getPipeline(pipelineDescription));
@@ -283,25 +362,25 @@ void BloomPass::createTextures()
 
    for (uint32_t i = 0; i < kNumSteps; ++i)
    {
-      ASSERT(!downsampleTextures[i]);
-      ASSERT(!upsampleTextures[i]);
+      ASSERT(!textures[i]);
+      ASSERT(!horizontalBlurTextures[i]);
 
-      downsampleTextures[i] = createBloomTexture(context, format, getSampleCount(), 1 << (i + 1));
-      upsampleTextures[i] = createBloomTexture(context, format, getSampleCount(), 1 << (i + 1));
+      textures[i] = createBloomTexture(context, format, getSampleCount(), 1 << (i + 1));
+      horizontalBlurTextures[i] = createBloomTexture(context, format, getSampleCount(), 1 << (i + 1));
 
-      NAME_CHILD_POINTER(downsampleTextures[i], "Downsample Texture " + DebugUtils::toString(i));
-      NAME_CHILD_POINTER(upsampleTextures[i], "Upsample Texture " + DebugUtils::toString(i));
+      NAME_CHILD_POINTER(textures[i], "Texture " + DebugUtils::toString(i));
+      NAME_CHILD_POINTER(horizontalBlurTextures[i], "Horizontal Blur Texture " + DebugUtils::toString(i));
    }
 }
 
 void BloomPass::destroyTextures()
 {
-   for (std::unique_ptr<Texture>& downsampleTexture : downsampleTextures)
+   for (std::unique_ptr<Texture>& texture : textures)
    {
-      downsampleTexture.reset();
+      texture.reset();
    }
-   for (std::unique_ptr<Texture>& upsampleTexture : upsampleTextures)
+   for (std::unique_ptr<Texture>& horizontalBlurTexture : horizontalBlurTextures)
    {
-      upsampleTexture.reset();
+      horizontalBlurTexture.reset();
    }
 }

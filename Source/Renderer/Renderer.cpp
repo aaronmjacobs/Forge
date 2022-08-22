@@ -626,14 +626,18 @@ void Renderer::render(vk::CommandBuffer commandBuffer, const Scene& scene)
 
    forwardPass->render(commandBuffer, sceneRenderInfo, *depthTexture, *hdrColorTexture, hdrResolveTexture.get(), *normalTexture, ssaoEnabled ? *ssaoTexture : *defaultWhiteTexture, skyboxTexture);
 
-   bloomPass->render(commandBuffer, *hdrColorTexture, *defaultBlackTexture);
+   bool bloomEnabled = renderSettings.bloomQuality != RenderQuality::Disabled;
+   if (bloomEnabled)
+   {
+      bloomPass->render(commandBuffer, *hdrColorTexture, *defaultBlackTexture, renderSettings.bloomQuality);
+   }
 
    uiPass->render(commandBuffer, *uiColorTexture);
 
    compositePass->render(commandBuffer, *hdrColorTexture, *uiColorTexture, CompositeShader::Mode::SrgbToLinear);
 
    Texture& currentSwapchainTexture = context.getSwapchain().getCurrentTexture();
-   tonemapPass->render(commandBuffer, currentSwapchainTexture, hdrResolveTexture ? *hdrResolveTexture : *hdrColorTexture, *bloomPass->getOutputTexture());
+   tonemapPass->render(commandBuffer, currentSwapchainTexture, hdrResolveTexture ? *hdrResolveTexture : *hdrColorTexture, bloomEnabled ? bloomPass->getOutputTexture() : nullptr);
 
    currentSwapchainTexture.transitionLayout(commandBuffer, TextureLayoutType::Present);
 }

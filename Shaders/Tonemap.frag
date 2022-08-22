@@ -2,6 +2,7 @@
 #extension GL_ARB_separate_shader_objects : enable
 
 layout(constant_id = 0) const bool kOutputHDR = false;
+layout(constant_id = 1) const bool kWithBloom = false;
 
 layout(set = 0, binding = 0) uniform sampler2D hdrTexture;
 layout(set = 0, binding = 1) uniform sampler2D bloomTexture;
@@ -71,8 +72,11 @@ vec3 tonemap(vec3 hdrColor)
 void main()
 {
    vec3 hdrColor = texture(hdrTexture, inTexCoord).rgb;
-   vec3 bloom = texture(bloomTexture, inTexCoord).rgb;
-   hdrColor = mix(hdrColor, bloom, 0.05);
+   if (kWithBloom)
+   {
+      vec3 bloom = texture(bloomTexture, inTexCoord).rgb;
+      hdrColor = mix(hdrColor, bloom, 0.05);
+   }
 
    outColor = vec4(tonemap(hdrColor), 1.0);
 }

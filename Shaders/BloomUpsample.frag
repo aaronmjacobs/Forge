@@ -1,6 +1,11 @@
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
 
+#include "RenderQuality.glsl"
+
+layout(constant_id = 0) const bool kHorizontal = true;
+layout(constant_id = 1) const int kRenderQuality = kRenderQuality_High;
+
 layout(set = 0, binding = 0) uniform sampler2D inputTexture;
 layout(set = 0, binding = 1) uniform sampler2D previousTexture;
 layout(set = 0, binding = 2) uniform BloomParams
@@ -13,43 +18,57 @@ layout(location = 0) in vec2 inTexCoord;
 
 layout(location = 0) out vec4 outColor;
 
+const float kLowQualityWeights[3] =    { 0.27901, 0.44198, 0.27901 };
+const float kMediumQualityWeights[5] = { 0.06136, 0.24477, 0.38774, 0.24477, 0.06136 };
+const float kHighQualityWeights[7] =   { 0.00598, 0.06063, 0.24184, 0.38310, 0.24184, 0.06063, 0.00598 };
+
 void main()
 {
-   // The filter kernel is applied with a radius, specified in texture
-   // coordinates, so that the radius will vary across mip resolutions.
    vec2 inputTextureSize = textureSize(inputTexture, 0);
-   vec2 texelSize = 1.0 / inputTextureSize;
-   float x = filterRadius / inputTextureSize.x;
-   float y = filterRadius / inputTextureSize.y;
+   vec2 sampleScale = filterRadius / inputTextureSize;
 
-   vec2 uv = inTexCoord;
+   vec2 direction = vec2(0.0);
+   if (kHorizontal)
+   {
+      direction.x = 1.0;
+   }
+   else
+   {
+      direction.y = 1.0;
+   }
 
-   // Take 9 samples around current texel:
-   // a - b - c
-   // d - e - f
-   // g - h - i
-   // === ('e' is the current texel) ===
-   vec4 a = texture(inputTexture, vec2(uv.x - x, uv.y + y));
-   vec4 b = texture(inputTexture, vec2(uv.x,     uv.y + y));
-   vec4 c = texture(inputTexture, vec2(uv.x + x, uv.y + y));
+   outColor = vec4(0.0);
+   if (kRenderQuality == kRenderQuality_Low)
+   {
+      for (int i = 0; i < 3; ++i)
+      {
+         int offset = i - 1;
+         vec2 uv = inTexCoord + direction * sampleScale * offset;
+         outColor += texture(inputTexture, uv) * kLowQualityWeights[i];
+      }
+   }
+   else if (kRenderQuality == kRenderQuality_Medium)
+   {
+      for (int i = 0; i < 5; ++i)
+      {
+         int offset = i - 2;
+         vec2 uv = inTexCoord + direction * sampleScale * offset;
+         outColor += texture(inputTexture, uv) * kMediumQualityWeights[i];
+      }
+   }
+   else if (kRenderQuality == kRenderQuality_High)
+   {
+      for (int i = 0; i < 7; ++i)
+      {
+         int offset = i - 3;
+         vec2 uv = inTexCoord + direction * sampleScale * offset;
+         outColor += texture(inputTexture, uv) * kHighQualityWeights[i];
+      }
+   }
 
-   vec4 d = texture(inputTexture, vec2(uv.x - x, uv.y));
-   vec4 e = texture(inputTexture, vec2(uv.x,     uv.y));
-   vec4 f = texture(inputTexture, vec2(uv.x + x, uv.y));
-
-   vec4 g = texture(inputTexture, vec2(uv.x - x, uv.y - y));
-   vec4 h = texture(inputTexture, vec2(uv.x,     uv.y - y));
-   vec4 i = texture(inputTexture, vec2(uv.x + x, uv.y - y));
-
-   // Apply weighted distribution, by using a 3x3 tent filter:
-   //  1   | 1 2 1 |
-   // -- * | 2 4 2 |
-   // 16   | 1 2 1 |
-   outColor = e*4.0;
-   outColor += (b+d+f+h)*2.0;
-   outColor += (a+c+g+i);
-   outColor *= 1.0 / 16.0;
-
-   vec4 previousColor = texture(previousTexture, inTexCoord);
-   outColor = mix(outColor, previousColor, colorMix);
+   if (!kHorizontal)
+   {
+      vec4 previousColor = texture(previousTexture, inTexCoord);
+      outColor = mix(outColor, previousColor, colorMix);
+   }
 }
