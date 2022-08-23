@@ -369,8 +369,12 @@ GraphicsContext::GraphicsContext(Window& window)
    vk::InstanceCreateInfo createInfo = vk::InstanceCreateInfo()
       .setPApplicationInfo(&applicationInfo)
       .setPEnabledExtensionNames(extensions)
-      .setPEnabledLayerNames(layers)
-      .setFlags(vk::InstanceCreateFlagBits::eEnumeratePortabilityKHR);
+      .setPEnabledLayerNames(layers);
+
+   if (std::find(extensions.begin(), extensions.end(), VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME) != extensions.end())
+   {
+      createInfo.setFlags(vk::InstanceCreateFlagBits::eEnumeratePortabilityKHR);
+   }
 
 #if FORGE_DEBUG
    VkDebugUtilsMessengerCreateInfoEXT debugUtilsMessengerCreateInfo = static_cast<VkDebugUtilsMessengerCreateInfoEXT>(createDebugMessengerCreateInfo());
