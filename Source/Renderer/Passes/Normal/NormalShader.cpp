@@ -6,59 +6,45 @@
 
 namespace
 {
-   struct NormalShaderStageData
+   struct NormalSpecializationValues
    {
-      std::array<vk::SpecializationMapEntry, 2> specializationMapEntries =
-      {
-         vk::SpecializationMapEntry()
-            .setConstantID(0)
-            .setOffset(0 * sizeof(VkBool32))
-            .setSize(sizeof(VkBool32)),
-         vk::SpecializationMapEntry()
-            .setConstantID(1)
-            .setOffset(1 * sizeof(VkBool32))
-            .setSize(sizeof(VkBool32))
-      };
+      VkBool32 withTextures = false;
+      VkBool32 masked = false;
 
-      std::array<std::array<VkBool32, 2>, 4> specializationData =
-      { {
-         { false, false },
-         { false, true },
-         { true, false },
-         { true, true }
-      } };
-
-      std::array<vk::SpecializationInfo, 4> specializationInfo =
+      uint32_t getIndex() const
       {
-         vk::SpecializationInfo().setMapEntries(specializationMapEntries).setData<std::array<VkBool32, 2>>(specializationData[0]),
-         vk::SpecializationInfo().setMapEntries(specializationMapEntries).setData<std::array<VkBool32, 2>>(specializationData[1]),
-         vk::SpecializationInfo().setMapEntries(specializationMapEntries).setData<std::array<VkBool32, 2>>(specializationData[2]),
-         vk::SpecializationInfo().setMapEntries(specializationMapEntries).setData<std::array<VkBool32, 2>>(specializationData[3])
-      };
+         return withTextures | (masked << 1);
+      }
    };
 
-   const NormalShaderStageData& getStageData()
+   SpecializationInfo<NormalSpecializationValues> createSpecializationInfo()
    {
-      static const NormalShaderStageData kStageData;
-      return kStageData;
+      SpecializationInfoBuilder<NormalSpecializationValues> builder;
+
+      builder.registerMember(&NormalSpecializationValues::withTextures);
+      builder.registerMember(&NormalSpecializationValues::masked);
+
+      builder.addPermutation(NormalSpecializationValues{ false, false });
+      builder.addPermutation(NormalSpecializationValues{ false, true });
+      builder.addPermutation(NormalSpecializationValues{ true, false });
+      builder.addPermutation(NormalSpecializationValues{ true, true });
+
+      return builder.build();
    }
 
    Shader::InitializationInfo getInitializationInfo()
    {
+      static const SpecializationInfo kSpecializationInfo = createSpecializationInfo();
+
       Shader::InitializationInfo info;
 
       info.vertShaderModulePath = "Resources/Shaders/Normal.vert.spv";
       info.fragShaderModulePath = "Resources/Shaders/Normal.frag.spv";
 
-      info.specializationInfo = getStageData().specializationInfo;
+      info.specializationInfo = kSpecializationInfo.getInfo();
 
       return info;
    }
-}
-
-uint32_t NormalShader::getPermutationIndex(bool withTextures, bool masked)
-{
-   return (withTextures ? 0b10 : 0b00) | (masked ? 0b01 : 0b00);
 }
 
 NormalShader::NormalShader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager)
@@ -73,7 +59,11 @@ void NormalShader::bindDescriptorSets(vk::CommandBuffer commandBuffer, vk::Pipel
 
 std::vector<vk::PipelineShaderStageCreateInfo> NormalShader::getStages(bool withTextures, bool masked) const
 {
-   return getStagesForPermutation(getPermutationIndex(withTextures, masked));
+   NormalSpecializationValues specializationValues;
+   specializationValues.withTextures = withTextures;
+   specializationValues.masked = masked;
+
+   return getStagesForPermutation(specializationValues.getIndex());
 }
 
 std::vector<vk::DescriptorSetLayout> NormalShader::getSetLayouts() const

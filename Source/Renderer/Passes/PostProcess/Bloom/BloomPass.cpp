@@ -241,7 +241,7 @@ Pipeline BloomPass::createPipeline(const PipelineDescription<BloomPass>& descrip
    pipelineData.sampleCount = getSampleCount();
    pipelineData.depthStencilFormat = getDepthStencilFormat();
    pipelineData.colorFormats = getColorFormats();
-   pipelineData.shaderStages = description.type == BloomPassType::Downsample ? downsampleShader->getStages(description.quality) : upsampleShader->getStages(description.type == BloomPassType::HorizontalUpsample, description.quality);
+   pipelineData.shaderStages = description.type == BloomPassType::Downsample ? downsampleShader->getStages(description.quality) : upsampleShader->getStages(description.quality, description.type == BloomPassType::HorizontalUpsample);
    pipelineData.colorBlendStates = { attachmentState };
 
    Pipeline pipeline(context, pipelineInfo, pipelineData);

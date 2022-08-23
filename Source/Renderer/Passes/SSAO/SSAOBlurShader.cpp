@@ -7,40 +7,38 @@
 
 namespace
 {
-   struct SSAOBlurShaderStageData
+   struct SSAOBlurSpecializationValues
    {
-      vk::SpecializationMapEntry specializationMapEntry = vk::SpecializationMapEntry()
-         .setConstantID(0)
-         .setOffset(0 * sizeof(VkBool32))
-         .setSize(sizeof(VkBool32));
+      VkBool32 horizontal = false;
 
-      std::array<std::array<VkBool32, 1>, 2> specializationData =
-      { {
-         { false },
-         { true }
-      } };
-
-      std::array<vk::SpecializationInfo, 2> specializationInfo =
+      uint32_t getIndex() const
       {
-         vk::SpecializationInfo().setMapEntries(specializationMapEntry).setData<VkBool32>(specializationData[0]),
-         vk::SpecializationInfo().setMapEntries(specializationMapEntry).setData<VkBool32>(specializationData[1])
-      };
+         return horizontal;
+      }
    };
 
-   const SSAOBlurShaderStageData& getStageData()
+   SpecializationInfo<SSAOBlurSpecializationValues> createSpecializationInfo()
    {
-      static const SSAOBlurShaderStageData kStageData;
-      return kStageData;
+      SpecializationInfoBuilder<SSAOBlurSpecializationValues> builder;
+
+      builder.registerMember(&SSAOBlurSpecializationValues::horizontal);
+
+      builder.addPermutation(SSAOBlurSpecializationValues{ false });
+      builder.addPermutation(SSAOBlurSpecializationValues{ true });
+
+      return builder.build();
    }
 
    Shader::InitializationInfo getInitializationInfo()
    {
+      static const SpecializationInfo kSpecializationInfo = createSpecializationInfo();
+
       Shader::InitializationInfo info;
 
       info.vertShaderModulePath = "Resources/Shaders/Screen.vert.spv";
       info.fragShaderModulePath = "Resources/Shaders/SSAOBlur.frag.spv";
 
-      info.specializationInfo = getStageData().specializationInfo;
+      info.specializationInfo = kSpecializationInfo.getInfo();
 
       return info;
    }
@@ -88,7 +86,10 @@ void SSAOBlurShader::bindDescriptorSets(vk::CommandBuffer commandBuffer, vk::Pip
 
 std::vector<vk::PipelineShaderStageCreateInfo> SSAOBlurShader::getStages(bool horizontal) const
 {
-   return getStagesForPermutation(horizontal ? 1 : 0);
+   SSAOBlurSpecializationValues specializationValues;
+   specializationValues.horizontal = horizontal;
+
+   return getStagesForPermutation(specializationValues.getIndex());
 }
 
 std::vector<vk::DescriptorSetLayout> SSAOBlurShader::getSetLayouts() const

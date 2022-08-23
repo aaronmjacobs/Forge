@@ -9,63 +9,44 @@ namespace
 {
    struct BloomUpsampleSpecializationValues
    {
-      VkBool32 horizontal = true;
-      RenderQuality quality = RenderQuality::High;
+      RenderQuality quality = RenderQuality::Disabled;
+      VkBool32 horizontal = false;
+
+      uint32_t getIndex() const
+      {
+         return horizontal | (static_cast<uint32_t>(quality) << 1);
+      }
    };
 
-   struct BloomUpsampleShaderStageData
+   SpecializationInfo<BloomUpsampleSpecializationValues> createSpecializationInfo()
    {
-      std::array<vk::SpecializationMapEntry, 2> specializationMapEntries =
-      {
-         vk::SpecializationMapEntry()
-            .setConstantID(0)
-            .setOffset(0 * sizeof(VkBool32))
-            .setSize(sizeof(VkBool32)),
-         vk::SpecializationMapEntry()
-            .setConstantID(1)
-            .setOffset(1 * sizeof(VkBool32))
-            .setSize(sizeof(RenderQuality))
-      };
+      SpecializationInfoBuilder<BloomUpsampleSpecializationValues> builder;
 
-      std::array<BloomUpsampleSpecializationValues, 8> specializationData =
-      {
-         BloomUpsampleSpecializationValues{ false, RenderQuality::Disabled },
-         BloomUpsampleSpecializationValues{ false, RenderQuality::Low },
-         BloomUpsampleSpecializationValues{ false, RenderQuality::Medium },
-         BloomUpsampleSpecializationValues{ false, RenderQuality::High },
-         BloomUpsampleSpecializationValues{ true, RenderQuality::Disabled },
-         BloomUpsampleSpecializationValues{ true, RenderQuality::Low },
-         BloomUpsampleSpecializationValues{ true, RenderQuality::Medium },
-         BloomUpsampleSpecializationValues{ true, RenderQuality::High },
-      };
+      builder.registerMember(&BloomUpsampleSpecializationValues::quality);
+      builder.registerMember(&BloomUpsampleSpecializationValues::horizontal);
 
-      std::array<vk::SpecializationInfo, 8> specializationInfo =
-      {
-         vk::SpecializationInfo().setMapEntries(specializationMapEntries).setData<BloomUpsampleSpecializationValues>(specializationData[0]),
-         vk::SpecializationInfo().setMapEntries(specializationMapEntries).setData<BloomUpsampleSpecializationValues>(specializationData[1]),
-         vk::SpecializationInfo().setMapEntries(specializationMapEntries).setData<BloomUpsampleSpecializationValues>(specializationData[2]),
-         vk::SpecializationInfo().setMapEntries(specializationMapEntries).setData<BloomUpsampleSpecializationValues>(specializationData[3]),
-         vk::SpecializationInfo().setMapEntries(specializationMapEntries).setData<BloomUpsampleSpecializationValues>(specializationData[4]),
-         vk::SpecializationInfo().setMapEntries(specializationMapEntries).setData<BloomUpsampleSpecializationValues>(specializationData[5]),
-         vk::SpecializationInfo().setMapEntries(specializationMapEntries).setData<BloomUpsampleSpecializationValues>(specializationData[6]),
-         vk::SpecializationInfo().setMapEntries(specializationMapEntries).setData<BloomUpsampleSpecializationValues>(specializationData[7]),
-      };
-   };
+      builder.addPermutation(BloomUpsampleSpecializationValues{ RenderQuality::Disabled, false });
+      builder.addPermutation(BloomUpsampleSpecializationValues{ RenderQuality::Disabled, true });
+      builder.addPermutation(BloomUpsampleSpecializationValues{ RenderQuality::Low, false });
+      builder.addPermutation(BloomUpsampleSpecializationValues{ RenderQuality::Low, true });
+      builder.addPermutation(BloomUpsampleSpecializationValues{ RenderQuality::Medium, false });
+      builder.addPermutation(BloomUpsampleSpecializationValues{ RenderQuality::Medium, true });
+      builder.addPermutation(BloomUpsampleSpecializationValues{ RenderQuality::High, false });
+      builder.addPermutation(BloomUpsampleSpecializationValues{ RenderQuality::High, true });
 
-   const BloomUpsampleShaderStageData& getStageData()
-   {
-      static const BloomUpsampleShaderStageData kStageData;
-      return kStageData;
+      return builder.build();
    }
 
    Shader::InitializationInfo getInitializationInfo()
    {
+      static const SpecializationInfo kSpecializationInfo = createSpecializationInfo();
+
       Shader::InitializationInfo info;
 
       info.vertShaderModulePath = "Resources/Shaders/Screen.vert.spv";
       info.fragShaderModulePath = "Resources/Shaders/BloomUpsample.frag.spv";
 
-      info.specializationInfo = getStageData().specializationInfo;
+      info.specializationInfo = kSpecializationInfo.getInfo();
 
       return info;
    }
@@ -75,7 +56,7 @@ namespace
 std::array<vk::DescriptorSetLayoutBinding, 3> BloomUpsampleShader::getBindings()
 {
    return
-{
+   {
       vk::DescriptorSetLayoutBinding()
          .setBinding(0)
          .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
@@ -106,12 +87,6 @@ vk::DescriptorSetLayout BloomUpsampleShader::getLayout(const GraphicsContext& co
    return DescriptorSetLayout::get<BloomUpsampleShader>(context);
 }
 
-// static
-uint32_t BloomUpsampleShader::getPermutationIndex(bool horizontal, RenderQuality quality)
-{
-   return static_cast<uint32_t>(quality) + (Enum::cast(RenderQuality::High) + 1) * horizontal;
-}
-
 BloomUpsampleShader::BloomUpsampleShader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager)
    : Shader(graphicsContext, resourceManager, getInitializationInfo())
 {
@@ -122,9 +97,13 @@ void BloomUpsampleShader::bindDescriptorSets(vk::CommandBuffer commandBuffer, vk
    commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, 0, { descriptorSet.getCurrentSet() }, {});
 }
 
-std::vector<vk::PipelineShaderStageCreateInfo> BloomUpsampleShader::getStages(bool horizontal, RenderQuality quality) const
+std::vector<vk::PipelineShaderStageCreateInfo> BloomUpsampleShader::getStages(RenderQuality quality, bool horizontal) const
 {
-   return getStagesForPermutation(getPermutationIndex(horizontal, quality));
+   BloomUpsampleSpecializationValues specializationValues;
+   specializationValues.quality = quality;
+   specializationValues.horizontal = horizontal;
+
+   return getStagesForPermutation(specializationValues.getIndex());
 }
 
 std::vector<vk::DescriptorSetLayout> BloomUpsampleShader::getSetLayouts() const

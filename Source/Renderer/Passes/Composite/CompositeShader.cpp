@@ -7,42 +7,40 @@
 
 namespace
 {
-   struct CompositeShaderStageData
+   struct CompositeSpecializationValues
    {
-      vk::SpecializationMapEntry specializationMapEntry = vk::SpecializationMapEntry()
-            .setConstantID(0)
-            .setOffset(0 * sizeof(int))
-            .setSize(sizeof(int));
+      CompositeShader::Mode mode = CompositeShader::Mode::Passthrough;
 
-      std::array<std::array<int, 1>, CompositeShader::kNumModes> specializationData =
-      { {
-         { 0 },
-         { 1 },
-         { 2 }
-      } };
-
-      std::array<vk::SpecializationInfo, CompositeShader::kNumModes> specializationInfo =
+      uint32_t getIndex() const
       {
-         vk::SpecializationInfo().setMapEntries(specializationMapEntry).setData<int>(specializationData[0]),
-         vk::SpecializationInfo().setMapEntries(specializationMapEntry).setData<int>(specializationData[1]),
-         vk::SpecializationInfo().setMapEntries(specializationMapEntry).setData<int>(specializationData[2])
-      };
+         return static_cast<uint32_t>(mode);
+      }
    };
 
-   const CompositeShaderStageData& getStageData()
+   SpecializationInfo<CompositeSpecializationValues> createSpecializationInfo()
    {
-      static const CompositeShaderStageData kStageData;
-      return kStageData;
+      SpecializationInfoBuilder<CompositeSpecializationValues> builder;
+
+      builder.registerMember(&CompositeSpecializationValues::mode);
+
+      for (int i = 0; i < CompositeShader::kNumModes; ++i)
+      {
+         builder.addPermutation(CompositeSpecializationValues{ static_cast<CompositeShader::Mode>(i) });
+      }
+
+      return builder.build();
    }
 
    Shader::InitializationInfo getInitializationInfo()
    {
+      static const SpecializationInfo kSpecializationInfo = createSpecializationInfo();
+
       Shader::InitializationInfo info;
 
       info.vertShaderModulePath = "Resources/Shaders/Screen.vert.spv";
       info.fragShaderModulePath = "Resources/Shaders/Composite.frag.spv";
 
-      info.specializationInfo = getStageData().specializationInfo;
+      info.specializationInfo = kSpecializationInfo.getInfo();
 
       return info;
    }
@@ -85,7 +83,10 @@ void CompositeShader::bindDescriptorSets(vk::CommandBuffer commandBuffer, vk::Pi
 
 std::vector<vk::PipelineShaderStageCreateInfo> CompositeShader::getStages(Mode mode) const
 {
-   return getStagesForPermutation(Enum::cast(mode));
+   CompositeSpecializationValues specializationValues;
+   specializationValues.mode = mode;
+
+   return getStagesForPermutation(specializationValues.getIndex());
 }
 
 std::vector<vk::DescriptorSetLayout> CompositeShader::getSetLayouts() const

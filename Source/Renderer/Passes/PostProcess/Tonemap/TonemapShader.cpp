@@ -5,51 +5,42 @@
 
 namespace
 {
-   struct TonemapShaderStageData
+   struct TonemapSpecializationValues
    {
-      std::array<vk::SpecializationMapEntry, 2> specializationMapEntries =
-      {
-         vk::SpecializationMapEntry()
-            .setConstantID(0)
-            .setOffset(0 * sizeof(VkBool32))
-            .setSize(sizeof(VkBool32)),
-         vk::SpecializationMapEntry()
-            .setConstantID(1)
-            .setOffset(1 * sizeof(VkBool32))
-            .setSize(sizeof(VkBool32))
-      };
+      VkBool32 outputHDR = false;
+      VkBool32 withBloom = false;
 
-      std::array<std::array<VkBool32, 2>, 4> specializationData =
-      { {
-         { false, false },
-         { false, true },
-         { true, false },
-         { true, true }
-      } };
-
-      std::array<vk::SpecializationInfo, 4> specializationInfo =
+      uint32_t getIndex() const
       {
-         vk::SpecializationInfo().setMapEntries(specializationMapEntries).setData<std::array<VkBool32, 2>>(specializationData[0]),
-         vk::SpecializationInfo().setMapEntries(specializationMapEntries).setData<std::array<VkBool32, 2>>(specializationData[1]),
-         vk::SpecializationInfo().setMapEntries(specializationMapEntries).setData<std::array<VkBool32, 2>>(specializationData[2]),
-         vk::SpecializationInfo().setMapEntries(specializationMapEntries).setData<std::array<VkBool32, 2>>(specializationData[3])
-      };
+         return outputHDR | (withBloom << 1);
+      }
    };
 
-   const TonemapShaderStageData& getStageData()
+   SpecializationInfo<TonemapSpecializationValues> createSpecializationInfo()
    {
-      static const TonemapShaderStageData kStageData;
-      return kStageData;
+      SpecializationInfoBuilder<TonemapSpecializationValues> builder;
+
+      builder.registerMember(&TonemapSpecializationValues::outputHDR);
+      builder.registerMember(&TonemapSpecializationValues::withBloom);
+
+      builder.addPermutation(TonemapSpecializationValues{ false, false });
+      builder.addPermutation(TonemapSpecializationValues{ false, true });
+      builder.addPermutation(TonemapSpecializationValues{ true, false });
+      builder.addPermutation(TonemapSpecializationValues{ true, true });
+
+      return builder.build();
    }
 
    Shader::InitializationInfo getInitializationInfo()
    {
+      static const SpecializationInfo kSpecializationInfo = createSpecializationInfo();
+
       Shader::InitializationInfo info;
 
       info.vertShaderModulePath = "Resources/Shaders/Screen.vert.spv";
       info.fragShaderModulePath = "Resources/Shaders/Tonemap.frag.spv";
 
-      info.specializationInfo = getStageData().specializationInfo;
+      info.specializationInfo = kSpecializationInfo.getInfo();
 
       return info;
    }
@@ -85,13 +76,6 @@ vk::DescriptorSetLayout TonemapShader::getLayout(const GraphicsContext& context)
    return DescriptorSetLayout::get<TonemapShader>(context);
 }
 
-// static
-uint32_t TonemapShader::getPermutationIndex(bool outputHDR, bool withBloom)
-{
-   // TODO Permutation based on color space instead
-   return (outputHDR * 0b10) | (withBloom * 0b01);
-}
-
 TonemapShader::TonemapShader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager)
    : Shader(graphicsContext, resourceManager, getInitializationInfo())
 {
@@ -104,7 +88,11 @@ void TonemapShader::bindDescriptorSets(vk::CommandBuffer commandBuffer, vk::Pipe
 
 std::vector<vk::PipelineShaderStageCreateInfo> TonemapShader::getStages(bool outputHDR, bool withBloom) const
 {
-   return getStagesForPermutation(getPermutationIndex(outputHDR, withBloom));
+   TonemapSpecializationValues specializationValues;
+   specializationValues.outputHDR = outputHDR;
+   specializationValues.withBloom = withBloom;
+
+   return getStagesForPermutation(specializationValues.getIndex());
 }
 
 std::vector<vk::DescriptorSetLayout> TonemapShader::getSetLayouts() const

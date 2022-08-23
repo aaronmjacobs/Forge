@@ -10,59 +10,45 @@
 
 namespace
 {
-   struct ForwardShaderStageData
+   struct ForwardSpecializationValues
    {
-      std::array<vk::SpecializationMapEntry, 2> specializationMapEntries =
-      {
-         vk::SpecializationMapEntry()
-            .setConstantID(0)
-            .setOffset(0 * sizeof(VkBool32))
-            .setSize(sizeof(VkBool32)),
-         vk::SpecializationMapEntry()
-            .setConstantID(1)
-            .setOffset(1 * sizeof(VkBool32))
-            .setSize(sizeof(VkBool32))
-      };
+      VkBool32 withTextures = false;
+      VkBool32 withBlending = false;
 
-      std::array<std::array<VkBool32, 2>, 4> specializationData =
-      { {
-         { false, false },
-         { false, true },
-         { true, false },
-         { true, true }
-      } };
-
-      std::array<vk::SpecializationInfo, 4> specializationInfo =
+      uint32_t getIndex() const
       {
-         vk::SpecializationInfo().setMapEntries(specializationMapEntries).setData<std::array<VkBool32, 2>>(specializationData[0]),
-         vk::SpecializationInfo().setMapEntries(specializationMapEntries).setData<std::array<VkBool32, 2>>(specializationData[1]),
-         vk::SpecializationInfo().setMapEntries(specializationMapEntries).setData<std::array<VkBool32, 2>>(specializationData[2]),
-         vk::SpecializationInfo().setMapEntries(specializationMapEntries).setData<std::array<VkBool32, 2>>(specializationData[3])
-      };
+         return withTextures | (withBlending << 1);
+      }
    };
 
-   const ForwardShaderStageData& getStageData()
+   SpecializationInfo<ForwardSpecializationValues> createSpecializationInfo()
    {
-      static const ForwardShaderStageData kStageData;
-      return kStageData;
+      SpecializationInfoBuilder<ForwardSpecializationValues> builder;
+
+      builder.registerMember(&ForwardSpecializationValues::withTextures);
+      builder.registerMember(&ForwardSpecializationValues::withBlending);
+
+      builder.addPermutation(ForwardSpecializationValues{ false, false });
+      builder.addPermutation(ForwardSpecializationValues{ false, true });
+      builder.addPermutation(ForwardSpecializationValues{ true, false });
+      builder.addPermutation(ForwardSpecializationValues{ true, true });
+
+      return builder.build();
    }
 
    Shader::InitializationInfo getInitializationInfo()
    {
+      static const SpecializationInfo kSpecializationInfo = createSpecializationInfo();
+
       Shader::InitializationInfo info;
 
       info.vertShaderModulePath = "Resources/Shaders/Forward.vert.spv";
       info.fragShaderModulePath = "Resources/Shaders/Forward.frag.spv";
 
-      info.specializationInfo = getStageData().specializationInfo;
+      info.specializationInfo = kSpecializationInfo.getInfo();
 
       return info;
    }
-}
-
-uint32_t ForwardShader::getPermutationIndex(bool withTextures, bool withBlending)
-{
-   return (withTextures ? 0b10 : 0b00) | (withBlending ? 0b01 : 0b00);
 }
 
 // static
@@ -107,7 +93,11 @@ void ForwardShader::bindDescriptorSets(vk::CommandBuffer commandBuffer, vk::Pipe
 
 std::vector<vk::PipelineShaderStageCreateInfo> ForwardShader::getStages(bool withTextures, bool withBlending) const
 {
-   return getStagesForPermutation(getPermutationIndex(withTextures, withBlending));
+   ForwardSpecializationValues specializationValues;
+   specializationValues.withTextures = withTextures;
+   specializationValues.withBlending = withBlending;
+
+   return getStagesForPermutation(specializationValues.getIndex());
 }
 
 std::vector<vk::DescriptorSetLayout> ForwardShader::getSetLayouts() const

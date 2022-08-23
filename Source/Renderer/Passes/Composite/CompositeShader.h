@@ -12,14 +12,14 @@ class DescriptorSet;
 class CompositeShader : public Shader
 {
 public:
-   enum class Mode : uint32_t
+   enum class Mode
    {
       Passthrough = 0,
       LinearToSrgb = 1,
       SrgbToLinear = 2
    };
 
-   static constexpr uint32_t kNumModes = Enum::cast(Mode::SrgbToLinear) + 1;
+   static constexpr int kNumModes = Enum::cast(Mode::SrgbToLinear) + 1;
 
    static std::array<vk::DescriptorSetLayoutBinding, 1> getBindings();
    static const vk::DescriptorSetLayoutCreateInfo& getLayoutCreateInfo();

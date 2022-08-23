@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Core/Assert.h"
+
 #include "Graphics/GraphicsResource.h"
 
 #include <span>
@@ -46,6 +48,8 @@ public:
    template<typename MemberType>
    void registerMember(MemberType T::* member)
    {
+      ASSERT(permutations.empty(), "Trying to register a specialization constant after adding permutations");
+
       T dummyValue;
       const uint8_t* structAddress = reinterpret_cast<const uint8_t*>(&dummyValue);
       const uint8_t* memberAddress = reinterpret_cast<const uint8_t*>(&(dummyValue.*member));

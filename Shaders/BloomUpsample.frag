@@ -3,8 +3,8 @@
 
 #include "RenderQuality.glsl"
 
-layout(constant_id = 0) const bool kHorizontal = true;
-layout(constant_id = 1) const int kRenderQuality = kRenderQuality_High;
+layout(constant_id = 0) const int kRenderQuality = kRenderQuality_Low;
+layout(constant_id = 1) const bool kHorizontal = false;
 
 layout(set = 0, binding = 0) uniform sampler2D inputTexture;
 layout(set = 0, binding = 1) uniform sampler2D previousTexture;
