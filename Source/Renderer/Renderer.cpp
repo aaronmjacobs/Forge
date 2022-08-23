@@ -28,8 +28,6 @@
 #include "Scene/Entity.h"
 #include "Scene/Scene.h"
 
-#include <GLFW/glfw3.h>
-
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -775,6 +773,7 @@ void Renderer::updateSwapchainDependentPasses()
    forwardPass->updateAttachmentFormats(hdrColorTexture.get(), depthTexture.get());
 
    bloomPass->updateAttachmentFormats(hdrColorTexture.get());
+   bloomPass->recreateTextures();
 
    uiPass->updateAttachmentFormats(uiColorTexture.get());
    uiPass->updateFramebuffer(*uiColorTexture);

@@ -219,10 +219,8 @@ void BloomPass::render(vk::CommandBuffer commandBuffer, Texture& hdrColorTexture
    }
 }
 
-void BloomPass::postUpdateAttachmentFormats()
+void BloomPass::recreateTextures()
 {
-   SceneRenderPass::postUpdateAttachmentFormats();
-
    destroyTextures();
    createTextures();
 }
@@ -305,7 +303,7 @@ void BloomPass::renderUpsample(vk::CommandBuffer commandBuffer, uint32_t step, T
 
    RenderQuality stepQuality = getUpsampleStepQuality(quality, step);
 
-   SCOPED_LABEL(getTextureResolutionString(outputTexture) + (horizontal ? " Horizontal" : " Vertical") + " (" + RenderSettings::getQualityString(stepQuality) + ")");
+   SCOPED_LABEL(getTextureResolutionString(outputTexture) + (horizontal ? " Horizontal" : " Vertical") + (horizontal || step == kNumSteps - 1 ? "" : " + " + getTextureResolutionString(blendTexture)) + " (" + RenderSettings::getQualityString(stepQuality) + ")");
 
    BloomUpsampleUniformData uniformData;
    uniformData.filterRadius = 1.0f + step * 0.35f;

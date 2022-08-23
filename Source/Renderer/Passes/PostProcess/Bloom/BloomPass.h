@@ -56,6 +56,8 @@ public:
 
    void render(vk::CommandBuffer commandBuffer, Texture& hdrColorTexture, Texture& defaultBlackTexture, RenderQuality quality);
 
+   void recreateTextures();
+
    Texture* getOutputTexture() const
    {
       return textures[0].get();
@@ -63,8 +65,6 @@ public:
 
 protected:
    friend class SceneRenderPass<BloomPass>;
-
-   void postUpdateAttachmentFormats() override;
 
    Pipeline createPipeline(const PipelineDescription<BloomPass>& description);
 
