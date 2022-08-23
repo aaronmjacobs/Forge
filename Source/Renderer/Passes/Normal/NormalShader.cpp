@@ -1,5 +1,7 @@
 #include "Renderer/Passes/Normal/NormalShader.h"
 
+#include "Graphics/SpecializationInfo.h"
+
 #include "Renderer/PhysicallyBasedMaterial.h"
 #include "Renderer/UniformData.h"
 #include "Renderer/View.h"

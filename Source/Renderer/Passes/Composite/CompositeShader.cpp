@@ -4,6 +4,7 @@
 
 #include "Graphics/DescriptorSet.h"
 #include "Graphics/DescriptorSetLayout.h"
+#include "Graphics/SpecializationInfo.h"
 
 namespace
 {
