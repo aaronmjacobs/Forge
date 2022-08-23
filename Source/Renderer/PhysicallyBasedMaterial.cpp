@@ -61,6 +61,7 @@ PhysicallyBasedMaterial::PhysicallyBasedMaterial(const GraphicsContext& graphics
    twoSided = twoSides;
 
    std::array<vk::DescriptorImageInfo, GraphicsContext::kMaxFramesInFlight * 3> imageInfo;
+   std::array<vk::DescriptorBufferInfo, GraphicsContext::kMaxFramesInFlight> bufferInfo;
    std::array<vk::WriteDescriptorSet, GraphicsContext::kMaxFramesInFlight * 4> descriptorWrites;
    for (uint32_t frameIndex = 0; frameIndex < GraphicsContext::kMaxFramesInFlight; ++frameIndex)
    {
@@ -103,14 +104,14 @@ PhysicallyBasedMaterial::PhysicallyBasedMaterial(const GraphicsContext& graphics
          .setDescriptorCount(1)
          .setPImageInfo(&imageInfo[frameIndex * 3 + 2]);
 
-      vk::DescriptorBufferInfo bufferInfo = uniformBuffer.getDescriptorBufferInfo(frameIndex);
+      bufferInfo[frameIndex] = uniformBuffer.getDescriptorBufferInfo(frameIndex);
       descriptorWrites[frameIndex * 4 + 3] = vk::WriteDescriptorSet()
          .setDstSet(descriptorSet.getSet(frameIndex))
          .setDstBinding(3)
          .setDstArrayElement(0)
          .setDescriptorType(vk::DescriptorType::eUniformBuffer)
          .setDescriptorCount(1)
-         .setBufferInfo(bufferInfo);
+         .setBufferInfo(bufferInfo[frameIndex]);
    }
 
    device.updateDescriptorSets(descriptorWrites, {});
