@@ -10,10 +10,11 @@ namespace
    {
       VkBool32 outputHDR = false;
       VkBool32 withBloom = false;
+      VkBool32 withUI = false;
 
       uint32_t getIndex() const
       {
-         return outputHDR | (withBloom << 1);
+         return outputHDR | (withBloom << 1) | (withUI << 2);
       }
    };
 
@@ -23,11 +24,16 @@ namespace
 
       builder.registerMember(&TonemapSpecializationValues::outputHDR);
       builder.registerMember(&TonemapSpecializationValues::withBloom);
+      builder.registerMember(&TonemapSpecializationValues::withUI);
 
-      builder.addPermutation(TonemapSpecializationValues{ false, false });
-      builder.addPermutation(TonemapSpecializationValues{ false, true });
-      builder.addPermutation(TonemapSpecializationValues{ true, false });
-      builder.addPermutation(TonemapSpecializationValues{ true, true });
+      builder.addPermutation(TonemapSpecializationValues{ false, false, false });
+      builder.addPermutation(TonemapSpecializationValues{ false, false, true });
+      builder.addPermutation(TonemapSpecializationValues{ false, true, false });
+      builder.addPermutation(TonemapSpecializationValues{ false, true, true });
+      builder.addPermutation(TonemapSpecializationValues{ true, false, false });
+      builder.addPermutation(TonemapSpecializationValues{ true, false, true });
+      builder.addPermutation(TonemapSpecializationValues{ true, true, false });
+      builder.addPermutation(TonemapSpecializationValues{ true, true, true });
 
       return builder.build();
    }
@@ -48,7 +54,7 @@ namespace
 }
 
 // static
-std::array<vk::DescriptorSetLayoutBinding, 2> TonemapShader::getBindings()
+std::array<vk::DescriptorSetLayoutBinding, 3> TonemapShader::getBindings()
 {
    return
    {
@@ -59,6 +65,11 @@ std::array<vk::DescriptorSetLayoutBinding, 2> TonemapShader::getBindings()
          .setStageFlags(vk::ShaderStageFlagBits::eFragment),
       vk::DescriptorSetLayoutBinding()
          .setBinding(1)
+         .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+         .setDescriptorCount(1)
+         .setStageFlags(vk::ShaderStageFlagBits::eFragment),
+      vk::DescriptorSetLayoutBinding()
+         .setBinding(2)
          .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
          .setDescriptorCount(1)
          .setStageFlags(vk::ShaderStageFlagBits::eFragment)
@@ -87,11 +98,12 @@ void TonemapShader::bindDescriptorSets(vk::CommandBuffer commandBuffer, vk::Pipe
    commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, 0, { descriptorSet.getCurrentSet() }, {});
 }
 
-std::vector<vk::PipelineShaderStageCreateInfo> TonemapShader::getStages(bool outputHDR, bool withBloom) const
+std::vector<vk::PipelineShaderStageCreateInfo> TonemapShader::getStages(bool outputHDR, bool withBloom, bool withUI) const
 {
    TonemapSpecializationValues specializationValues;
    specializationValues.outputHDR = outputHDR;
    specializationValues.withBloom = withBloom;
+   specializationValues.withUI = withUI;
 
    return getStagesForPermutation(specializationValues.getIndex());
 }

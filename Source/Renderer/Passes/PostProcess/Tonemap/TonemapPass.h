@@ -17,10 +17,11 @@ struct PipelineDescription<TonemapPass>
 {
    bool hdr = false;
    bool withBloom = false;
+   bool withUI = false;
 
    std::size_t hash() const
    {
-      return (hdr * 0b10) | (withBloom * 0b01);
+      return (hdr * 0b001) | (withBloom * 0b010) | (withUI * 0b100);
    }
 
    bool operator==(const PipelineDescription<TonemapPass>& other) const = default;
@@ -34,7 +35,7 @@ public:
    TonemapPass(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, ResourceManager& resourceManager);
    ~TonemapPass();
 
-   void render(vk::CommandBuffer commandBuffer, Texture& outputTexture, Texture& hdrColorTexture, Texture* bloomTexture);
+   void render(vk::CommandBuffer commandBuffer, Texture& outputTexture, Texture& hdrColorTexture, Texture* bloomTexture, Texture* uiTexture);
 
 protected:
    friend class SceneRenderPass<TonemapPass>;

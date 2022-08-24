@@ -3,13 +3,17 @@
 
 layout(constant_id = 0) const bool kOutputHDR = false;
 layout(constant_id = 1) const bool kWithBloom = false;
+layout(constant_id = 2) const bool kWithUI = false;
 
 layout(set = 0, binding = 0) uniform sampler2D hdrTexture;
 layout(set = 0, binding = 1) uniform sampler2D bloomTexture;
+layout(set = 0, binding = 2) uniform sampler2D uiTexture;
 
 layout(location = 0) in vec2 inTexCoord;
 
 layout(location = 0) out vec4 outColor;
+
+const float kPaperwhiteNits = 100.0;
 
 // Below logic borrowed from the Xbox ATG samples (https://github.com/microsoft/Xbox-ATG-Samples/blob/master/Kits/ATGTK/HDR/HDRCommon.hlsli)
 
@@ -60,7 +64,7 @@ vec3 tonemap(vec3 hdrColor)
 
    if (kOutputHDR)
    {
-      return ConvertToHDR10(vec4(hdrColor, 1.0), 100.0).rgb; // TODO paperwhite
+      return ConvertToHDR10(vec4(hdrColor, 1.0), kPaperwhiteNits).rgb;
    }
 
    vec3 clampedHdrColor = max(vec3(0.0), hdrColor);
@@ -69,14 +73,38 @@ vec3 tonemap(vec3 hdrColor)
    return sdrColor;
 }
 
+vec3 srgbToLinear(vec3 sRGB)
+{
+   vec3 a = sRGB / 12.92;
+   vec3 b = pow((sRGB + 0.055) / 1.055, vec3(2.4));
+   vec3 c = step(vec3(0.04045), sRGB);
+   return mix(a, b, c);
+}
+
 void main()
 {
    vec3 hdrColor = texture(hdrTexture, inTexCoord).rgb;
+
    if (kWithBloom)
    {
       vec3 bloom = texture(bloomTexture, inTexCoord).rgb;
       hdrColor = mix(hdrColor, bloom, 0.05);
    }
 
-   outColor = vec4(tonemap(hdrColor), 1.0);
+   vec3 tonemappedColor = tonemap(hdrColor);
+
+   if (kWithUI)
+   {
+      vec4 uiSrgb = texture(uiTexture, inTexCoord);
+      vec3 uiLinear = srgbToLinear(uiSrgb.rgb);
+
+      if (kOutputHDR)
+      {
+         uiLinear = ConvertToHDR10(vec4(uiLinear, 1.0), kPaperwhiteNits).rgb;
+      }
+
+      tonemappedColor = mix(tonemappedColor, uiLinear, uiSrgb.a);
+   }
+
+   outColor = vec4(tonemappedColor, 1.0);
 }

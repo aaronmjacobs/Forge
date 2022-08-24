@@ -50,7 +50,7 @@ TonemapPass::~TonemapPass()
    tonemapShader.reset();
 }
 
-void TonemapPass::render(vk::CommandBuffer commandBuffer, Texture& outputTexture, Texture& hdrColorTexture, Texture* bloomTexture)
+void TonemapPass::render(vk::CommandBuffer commandBuffer, Texture& outputTexture, Texture& hdrColorTexture, Texture* bloomTexture, Texture* uiTexture)
 {
    SCOPED_LABEL(getName());
 
@@ -60,13 +60,17 @@ void TonemapPass::render(vk::CommandBuffer commandBuffer, Texture& outputTexture
    {
       bloomTexture->transitionLayout(commandBuffer, TextureLayoutType::ShaderRead);
    }
+   if (uiTexture)
+   {
+      uiTexture->transitionLayout(commandBuffer, TextureLayoutType::ShaderRead);
+   }
 
    AttachmentInfo colorAttachmentInfo = AttachmentInfo(outputTexture)
       .setLoadOp(vk::AttachmentLoadOp::eDontCare);
 
    beginRenderPass(commandBuffer, &colorAttachmentInfo);
 
-   StaticVector<vk::WriteDescriptorSet, 2> descriptorWrites;
+   StaticVector<vk::WriteDescriptorSet, 3> descriptorWrites;
 
    vk::DescriptorImageInfo hdrColorImageInfo = vk::DescriptorImageInfo()
       .setImageLayout(hdrColorTexture.getLayout())
@@ -96,11 +100,29 @@ void TonemapPass::render(vk::CommandBuffer commandBuffer, Texture& outputTexture
       bloomImageInfo.setImageView(bloomTexture->getDefaultView());
       descriptorWrites.push(bloomDescriptorWrite);
    }
+
+   vk::DescriptorImageInfo uiImageInfo = vk::DescriptorImageInfo()
+      .setSampler(sampler);
+   vk::WriteDescriptorSet uiDescriptorWrite = vk::WriteDescriptorSet()
+      .setDstSet(descriptorSet.getCurrentSet())
+      .setDstBinding(2)
+      .setDstArrayElement(0)
+      .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+      .setDescriptorCount(1)
+      .setPImageInfo(&uiImageInfo);
+   if (uiTexture)
+   {
+      uiImageInfo.setImageLayout(uiTexture->getLayout());
+      uiImageInfo.setImageView(uiTexture->getDefaultView());
+      descriptorWrites.push(uiDescriptorWrite);
+   }
+
    device.updateDescriptorSets(descriptorWrites, {});
 
    PipelineDescription<TonemapPass> pipelineDescription;
    pipelineDescription.hdr = outputTexture.getImageProperties().format == vk::Format::eA2R10G10B10UnormPack32;
    pipelineDescription.withBloom = bloomTexture != nullptr;
+   pipelineDescription.withUI = uiTexture != nullptr;
 
    tonemapShader->bindDescriptorSets(commandBuffer, pipelineLayout, descriptorSet);
    renderScreenMesh(commandBuffer, getPipeline(pipelineDescription));
@@ -122,7 +144,7 @@ Pipeline TonemapPass::createPipeline(const PipelineDescription<TonemapPass>& des
    pipelineData.sampleCount = getSampleCount();
    pipelineData.depthStencilFormat = getDepthStencilFormat();
    pipelineData.colorFormats = getColorFormats();
-   pipelineData.shaderStages = tonemapShader->getStages(description.hdr, description.withBloom);
+   pipelineData.shaderStages = tonemapShader->getStages(description.hdr, description.withBloom, description.withUI);
    pipelineData.colorBlendStates = { attachmentState };
 
    Pipeline pipeline(context, pipelineInfo, pipelineData);
