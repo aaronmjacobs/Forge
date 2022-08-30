@@ -262,13 +262,15 @@ namespace
       }
    }
 
-   void renderMeshComponent(const MeshComponent& meshComponent, const ResourceManager& resourceManager)
+   void renderMeshComponent(MeshComponent& meshComponent, const ResourceManager& resourceManager)
    {
       if (ImGui::CollapsingHeader("Mesh", ImGuiTreeNodeFlags_DefaultOpen))
       {
          const std::string* meshPath = resourceManager.getMeshPath(meshComponent.meshHandle);
          const char* pathString = meshPath ? meshPath->c_str() : "None";
          ImGui::Text("%s", pathString);
+
+         ImGui::Checkbox("Cast Shadows", &meshComponent.castsShadows);
       }
    }
 
@@ -627,7 +629,7 @@ void UI::renderSelectedEntity(const ResourceManager& resourceManager)
       {
          renderSpotLightComponent(*spotLightComponent);
       }
-      if (const MeshComponent* meshComponent = selectedEntity.tryGetComponent<MeshComponent>())
+      if (MeshComponent* meshComponent = selectedEntity.tryGetComponent<MeshComponent>())
       {
          renderMeshComponent(*meshComponent, resourceManager);
       }
