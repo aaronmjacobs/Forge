@@ -3,7 +3,7 @@
 
 bool passesMaskThreshold(float alpha)
 {
-   return alpha >= 0.5;
+   return alpha >= 0.15;
 }
 
 #endif
