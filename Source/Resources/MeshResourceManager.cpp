@@ -180,8 +180,37 @@ namespace
       materialParameters.textureParameters.push_back(aoRoughnessMetalnessParameter);
 
       int twoSided = 0;
-      assimpMaterial.Get(AI_MATKEY_TWOSIDED, twoSided);
-      materialParameters.twoSided = twoSided != 0;
+      if (assimpMaterial.Get(AI_MATKEY_TWOSIDED, twoSided) == aiReturn_SUCCESS)
+      {
+         materialParameters.twoSided = twoSided != 0;
+      }
+
+      aiColor4D albedoColor(0.0f);
+      if (assimpMaterial.Get(AI_MATKEY_BASE_COLOR, albedoColor) == aiReturn_SUCCESS || assimpMaterial.Get(AI_MATKEY_COLOR_DIFFUSE, albedoColor) == aiReturn_SUCCESS)
+      {
+         materialParameters.vectorParameters.push_back(VectorMaterialParameter{ PhysicallyBasedMaterial::kAlbedoTextureParameterName, glm::vec4(albedoColor.r, albedoColor.g, albedoColor.b, albedoColor.a) });
+      }
+
+      float emissiveIntensity = 1.0f;
+      assimpMaterial.Get(AI_MATKEY_EMISSIVE_INTENSITY, emissiveIntensity);
+
+      aiColor4D emissiveColor(0.0f);
+      if (assimpMaterial.Get(AI_MATKEY_COLOR_EMISSIVE, emissiveColor) == aiReturn_SUCCESS)
+      {
+         materialParameters.vectorParameters.push_back(VectorMaterialParameter{ PhysicallyBasedMaterial::kEmissiveVectorParameterName, glm::vec4(emissiveColor.r, emissiveColor.g, emissiveColor.b, emissiveColor.a) * emissiveIntensity });
+      }
+
+      float roughness = 0.0f;
+      if (assimpMaterial.Get(AI_MATKEY_ROUGHNESS_FACTOR, roughness) == aiReturn_SUCCESS)
+      {
+         materialParameters.scalarParameters.push_back(ScalarMaterialParameter{ PhysicallyBasedMaterial::kRoughnessScalarParameterName, roughness });
+      }
+
+      float metalness = 0.0f;
+      if (assimpMaterial.Get(AI_MATKEY_METALLIC_FACTOR, metalness) == aiReturn_SUCCESS)
+      {
+         materialParameters.scalarParameters.push_back(ScalarMaterialParameter{ PhysicallyBasedMaterial::kMetalnessScalarParameterName, metalness });
+      }
 
       return resourceManager.loadMaterial(materialParameters);
    }

@@ -4,6 +4,30 @@
 #include "Graphics/Texture.h"
 
 // static
+const std::string PhysicallyBasedMaterial::kAlbedoTextureParameterName = "albedo";
+
+// static
+const std::string PhysicallyBasedMaterial::kNormalTextureParameterName = "normal";
+
+// static
+const std::string PhysicallyBasedMaterial::kAoRoughnessMetalnessTextureParameterName = "aoRoughnessMetalness";
+
+// static
+const std::string PhysicallyBasedMaterial::kAlbedoVectorParameterName = "albedo";
+
+// static
+const std::string PhysicallyBasedMaterial::kEmissiveVectorParameterName = "emissive";
+
+// static
+const std::string PhysicallyBasedMaterial::kRoughnessScalarParameterName = "roughness";
+
+// static
+const std::string PhysicallyBasedMaterial::kMetalnessScalarParameterName = "metalness";
+
+// static
+const std::string PhysicallyBasedMaterial::kAmbientOcclusionScalarParameterName = "ambientOcclusion";
+
+// static
 std::array<vk::DescriptorSetLayoutBinding, 4> PhysicallyBasedMaterial::getBindings()
 {
    return
@@ -37,28 +61,26 @@ vk::DescriptorSetLayout PhysicallyBasedMaterial::getLayout(const GraphicsContext
    return DescriptorSetLayout::get<PhysicallyBasedMaterial>(context);
 }
 
-// static
-const std::string PhysicallyBasedMaterial::kAlbedoTextureParameterName = "albedo";
-
-// static
-const std::string PhysicallyBasedMaterial::kNormalTextureParameterName = "normal";
-
-// static
-const std::string PhysicallyBasedMaterial::kAoRoughnessMetalnessTextureParameterName = "aoRoughnessMetalness";
-
-PhysicallyBasedMaterial::PhysicallyBasedMaterial(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, vk::Sampler sampler, const Texture& albedoTexture, const Texture& normalTexture, const Texture& aoRoughnessMetalnessTexture, bool interpretAlphaAsMask, bool twoSides)
+PhysicallyBasedMaterial::PhysicallyBasedMaterial(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, vk::Sampler sampler, const PhysicallyBasedMaterialParams& materialParams)
    : Material(graphicsContext, dynamicDescriptorPool, DescriptorSetLayout::getCreateInfo<PhysicallyBasedMaterial>())
    , uniformBuffer(graphicsContext)
 {
-   PhysicallyBasedMaterialUniformData defaultUniformData;
-   uniformBuffer.updateAll(defaultUniformData);
+   ASSERT(materialParams.albedoTexture && materialParams.normalTexture && materialParams.aoRoughnessMetalnessTexture);
 
-   if (albedoTexture.getImageProperties().hasAlpha)
+   PhysicallyBasedMaterialUniformData uniformData;
+   uniformData.albedo = materialParams.albedo;
+   uniformData.emissive = materialParams.emissive;
+   uniformData.roughness = materialParams.roughness;
+   uniformData.metalness = materialParams.metalness;
+   uniformData.ambientOcclusion = materialParams.ambientOcclusion;
+   uniformBuffer.updateAll(uniformData);
+
+   if (materialParams.albedoTexture->getImageProperties().hasAlpha)
    {
-      blendMode = interpretAlphaAsMask ? BlendMode::Masked : BlendMode::Translucent;
+      blendMode = materialParams.interpretAlphaAsMasked ? BlendMode::Masked : BlendMode::Translucent;
    }
 
-   twoSided = twoSides;
+   twoSided = materialParams.twoSided;
 
    std::array<vk::DescriptorImageInfo, GraphicsContext::kMaxFramesInFlight * 3> imageInfo;
    std::array<vk::DescriptorBufferInfo, GraphicsContext::kMaxFramesInFlight> bufferInfo;
@@ -67,17 +89,17 @@ PhysicallyBasedMaterial::PhysicallyBasedMaterial(const GraphicsContext& graphics
    {
       imageInfo[frameIndex * 3 + 0] = vk::DescriptorImageInfo()
          .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-         .setImageView(albedoTexture.getDefaultView())
+         .setImageView(materialParams.albedoTexture->getDefaultView())
          .setSampler(sampler);
 
       imageInfo[frameIndex * 3 + 1] = vk::DescriptorImageInfo()
          .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-         .setImageView(normalTexture.getDefaultView())
+         .setImageView(materialParams.normalTexture->getDefaultView())
          .setSampler(sampler);
 
       imageInfo[frameIndex * 3 + 2] = vk::DescriptorImageInfo()
          .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-         .setImageView(aoRoughnessMetalnessTexture.getDefaultView())
+         .setImageView(materialParams.aoRoughnessMetalnessTexture->getDefaultView())
          .setSampler(sampler);
 
       descriptorWrites[frameIndex * 4 + 0] = vk::WriteDescriptorSet()
@@ -115,6 +137,11 @@ PhysicallyBasedMaterial::PhysicallyBasedMaterial(const GraphicsContext& graphics
    }
 
    device.updateDescriptorSets(descriptorWrites, {});
+}
+
+void PhysicallyBasedMaterial::setAlbedoColor(const glm::vec4& albedo)
+{
+   uniformBuffer.updateAllMembers(&PhysicallyBasedMaterialUniformData::albedo, albedo); // TODO Only update current frame, but somehow queue up changes for the next two frames as well
 }
 
 void PhysicallyBasedMaterial::setEmissiveColor(const glm::vec4& emissive)

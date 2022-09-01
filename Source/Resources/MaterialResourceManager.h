@@ -36,22 +36,22 @@ struct VectorMaterialParameter
 
 USE_MEMBER_HASH_FUNCTION(VectorMaterialParameter);
 
-struct FloatMaterialParameter
+struct ScalarMaterialParameter
 {
    std::string name;
    float value = 0.0f;
 
-   bool operator==(const FloatMaterialParameter& other) const = default;
+   bool operator==(const ScalarMaterialParameter& other) const = default;
    std::size_t hash() const;
 };
 
-USE_MEMBER_HASH_FUNCTION(FloatMaterialParameter);
+USE_MEMBER_HASH_FUNCTION(ScalarMaterialParameter);
 
 struct MaterialParameters
 {
    std::vector<TextureMaterialParameter> textureParameters;
    std::vector<VectorMaterialParameter> vectorParameters;
-   std::vector<FloatMaterialParameter> scalarParameters;
+   std::vector<ScalarMaterialParameter> scalarParameters;
    bool twoSided = false;
 
    bool operator==(const MaterialParameters& other) const = default;

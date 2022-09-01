@@ -16,18 +16,43 @@ struct PhysicallyBasedMaterialUniformData
    alignas(4) float ambientOcclusion = 1.0f;
 };
 
+struct PhysicallyBasedMaterialParams
+{
+   const Texture* albedoTexture = nullptr;
+   const Texture* normalTexture = nullptr;
+   const Texture* aoRoughnessMetalnessTexture = nullptr;
+
+   glm::vec4 albedo = glm::vec4(1.0f);
+   glm::vec4 emissive = glm::vec4(0.0f);
+
+   float roughness = 0.5f;
+   float metalness = 0.0f;
+   float ambientOcclusion = 1.0f;
+
+   bool interpretAlphaAsMasked = false;
+   bool twoSided = false;
+};
+
 class PhysicallyBasedMaterial : public Material
 {
 public:
-   static std::array<vk::DescriptorSetLayoutBinding, 4> getBindings();
-   static vk::DescriptorSetLayout getLayout(const GraphicsContext& context);
-
    static const std::string kAlbedoTextureParameterName;
    static const std::string kNormalTextureParameterName;
    static const std::string kAoRoughnessMetalnessTextureParameterName;
 
-   PhysicallyBasedMaterial(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, vk::Sampler sampler, const Texture& albedoTexture, const Texture& normalTexture, const Texture& aoRoughnessMetalnessTexture, bool interpretAlphaAsMask = false, bool twoSides = false);
+   static const std::string kAlbedoVectorParameterName;
+   static const std::string kEmissiveVectorParameterName;
 
+   static const std::string kRoughnessScalarParameterName;
+   static const std::string kMetalnessScalarParameterName;
+   static const std::string kAmbientOcclusionScalarParameterName;
+
+   static std::array<vk::DescriptorSetLayoutBinding, 4> getBindings();
+   static vk::DescriptorSetLayout getLayout(const GraphicsContext& context);
+
+   PhysicallyBasedMaterial(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, vk::Sampler sampler, const PhysicallyBasedMaterialParams& materialParams);
+
+   void setAlbedoColor(const glm::vec4& albedo);
    void setEmissiveColor(const glm::vec4& emissive);
 
 private:
