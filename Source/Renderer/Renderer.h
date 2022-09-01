@@ -68,6 +68,7 @@ private:
    std::unique_ptr<Texture> ssaoBlurTexture;
    std::unique_ptr<Texture> hdrColorTexture;
    std::unique_ptr<Texture> hdrResolveTexture;
+   std::unique_ptr<Texture> roughnessMetalnessTexture;
    std::unique_ptr<Texture> uiColorTexture;
 
    std::unique_ptr<NormalPass> normalPass;

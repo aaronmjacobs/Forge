@@ -74,11 +74,14 @@ namespace
    }
 }
 
-AttachmentFormats::AttachmentFormats(std::span<const Texture> colorAttachments, const Texture* depthStencilAttachment)
+AttachmentFormats::AttachmentFormats(std::span<const Texture*> colorAttachments, const Texture* depthStencilAttachment)
 {
-   for (const Texture& colorAttachment : colorAttachments)
+   for (const Texture* colorAttachment : colorAttachments)
    {
-      colorFormats.push(colorAttachment.getImageProperties().format);
+      if (colorAttachment)
+      {
+         colorFormats.push(colorAttachment->getImageProperties().format);
+      }
    }
 
    if (depthStencilAttachment)
@@ -86,10 +89,13 @@ AttachmentFormats::AttachmentFormats(std::span<const Texture> colorAttachments, 
       depthStencilFormat = depthStencilAttachment->getImageProperties().format;
    }
 
-   for (const Texture& colorAttachment : colorAttachments)
+   for (const Texture* colorAttachment : colorAttachments)
    {
-      sampleCount = colorAttachment.getTextureProperties().sampleCount;
-      break;
+      if (colorAttachment)
+      {
+         sampleCount = colorAttachment->getTextureProperties().sampleCount;
+         break;
+      }
    }
    if (depthStencilAttachment)
    {
@@ -97,9 +103,12 @@ AttachmentFormats::AttachmentFormats(std::span<const Texture> colorAttachments, 
    }
 
 #if FORGE_DEBUG
-   for (const Texture& colorAttachment : colorAttachments)
+   for (const Texture* colorAttachment : colorAttachments)
    {
-      ASSERT(sampleCount == colorAttachment.getTextureProperties().sampleCount, "Not all attachments have the same sample count");
+      if (colorAttachment)
+      {
+         ASSERT(sampleCount == colorAttachment->getTextureProperties().sampleCount, "Not all attachments have the same sample count");
+      }
    }
 
    if (depthStencilAttachment)
@@ -110,7 +119,7 @@ AttachmentFormats::AttachmentFormats(std::span<const Texture> colorAttachments, 
 }
 
 AttachmentFormats::AttachmentFormats(const Texture* colorAttachment, const Texture* depthStencilAttachment)
-   : AttachmentFormats(colorAttachment ? std::span<const Texture>(colorAttachment, 1) : std::span<const Texture>{}, depthStencilAttachment)
+   : AttachmentFormats(colorAttachment ? std::span<const Texture*>(&colorAttachment, 1) : std::span<const Texture*>{}, depthStencilAttachment)
 {
 }
 
@@ -147,7 +156,7 @@ void RenderPass::updateAttachmentFormats(const AttachmentFormats& formats)
    }
 }
 
-void RenderPass::updateAttachmentFormats(std::span<const Texture> colorAttachments, const Texture* depthStencilAttachment)
+void RenderPass::updateAttachmentFormats(std::span<const Texture*> colorAttachments, const Texture* depthStencilAttachment)
 {
    updateAttachmentFormats(AttachmentFormats(colorAttachments, depthStencilAttachment));
 }

@@ -43,6 +43,7 @@ layout(location = 1) in vec4 inColor;
 layout(location = 2) in vec2 inTexCoord;
 
 layout(location = 0) out vec4 outColor;
+layout(location = 1) out vec2 outRoughnessMetalness;
 
 void main()
 {
@@ -100,4 +101,5 @@ void main()
    }
 
    outColor = vec4(lighting + material.emissive.rgb, alpha);
+   outRoughnessMetalness = vec2(surfaceInfo.roughness, surfaceInfo.metalness);
 }

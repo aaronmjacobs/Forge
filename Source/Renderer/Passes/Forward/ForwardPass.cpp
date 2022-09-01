@@ -1,5 +1,7 @@
 #include "Renderer/Passes/Forward/ForwardPass.h"
 
+#include "Core/Containers/StaticVector.h"
+
 #include "Graphics/DebugUtils.h"
 #include "Graphics/Mesh.h"
 #include "Graphics/Pipeline.h"
@@ -10,6 +12,7 @@
 #include "Renderer/Passes/Forward/SkyboxShader.h"
 #include "Renderer/SceneRenderInfo.h"
 
+#include <array>
 #include <utility>
 
 ForwardPass::ForwardPass(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, ResourceManager& resourceManager, const ForwardLighting* forwardLighting)
@@ -90,12 +93,13 @@ ForwardPass::~ForwardPass()
    skyboxShader.reset();
 }
 
-void ForwardPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, Texture& depthTexture, Texture& colorTexture, Texture* colorResolveTexture, Texture& normalTexture, Texture& ssaoTexture, const Texture* skyboxTexture)
+void ForwardPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, Texture& depthTexture, Texture& colorTexture, Texture* colorResolveTexture, Texture& roughnessMetalnessTexture, Texture& normalTexture, Texture& ssaoTexture, const Texture* skyboxTexture)
 {
    SCOPED_LABEL(getName());
 
    depthTexture.transitionLayout(commandBuffer, TextureLayoutType::AttachmentWrite);
    colorTexture.transitionLayout(commandBuffer, TextureLayoutType::AttachmentWrite);
+   roughnessMetalnessTexture.transitionLayout(commandBuffer, TextureLayoutType::AttachmentWrite);
    if (colorResolveTexture)
    {
       colorResolveTexture->transitionLayout(commandBuffer, TextureLayoutType::AttachmentWrite);
@@ -104,18 +108,22 @@ void ForwardPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo&
    ssaoTexture.transitionLayout(commandBuffer, TextureLayoutType::ShaderRead);
    ASSERT(!skyboxTexture || skyboxTexture->getLayout() == vk::ImageLayout::eShaderReadOnlyOptimal);
 
-   AttachmentInfo colorAttachmentInfo = AttachmentInfo(colorTexture)
+   std::array<AttachmentInfo,2 > colorAttachmentInfo;
+   colorAttachmentInfo[0] = AttachmentInfo(colorTexture)
       .setLoadOp(vk::AttachmentLoadOp::eClear)
       .setClearValue(vk::ClearColorValue(std::array<float, 4>{ 10.0f, 10.0f, 10.0f, 1.0f }));
    if (colorResolveTexture)
    {
-      colorAttachmentInfo.setResolveTexture(*colorResolveTexture);
-      colorAttachmentInfo.setResolveMode(vk::ResolveModeFlagBits::eAverage);
+      colorAttachmentInfo[0].setResolveTexture(*colorResolveTexture);
+      colorAttachmentInfo[0].setResolveMode(vk::ResolveModeFlagBits::eAverage);
    }
+   colorAttachmentInfo[1] = AttachmentInfo(roughnessMetalnessTexture)
+      .setLoadOp(vk::AttachmentLoadOp::eClear)
+      .setClearValue(vk::ClearColorValue(std::array<float, 4>{ 1.0f, 0.0f, 0.0f, 0.0f }));
 
    AttachmentInfo depthStencilAttachmentInfo(depthTexture);
 
-   beginRenderPass(commandBuffer, &colorAttachmentInfo, &depthStencilAttachmentInfo);
+   beginRenderPass(commandBuffer, colorAttachmentInfo, &depthStencilAttachmentInfo);
 
    vk::DescriptorImageInfo normalBufferImageInfo = vk::DescriptorImageInfo()
       .setImageLayout(normalTexture.getLayout())
@@ -125,7 +133,7 @@ void ForwardPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo&
       .setImageLayout(ssaoTexture.getLayout())
       .setImageView(ssaoTexture.getDefaultView())
       .setSampler(normalSampler);
-   std::vector<vk::WriteDescriptorSet> descriptorWrites =
+   std::array<vk::WriteDescriptorSet, 2> descriptorWrites =
    {
       vk::WriteDescriptorSet()
          .setDstSet(forwardDescriptorSet.getCurrentSet())
@@ -218,21 +226,22 @@ Pipeline ForwardPass::createPipeline(const PipelineDescription<ForwardPass>& des
    if (description.withBlending)
    {
       blendAttachmentStates.push_back(vk::PipelineColorBlendAttachmentState()
-                                      .setColorWriteMask(vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA)
-                                      .setBlendEnable(true)
-                                      .setSrcColorBlendFactor(vk::BlendFactor::eSrcAlpha)
-                                      .setDstColorBlendFactor(vk::BlendFactor::eOneMinusSrcAlpha)
-                                      .setColorBlendOp(vk::BlendOp::eAdd)
-                                      .setSrcAlphaBlendFactor(vk::BlendFactor::eOne)
-                                      .setDstAlphaBlendFactor(vk::BlendFactor::eZero)
-                                      .setAlphaBlendOp(vk::BlendOp::eAdd));
+         .setColorWriteMask(vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA)
+         .setBlendEnable(true)
+         .setSrcColorBlendFactor(vk::BlendFactor::eSrcAlpha)
+         .setDstColorBlendFactor(vk::BlendFactor::eOneMinusSrcAlpha)
+         .setColorBlendOp(vk::BlendOp::eAdd)
+         .setSrcAlphaBlendFactor(vk::BlendFactor::eOne)
+         .setDstAlphaBlendFactor(vk::BlendFactor::eZero)
+         .setAlphaBlendOp(vk::BlendOp::eAdd));
    }
    else
    {
       blendAttachmentStates.push_back(vk::PipelineColorBlendAttachmentState()
-                                      .setColorWriteMask(vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA)
-                                      .setBlendEnable(false));
+         .setColorWriteMask(vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA)
+         .setBlendEnable(false));
    }
+   blendAttachmentStates.push_back(blendAttachmentStates[0]);
 
    PipelineInfo pipelineInfo;
    pipelineInfo.passType = description.skybox ? PipelinePassType::Screen : PipelinePassType::Mesh;
@@ -245,7 +254,7 @@ Pipeline ForwardPass::createPipeline(const PipelineDescription<ForwardPass>& des
    pipelineData.depthStencilFormat = getDepthStencilFormat();
    pipelineData.colorFormats = getColorFormats();
    pipelineData.shaderStages = description.skybox ? skyboxShader->getStages() : forwardShader->getStages(description.withTextures, description.withBlending);
-   pipelineData.colorBlendStates = { blendAttachmentStates };
+   pipelineData.colorBlendStates = blendAttachmentStates;
 
    Pipeline pipeline(context, pipelineInfo, pipelineData);
    NAME_CHILD(pipeline, description.skybox ? "Skybox" : (std::string(description.withTextures ? "With" : "Without") + " Textures, " + std::string(description.withBlending ? "With" : "Without") + " Blending" + (description.twoSided ? ", Two Sided" : "")));

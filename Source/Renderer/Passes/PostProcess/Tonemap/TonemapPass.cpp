@@ -148,7 +148,7 @@ Pipeline TonemapPass::createPipeline(const PipelineDescription<TonemapPass>& des
    pipelineData.colorBlendStates = { attachmentState };
 
    Pipeline pipeline(context, pipelineInfo, pipelineData);
-   NAME_CHILD(pipeline, std::string(description.hdr ? "HDR" : "SDR") + (description.withBloom ? " With Bloom" : " Without Bloom"));
+   NAME_CHILD(pipeline, std::string(description.hdr ? "HDR" : "SDR") + (description.withBloom ? " With Bloom" : " Without Bloom") + (description.withUI ? " With UI" : " Without UI"));
 
    return pipeline;
 }

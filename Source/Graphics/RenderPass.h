@@ -17,7 +17,7 @@ struct AttachmentFormats
    vk::SampleCountFlagBits sampleCount = vk::SampleCountFlagBits::e1;
 
    AttachmentFormats() = default;
-   AttachmentFormats(std::span<const Texture> colorAttachments, const Texture* depthStencilAttachment = nullptr);
+   AttachmentFormats(std::span<const Texture*> colorAttachments, const Texture* depthStencilAttachment = nullptr);
    AttachmentFormats(const Texture* colorAttachment, const Texture* depthStencilAttachment = nullptr);
 
    bool operator==(const AttachmentFormats& other) const = default;
@@ -101,7 +101,7 @@ public:
    RenderPass(const GraphicsContext& graphicsContext);
 
    void updateAttachmentFormats(const AttachmentFormats& formats);
-   void updateAttachmentFormats(std::span<const Texture> colorAttachments, const Texture* depthStencilAttachment = nullptr);
+   void updateAttachmentFormats(std::span<const Texture*> colorAttachments, const Texture* depthStencilAttachment = nullptr);
    void updateAttachmentFormats(const Texture* colorAttachment, const Texture* depthStencilAttachment = nullptr);
 
    vk::SampleCountFlagBits getSampleCount() const

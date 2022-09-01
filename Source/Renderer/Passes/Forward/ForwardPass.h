@@ -36,7 +36,7 @@ public:
    ForwardPass(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, ResourceManager& resourceManager, const ForwardLighting* forwardLighting);
    ~ForwardPass();
 
-   void render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, Texture& depthTexture, Texture& colorTexture, Texture* colorResolveTexture, Texture& normalTexture, Texture& ssaoTexture, const Texture* skyboxTexture);
+   void render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, Texture& depthTexture, Texture& colorTexture, Texture* colorResolveTexture, Texture& roughnessMetalnessTexture, Texture& normalTexture, Texture& ssaoTexture, const Texture* skyboxTexture);
 
 protected:
    friend class SceneRenderPass<ForwardPass>;

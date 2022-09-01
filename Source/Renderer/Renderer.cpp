@@ -574,6 +574,7 @@ Renderer::~Renderer()
    ssaoBlurTexture = nullptr;
    hdrColorTexture = nullptr;
    hdrResolveTexture = nullptr;
+   roughnessMetalnessTexture = nullptr;
    uiColorTexture = nullptr;
 
    forwardLighting = nullptr;
@@ -622,7 +623,7 @@ void Renderer::render(vk::CommandBuffer commandBuffer, const Scene& scene)
       skyboxTexture = resourceManager.getTexture(skyboxComponent.textureHandle);
    });
 
-   forwardPass->render(commandBuffer, sceneRenderInfo, *depthTexture, *hdrColorTexture, hdrResolveTexture.get(), *normalTexture, ssaoEnabled ? *ssaoTexture : *defaultWhiteTexture, skyboxTexture);
+   forwardPass->render(commandBuffer, sceneRenderInfo, *depthTexture, *hdrColorTexture, hdrResolveTexture.get(), *roughnessMetalnessTexture, *normalTexture, ssaoEnabled ? *ssaoTexture : *defaultWhiteTexture, skyboxTexture);
 
    bool bloomEnabled = renderSettings.bloomQuality != RenderQuality::Disabled;
    if (bloomEnabled)
@@ -658,6 +659,7 @@ void Renderer::onSwapchainRecreated()
    {
       hdrResolveTexture = nullptr;
    }
+   roughnessMetalnessTexture = createColorTexture(context, vk::Format::eR8G8Unorm, true);
    uiColorTexture = createColorTexture(context, vk::Format::eR8G8B8A8Unorm, true);
 
    NAME_POINTER(device, defaultBlackTexture, "Default Black Texture");
@@ -668,6 +670,7 @@ void Renderer::onSwapchainRecreated()
    NAME_POINTER(device, ssaoBlurTexture, "SSAO Blur Texture");
    NAME_POINTER(device, hdrColorTexture, "HDR Color Texture");
    NAME_POINTER(device, hdrResolveTexture, "HDR Resolve Texture");
+   NAME_POINTER(device, roughnessMetalnessTexture, "Roughness Metalness Texture");
    NAME_POINTER(device, uiColorTexture, "UI Color Texture");
 
    updateSwapchainDependentPasses();
@@ -768,7 +771,8 @@ void Renderer::updateSwapchainDependentPasses()
    ASSERT(ssaoTexture->getImageProperties().format == ssaoBlurTexture->getImageProperties().format);
    ssaoPass->updateAttachmentFormats(ssaoTexture.get());
 
-   forwardPass->updateAttachmentFormats(hdrColorTexture.get(), depthTexture.get());
+   std::array<const Texture*, 2> forwardAttachments = { hdrColorTexture.get(), roughnessMetalnessTexture.get() };
+   forwardPass->updateAttachmentFormats(forwardAttachments, depthTexture.get());
 
    bloomPass->updateAttachmentFormats(hdrColorTexture.get());
    bloomPass->recreateTextures();
