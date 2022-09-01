@@ -18,6 +18,11 @@ public:
 
    // All
 
+   void update()
+   {
+      materialResourceManager.updateMaterials();
+   }
+
    void unloadAll()
    {
       unloadAllMeshes();

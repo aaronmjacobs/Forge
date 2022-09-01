@@ -33,6 +33,7 @@ layout(std430, set = 3, binding = 3) uniform Material
    vec4 albedo;
    vec4 emissive;
 
+   float emissiveIntensity;
    float roughness;
    float metalness;
    float ambientOcclusion;
@@ -54,12 +55,15 @@ void main()
    surfaceInfo.ambientOcclusion = material.ambientOcclusion;
 
    float alpha = inColor.a * material.albedo.a;
+   vec3 emissiveColor = material.emissive.rgb;
 
    if (kWithTextures)
    {
       vec4 albedoSample = texture(albedoTexture, inTexCoord);
       surfaceInfo.albedo *= albedoSample.rgb;
       alpha *= albedoSample.a;
+
+      emissiveColor *= albedoSample.rgb;
 
       vec4 aoRoughnessMetalnessSample = texture(aoRoughnessMetalnessTexture, inTexCoord);
       surfaceInfo.roughness = aoRoughnessMetalnessSample.g;
@@ -100,6 +104,6 @@ void main()
       lighting += calcSpotLighting(view.position.xyz, surfaceInfo, spotLights[i], spotLightShadowMaps);
    }
 
-   outColor = vec4(lighting + material.emissive.rgb, alpha);
+   outColor = vec4(lighting + emissiveColor * material.emissiveIntensity, alpha);
    outRoughnessMetalness = vec2(surfaceInfo.roughness, surfaceInfo.metalness);
 }

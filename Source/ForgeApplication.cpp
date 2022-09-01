@@ -177,6 +177,11 @@ void ForgeApplication::render()
    context->setSwapchainIndex(swapchainIndex);
    context->setFrameIndex(frameIndex);
 
+   if (resourceManager)
+   {
+      resourceManager->update();
+   }
+
    vk::CommandBuffer commandBuffer = commandBuffers[swapchainIndex];
    {
       vk::CommandBufferBeginInfo commandBufferBeginInfo = vk::CommandBufferBeginInfo()

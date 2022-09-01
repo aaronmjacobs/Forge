@@ -3,6 +3,8 @@
 #include "Graphics/DescriptorSetLayout.h"
 #include "Graphics/Texture.h"
 
+#include "Resources/MaterialResourceManager.h"
+
 // static
 const std::string PhysicallyBasedMaterial::kAlbedoTextureParameterName = "albedo";
 
@@ -61,19 +63,19 @@ vk::DescriptorSetLayout PhysicallyBasedMaterial::getLayout(const GraphicsContext
    return DescriptorSetLayout::get<PhysicallyBasedMaterial>(context);
 }
 
-PhysicallyBasedMaterial::PhysicallyBasedMaterial(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, vk::Sampler sampler, const PhysicallyBasedMaterialParams& materialParams)
-   : Material(graphicsContext, dynamicDescriptorPool, DescriptorSetLayout::getCreateInfo<PhysicallyBasedMaterial>())
+PhysicallyBasedMaterial::PhysicallyBasedMaterial(const GraphicsContext& graphicsContext, MaterialResourceManager& owningResourceManager, const PhysicallyBasedMaterialParams& materialParams)
+   : Material(graphicsContext, owningResourceManager, DescriptorSetLayout::getCreateInfo<PhysicallyBasedMaterial>())
    , uniformBuffer(graphicsContext)
 {
    ASSERT(materialParams.albedoTexture && materialParams.normalTexture && materialParams.aoRoughnessMetalnessTexture);
 
-   PhysicallyBasedMaterialUniformData uniformData;
-   uniformData.albedo = materialParams.albedo;
-   uniformData.emissive = materialParams.emissive;
-   uniformData.roughness = materialParams.roughness;
-   uniformData.metalness = materialParams.metalness;
-   uniformData.ambientOcclusion = materialParams.ambientOcclusion;
-   uniformBuffer.updateAll(uniformData);
+   cachedUniformData.albedo = materialParams.albedo;
+   cachedUniformData.emissive = materialParams.emissive;
+   cachedUniformData.emissiveIntensity = materialParams.emissiveIntensity;
+   cachedUniformData.roughness = materialParams.roughness;
+   cachedUniformData.metalness = materialParams.metalness;
+   cachedUniformData.ambientOcclusion = materialParams.ambientOcclusion;
+   uniformBuffer.updateAll(cachedUniformData);
 
    if (materialParams.albedoTexture->getImageProperties().hasAlpha)
    {
@@ -90,17 +92,17 @@ PhysicallyBasedMaterial::PhysicallyBasedMaterial(const GraphicsContext& graphics
       imageInfo[frameIndex * 3 + 0] = vk::DescriptorImageInfo()
          .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
          .setImageView(materialParams.albedoTexture->getDefaultView())
-         .setSampler(sampler);
+         .setSampler(materialResourceManager.getSampler());
 
       imageInfo[frameIndex * 3 + 1] = vk::DescriptorImageInfo()
          .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
          .setImageView(materialParams.normalTexture->getDefaultView())
-         .setSampler(sampler);
+         .setSampler(materialResourceManager.getSampler());
 
       imageInfo[frameIndex * 3 + 2] = vk::DescriptorImageInfo()
          .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
          .setImageView(materialParams.aoRoughnessMetalnessTexture->getDefaultView())
-         .setSampler(sampler);
+         .setSampler(materialResourceManager.getSampler());
 
       descriptorWrites[frameIndex * 4 + 0] = vk::WriteDescriptorSet()
          .setDstSet(descriptorSet.getSet(frameIndex))
@@ -139,12 +141,68 @@ PhysicallyBasedMaterial::PhysicallyBasedMaterial(const GraphicsContext& graphics
    device.updateDescriptorSets(descriptorWrites, {});
 }
 
+void PhysicallyBasedMaterial::update()
+{
+   Material::update();
+
+   uniformBuffer.update(cachedUniformData);
+}
+
 void PhysicallyBasedMaterial::setAlbedoColor(const glm::vec4& albedo)
 {
-   uniformBuffer.updateAllMembers(&PhysicallyBasedMaterialUniformData::albedo, albedo); // TODO Only update current frame, but somehow queue up changes for the next two frames as well
+   if (cachedUniformData.albedo != albedo)
+   {
+      cachedUniformData.albedo = albedo;
+      onUniformDataChanged();
+   }
 }
 
 void PhysicallyBasedMaterial::setEmissiveColor(const glm::vec4& emissive)
 {
-   uniformBuffer.updateAllMembers(&PhysicallyBasedMaterialUniformData::emissive, emissive); // TODO Only update current frame, but somehow queue up changes for the next two frames as well
+   if (cachedUniformData.emissive != emissive)
+   {
+      cachedUniformData.emissive = emissive;
+      onUniformDataChanged();
+   }
+}
+
+void PhysicallyBasedMaterial::setEmissiveIntensity(float emissiveIntensity)
+{
+   if (cachedUniformData.emissiveIntensity != emissiveIntensity)
+   {
+      cachedUniformData.emissiveIntensity = emissiveIntensity;
+      onUniformDataChanged();
+   }
+}
+
+void PhysicallyBasedMaterial::setRoughness(float roughness)
+{
+   if (cachedUniformData.roughness != roughness)
+   {
+      cachedUniformData.roughness = roughness;
+      onUniformDataChanged();
+   }
+}
+
+void PhysicallyBasedMaterial::setMetalness(float metalness)
+{
+   if (cachedUniformData.metalness != metalness)
+   {
+      cachedUniformData.metalness = metalness;
+      onUniformDataChanged();
+   }
+}
+
+void PhysicallyBasedMaterial::setAmbientOcclusion(float ambientOcclusion)
+{
+   if (cachedUniformData.ambientOcclusion != ambientOcclusion)
+   {
+      cachedUniformData.ambientOcclusion = ambientOcclusion;
+      onUniformDataChanged();
+   }
+}
+
+void PhysicallyBasedMaterial::onUniformDataChanged()
+{
+   materialResourceManager.requestSetOfUpdates(getHandle());
 }

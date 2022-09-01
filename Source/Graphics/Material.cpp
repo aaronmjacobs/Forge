@@ -2,9 +2,12 @@
 
 #include "Graphics/DebugUtils.h"
 
-Material::Material(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, const vk::DescriptorSetLayoutCreateInfo& createInfo)
+#include "Resources/MaterialResourceManager.h"
+
+Material::Material(const GraphicsContext& graphicsContext, MaterialResourceManager& owningResourceManager, const vk::DescriptorSetLayoutCreateInfo& createInfo)
    : GraphicsResource(graphicsContext)
-   , descriptorSet(graphicsContext, dynamicDescriptorPool, createInfo)
+   , materialResourceManager(owningResourceManager)
+   , descriptorSet(graphicsContext, owningResourceManager.getDynamicDescriptorPool(), createInfo)
 {
    NAME_CHILD(descriptorSet, "Descriptor Set");
 }

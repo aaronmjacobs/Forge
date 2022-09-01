@@ -8,6 +8,7 @@ target_sources(${PROJECT_NAME} PRIVATE
 
    "${SRC_DIR}/Core/Assert.h"
    "${SRC_DIR}/Core/Containers/GenerationalArray.h"
+   "${SRC_DIR}/Core/Containers/GenerationalArrayHandle.h"
    "${SRC_DIR}/Core/Containers/ReflectedMap.h"
    "${SRC_DIR}/Core/Containers/StaticVector.h"
    "${SRC_DIR}/Core/Delegate.cpp"

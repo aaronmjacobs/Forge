@@ -98,6 +98,25 @@ MaterialResourceManager::~MaterialResourceManager()
    context.getDevice().destroySampler(sampler);
 }
 
+void MaterialResourceManager::updateMaterials()
+{
+   for (auto& [handle, framesToUpdate] : materialsToUpdate)
+   {
+      if (Material* material = get(handle))
+      {
+         material->update();
+      }
+
+      --framesToUpdate;
+   }
+
+   std::erase_if(materialsToUpdate, [](const auto& element)
+   {
+      const auto& [handle, framesToUpdate] = element;
+      return framesToUpdate <= 0;
+   });
+}
+
 MaterialHandle MaterialResourceManager::load(const MaterialParameters& parameters)
 {
    if (std::optional<Handle> cachedHandle = getCachedHandle(parameters))
@@ -110,10 +129,19 @@ MaterialHandle MaterialResourceManager::load(const MaterialParameters& parameter
       MaterialHandle handle = addResource(std::move(material));
       cacheHandle(parameters, handle);
 
+      Material* addedMaterial = get(handle);
+      ASSERT(addedMaterial);
+      addedMaterial->handle = handle;
+
       return handle;
    }
 
    return MaterialHandle();
+}
+
+void MaterialResourceManager::requestSetOfUpdates(Handle handle)
+{
+   materialsToUpdate.insert_or_assign(handle, static_cast<int>(GraphicsContext::kMaxFramesInFlight));
 }
 
 std::unique_ptr<Material> MaterialResourceManager::createMaterial(const MaterialParameters& parameters)
@@ -169,7 +197,7 @@ std::unique_ptr<Material> MaterialResourceManager::createMaterial(const Material
 
    if (pbrParams.albedoTexture && pbrParams.normalTexture && pbrParams.aoRoughnessMetalnessTexture)
    {
-      std::unique_ptr<PhysicallyBasedMaterial> material = std::make_unique<PhysicallyBasedMaterial>(context, dynamicDescriptorPool, sampler, pbrParams);
+      std::unique_ptr<PhysicallyBasedMaterial> material = std::make_unique<PhysicallyBasedMaterial>(context, *this, pbrParams);
       NAME_POINTER(context.getDevice(), material, "Physically Based Material (Albedo = " + pbrParams.albedoTexture->getName() + ", Normal = " + pbrParams.normalTexture->getName() + ", Ambient Occlusion / Roughness / Metalness = " + pbrParams.aoRoughnessMetalnessTexture->getName() + ")");
 
       return material;

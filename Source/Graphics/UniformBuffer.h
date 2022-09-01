@@ -26,6 +26,7 @@ public:
    template<typename MemberType>
    void updateAllMembers(MemberType DataType::* member, const MemberType& value);
 
+   DataType getData() const;
    vk::DescriptorBufferInfo getDescriptorBufferInfo(uint32_t frameIndex) const;
 
 private:
@@ -121,6 +122,12 @@ void UniformBuffer<DataType>::updateAllMembers(MemberType DataType::* member, co
       DataType* mappedData = getMappedData(frameIndex);
       mappedData->*member = value;
    }
+}
+
+template<typename DataType>
+inline DataType UniformBuffer<DataType>::getData() const
+{
+   return *getMappedData(context.getFrameIndex());
 }
 
 template<typename DataType>

@@ -66,10 +66,26 @@ public:
    MaterialResourceManager(const GraphicsContext& graphicsContext, ResourceManager& owningResourceManager);
    ~MaterialResourceManager();
 
+   void updateMaterials();
+
    MaterialHandle load(const MaterialParameters& parameters);
+
+   void requestSetOfUpdates(Handle handle);
+
+   DynamicDescriptorPool& getDynamicDescriptorPool()
+   {
+      return dynamicDescriptorPool;
+   }
+
+   vk::Sampler getSampler() const
+   {
+      return sampler;
+   }
 
 private:
    std::unique_ptr<Material> createMaterial(const MaterialParameters& parameters);
+
+   std::unordered_map<Handle, int> materialsToUpdate;
 
    DynamicDescriptorPool dynamicDescriptorPool;
    vk::Sampler sampler;

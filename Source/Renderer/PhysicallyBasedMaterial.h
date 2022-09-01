@@ -11,6 +11,7 @@ struct PhysicallyBasedMaterialUniformData
 {
    alignas(16) glm::vec4 albedo = glm::vec4(1.0f);
    alignas(16) glm::vec4 emissive = glm::vec4(0.0f);
+   alignas(4) float emissiveIntensity = 0.0f;
    alignas(4) float roughness = 0.5f;
    alignas(4) float metalness = 0.0f;
    alignas(4) float ambientOcclusion = 1.0f;
@@ -25,6 +26,7 @@ struct PhysicallyBasedMaterialParams
    glm::vec4 albedo = glm::vec4(1.0f);
    glm::vec4 emissive = glm::vec4(0.0f);
 
+   float emissiveIntensity = 0.0f;
    float roughness = 0.5f;
    float metalness = 0.0f;
    float ambientOcclusion = 1.0f;
@@ -50,11 +52,55 @@ public:
    static std::array<vk::DescriptorSetLayoutBinding, 4> getBindings();
    static vk::DescriptorSetLayout getLayout(const GraphicsContext& context);
 
-   PhysicallyBasedMaterial(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, vk::Sampler sampler, const PhysicallyBasedMaterialParams& materialParams);
+   PhysicallyBasedMaterial(const GraphicsContext& graphicsContext, MaterialResourceManager& owningResourceManager, const PhysicallyBasedMaterialParams& materialParams);
+
+   void update() override;
+
+   const glm::vec4& getAlbedoColor() const
+   {
+      return cachedUniformData.albedo;
+   }
 
    void setAlbedoColor(const glm::vec4& albedo);
+
+   const glm::vec4& getEmissiveColor() const
+   {
+      return cachedUniformData.emissive;
+   }
+
    void setEmissiveColor(const glm::vec4& emissive);
 
+   float getEmissiveIntensity() const
+   {
+      return cachedUniformData.emissiveIntensity;
+   }
+
+   void setEmissiveIntensity(float emissiveIntensity);
+
+   float getRoughness() const
+   {
+      return cachedUniformData.roughness;
+   }
+
+   void setRoughness(float roughness);
+
+   float getMetalness() const
+   {
+      return cachedUniformData.metalness;
+   }
+
+   void setMetalness(float metalness);
+
+   float getAmbientOcclusion() const
+   {
+      return cachedUniformData.ambientOcclusion;
+   }
+
+   void setAmbientOcclusion(float ambientOcclusion);
+
 private:
+   void onUniformDataChanged();
+
    UniformBuffer<PhysicallyBasedMaterialUniformData> uniformBuffer;
+   PhysicallyBasedMaterialUniformData cachedUniformData;
 };
