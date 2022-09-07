@@ -6,6 +6,7 @@
 
 #include "Math/MathUtils.h"
 
+#include "Renderer/PhysicallyBasedMaterial.h"
 #include "Renderer/RenderSettings.h"
 
 #include "Resources/ResourceManager.h"
@@ -106,6 +107,30 @@ namespace
       return DragScalarNFormat(label, ImGuiDataType_Float, v, 4, v_speed, &v_min, &v_max, formats.data(), flags);
    }
 
+   glm::vec3 srgbToLinear(const glm::vec3& srgb)
+   {
+      return glm::convertSRGBToLinear(srgb);
+   }
+
+   glm::vec3 linearToSrgb(const glm::vec3& linear)
+   {
+      return glm::convertLinearToSRGB(linear);
+   }
+
+   glm::vec4 srgbToLinear(const glm::vec4& srgb)
+   {
+      glm::vec4 linear = glm::convertSRGBToLinear(srgb);
+      linear.a = srgb.a;
+      return linear;
+   }
+
+   glm::vec4 linearToSrgb(const glm::vec4& linear)
+   {
+      glm::vec4 srgb = glm::convertLinearToSRGB(linear);
+      srgb.a = linear.a;
+      return srgb;
+   }
+
    const char* getEntityName(const Entity& entity, const char* defaultName)
    {
       if (entity)
@@ -139,7 +164,7 @@ namespace
 
    void renderTransformComponent(TransformComponent& transformComponent)
    {
-      if (ImGui::CollapsingHeader("Transform", ImGuiTreeNodeFlags_DefaultOpen))
+      if (ImGui::BeginTabItem("Transform"))
       {
          if (transformComponent.getParentComponent())
          {
@@ -157,24 +182,28 @@ namespace
          }
 
          renderTransform(transformComponent.transform);
+
+         ImGui::EndTabItem();
       }
    }
 
    void renderCameraComponent(CameraComponent& cameraComponent)
    {
-      if (ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen))
+      if (ImGui::BeginTabItem("Camera"))
       {
          ImGui::SliderFloat("Field of View", &cameraComponent.fieldOfView, 5.0f, 140.0f);
          ImGui::DragFloatRange2("Clip Planes", &cameraComponent.nearPlane, &cameraComponent.farPlane, 0.01f, 0.01f, 1000.0f, "Near: %.2f", "Far: %.2f");
+
+         ImGui::EndTabItem();
       }
    }
 
    void renderLightComponent(LightComponent& lightComponent)
    {
-      glm::vec3 color = glm::convertLinearToSRGB(lightComponent.getColor());
+      glm::vec3 color = linearToSrgb(lightComponent.getColor());
       if (ImGui::ColorEdit3("Color", glm::value_ptr(color)))
       {
-         lightComponent.setColor(glm::convertSRGBToLinear(color));
+         lightComponent.setColor(srgbToLinear(color));
       }
 
       float brightness = lightComponent.getBrightness();
@@ -200,7 +229,7 @@ namespace
 
    void renderDirectionalLightComponent(DirectionalLightComponent& directionalLightComponent)
    {
-      if (ImGui::CollapsingHeader("Directional Light", ImGuiTreeNodeFlags_DefaultOpen))
+      if (ImGui::BeginTabItem("Directional Light"))
       {
          renderLightComponent(directionalLightComponent);
 
@@ -211,12 +240,14 @@ namespace
             directionalLightComponent.setShadowHeight(shadowProjectionValues[1]);
             directionalLightComponent.setShadowDepth(shadowProjectionValues[2]);
          }
+
+         ImGui::EndTabItem();
       }
    }
 
    void renderPointLightComponent(PointLightComponent& pointLightComponent)
    {
-      if (ImGui::CollapsingHeader("Point Light", ImGuiTreeNodeFlags_DefaultOpen))
+      if (ImGui::BeginTabItem("Point Light"))
       {
          renderLightComponent(pointLightComponent);
 
@@ -231,12 +262,14 @@ namespace
          {
             pointLightComponent.setShadowNearPlane(shadowNearPlane);
          }
+
+         ImGui::EndTabItem();
       }
    }
 
    void renderSpotLightComponent(SpotLightComponent& spotLightComponent)
    {
-      if (ImGui::CollapsingHeader("Spot Light", ImGuiTreeNodeFlags_DefaultOpen))
+      if (ImGui::BeginTabItem("Spot Light"))
       {
          renderLightComponent(spotLightComponent);
 
@@ -259,28 +292,158 @@ namespace
          {
             spotLightComponent.setShadowNearPlane(shadowNearPlane);
          }
+
+         ImGui::EndTabItem();
       }
    }
 
-   void renderMeshComponent(MeshComponent& meshComponent, const ResourceManager& resourceManager)
+   const char* getBlendModePreviewText(BlendMode blendMode)
    {
-      if (ImGui::CollapsingHeader("Mesh", ImGuiTreeNodeFlags_DefaultOpen))
+      switch (blendMode)
+      {
+      case BlendMode::Opaque:
+         return "Opaque";
+      case BlendMode::Masked:
+         return "Masked";
+      case BlendMode::Translucent:
+         return "Translucent";
+      default:
+         return "Invalid";
+      }
+   }
+
+   void renderMaterial(Material& material)
+   {
+      if (ImGui::CollapsingHeader("Material", nullptr, ImGuiTreeNodeFlags_DefaultOpen))
+      {
+         static const std::array<BlendMode, 3> kBlendModeValues = { BlendMode::Opaque, BlendMode::Masked, BlendMode::Translucent };
+         if (ImGui::BeginCombo("Blend Mode", getBlendModePreviewText(material.getBlendMode())))
+         {
+            for (BlendMode blendMode : kBlendModeValues)
+            {
+               bool isSelected = material.getBlendMode() == blendMode;
+               if (ImGui::Selectable(getBlendModePreviewText(blendMode), isSelected))
+               {
+                  material.setBlendMode(blendMode);
+               }
+
+               if (isSelected)
+               {
+                  ImGui::SetItemDefaultFocus();
+               }
+            }
+
+            ImGui::EndCombo();
+         }
+
+         bool twoSided = material.isTwoSided();
+         if (ImGui::Checkbox("Two-Sided", &twoSided))
+         {
+            material.setTwoSided(twoSided);
+         }
+
+         if (PhysicallyBasedMaterial* pbrMaterial = dynamic_cast<PhysicallyBasedMaterial*>(&material))
+         {
+            glm::vec4 albedo = linearToSrgb(pbrMaterial->getAlbedoColor());
+            if (ImGui::ColorEdit4("Albedo", glm::value_ptr(albedo)))
+            {
+               pbrMaterial->setAlbedoColor(srgbToLinear(albedo));
+            }
+
+            glm::vec4 emissive = linearToSrgb(pbrMaterial->getEmissiveColor());
+            if (ImGui::ColorEdit4("Emissive", glm::value_ptr(emissive)))
+            {
+               pbrMaterial->setEmissiveColor(srgbToLinear(emissive));
+            }
+
+            float emissiveIntensity = pbrMaterial->getEmissiveIntensity();
+            if (ImGui::DragFloat("Emissive Intensity", &emissiveIntensity, 0.01f, 0.0f, FLT_MAX))
+            {
+               pbrMaterial->setEmissiveIntensity(emissiveIntensity);
+            }
+
+            float roughness = pbrMaterial->getRoughness();
+            if (ImGui::SliderFloat("Roughness", &roughness, 0.0f, 1.0f))
+            {
+               pbrMaterial->setRoughness(roughness);
+            }
+
+            float metalness = pbrMaterial->getMetalness();
+            if (ImGui::SliderFloat("Metalness", &metalness, 0.0f, 1.0f))
+            {
+               pbrMaterial->setMetalness(metalness);
+            }
+
+            float ambientOcclusion = pbrMaterial->getAmbientOcclusion();
+            if (ImGui::SliderFloat("Ambient Occlusion", &ambientOcclusion, 0.0f, 1.0f))
+            {
+               pbrMaterial->setAmbientOcclusion(ambientOcclusion);
+            }
+         }
+      }
+   }
+
+   void renderMesh(Mesh& mesh, ResourceManager& resourceManager, uint32_t& selectedMeshSection)
+   {
+      ImGui::BeginChild("Section List", ImVec2(100, 0), true);
+      for (uint32_t i = 0; i < mesh.getNumSections(); ++i)
+      {
+         std::string label = "Section " + std::to_string(i);
+         if (ImGui::Selectable(label.c_str(), selectedMeshSection == i))
+         {
+            selectedMeshSection = i;
+         }
+      }
+      ImGui::EndChild();
+
+      ImGui::SameLine();
+
+      if (selectedMeshSection < mesh.getNumSections())
+      {
+         MeshSection& section = mesh.getSection(selectedMeshSection);
+
+         ImGui::BeginChild("Selected Section");
+
+         ImGui::Text("Indices: %u", section.numIndices);
+         ImGui::Text("Has valid texture coordinates: %s", section.hasValidTexCoords ? "true" : "false");
+
+         if (Material* material = resourceManager.getMaterial(section.materialHandle))
+         {
+            renderMaterial(*material);
+         }
+
+         ImGui::EndChild();
+      }
+   }
+
+   void renderMeshComponent(MeshComponent& meshComponent, ResourceManager& resourceManager, uint32_t& selectedMeshSection)
+   {
+      if (ImGui::BeginTabItem("Mesh"))
       {
          const std::string* meshPath = resourceManager.getMeshPath(meshComponent.meshHandle);
          const char* pathString = meshPath ? meshPath->c_str() : "None";
          ImGui::Text("%s", pathString);
 
          ImGui::Checkbox("Cast Shadows", &meshComponent.castsShadows);
+
+         if (Mesh* mesh = resourceManager.getMesh(meshComponent.meshHandle))
+         {
+            renderMesh(*mesh, resourceManager, selectedMeshSection);
+         }
+
+         ImGui::EndTabItem();
       }
    }
 
    void renderSkyboxComponent(const SkyboxComponent& skyboxComponent, const ResourceManager& resourceManager)
    {
-      if (ImGui::CollapsingHeader("Skybox", ImGuiTreeNodeFlags_DefaultOpen))
+      if (ImGui::BeginTabItem("Skybox"))
       {
          const std::string* texturePath = resourceManager.getTexturePath(skyboxComponent.textureHandle);
          const char* pathString = texturePath ? texturePath->c_str() : "None";
          ImGui::Text("%s", pathString);
+
+         ImGui::EndTabItem();
       }
    }
 
@@ -410,7 +573,7 @@ void UI::setIgnoreMouse(bool ignore)
 // static
 bool UI::visible = true;
 
-void UI::render(const GraphicsContext& graphicsContext, Scene& scene, const RenderCapabilities& capabilities, RenderSettings& settings, const ResourceManager& resourceManager)
+void UI::render(const GraphicsContext& graphicsContext, Scene& scene, const RenderCapabilities& capabilities, RenderSettings& settings, ResourceManager& resourceManager)
 {
    static const float kTimeBetweenFrameRateUpdates = 1.0f / frameRates.size();
 
@@ -443,9 +606,9 @@ void UI::render(const GraphicsContext& graphicsContext, Scene& scene, const Rend
    ImGui::Render();
 }
 
-void UI::renderSceneWindow(const GraphicsContext& graphicsContext, Scene& scene, const RenderCapabilities& capabilities, RenderSettings& settings, const ResourceManager& resourceManager)
+void UI::renderSceneWindow(const GraphicsContext& graphicsContext, Scene& scene, const RenderCapabilities& capabilities, RenderSettings& settings, ResourceManager& resourceManager)
 {
-   ImGui::SetNextWindowSize(ImVec2(1100.0f, 0.0f), ImGuiCond_FirstUseEver);
+   ImGui::SetNextWindowSize(ImVec2(1150.0f, 0.0f), ImGuiCond_FirstUseEver);
    ImGui::SetNextWindowContentSize(ImVec2(0.0f, kSceneWindowHeight));
    ImGui::Begin("Scene", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
 
@@ -462,7 +625,7 @@ void UI::renderSceneWindow(const GraphicsContext& graphicsContext, Scene& scene,
 
 void UI::renderTime(Scene& scene)
 {
-   ImGui::BeginChild("Time", ImVec2(ImGui::GetContentRegionAvail().x * 0.2f, kSceneWindowHeight), true, ImGuiWindowFlags_MenuBar);
+   ImGui::BeginChild("Time", ImVec2(ImGui::GetContentRegionAvail().x * 0.18f, kSceneWindowHeight), true, ImGuiWindowFlags_MenuBar);
    if (ImGui::BeginMenuBar())
    {
       if (ImGui::BeginMenu("Time", false))
@@ -488,7 +651,7 @@ void UI::renderTime(Scene& scene)
 
 void UI::renderSettings(const GraphicsContext& graphicsContext, const RenderCapabilities& capabilities, RenderSettings& settings)
 {
-   ImGui::BeginChild("Features", ImVec2(ImGui::GetContentRegionAvail().x * 0.2f, kSceneWindowHeight), true, ImGuiWindowFlags_MenuBar);
+   ImGui::BeginChild("Features", ImVec2(ImGui::GetContentRegionAvail().x * 0.18f, kSceneWindowHeight), true, ImGuiWindowFlags_MenuBar);
    if (ImGui::BeginMenuBar())
    {
       if (ImGui::BeginMenu("Features", false))
@@ -547,7 +710,7 @@ void UI::renderSettings(const GraphicsContext& graphicsContext, const RenderCapa
 
 void UI::renderEntityList(Scene& scene)
 {
-   ImGui::BeginChild("Entities", ImVec2(ImGui::GetContentRegionAvail().x * 0.3f, kSceneWindowHeight), true, ImGuiWindowFlags_MenuBar);
+   ImGui::BeginChild("Entities", ImVec2(ImGui::GetContentRegionAvail().x * 0.28f, kSceneWindowHeight), true, ImGuiWindowFlags_MenuBar);
    if (ImGui::BeginMenuBar())
    {
       if (ImGui::BeginMenu("Entities", false))
@@ -584,15 +747,21 @@ void UI::renderEntityList(Scene& scene)
       }
    });
 
+   Entity lastSelectedEntity = selectedEntity;
    for (const Entity& rootEntity : rootEntities)
    {
       renderEntity(rootEntity, entityTree, selectedEntity);
    }
 
+   if (selectedEntity != lastSelectedEntity)
+   {
+      selectedMeshSection = 0;
+   }
+
    ImGui::EndChild();
 }
 
-void UI::renderSelectedEntity(const ResourceManager& resourceManager)
+void UI::renderSelectedEntity(ResourceManager& resourceManager)
 {
    ImGui::BeginChild("SelectedEntity", ImVec2(0.0f, kSceneWindowHeight), true, ImGuiWindowFlags_MenuBar);
    if (ImGui::BeginMenuBar())
@@ -609,33 +778,38 @@ void UI::renderSelectedEntity(const ResourceManager& resourceManager)
    ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImVec4(0.59f, 0.26f, 0.98f, 1.00f));
    if (selectedEntity)
    {
-      if (TransformComponent* transformComponent = selectedEntity.tryGetComponent<TransformComponent>())
+      if (ImGui::BeginTabBar("Components", ImGuiTabBarFlags_FittingPolicyScroll))
       {
-         renderTransformComponent(*transformComponent);
-      }
-      if (CameraComponent* cameraComponent = selectedEntity.tryGetComponent<CameraComponent>())
-      {
-         renderCameraComponent(*cameraComponent);
-      }
-      if (DirectionalLightComponent* directionalLightComponent = selectedEntity.tryGetComponent<DirectionalLightComponent>())
-      {
-         renderDirectionalLightComponent(*directionalLightComponent);
-      }
-      if (PointLightComponent* pointLightComponent = selectedEntity.tryGetComponent<PointLightComponent>())
-      {
-         renderPointLightComponent(*pointLightComponent);
-      }
-      if (SpotLightComponent* spotLightComponent = selectedEntity.tryGetComponent<SpotLightComponent>())
-      {
-         renderSpotLightComponent(*spotLightComponent);
-      }
-      if (MeshComponent* meshComponent = selectedEntity.tryGetComponent<MeshComponent>())
-      {
-         renderMeshComponent(*meshComponent, resourceManager);
-      }
-      if (const SkyboxComponent* skyboxComponent = selectedEntity.tryGetComponent<SkyboxComponent>())
-      {
-         renderSkyboxComponent(*skyboxComponent, resourceManager);
+         if (TransformComponent* transformComponent = selectedEntity.tryGetComponent<TransformComponent>())
+         {
+            renderTransformComponent(*transformComponent);
+         }
+         if (CameraComponent* cameraComponent = selectedEntity.tryGetComponent<CameraComponent>())
+         {
+            renderCameraComponent(*cameraComponent);
+         }
+         if (DirectionalLightComponent* directionalLightComponent = selectedEntity.tryGetComponent<DirectionalLightComponent>())
+         {
+            renderDirectionalLightComponent(*directionalLightComponent);
+         }
+         if (PointLightComponent* pointLightComponent = selectedEntity.tryGetComponent<PointLightComponent>())
+         {
+            renderPointLightComponent(*pointLightComponent);
+         }
+         if (SpotLightComponent* spotLightComponent = selectedEntity.tryGetComponent<SpotLightComponent>())
+         {
+            renderSpotLightComponent(*spotLightComponent);
+         }
+         if (MeshComponent* meshComponent = selectedEntity.tryGetComponent<MeshComponent>())
+         {
+            renderMeshComponent(*meshComponent, resourceManager, selectedMeshSection);
+         }
+         if (const SkyboxComponent* skyboxComponent = selectedEntity.tryGetComponent<SkyboxComponent>())
+         {
+            renderSkyboxComponent(*skyboxComponent, resourceManager);
+         }
+
+         ImGui::EndTabBar();
       }
    }
    ImGui::PopStyleColor(3);

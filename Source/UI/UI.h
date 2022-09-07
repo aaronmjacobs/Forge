@@ -23,14 +23,14 @@ public:
    static bool wantsKeyboardInput();
    static void setIgnoreMouse(bool ignore);
 
-   void render(const GraphicsContext& graphicsContext, Scene& scene, const RenderCapabilities& renderCapabilities, RenderSettings& settings, const ResourceManager& resourceManager);
+   void render(const GraphicsContext& graphicsContext, Scene& scene, const RenderCapabilities& renderCapabilities, RenderSettings& settings, ResourceManager& resourceManager);
 
 private:
-   void renderSceneWindow(const GraphicsContext& graphicsContext, Scene& scene, const RenderCapabilities& renderCapabilities, RenderSettings& settings, const ResourceManager& resourceManager);
+   void renderSceneWindow(const GraphicsContext& graphicsContext, Scene& scene, const RenderCapabilities& renderCapabilities, RenderSettings& settings, ResourceManager& resourceManager);
    void renderTime(Scene& scene);
    void renderSettings(const GraphicsContext& graphicsContext, const RenderCapabilities& renderCapabilities, RenderSettings& settings);
    void renderEntityList(Scene& scene);
-   void renderSelectedEntity(const ResourceManager& resourceManager);
+   void renderSelectedEntity(ResourceManager& resourceManager);
 
    static bool visible;
 
@@ -40,4 +40,5 @@ private:
    std::array<float, 100> frameRates{};
 
    Entity selectedEntity;
+   uint32_t selectedMeshSection = 0;
 };
