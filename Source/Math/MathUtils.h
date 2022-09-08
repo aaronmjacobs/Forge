@@ -27,4 +27,10 @@ namespace MathUtils
    {
       return glm::vec3(safeReciprocal(value.x, tolerance), safeReciprocal(value.y, tolerance), safeReciprocal(value.z, tolerance));
    }
+
+   template<typename T>
+   T saturate(const T& value)
+   {
+      return glm::clamp(value, T(0.0), T(1.0));
+   }
 }

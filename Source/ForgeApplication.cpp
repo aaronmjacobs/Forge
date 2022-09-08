@@ -578,7 +578,8 @@ void ForgeApplication::loadScene()
             {
                if (PhysicallyBasedMaterial* pbrMaterial = dynamic_cast<PhysicallyBasedMaterial*>(material))
                {
-                  pbrMaterial->setEmissiveColor(glm::vec4(100.0f));
+                  pbrMaterial->setEmissiveColor(glm::vec4(1.0f));
+                  pbrMaterial->setEmissiveIntensity(100.0f);
                }
             }
          }

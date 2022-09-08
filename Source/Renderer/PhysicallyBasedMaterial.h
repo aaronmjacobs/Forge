@@ -61,14 +61,14 @@ public:
       return cachedUniformData.albedo;
    }
 
-   void setAlbedoColor(const glm::vec4& albedo);
+   void setAlbedoColor(glm::vec4 albedo);
 
    const glm::vec4& getEmissiveColor() const
    {
       return cachedUniformData.emissive;
    }
 
-   void setEmissiveColor(const glm::vec4& emissive);
+   void setEmissiveColor(glm::vec4 emissive);
 
    float getEmissiveIntensity() const
    {

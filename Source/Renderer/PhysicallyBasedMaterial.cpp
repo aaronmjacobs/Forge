@@ -3,6 +3,8 @@
 #include "Graphics/DescriptorSetLayout.h"
 #include "Graphics/Texture.h"
 
+#include "Math/MathUtils.h"
+
 #include "Resources/MaterialResourceManager.h"
 
 // static
@@ -69,12 +71,12 @@ PhysicallyBasedMaterial::PhysicallyBasedMaterial(const GraphicsContext& graphics
 {
    ASSERT(materialParams.albedoTexture && materialParams.normalTexture && materialParams.aoRoughnessMetalnessTexture);
 
-   cachedUniformData.albedo = materialParams.albedo;
-   cachedUniformData.emissive = materialParams.emissive;
-   cachedUniformData.emissiveIntensity = materialParams.emissiveIntensity;
-   cachedUniformData.roughness = materialParams.roughness;
-   cachedUniformData.metalness = materialParams.metalness;
-   cachedUniformData.ambientOcclusion = materialParams.ambientOcclusion;
+   cachedUniformData.albedo = MathUtils::saturate(materialParams.albedo);
+   cachedUniformData.emissive = MathUtils::saturate(materialParams.emissive);
+   cachedUniformData.emissiveIntensity = glm::max(materialParams.emissiveIntensity, 0.0f);
+   cachedUniformData.roughness = MathUtils::saturate(materialParams.roughness);
+   cachedUniformData.metalness = MathUtils::saturate(materialParams.metalness);
+   cachedUniformData.ambientOcclusion = MathUtils::saturate(materialParams.ambientOcclusion);
    uniformBuffer.updateAll(cachedUniformData);
 
    if (materialParams.albedoTexture->getImageProperties().hasAlpha)
@@ -148,8 +150,10 @@ void PhysicallyBasedMaterial::update()
    uniformBuffer.update(cachedUniformData);
 }
 
-void PhysicallyBasedMaterial::setAlbedoColor(const glm::vec4& albedo)
+void PhysicallyBasedMaterial::setAlbedoColor(glm::vec4 albedo)
 {
+   albedo = MathUtils::saturate(albedo);
+
    if (cachedUniformData.albedo != albedo)
    {
       cachedUniformData.albedo = albedo;
@@ -157,8 +161,10 @@ void PhysicallyBasedMaterial::setAlbedoColor(const glm::vec4& albedo)
    }
 }
 
-void PhysicallyBasedMaterial::setEmissiveColor(const glm::vec4& emissive)
+void PhysicallyBasedMaterial::setEmissiveColor(glm::vec4 emissive)
 {
+   emissive = MathUtils::saturate(emissive);
+
    if (cachedUniformData.emissive != emissive)
    {
       cachedUniformData.emissive = emissive;
@@ -168,6 +174,8 @@ void PhysicallyBasedMaterial::setEmissiveColor(const glm::vec4& emissive)
 
 void PhysicallyBasedMaterial::setEmissiveIntensity(float emissiveIntensity)
 {
+   emissiveIntensity = glm::max(emissiveIntensity, 0.0f);
+
    if (cachedUniformData.emissiveIntensity != emissiveIntensity)
    {
       cachedUniformData.emissiveIntensity = emissiveIntensity;
@@ -177,6 +185,8 @@ void PhysicallyBasedMaterial::setEmissiveIntensity(float emissiveIntensity)
 
 void PhysicallyBasedMaterial::setRoughness(float roughness)
 {
+   roughness = MathUtils::saturate(roughness);
+
    if (cachedUniformData.roughness != roughness)
    {
       cachedUniformData.roughness = roughness;
@@ -186,6 +196,8 @@ void PhysicallyBasedMaterial::setRoughness(float roughness)
 
 void PhysicallyBasedMaterial::setMetalness(float metalness)
 {
+   metalness = MathUtils::saturate(metalness);
+
    if (cachedUniformData.metalness != metalness)
    {
       cachedUniformData.metalness = metalness;
@@ -195,6 +207,8 @@ void PhysicallyBasedMaterial::setMetalness(float metalness)
 
 void PhysicallyBasedMaterial::setAmbientOcclusion(float ambientOcclusion)
 {
+   ambientOcclusion = MathUtils::saturate(ambientOcclusion);
+
    if (cachedUniformData.ambientOcclusion != ambientOcclusion)
    {
       cachedUniformData.ambientOcclusion = ambientOcclusion;
