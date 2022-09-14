@@ -73,6 +73,10 @@ if(FORGE_WITH_MIDI)
    target_link_libraries(${PROJECT_NAME} PUBLIC Kontroller)
 endif(FORGE_WITH_MIDI)
 
+# VulkanMemoryAllocator
+add_subdirectory("${LIB_DIR}/VulkanMemoryAllocator")
+target_link_libraries(${PROJECT_NAME} PUBLIC VulkanMemoryAllocator)
+
 # PlatformUtils
 add_subdirectory("${LIB_DIR}/PlatformUtils")
 target_link_libraries(${PROJECT_NAME} PUBLIC PlatformUtils)
