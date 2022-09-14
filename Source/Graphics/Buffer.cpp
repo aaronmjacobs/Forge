@@ -21,7 +21,7 @@ namespace Buffer
       VkResult bufferCreateResult = vmaCreateBuffer(context.getVmaAllocator(), &static_cast<VkBufferCreateInfo&>(bufferCreateInfo), &bufferAllocationCreateInfo, &vkBuffer, &allocation, &allocationInfo);
       if (bufferCreateResult != VK_SUCCESS)
       {
-         throw new std::runtime_error("Failed to allocate buffer");
+         throw new std::runtime_error("Failed to create buffer");
       }
       buffer = vkBuffer;
 

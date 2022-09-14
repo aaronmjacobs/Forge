@@ -120,7 +120,7 @@ Mesh::Mesh(const GraphicsContext& graphicsContext, std::span<const MeshSectionSo
    VkResult bufferCreateResult = vmaCreateBuffer(context.getVmaAllocator(), &static_cast<VkBufferCreateInfo&>(bufferCreateInfo), &bufferAllocationCreateInfo, &vkBuffer, &bufferAllocation, nullptr);
    if (bufferCreateResult != VK_SUCCESS)
    {
-      throw new std::runtime_error("Failed to allocate mesh buffer");
+      throw new std::runtime_error("Failed to create mesh buffer");
    }
    buffer = vkBuffer;
    NAME_CHILD(buffer, "Mesh Buffer");

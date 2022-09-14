@@ -322,7 +322,10 @@ void Texture::createImage()
    imageAllocationCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
 
    VkImage vkImage = nullptr;
-   vmaCreateImage(context.getVmaAllocator(), &static_cast<VkImageCreateInfo&>(imageCreateinfo), &imageAllocationCreateInfo, &vkImage, &imageAllocation, nullptr);
+   if (vmaCreateImage(context.getVmaAllocator(), &static_cast<VkImageCreateInfo&>(imageCreateinfo), &imageAllocationCreateInfo, &vkImage, &imageAllocation, nullptr) != VK_SUCCESS)
+   {
+      throw new std::runtime_error("Failed to create image");
+   }
    image = vkImage;
    NAME_CHILD(image, "Image");
 }
