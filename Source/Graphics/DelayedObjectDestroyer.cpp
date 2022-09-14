@@ -3,13 +3,44 @@
 #include "Core/Assert.h"
 #include "Core/Types.h"
 
+#include <type_traits>
+
 namespace
 {
    template<typename T>
-   void destroyObject(vk::Device device, T object)
+   void destroyObject(vk::Device device, T object, VmaAllocator allocator, VmaAllocation allocation) requires (!std::is_same_v<T, vk::Buffer> && !std::is_same_v<T, vk::Image>)
    {
       ASSERT(object);
+      ASSERT(!allocation);
       device.destroy(object);
+   }
+
+   void destroyObject(vk::Device device, VkBuffer object, VmaAllocator allocator, VmaAllocation allocation)
+   {
+      ASSERT(object);
+      if (allocation)
+      {
+         ASSERT(allocator);
+         vmaDestroyBuffer(allocator, object, allocation);
+      }
+      else
+      {
+         device.destroy(object);
+      }
+   }
+
+   void destroyObject(vk::Device device, VkImage object, VmaAllocator allocator, VmaAllocation allocation)
+   {
+      ASSERT(object);
+      if (allocation)
+      {
+         ASSERT(allocator);
+         vmaDestroyImage(allocator, object, allocation);
+      }
+      else
+      {
+         device.destroy(object);
+      }
    }
 
    template<typename T>
@@ -26,9 +57,9 @@ namespace
       device.free(pool, object);
    }
 
-   void destroyManagedObject(vk::Device device, const DelayedObjectDestroyer::ManagedObject& managedObject)
+   void destroyManagedObject(vk::Device device, VmaAllocator allocator, const DelayedObjectDestroyer::ManagedObject& managedObject)
    {
-#define DESTROY_OBJECT_TYPE_CASE(object_type) case object_type: destroyObject(device, Types::bit_cast<vk::CppType<vk::ObjectType, object_type>::Type>(managedObject.handle)); break
+#define DESTROY_OBJECT_TYPE_CASE(object_type) case object_type: destroyObject(device, Types::bit_cast<vk::CppType<vk::ObjectType, object_type>::Type>(managedObject.handle), allocator, managedObject.allocation); break
 #define FREE_OBJECT_TYPE_CASE(object_type) case object_type: freeObject(device, Types::bit_cast<vk::CppType<vk::ObjectType, object_type>::Type>(managedObject.handle)); break
 #define FREE_POOLED_OBJECT_TYPE_CASE(pool_type, object_type) case object_type: freeObject(device, Types::bit_cast<vk::CppType<vk::ObjectType, pool_type>::Type>(managedObject.pool), Types::bit_cast<vk::CppType<vk::ObjectType, object_type>::Type>(managedObject.handle)); break
       switch (managedObject.type)
@@ -66,11 +97,11 @@ namespace
 #undef FREE_POOLED_OBJECT_TYPE_CASE
    }
 
-   void destroyManagedObjects(vk::Device device, std::vector<DelayedObjectDestroyer::ManagedObject>& managedObjects)
+   void destroyManagedObjects(vk::Device device, VmaAllocator allocator, std::vector<DelayedObjectDestroyer::ManagedObject>& managedObjects)
    {
       for (DelayedObjectDestroyer::ManagedObject& managedObject : managedObjects)
       {
-         destroyManagedObject(device, managedObject);
+         destroyManagedObject(device, allocator, managedObject);
       }
 
       managedObjects.clear();
@@ -86,7 +117,7 @@ DelayedObjectDestroyer::~DelayedObjectDestroyer()
 {
    for (std::vector<ManagedObject>& managedObjects : managedObjectsByFrameIndex)
    {
-      destroyManagedObjects(context.getDevice(), managedObjects);
+      destroyManagedObjects(context.getDevice(), context.getVmaAllocator(), managedObjects);
    }
 }
 
@@ -94,10 +125,10 @@ void DelayedObjectDestroyer::onFrameIndexUpdate()
 {
    ASSERT(context.getFrameIndex() < managedObjectsByFrameIndex.size());
 
-   destroyManagedObjects(context.getDevice(), managedObjectsByFrameIndex[context.getFrameIndex()]);
+   destroyManagedObjects(context.getDevice(), context.getVmaAllocator(), managedObjectsByFrameIndex[context.getFrameIndex()]);
 }
 
-void DelayedObjectDestroyer::delayedDestroy(uint64_t handle, vk::ObjectType type)
+void DelayedObjectDestroyer::delayedDestroy(uint64_t handle, vk::ObjectType type, VmaAllocation allocation)
 {
    ASSERT(context.getFrameIndex() < managedObjectsByFrameIndex.size());
    ASSERT(type == vk::ObjectType::eSemaphore
@@ -122,10 +153,14 @@ void DelayedObjectDestroyer::delayedDestroy(uint64_t handle, vk::ObjectType type
       || type == vk::ObjectType::eSamplerYcbcrConversion
       || type == vk::ObjectType::eDescriptorUpdateTemplate
       , "Invalid object type for delayed destroy: %s", vk::to_string(type).c_str());
+   ASSERT(!allocation
+      || type == vk::ObjectType::eBuffer
+      || type == vk::ObjectType::eImage
+      , "VMA allocations are only compatible with buffers and images, not %s", vk::to_string(type).c_str());
 
    if (handle != 0)
    {
-      managedObjectsByFrameIndex[context.getFrameIndex()].emplace_back(0, handle, type);
+      managedObjectsByFrameIndex[context.getFrameIndex()].emplace_back(0, handle, type, allocation);
    }
 }
 

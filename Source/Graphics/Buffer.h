@@ -17,6 +17,6 @@ namespace Buffer
       vk::DeviceSize size = 0;
    };
 
-   void create(const GraphicsContext& context, vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Buffer& buffer, vk::DeviceMemory& bufferMemory);
+   void create(const GraphicsContext& context, vk::DeviceSize size, vk::BufferUsageFlags usage, VmaAllocationCreateFlags flags, vk::Buffer& buffer, VmaAllocation& allocation, void** mappedData = nullptr);
    void copy(const GraphicsContext& context, std::span<const CopyInfo> copyInfo);
 }

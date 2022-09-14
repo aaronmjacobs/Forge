@@ -5,22 +5,30 @@
 
 namespace Buffer
 {
-   void create(const GraphicsContext& context, vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Buffer& buffer, vk::DeviceMemory& bufferMemory)
+   void create(const GraphicsContext& context, vk::DeviceSize size, vk::BufferUsageFlags usage, VmaAllocationCreateFlags flags, vk::Buffer& buffer, VmaAllocation& allocation, void** mappedData)
    {
       vk::BufferCreateInfo bufferCreateInfo = vk::BufferCreateInfo()
          .setSize(size)
          .setUsage(usage)
          .setSharingMode(vk::SharingMode::eExclusive);
 
-      buffer = context.getDevice().createBuffer(bufferCreateInfo);
+      VmaAllocationCreateInfo bufferAllocationCreateInfo{};
+      bufferAllocationCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
+      bufferAllocationCreateInfo.flags = flags;
 
-      vk::MemoryRequirements memoryRequirements = context.getDevice().getBufferMemoryRequirements(buffer);
-      vk::MemoryAllocateInfo allocateInfo = vk::MemoryAllocateInfo()
-         .setAllocationSize(memoryRequirements.size)
-         .setMemoryTypeIndex(Memory::findType(context.getPhysicalDevice(), memoryRequirements.memoryTypeBits, properties));
+      VkBuffer vkBuffer = nullptr;
+      VmaAllocationInfo allocationInfo{};
+      VkResult bufferCreateResult = vmaCreateBuffer(context.getVmaAllocator(), &static_cast<VkBufferCreateInfo&>(bufferCreateInfo), &bufferAllocationCreateInfo, &vkBuffer, &allocation, &allocationInfo);
+      if (bufferCreateResult != VK_SUCCESS)
+      {
+         throw new std::runtime_error("Failed to allocate buffer");
+      }
+      buffer = vkBuffer;
 
-      bufferMemory = context.getDevice().allocateMemory(allocateInfo);
-      context.getDevice().bindBufferMemory(buffer, bufferMemory, 0);
+      if (mappedData)
+      {
+         *mappedData = allocationInfo.pMappedData;
+      }
    }
 
    void copy(const GraphicsContext& context, std::span<const CopyInfo> copyInfo)

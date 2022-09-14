@@ -21,6 +21,8 @@
 
 namespace
 {
+   const uint32_t kVulkanTargetVersion = VK_API_VERSION_1_3;
+
    bool hasExtensionProperty(const std::vector<vk::ExtensionProperties>& extensionProperties, const char* name)
    {
       return std::find_if(extensionProperties.begin(), extensionProperties.end(), [name](const vk::ExtensionProperties& properties)
@@ -361,7 +363,7 @@ GraphicsContext::GraphicsContext(Window& window)
       .setApplicationVersion(VK_MAKE_VERSION(FORGE_VERSION_MAJOR, FORGE_VERSION_MINOR, FORGE_VERSION_PATCH))
       .setPEngineName(FORGE_PROJECT_NAME)
       .setEngineVersion(VK_MAKE_VERSION(FORGE_VERSION_MAJOR, FORGE_VERSION_MINOR, FORGE_VERSION_PATCH))
-      .setApiVersion(VK_API_VERSION_1_2);
+      .setApiVersion(kVulkanTargetVersion);
 
    std::vector<const char*> extensions = getExtensions(window);
    std::vector<const char*> layers = getLayers();
@@ -482,6 +484,18 @@ GraphicsContext::GraphicsContext(Window& window)
 
    pipelineCache = device.createPipelineCache(pipelineCacheCreateInfo);
 
+   VmaAllocatorCreateInfo allocatorCreateInfo{};
+   allocatorCreateInfo.flags = VMA_ALLOCATOR_CREATE_EXTERNALLY_SYNCHRONIZED_BIT; // Everything is currently on one thread
+   allocatorCreateInfo.physicalDevice = physicalDevice;
+   allocatorCreateInfo.device = device;
+   allocatorCreateInfo.instance = instance;
+   allocatorCreateInfo.vulkanApiVersion = kVulkanTargetVersion;
+
+   if (vmaCreateAllocator(&allocatorCreateInfo, &vmaAllocator) != VK_SUCCESS)
+   {
+      throw std::runtime_error("Failed to create VMA allocator");
+   }
+
    delayedObjectDestroyer = std::make_unique<DelayedObjectDestroyer>(*this);
    layoutCache = std::make_unique<DescriptorSetLayoutCache>(*this);
 }
@@ -490,6 +504,9 @@ GraphicsContext::~GraphicsContext()
 {
    layoutCache = nullptr;
    delayedObjectDestroyer = nullptr;
+
+   vmaDestroyAllocator(vmaAllocator);
+   vmaAllocator = nullptr;
 
    if (std::optional<std::filesystem::path> pipelineCachePath = getPipelineCachePath())
    {
@@ -536,10 +553,10 @@ vk::DescriptorSetLayout GraphicsContext::getDescriptorSetLayout(const vk::Descri
    return layoutCache->getLayout(createInfo);
 }
 
-void GraphicsContext::delayedDestroy(uint64_t handle, vk::ObjectType type) const
+void GraphicsContext::delayedDestroy(uint64_t handle, vk::ObjectType type, VmaAllocation allocation) const
 {
    ASSERT(delayedObjectDestroyer);
-   delayedObjectDestroyer->delayedDestroy(handle, type);
+   delayedObjectDestroyer->delayedDestroy(handle, type, allocation);
 }
 
 void GraphicsContext::delayedFree(uint64_t pool, uint64_t handle, vk::ObjectType type) const

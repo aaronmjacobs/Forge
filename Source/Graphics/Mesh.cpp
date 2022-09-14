@@ -112,17 +112,18 @@ Mesh::Mesh(const GraphicsContext& graphicsContext, std::span<const MeshSectionSo
       .setSize(bufferSize)
       .setUsage(vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eIndexBuffer)
       .setSharingMode(vk::SharingMode::eExclusive);
-   buffer = device.createBuffer(bufferCreateInfo);
+
+   VmaAllocationCreateInfo bufferAllocationCreateInfo{};
+   bufferAllocationCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
+
+   VkBuffer vkBuffer = nullptr;
+   VkResult bufferCreateResult = vmaCreateBuffer(context.getVmaAllocator(), &static_cast<VkBufferCreateInfo&>(bufferCreateInfo), &bufferAllocationCreateInfo, &vkBuffer, &bufferAllocation, nullptr);
+   if (bufferCreateResult != VK_SUCCESS)
+   {
+      throw new std::runtime_error("Failed to allocate mesh buffer");
+   }
+   buffer = vkBuffer;
    NAME_CHILD(buffer, "Mesh Buffer");
-
-   vk::MemoryRequirements memoryRequirements = device.getBufferMemoryRequirements(buffer);
-   vk::MemoryAllocateInfo allocateInfo = vk::MemoryAllocateInfo()
-      .setAllocationSize(memoryRequirements.size)
-      .setMemoryTypeIndex(Memory::findType(context.getPhysicalDevice(), memoryRequirements.memoryTypeBits, vk::MemoryPropertyFlagBits::eDeviceLocal));
-
-   deviceMemory = device.allocateMemory(allocateInfo);
-   device.bindBufferMemory(buffer, deviceMemory, 0);
-   NAME_CHILD(deviceMemory, "Mesh Buffer Memory");
 
    // Create staging buffer, and use it to copy over data
 
@@ -130,17 +131,21 @@ Mesh::Mesh(const GraphicsContext& graphicsContext, std::span<const MeshSectionSo
       .setSize(bufferCreateInfo.size)
       .setUsage(vk::BufferUsageFlagBits::eTransferSrc)
       .setSharingMode(vk::SharingMode::eExclusive);
-   vk::Buffer stagingBuffer = device.createBuffer(stagingBufferCreateInfo);
 
-   vk::MemoryRequirements stagingMemoryRequirements = device.getBufferMemoryRequirements(stagingBuffer);
-   vk::MemoryAllocateInfo stagingAllocateInfo = vk::MemoryAllocateInfo()
-      .setAllocationSize(stagingMemoryRequirements.size)
-      .setMemoryTypeIndex(Memory::findType(context.getPhysicalDevice(), stagingMemoryRequirements.memoryTypeBits, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent));
+   VmaAllocationCreateInfo stagingBufferAllocationCreateInfo{};
+   stagingBufferAllocationCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
+   stagingBufferAllocationCreateInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
 
-   vk::DeviceMemory stagingDeviceMemory = device.allocateMemory(stagingAllocateInfo);
-   device.bindBufferMemory(stagingBuffer, stagingDeviceMemory, 0);
+   VkBuffer stagingBuffer = nullptr;
+   VmaAllocation stagingBufferAllocation = nullptr;
+   VmaAllocationInfo stagingBufferAllocationInfo{};
+   VkResult stagingBufferCreateResult = vmaCreateBuffer(context.getVmaAllocator(), &static_cast<VkBufferCreateInfo&>(stagingBufferCreateInfo), &stagingBufferAllocationCreateInfo, &stagingBuffer, &stagingBufferAllocation, &stagingBufferAllocationInfo);
+   if (stagingBufferCreateResult != VK_SUCCESS)
+   {
+      throw new std::runtime_error("Failed to allocate mesh staging buffer");
+   }
 
-   void* mappedData = device.mapMemory(stagingDeviceMemory, 0, stagingAllocateInfo.allocationSize, vk::MemoryMapFlags());
+   uint8_t* mappedData = static_cast<uint8_t*>(stagingBufferAllocationInfo.pMappedData);
    std::size_t mappedDataOffset = 0;
    sections.reserve(sourceData.size());
    for (const MeshSectionSourceData& sectionData : sourceData)
@@ -157,18 +162,18 @@ Mesh::Mesh(const GraphicsContext& graphicsContext, std::span<const MeshSectionSo
       std::size_t indexDataSize = sectionData.indices.size() * sizeof(uint32_t);
 
       meshSection.vertexOffset = mappedDataOffset;
-      std::memcpy(static_cast<uint8_t*>(mappedData) + mappedDataOffset, sectionData.vertices.data(), vertexDataSize);
+      std::memcpy(mappedData + mappedDataOffset, sectionData.vertices.data(), vertexDataSize);
       mappedDataOffset += vertexDataSize;
 
       meshSection.positionOnlyVertexOffset = mappedDataOffset;
       for (std::size_t i = 0; i < sectionData.vertices.size(); ++i)
       {
-         std::memcpy(static_cast<uint8_t*>(mappedData) + mappedDataOffset + i * sizeof(glm::vec3), &sectionData.vertices[i], sizeof(glm::vec3));
+         std::memcpy(mappedData + mappedDataOffset + i * sizeof(glm::vec3), &sectionData.vertices[i], sizeof(glm::vec3));
       }
       mappedDataOffset += positionOnlyVertexDataSize;
 
       meshSection.indexOffset = mappedDataOffset;
-      std::memcpy(static_cast<uint8_t*>(mappedData) + mappedDataOffset, sectionData.indices.data(), indexDataSize);
+      std::memcpy(mappedData + mappedDataOffset, sectionData.indices.data(), indexDataSize);
       mappedDataOffset += indexDataSize;
 
       meshSection.bounds = sectionData.bounds;
@@ -176,7 +181,6 @@ Mesh::Mesh(const GraphicsContext& graphicsContext, std::span<const MeshSectionSo
 
       sections.push_back(meshSection);
    }
-   device.unmapMemory(stagingDeviceMemory);
    mappedData = nullptr;
 
    std::array<Buffer::CopyInfo, 1> copyInfo;
@@ -186,20 +190,16 @@ Mesh::Mesh(const GraphicsContext& graphicsContext, std::span<const MeshSectionSo
 
    Buffer::copy(context, copyInfo);
 
-   device.destroyBuffer(stagingBuffer);
+   vmaDestroyBuffer(context.getVmaAllocator(), stagingBuffer, stagingBufferAllocation);
    stagingBuffer = nullptr;
-
-   device.freeMemory(stagingDeviceMemory);
-   stagingDeviceMemory = nullptr;
+   stagingBufferAllocation = nullptr;
 }
 
 Mesh::~Mesh()
 {
    ASSERT(buffer);
-   context.delayedDestroy(std::move(buffer));
-
-   ASSERT(deviceMemory);
-   context.delayedFree(std::move(deviceMemory));
+   ASSERT(bufferAllocation);
+   context.delayedDestroy(std::move(buffer), std::move(bufferAllocation));
 }
 
 void Mesh::bindBuffers(vk::CommandBuffer commandBuffer, uint32_t section, bool positionOnly) const

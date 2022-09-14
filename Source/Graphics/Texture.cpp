@@ -182,7 +182,6 @@ Texture::Texture(const GraphicsContext& graphicsContext, const ImageProperties& 
    textureProperties.sampleCount = vk::SampleCountFlagBits::e1;
    textureProperties.tiling = vk::ImageTiling::eOptimal;
    textureProperties.usage = vk::ImageUsageFlagBits::eColorAttachment;
-   textureProperties.memoryProperties = vk::MemoryPropertyFlagBits::eDeviceLocal;
    textureProperties.aspects = vk::ImageAspectFlagBits::eColor;
 
    createDefaultView();
@@ -196,12 +195,10 @@ Texture::~Texture()
       context.delayedDestroy(std::move(view));
    }
 
-   if (memory)
+   if (imageAllocation)
    {
       ASSERT(image);
-      context.delayedDestroy(std::move(image));
-
-      context.delayedFree(std::move(memory));
+      context.delayedDestroy(std::move(image), std::move(imageAllocation));
    }
 }
 
@@ -303,7 +300,7 @@ void Texture::transitionLayout(vk::CommandBuffer commandBuffer, TextureLayoutTyp
 
 void Texture::createImage()
 {
-   ASSERT(!image && !memory);
+   ASSERT(!image && !imageAllocation);
 
    vk::ImageCreateInfo imageCreateinfo = vk::ImageCreateInfo()
       .setImageType(imageProperties.type)
@@ -320,16 +317,14 @@ void Texture::createImage()
    {
       imageCreateinfo.setFlags(vk::ImageCreateFlagBits::eCubeCompatible);
    }
-   image = device.createImage(imageCreateinfo);
-   NAME_CHILD(image, "Image");
 
-   vk::MemoryRequirements memoryRequirements = device.getImageMemoryRequirements(image);
-   vk::MemoryAllocateInfo allocateInfo = vk::MemoryAllocateInfo()
-      .setAllocationSize(memoryRequirements.size)
-      .setMemoryTypeIndex(Memory::findType(context.getPhysicalDevice(), memoryRequirements.memoryTypeBits, textureProperties.memoryProperties));
-   memory = device.allocateMemory(allocateInfo);
-   device.bindImageMemory(image, memory, 0);
-   NAME_CHILD(memory, "Memory");
+   VmaAllocationCreateInfo imageAllocationCreateInfo{};
+   imageAllocationCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
+
+   VkImage vkImage = nullptr;
+   vmaCreateImage(context.getVmaAllocator(), &static_cast<VkImageCreateInfo&>(imageCreateinfo), &imageAllocationCreateInfo, &vkImage, &imageAllocation, nullptr);
+   image = vkImage;
+   NAME_CHILD(image, "Image");
 }
 
 void Texture::createDefaultView()
@@ -385,20 +380,16 @@ void Texture::stageAndCopyImage(const TextureData& textureData)
    transitionLayout(nullptr, vk::ImageLayout::eTransferDstOptimal, TextureMemoryBarrierFlags(vk::AccessFlags(), vk::PipelineStageFlagBits::eTopOfPipe), TextureMemoryBarrierFlags(vk::AccessFlagBits::eTransferWrite, vk::PipelineStageFlagBits::eTransfer));
 
    vk::Buffer stagingBuffer;
-   vk::DeviceMemory stagingBufferMemory;
-   Buffer::create(context, textureData.bytes.size_bytes(), vk::BufferUsageFlagBits::eTransferSrc, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, stagingBuffer, stagingBufferMemory);
+   VmaAllocation stagingBufferAllocation = nullptr;
+   void* mappedMemory = nullptr;
+   Buffer::create(context, textureData.bytes.size_bytes(), vk::BufferUsageFlagBits::eTransferSrc, VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, stagingBuffer, stagingBufferAllocation, &mappedMemory);
 
-   void* mappedMemory = device.mapMemory(stagingBufferMemory, 0, textureData.bytes.size_bytes());
    std::memcpy(mappedMemory, textureData.bytes.data(), textureData.bytes.size_bytes());
-   device.unmapMemory(stagingBufferMemory);
    mappedMemory = nullptr;
 
    copyBufferToImage(stagingBuffer, textureData);
 
-   device.destroyBuffer(stagingBuffer);
-   stagingBuffer = nullptr;
-   device.freeMemory(stagingBufferMemory);
-   stagingBufferMemory = nullptr;
+   vmaDestroyBuffer(context.getVmaAllocator(), stagingBuffer, stagingBufferAllocation);
 }
 
 void Texture::generateMipmaps(vk::ImageLayout finalLayout, const TextureMemoryBarrierFlags& dstMemoryBarrierFlags)

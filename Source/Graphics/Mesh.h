@@ -70,7 +70,7 @@ public:
 
 private:
    vk::Buffer buffer;
-   vk::DeviceMemory deviceMemory;
+   VmaAllocation bufferAllocation = nullptr;
 
    std::vector<MeshSection> sections;
 };

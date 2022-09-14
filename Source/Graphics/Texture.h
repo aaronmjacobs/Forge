@@ -109,7 +109,7 @@ private:
    void generateMipmaps(vk::ImageLayout finalLayout, const TextureMemoryBarrierFlags& dstMemoryBarrierFlags);
 
    vk::Image image;
-   vk::DeviceMemory memory;
+   VmaAllocation imageAllocation = nullptr;
    vk::ImageView defaultView;
 
    ImageProperties imageProperties;

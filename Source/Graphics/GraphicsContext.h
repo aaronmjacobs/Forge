@@ -98,6 +98,12 @@ public:
       return pipelineCache;
    }
 
+   VmaAllocator getVmaAllocator() const
+   {
+      ASSERT(vmaAllocator);
+      return vmaAllocator;
+   }
+
    const Swapchain& getSwapchain() const
    {
       ASSERT(swapchain);
@@ -133,6 +139,14 @@ public:
    }
 
    template<typename T>
+   void delayedDestroy(T&& object, VmaAllocation&& allocation) const
+   {
+      delayedDestroy(Types::bit_cast<uint64_t>(object), T::objectType, allocation);
+      object = nullptr;
+      allocation = nullptr;
+   }
+
+   template<typename T>
    void delayedFree(T&& object) const
    {
       delayedFree(0, Types::bit_cast<uint64_t>(object), T::objectType);
@@ -149,7 +163,7 @@ public:
 private:
    static vk::DispatchLoaderDynamic dispatchLoaderDynamic;
 
-   void delayedDestroy(uint64_t handle, vk::ObjectType type) const;
+   void delayedDestroy(uint64_t handle, vk::ObjectType type, VmaAllocation allocation = nullptr) const;
    void delayedFree(uint64_t pool, uint64_t handle, vk::ObjectType type) const;
 
    vk::Instance instance;
@@ -167,6 +181,8 @@ private:
 
    vk::CommandPool transientCommandPool;
    vk::PipelineCache pipelineCache;
+
+   VmaAllocator vmaAllocator = nullptr;
 
    const Swapchain* swapchain = nullptr;
    uint32_t swapchainIndex = 0;

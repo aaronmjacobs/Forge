@@ -38,7 +38,7 @@ private:
    DataType* getMappedData(uint32_t index);
 
    vk::Buffer buffer;
-   vk::DeviceMemory memory;
+   VmaAllocation allocation = nullptr;
    void* mappedMemory = nullptr;
 };
 
@@ -47,42 +47,31 @@ inline UniformBuffer<DataType>::UniformBuffer(const GraphicsContext& graphicsCon
    : GraphicsResource(graphicsContext)
 {
    vk::DeviceSize bufferSize = getPaddedDataSize(context) * GraphicsContext::kMaxFramesInFlight;
-   Buffer::create(context, bufferSize, vk::BufferUsageFlagBits::eUniformBuffer, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, buffer, memory);
+   Buffer::create(context, bufferSize, vk::BufferUsageFlagBits::eUniformBuffer, VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT, buffer, allocation, &mappedMemory);
    NAME_CHILD(buffer, "Uniform Buffer");
 
-   mappedMemory = device.mapMemory(memory, 0, bufferSize);
    std::memset(mappedMemory, 0, bufferSize);
-   NAME_CHILD(memory, "Uniform Buffer Memory");
 }
 
 template<typename DataType>
 inline UniformBuffer<DataType>::UniformBuffer(UniformBuffer&& other)
    : GraphicsResource(other.context)
    , buffer(other.buffer)
-   , memory(other.memory)
+   , allocation(other.allocation)
    , mappedMemory(other.mappedMemory)
 {
    other.buffer = nullptr;
-   other.memory = nullptr;
+   other.allocation = nullptr;
    other.mappedMemory = nullptr;
 }
 
 template<typename DataType>
 inline UniformBuffer<DataType>::~UniformBuffer()
 {
-   if (memory)
-   {
-      device.unmapMemory(memory);
-   }
-
    if (buffer)
    {
-      context.delayedDestroy(std::move(buffer));
-   }
-
-   if (memory)
-   {
-      context.delayedFree(std::move(memory));
+      ASSERT(allocation);
+      context.delayedDestroy(std::move(buffer), std::move(allocation));
    }
 }
 
@@ -142,7 +131,7 @@ inline vk::DescriptorBufferInfo UniformBuffer<DataType>::getDescriptorBufferInfo
 template<typename DataType>
 DataType* UniformBuffer<DataType>::getMappedData(uint32_t index)
 {
-   ASSERT(buffer && memory && mappedMemory);
+   ASSERT(buffer && allocation && mappedMemory);
    ASSERT(index < GraphicsContext::kMaxFramesInFlight);
 
    vk::DeviceSize size = getPaddedDataSize(context);
