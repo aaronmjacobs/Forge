@@ -36,26 +36,26 @@ namespace DebugUtils
       return toString(static_cast<uint64_t>(n));
    }
 
-   template<typename ItemType, std::enable_if_t<std::is_base_of_v<GraphicsResource, ItemType>, int> = 0>
-   const char* getItemName(ItemType& item)
+   template<typename ItemType>
+   const char* getItemName(ItemType& item) requires (std::is_base_of_v<GraphicsResource, ItemType>)
    {
       return getResourceName(item);
    }
 
-   template<typename ItemType, std::enable_if_t<!std::is_base_of_v<GraphicsResource, ItemType>, int> = 0>
-   const char* getItemName(ItemType& item)
+   template<typename ItemType>
+   const char* getItemName(ItemType& item) requires (!std::is_base_of_v<GraphicsResource, ItemType>)
    {
       return getObjectName(Types::bit_cast<uint64_t>(item));
    }
 
-   template<typename ItemType, std::enable_if_t<std::is_base_of_v<GraphicsResource, ItemType>, int> = 0>
-   void setItemName(vk::Device device, ItemType& item, const char* name)
+   template<typename ItemType>
+   void setItemName(vk::Device device, ItemType& item, const char* name) requires (std::is_base_of_v<GraphicsResource, ItemType>)
    {
       setResourceName(device, &item, name);
    }
 
-   template<typename ItemType, std::enable_if_t<!std::is_base_of_v<GraphicsResource, ItemType>, int> = 0>
-   void setItemName(vk::Device device, ItemType& item, const char* name)
+   template<typename ItemType>
+   void setItemName(vk::Device device, ItemType& item, const char* name) requires (!std::is_base_of_v<GraphicsResource, ItemType>)
    {
       setObjectName(device, Types::bit_cast<uint64_t>(item), ItemType::objectType, name);
    }
@@ -66,15 +66,15 @@ namespace DebugUtils
       setItemName(device, item, name.c_str());
    }
 
-   template<typename ItemType, std::enable_if_t<std::is_base_of_v<GraphicsResource, ItemType>, int> = 0>
-   void setChildName(vk::Device device, ItemType& item, GraphicsResource& parent, const char* name)
+   template<typename ItemType>
+   void setChildName(vk::Device device, ItemType& item, GraphicsResource& parent, const char* name) requires (std::is_base_of_v<GraphicsResource, ItemType>)
    {
       setResourceParent(device, &item, &parent);
       setItemName(device, item, name);
    }
 
-   template<typename ItemType, std::enable_if_t<!std::is_base_of_v<GraphicsResource, ItemType>, int> = 0>
-   void setChildName(vk::Device device, ItemType& item, GraphicsResource& parent, const char* name)
+   template<typename ItemType>
+   void setChildName(vk::Device device, ItemType& item, GraphicsResource& parent, const char* name) requires (!std::is_base_of_v<GraphicsResource, ItemType>)
    {
       setObjectParent(device, Types::bit_cast<uint64_t>(item), ItemType::objectType, &parent);
       setItemName(device, item, name);

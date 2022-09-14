@@ -17,7 +17,7 @@ namespace Types
    using std::bit_cast;
 #else
    template<typename To, typename From>
-   typename std::enable_if_t<sizeof(To) == sizeof(From) && std::is_trivially_copyable_v<From> && std::is_trivially_copyable_v<To>, To> bit_cast(const From& from) noexcept
+   To bit_cast(const From& from) noexcept requires (sizeof(To) == sizeof(From) && std::is_trivially_copyable_v<From> && std::is_trivially_copyable_v<To>)
    {
       To to;
       std::memcpy(&to, &from, sizeof(To));

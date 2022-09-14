@@ -74,8 +74,7 @@ public:
       return function(std::forward<Params>(params)...);
    }
 
-   template<typename = std::enable_if_t<std::is_void<RetType>::value>>
-   void executeIfBound(Params... params) const
+   void executeIfBound(Params... params) const requires std::is_void_v<RetType>
    {
       if (isBound())
       {
