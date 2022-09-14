@@ -313,6 +313,28 @@ namespace
    }
 }
 
+#if FORGE_WITH_GPU_MEMORY_TRACKING
+class VmaAllocationCallbacks
+{
+public:
+   static void onAllocate(VmaAllocator allocator, uint32_t memoryType, VkDeviceMemory memory, VkDeviceSize size, void* pUserData)
+   {
+      GraphicsContext* context = reinterpret_cast<GraphicsContext*>(pUserData);
+      ASSERT(context);
+
+      context->onVmaAllocate(allocator, memoryType, size);
+   }
+
+   static void onFree(VmaAllocator allocator, uint32_t memoryType, VkDeviceMemory memory, VkDeviceSize size, void* pUserData)
+   {
+      GraphicsContext* context = reinterpret_cast<GraphicsContext*>(pUserData);
+      ASSERT(context);
+
+      context->onVmaFree(allocator, memoryType, size);
+   }
+};
+#endif // FORGE_WITH_GPU_MEMORY_TRACKING
+
 // static
 std::optional<QueueFamilyIndices> QueueFamilyIndices::get(vk::PhysicalDevice physicalDevice, vk::SurfaceKHR surface)
 {
@@ -491,6 +513,15 @@ GraphicsContext::GraphicsContext(Window& window)
    allocatorCreateInfo.instance = instance;
    allocatorCreateInfo.vulkanApiVersion = kVulkanTargetVersion;
 
+#if FORGE_WITH_GPU_MEMORY_TRACKING
+   VmaDeviceMemoryCallbacks memoryCallbacks{};
+   memoryCallbacks.pfnAllocate = &VmaAllocationCallbacks::onAllocate;
+   memoryCallbacks.pfnFree = &VmaAllocationCallbacks::onFree;
+   memoryCallbacks.pUserData = this;
+
+   allocatorCreateInfo.pDeviceMemoryCallbacks = &memoryCallbacks;
+#endif // FORGE_WITH_GPU_MEMORY_TRACKING
+
    if (vmaCreateAllocator(&allocatorCreateInfo, &vmaAllocator) != VK_SUCCESS)
    {
       throw std::runtime_error("Failed to create VMA allocator");
@@ -507,6 +538,13 @@ GraphicsContext::~GraphicsContext()
 
    vmaDestroyAllocator(vmaAllocator);
    vmaAllocator = nullptr;
+
+#if FORGE_WITH_GPU_MEMORY_TRACKING
+   for (const auto& [memoryType, allocatedBytes] : memoryUsageByType)
+   {
+      ASSERT(allocatedBytes == 0, "%llu bytes leaked for memory type %u", allocatedBytes, memoryType);
+   }
+#endif // FORGE_WITH_GPU_MEMORY_TRACKING
 
    if (std::optional<std::filesystem::path> pipelineCachePath = getPipelineCachePath())
    {
@@ -564,3 +602,25 @@ void GraphicsContext::delayedFree(uint64_t pool, uint64_t handle, vk::ObjectType
    ASSERT(delayedObjectDestroyer);
    delayedObjectDestroyer->delayedFree(pool, handle, type);
 }
+
+#if FORGE_WITH_GPU_MEMORY_TRACKING
+void GraphicsContext::onVmaAllocate(VmaAllocator allocator, uint32_t memoryType, VkDeviceSize size)
+{
+   ASSERT(allocator == vmaAllocator);
+
+   if (!memoryUsageByType.contains(memoryType))
+   {
+      memoryUsageByType.emplace(memoryType, 0);
+   }
+   memoryUsageByType[memoryType] += size;
+}
+
+void GraphicsContext::onVmaFree(VmaAllocator allocator, uint32_t memoryType, VkDeviceSize size)
+{
+   ASSERT(allocator == vmaAllocator);
+
+   ASSERT(memoryUsageByType.contains(memoryType));
+   ASSERT(memoryUsageByType[memoryType] >= size);
+   memoryUsageByType[memoryType] -= size;
+}
+#endif // FORGE_WITH_GPU_MEMORY_TRACKING

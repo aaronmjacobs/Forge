@@ -1,5 +1,7 @@
 #pragma once
 
+#define FORGE_WITH_GPU_MEMORY_TRACKING FORGE_WITH_DEBUG_UTILS
+
 #include "Core/Types.h"
 
 #include "Graphics/Vulkan.h"
@@ -7,6 +9,9 @@
 #include <memory>
 #include <optional>
 #include <set>
+#if FORGE_WITH_GPU_MEMORY_TRACKING
+#  include <unordered_map>
+#endif // FORGE_WITH_GPU_MEMORY_TRACKING
 
 class DescriptorSetLayoutCache;
 class DelayedObjectDestroyer;
@@ -160,6 +165,13 @@ public:
       object = nullptr;
    }
 
+#if FORGE_WITH_GPU_MEMORY_TRACKING
+   const std::unordered_map<uint32_t, VkDeviceSize>& getMemoryUsageByType() const
+   {
+      return memoryUsageByType;
+   }
+#endif // FORGE_WITH_GPU_MEMORY_TRACKING
+
 private:
    static vk::DispatchLoaderDynamic dispatchLoaderDynamic;
 
@@ -197,4 +209,13 @@ private:
    PFN_vkCreateDebugUtilsMessengerEXT pfnCreateDebugUtilsMessengerEXT = nullptr;
    PFN_vkDestroyDebugUtilsMessengerEXT pfnDestroyDebugUtilsMessengerEXT = nullptr;
 #endif // FORGE_DEBUG
+
+#if FORGE_WITH_GPU_MEMORY_TRACKING
+   void onVmaAllocate(VmaAllocator allocator, uint32_t memoryType, VkDeviceSize size);
+   void onVmaFree(VmaAllocator allocator, uint32_t memoryType, VkDeviceSize size);
+
+   std::unordered_map<uint32_t, VkDeviceSize> memoryUsageByType;
+
+   friend class VmaAllocationCallbacks;
+#endif // FORGE_WITH_GPU_MEMORY_TRACKING
 };
