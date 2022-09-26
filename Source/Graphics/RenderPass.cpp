@@ -166,6 +166,22 @@ void RenderPass::updateAttachmentFormats(const Texture* colorAttachment, const T
    updateAttachmentFormats(AttachmentFormats(colorAttachment, depthStencilAttachment));
 }
 
+void RenderPass::setViewport(vk::CommandBuffer commandBuffer, const vk::Rect2D& rect)
+{
+   SCOPED_LABEL("Set viewport");
+
+   vk::Viewport viewport = vk::Viewport()
+      .setX(static_cast<float>(rect.offset.x))
+      .setY(static_cast<float>(rect.offset.y))
+      .setWidth(static_cast<float>(rect.extent.width))
+      .setHeight(static_cast<float>(rect.extent.height))
+      .setMinDepth(0.0f)
+      .setMaxDepth(1.0f);
+   commandBuffer.setViewport(0, viewport);
+
+   commandBuffer.setScissor(0, rect);
+}
+
 void RenderPass::beginRenderPass(vk::CommandBuffer commandBuffer, std::span<const AttachmentInfo> colorAttachments, const AttachmentInfo* depthStencilAttachment)
 {
    ASSERT((depthStencilAttachment == nullptr && attachmentFormats.depthStencilFormat == vk::Format::eUndefined) || (depthStencilAttachment != nullptr && depthStencilAttachment->matchesFormat(attachmentFormats.depthStencilFormat)));
@@ -198,35 +214,7 @@ void RenderPass::beginRenderPass(vk::CommandBuffer commandBuffer, std::span<cons
    setViewport(commandBuffer, renderArea);
 }
 
-void RenderPass::beginRenderPass(vk::CommandBuffer commandBuffer, const AttachmentInfo* colorAttachment, const AttachmentInfo* depthStencilAttachment)
-{
-   if (colorAttachment)
-   {
-      beginRenderPass(commandBuffer, std::span<const AttachmentInfo, 1>(colorAttachment, 1), depthStencilAttachment);
-   }
-   else
-   {
-      beginRenderPass(commandBuffer, std::span<const AttachmentInfo, 0>{}, depthStencilAttachment);
-   }
-}
-
 void RenderPass::endRenderPass(vk::CommandBuffer commandBuffer)
 {
    commandBuffer.endRendering(GraphicsContext::GetDynamicLoader());
-}
-
-void RenderPass::setViewport(vk::CommandBuffer commandBuffer, const vk::Rect2D& rect)
-{
-   SCOPED_LABEL("Set viewport");
-
-   vk::Viewport viewport = vk::Viewport()
-      .setX(static_cast<float>(rect.offset.x))
-      .setY(static_cast<float>(rect.offset.y))
-      .setWidth(static_cast<float>(rect.extent.width))
-      .setHeight(static_cast<float>(rect.extent.height))
-      .setMinDepth(0.0f)
-      .setMaxDepth(1.0f);
-   commandBuffer.setViewport(0, viewport);
-
-   commandBuffer.setScissor(0, rect);
 }

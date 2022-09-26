@@ -73,28 +73,27 @@ void CompositePass::render(vk::CommandBuffer commandBuffer, Texture& destination
    sourceTexture.transitionLayout(commandBuffer, TextureLayoutType::ShaderRead);
 
    AttachmentInfo colorAttachmentInfo(destinationTexture);
-   beginRenderPass(commandBuffer, &colorAttachmentInfo);
+   executePass(commandBuffer, &colorAttachmentInfo, nullptr, [this, &sourceTexture, mode](vk::CommandBuffer commandBuffer)
+   {
+      vk::DescriptorImageInfo imageInfo = vk::DescriptorImageInfo()
+         .setImageLayout(sourceTexture.getLayout())
+         .setImageView(sourceTexture.getDefaultView())
+         .setSampler(sampler);
+      vk::WriteDescriptorSet descriptorWrite = vk::WriteDescriptorSet()
+         .setDstSet(descriptorSet.getCurrentSet())
+         .setDstBinding(0)
+         .setDstArrayElement(0)
+         .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+         .setDescriptorCount(1)
+         .setPImageInfo(&imageInfo);
+      device.updateDescriptorSets(descriptorWrite, {});
 
-   vk::DescriptorImageInfo imageInfo = vk::DescriptorImageInfo()
-      .setImageLayout(sourceTexture.getLayout())
-      .setImageView(sourceTexture.getDefaultView())
-      .setSampler(sampler);
-   vk::WriteDescriptorSet descriptorWrite = vk::WriteDescriptorSet()
-      .setDstSet(descriptorSet.getCurrentSet())
-      .setDstBinding(0)
-      .setDstArrayElement(0)
-      .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-      .setDescriptorCount(1)
-      .setPImageInfo(&imageInfo);
-   device.updateDescriptorSets(descriptorWrite, {});
+      PipelineDescription<CompositePass> pipelineDescription;
+      pipelineDescription.mode = mode;
 
-   PipelineDescription<CompositePass> pipelineDescription;
-   pipelineDescription.mode = mode;
-
-   compositeShader->bindDescriptorSets(commandBuffer, pipelineLayout, descriptorSet);
-   renderScreenMesh(commandBuffer, getPipeline(pipelineDescription));
-
-   endRenderPass(commandBuffer);
+      compositeShader->bindDescriptorSets(commandBuffer, pipelineLayout, descriptorSet);
+      renderScreenMesh(commandBuffer, getPipeline(pipelineDescription));
+   });
 }
 
 Pipeline CompositePass::createPipeline(const PipelineDescription<CompositePass>& description)

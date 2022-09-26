@@ -123,77 +123,76 @@ void ForwardPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo&
 
    AttachmentInfo depthStencilAttachmentInfo(depthTexture);
 
-   beginRenderPass(commandBuffer, colorAttachmentInfo, &depthStencilAttachmentInfo);
-
-   vk::DescriptorImageInfo normalBufferImageInfo = vk::DescriptorImageInfo()
-      .setImageLayout(normalTexture.getLayout())
-      .setImageView(normalTexture.getDefaultView())
-      .setSampler(normalSampler);
-   vk::DescriptorImageInfo ssaoBufferImageInfo = vk::DescriptorImageInfo()
-      .setImageLayout(ssaoTexture.getLayout())
-      .setImageView(ssaoTexture.getDefaultView())
-      .setSampler(normalSampler);
-   std::array<vk::WriteDescriptorSet, 2> descriptorWrites =
+   executePass(commandBuffer, colorAttachmentInfo, &depthStencilAttachmentInfo, [this, &sceneRenderInfo, &normalTexture, &ssaoTexture, skyboxTexture](vk::CommandBuffer commandBuffer)
    {
-      vk::WriteDescriptorSet()
-         .setDstSet(forwardDescriptorSet.getCurrentSet())
-         .setDstBinding(0)
-         .setDstArrayElement(0)
-         .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-         .setDescriptorCount(1)
-         .setPImageInfo(&normalBufferImageInfo),
-      vk::WriteDescriptorSet()
-         .setDstSet(forwardDescriptorSet.getCurrentSet())
-         .setDstBinding(1)
-         .setDstArrayElement(0)
-         .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-         .setDescriptorCount(1)
-         .setPImageInfo(&ssaoBufferImageInfo)
-   };
-   device.updateDescriptorSets(descriptorWrites, {});
+      vk::DescriptorImageInfo normalBufferImageInfo = vk::DescriptorImageInfo()
+         .setImageLayout(normalTexture.getLayout())
+         .setImageView(normalTexture.getDefaultView())
+         .setSampler(normalSampler);
+      vk::DescriptorImageInfo ssaoBufferImageInfo = vk::DescriptorImageInfo()
+         .setImageLayout(ssaoTexture.getLayout())
+         .setImageView(ssaoTexture.getDefaultView())
+         .setSampler(normalSampler);
+      std::array<vk::WriteDescriptorSet, 2> descriptorWrites =
+      {
+         vk::WriteDescriptorSet()
+            .setDstSet(forwardDescriptorSet.getCurrentSet())
+            .setDstBinding(0)
+            .setDstArrayElement(0)
+            .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+            .setDescriptorCount(1)
+            .setPImageInfo(&normalBufferImageInfo),
+         vk::WriteDescriptorSet()
+            .setDstSet(forwardDescriptorSet.getCurrentSet())
+            .setDstBinding(1)
+            .setDstArrayElement(0)
+            .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+            .setDescriptorCount(1)
+            .setPImageInfo(&ssaoBufferImageInfo)
+      };
+      device.updateDescriptorSets(descriptorWrites, {});
 
-   {
-      SCOPED_LABEL("Opaque");
-      renderMeshes<BlendMode::Opaque>(commandBuffer, sceneRenderInfo);
-   }
+      {
+         SCOPED_LABEL("Opaque");
+         renderMeshes<BlendMode::Opaque>(commandBuffer, sceneRenderInfo);
+      }
 
-   {
-      SCOPED_LABEL("Masked");
-      renderMeshes<BlendMode::Masked>(commandBuffer, sceneRenderInfo);
-   }
+      {
+         SCOPED_LABEL("Masked");
+         renderMeshes<BlendMode::Masked>(commandBuffer, sceneRenderInfo);
+      }
 
-   {
-      SCOPED_LABEL("Translucent");
-      renderMeshes<BlendMode::Translucent>(commandBuffer, sceneRenderInfo);
-   }
+      {
+         SCOPED_LABEL("Translucent");
+         renderMeshes<BlendMode::Translucent>(commandBuffer, sceneRenderInfo);
+      }
 
-   if (skyboxTexture)
-   {
-      SCOPED_LABEL("Skybox");
+      if (skyboxTexture)
+      {
+         SCOPED_LABEL("Skybox");
 
-      vk::DescriptorImageInfo imageInfo = vk::DescriptorImageInfo()
-         .setImageLayout(skyboxTexture->getLayout())
-         .setImageView(skyboxTexture->getDefaultView())
-         .setSampler(skyboxSampler);
-      vk::WriteDescriptorSet descriptorWrite = vk::WriteDescriptorSet()
-         .setDstSet(skyboxDescriptorSet.getCurrentSet())
-         .setDstBinding(0)
-         .setDstArrayElement(0)
-         .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-         .setDescriptorCount(1)
-         .setPImageInfo(&imageInfo);
-      device.updateDescriptorSets(descriptorWrite, {});
+         vk::DescriptorImageInfo imageInfo = vk::DescriptorImageInfo()
+            .setImageLayout(skyboxTexture->getLayout())
+            .setImageView(skyboxTexture->getDefaultView())
+            .setSampler(skyboxSampler);
+         vk::WriteDescriptorSet descriptorWrite = vk::WriteDescriptorSet()
+            .setDstSet(skyboxDescriptorSet.getCurrentSet())
+            .setDstBinding(0)
+            .setDstArrayElement(0)
+            .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+            .setDescriptorCount(1)
+            .setPImageInfo(&imageInfo);
+         device.updateDescriptorSets(descriptorWrite, {});
 
-      PipelineDescription<ForwardPass> pipelineDescription;
-      pipelineDescription.withBlending = false;
-      pipelineDescription.withTextures = true;
-      pipelineDescription.skybox = true;
+         PipelineDescription<ForwardPass> pipelineDescription;
+         pipelineDescription.withBlending = false;
+         pipelineDescription.withTextures = true;
+         pipelineDescription.skybox = true;
 
-      skyboxShader->bindDescriptorSets(commandBuffer, skyboxPipelineLayout, sceneRenderInfo.view, skyboxDescriptorSet);
-      renderScreenMesh(commandBuffer, getPipeline(pipelineDescription));
-   }
-
-   endRenderPass(commandBuffer);
+         skyboxShader->bindDescriptorSets(commandBuffer, skyboxPipelineLayout, sceneRenderInfo.view, skyboxDescriptorSet);
+         renderScreenMesh(commandBuffer, getPipeline(pipelineDescription));
+      }
+   });
 }
 
 void ForwardPass::renderMesh(vk::CommandBuffer commandBuffer, const Pipeline& pipeline, const View& view, const Mesh& mesh, uint32_t section, const Material& material)

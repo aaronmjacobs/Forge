@@ -112,9 +112,29 @@ public:
 protected:
    virtual void postUpdateAttachmentFormats() {}
 
-   void beginRenderPass(vk::CommandBuffer commandBuffer, std::span<const AttachmentInfo> colorAttachments, const AttachmentInfo* depthStencilAttachment = nullptr);
-   void beginRenderPass(vk::CommandBuffer commandBuffer, const AttachmentInfo* colorAttachment, const AttachmentInfo* depthStencilAttachment = nullptr);
-   void endRenderPass(vk::CommandBuffer commandBuffer);
+   template<typename Func>
+   void executePass(vk::CommandBuffer commandBuffer, std::span<const AttachmentInfo> colorAttachments, const AttachmentInfo* depthStencilAttachment, Func&& func)
+   {
+      beginRenderPass(commandBuffer, colorAttachments, depthStencilAttachment);
+
+      func(commandBuffer);
+
+      endRenderPass(commandBuffer);
+   }
+
+   template<typename Func>
+   void executePass(vk::CommandBuffer commandBuffer, const AttachmentInfo* colorAttachment, const AttachmentInfo* depthStencilAttachment, Func&& func)
+   {
+      if (colorAttachment)
+      {
+         executePass(commandBuffer, std::span<const AttachmentInfo, 1>(colorAttachment, 1), depthStencilAttachment, std::move(func));
+      }
+      else
+      {
+         executePass(commandBuffer, std::span<const AttachmentInfo, 0>{}, depthStencilAttachment, std::move(func));
+      }
+   }
+
    void setViewport(vk::CommandBuffer commandBuffer, const vk::Rect2D& rect);
 
    vk::Format getDepthStencilFormat() const
@@ -128,5 +148,8 @@ protected:
    }
 
 private:
+   void beginRenderPass(vk::CommandBuffer commandBuffer, std::span<const AttachmentInfo> colorAttachments, const AttachmentInfo* depthStencilAttachment);
+   void endRenderPass(vk::CommandBuffer commandBuffer);
+
    AttachmentFormats attachmentFormats;
 };

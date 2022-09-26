@@ -192,39 +192,38 @@ void SSAOPass::renderSSAO(vk::CommandBuffer commandBuffer, const SceneRenderInfo
    AttachmentInfo colorAttachmentInfo = AttachmentInfo(ssaoTexture)
       .setLoadOp(vk::AttachmentLoadOp::eDontCare);
 
-   beginRenderPass(commandBuffer, &colorAttachmentInfo);
+   executePass(commandBuffer, &colorAttachmentInfo, nullptr, [this, &sceneRenderInfo, &depthTexture, &normalTexture](vk::CommandBuffer commandBuffer)
+   {
+      vk::DescriptorImageInfo depthBufferImageInfo = vk::DescriptorImageInfo()
+         .setImageLayout(depthTexture.getLayout())
+         .setImageView(getDepthView(depthTexture))
+         .setSampler(sampler);
+      vk::WriteDescriptorSet depthBufferDescriptorWrite = vk::WriteDescriptorSet()
+         .setDstSet(ssaoDescriptorSet.getCurrentSet())
+         .setDstBinding(0)
+         .setDstArrayElement(0)
+         .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+         .setDescriptorCount(1)
+         .setPImageInfo(&depthBufferImageInfo);
+      vk::DescriptorImageInfo normalBufferImageInfo = vk::DescriptorImageInfo()
+         .setImageLayout(normalTexture.getLayout())
+         .setImageView(normalTexture.getDefaultView())
+         .setSampler(sampler);
+      vk::WriteDescriptorSet normalBufferDescriptorWrite = vk::WriteDescriptorSet()
+         .setDstSet(ssaoDescriptorSet.getCurrentSet())
+         .setDstBinding(1)
+         .setDstArrayElement(0)
+         .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+         .setDescriptorCount(1)
+         .setPImageInfo(&normalBufferImageInfo);
+      device.updateDescriptorSets({ depthBufferDescriptorWrite, normalBufferDescriptorWrite }, {});
 
-   vk::DescriptorImageInfo depthBufferImageInfo = vk::DescriptorImageInfo()
-      .setImageLayout(depthTexture.getLayout())
-      .setImageView(getDepthView(depthTexture))
-      .setSampler(sampler);
-   vk::WriteDescriptorSet depthBufferDescriptorWrite = vk::WriteDescriptorSet()
-      .setDstSet(ssaoDescriptorSet.getCurrentSet())
-      .setDstBinding(0)
-      .setDstArrayElement(0)
-      .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-      .setDescriptorCount(1)
-      .setPImageInfo(&depthBufferImageInfo);
-   vk::DescriptorImageInfo normalBufferImageInfo = vk::DescriptorImageInfo()
-      .setImageLayout(normalTexture.getLayout())
-      .setImageView(normalTexture.getDefaultView())
-      .setSampler(sampler);
-   vk::WriteDescriptorSet normalBufferDescriptorWrite = vk::WriteDescriptorSet()
-      .setDstSet(ssaoDescriptorSet.getCurrentSet())
-      .setDstBinding(1)
-      .setDstArrayElement(0)
-      .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-      .setDescriptorCount(1)
-      .setPImageInfo(&normalBufferImageInfo);
-   device.updateDescriptorSets({ depthBufferDescriptorWrite, normalBufferDescriptorWrite }, {});
+      PipelineDescription<SSAOPass> pipelineDescription;
+      pipelineDescription.blur = false;
 
-   PipelineDescription<SSAOPass> pipelineDescription;
-   pipelineDescription.blur = false;
-
-   ssaoShader->bindDescriptorSets(commandBuffer, ssaoPipelineLayout, sceneRenderInfo.view, ssaoDescriptorSet);
-   renderScreenMesh(commandBuffer, getPipeline(pipelineDescription));
-
-   endRenderPass(commandBuffer);
+      ssaoShader->bindDescriptorSets(commandBuffer, ssaoPipelineLayout, sceneRenderInfo.view, ssaoDescriptorSet);
+      renderScreenMesh(commandBuffer, getPipeline(pipelineDescription));
+   });
 }
 
 void SSAOPass::renderBlur(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, Texture& depthTexture, Texture& inputTexture, Texture& outputTexture, bool horizontal)
@@ -238,42 +237,41 @@ void SSAOPass::renderBlur(vk::CommandBuffer commandBuffer, const SceneRenderInfo
    AttachmentInfo colorAttachmentInfo = AttachmentInfo(outputTexture)
       .setLoadOp(vk::AttachmentLoadOp::eDontCare);
 
-   beginRenderPass(commandBuffer, &colorAttachmentInfo);
+   executePass(commandBuffer, &colorAttachmentInfo, nullptr, [this, &sceneRenderInfo, &depthTexture, &inputTexture, horizontal](vk::CommandBuffer commandBuffer)
+   {
+      DescriptorSet& blurDescriptorSet = horizontal ? horizontalBlurDescriptorSet : verticalBlurDescriptorSet;
 
-   DescriptorSet& blurDescriptorSet = horizontal ? horizontalBlurDescriptorSet : verticalBlurDescriptorSet;
+      vk::DescriptorImageInfo sourceBufferImageInfo = vk::DescriptorImageInfo()
+         .setImageLayout(inputTexture.getLayout())
+         .setImageView(inputTexture.getDefaultView())
+         .setSampler(sampler);
+      vk::WriteDescriptorSet sourceBufferDescriptorWrite = vk::WriteDescriptorSet()
+         .setDstSet(blurDescriptorSet.getCurrentSet())
+         .setDstBinding(0)
+         .setDstArrayElement(0)
+         .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+         .setDescriptorCount(1)
+         .setPImageInfo(&sourceBufferImageInfo);
+      vk::DescriptorImageInfo depthBufferImageInfo = vk::DescriptorImageInfo()
+         .setImageLayout(depthTexture.getLayout())
+         .setImageView(getDepthView(depthTexture))
+         .setSampler(sampler);
+      vk::WriteDescriptorSet depthBufferDescriptorWrite = vk::WriteDescriptorSet()
+         .setDstSet(blurDescriptorSet.getCurrentSet())
+         .setDstBinding(1)
+         .setDstArrayElement(0)
+         .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+         .setDescriptorCount(1)
+         .setPImageInfo(&depthBufferImageInfo);
+      device.updateDescriptorSets({ sourceBufferDescriptorWrite, depthBufferDescriptorWrite }, {});
 
-   vk::DescriptorImageInfo sourceBufferImageInfo = vk::DescriptorImageInfo()
-      .setImageLayout(inputTexture.getLayout())
-      .setImageView(inputTexture.getDefaultView())
-      .setSampler(sampler);
-   vk::WriteDescriptorSet sourceBufferDescriptorWrite = vk::WriteDescriptorSet()
-      .setDstSet(blurDescriptorSet.getCurrentSet())
-      .setDstBinding(0)
-      .setDstArrayElement(0)
-      .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-      .setDescriptorCount(1)
-      .setPImageInfo(&sourceBufferImageInfo);
-   vk::DescriptorImageInfo depthBufferImageInfo = vk::DescriptorImageInfo()
-      .setImageLayout(depthTexture.getLayout())
-      .setImageView(getDepthView(depthTexture))
-      .setSampler(sampler);
-   vk::WriteDescriptorSet depthBufferDescriptorWrite = vk::WriteDescriptorSet()
-      .setDstSet(blurDescriptorSet.getCurrentSet())
-      .setDstBinding(1)
-      .setDstArrayElement(0)
-      .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-      .setDescriptorCount(1)
-      .setPImageInfo(&depthBufferImageInfo);
-   device.updateDescriptorSets({ sourceBufferDescriptorWrite, depthBufferDescriptorWrite }, {});
+      PipelineDescription<SSAOPass> pipelineDescription;
+      pipelineDescription.blur = true;
+      pipelineDescription.horizontal = horizontal;
 
-   PipelineDescription<SSAOPass> pipelineDescription;
-   pipelineDescription.blur = true;
-   pipelineDescription.horizontal = horizontal;
-
-   blurShader->bindDescriptorSets(commandBuffer, blurPipelineLayout, sceneRenderInfo.view, blurDescriptorSet);
-   renderScreenMesh(commandBuffer, getPipeline(pipelineDescription));
-
-   endRenderPass(commandBuffer);
+      blurShader->bindDescriptorSets(commandBuffer, blurPipelineLayout, sceneRenderInfo.view, blurDescriptorSet);
+      renderScreenMesh(commandBuffer, getPipeline(pipelineDescription));
+   });
 }
 
 vk::ImageView SSAOPass::getDepthView(Texture& depthTexture)

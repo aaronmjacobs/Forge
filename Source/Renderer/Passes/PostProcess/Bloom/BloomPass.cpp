@@ -266,29 +266,28 @@ void BloomPass::renderDownsample(vk::CommandBuffer commandBuffer, uint32_t step,
    AttachmentInfo colorAttachmentInfo = AttachmentInfo(outputTexture)
       .setLoadOp(vk::AttachmentLoadOp::eDontCare);
 
-   beginRenderPass(commandBuffer, &colorAttachmentInfo);
+   executePass(commandBuffer, &colorAttachmentInfo, nullptr, [this, &inputTexture, &descriptorSet, stepQuality](vk::CommandBuffer commandBuffer)
+   {
+      vk::DescriptorImageInfo imageInfo = vk::DescriptorImageInfo()
+         .setImageLayout(inputTexture.getLayout())
+         .setImageView(inputTexture.getDefaultView())
+         .setSampler(sampler);
+      vk::WriteDescriptorSet descriptorWrite = vk::WriteDescriptorSet()
+         .setDstSet(descriptorSet.getCurrentSet())
+         .setDstBinding(0)
+         .setDstArrayElement(0)
+         .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+         .setDescriptorCount(1)
+         .setPImageInfo(&imageInfo);
+      device.updateDescriptorSets(descriptorWrite, {});
 
-   vk::DescriptorImageInfo imageInfo = vk::DescriptorImageInfo()
-      .setImageLayout(inputTexture.getLayout())
-      .setImageView(inputTexture.getDefaultView())
-      .setSampler(sampler);
-   vk::WriteDescriptorSet descriptorWrite = vk::WriteDescriptorSet()
-      .setDstSet(descriptorSet.getCurrentSet())
-      .setDstBinding(0)
-      .setDstArrayElement(0)
-      .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-      .setDescriptorCount(1)
-      .setPImageInfo(&imageInfo);
-   device.updateDescriptorSets(descriptorWrite, {});
+      PipelineDescription<BloomPass> pipelineDescription;
+      pipelineDescription.type = BloomPassType::Downsample;
+      pipelineDescription.quality = stepQuality;
 
-   PipelineDescription<BloomPass> pipelineDescription;
-   pipelineDescription.type = BloomPassType::Downsample;
-   pipelineDescription.quality = stepQuality;
-
-   downsampleShader->bindDescriptorSets(commandBuffer, downsamplePipelineLayout, descriptorSet);
-   renderScreenMesh(commandBuffer, getPipeline(pipelineDescription));
-
-   endRenderPass(commandBuffer);
+      downsampleShader->bindDescriptorSets(commandBuffer, downsamplePipelineLayout, descriptorSet);
+      renderScreenMesh(commandBuffer, getPipeline(pipelineDescription));
+   });
 }
 
 void BloomPass::renderUpsample(vk::CommandBuffer commandBuffer, uint32_t step, Texture& defaultBlackTexture, RenderQuality quality, bool horizontal)
@@ -317,40 +316,39 @@ void BloomPass::renderUpsample(vk::CommandBuffer commandBuffer, uint32_t step, T
    AttachmentInfo colorAttachmentInfo = AttachmentInfo(outputTexture)
       .setLoadOp(vk::AttachmentLoadOp::eDontCare);
 
-   beginRenderPass(commandBuffer, &colorAttachmentInfo);
+   executePass(commandBuffer, &colorAttachmentInfo, nullptr, [this, horizontal, &inputTexture, &blendTexture, &descriptorSet, stepQuality](vk::CommandBuffer commandBuffer)
+   {
+      vk::DescriptorImageInfo inputImageInfo = vk::DescriptorImageInfo()
+         .setImageLayout(inputTexture.getLayout())
+         .setImageView(inputTexture.getDefaultView())
+         .setSampler(sampler);
+      vk::DescriptorImageInfo blendImageInfo = vk::DescriptorImageInfo()
+         .setImageLayout(blendTexture.getLayout())
+         .setImageView(blendTexture.getDefaultView())
+         .setSampler(sampler);
+      vk::WriteDescriptorSet inputDescriptorWrite = vk::WriteDescriptorSet()
+         .setDstSet(descriptorSet.getCurrentSet())
+         .setDstBinding(0)
+         .setDstArrayElement(0)
+         .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+         .setDescriptorCount(1)
+         .setPImageInfo(&inputImageInfo);
+      vk::WriteDescriptorSet blendDescriptorWrite = vk::WriteDescriptorSet()
+         .setDstSet(descriptorSet.getCurrentSet())
+         .setDstBinding(1)
+         .setDstArrayElement(0)
+         .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+         .setDescriptorCount(1)
+         .setPImageInfo(&blendImageInfo);
+      device.updateDescriptorSets({ inputDescriptorWrite, blendDescriptorWrite }, {});
 
-   vk::DescriptorImageInfo inputImageInfo = vk::DescriptorImageInfo()
-      .setImageLayout(inputTexture.getLayout())
-      .setImageView(inputTexture.getDefaultView())
-      .setSampler(sampler);
-   vk::DescriptorImageInfo blendImageInfo = vk::DescriptorImageInfo()
-      .setImageLayout(blendTexture.getLayout())
-      .setImageView(blendTexture.getDefaultView())
-      .setSampler(sampler);
-   vk::WriteDescriptorSet inputDescriptorWrite = vk::WriteDescriptorSet()
-      .setDstSet(descriptorSet.getCurrentSet())
-      .setDstBinding(0)
-      .setDstArrayElement(0)
-      .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-      .setDescriptorCount(1)
-      .setPImageInfo(&inputImageInfo);
-   vk::WriteDescriptorSet blendDescriptorWrite = vk::WriteDescriptorSet()
-      .setDstSet(descriptorSet.getCurrentSet())
-      .setDstBinding(1)
-      .setDstArrayElement(0)
-      .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-      .setDescriptorCount(1)
-      .setPImageInfo(&blendImageInfo);
-   device.updateDescriptorSets({ inputDescriptorWrite, blendDescriptorWrite }, {});
+      PipelineDescription<BloomPass> pipelineDescription;
+      pipelineDescription.type = horizontal ? BloomPassType::HorizontalUpsample : BloomPassType::VerticalUpsample;
+      pipelineDescription.quality = stepQuality;
 
-   PipelineDescription<BloomPass> pipelineDescription;
-   pipelineDescription.type = horizontal ? BloomPassType::HorizontalUpsample : BloomPassType::VerticalUpsample;
-   pipelineDescription.quality = stepQuality;
-
-   upsampleShader->bindDescriptorSets(commandBuffer, upsamplePipelineLayout, descriptorSet);
-   renderScreenMesh(commandBuffer, getPipeline(pipelineDescription));
-
-   endRenderPass(commandBuffer);
+      upsampleShader->bindDescriptorSets(commandBuffer, upsamplePipelineLayout, descriptorSet);
+      renderScreenMesh(commandBuffer, getPipeline(pipelineDescription));
+   });
 }
 
 void BloomPass::createTextures()

@@ -49,19 +49,18 @@ void NormalPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& 
       .setLoadOp(vk::AttachmentLoadOp::eClear)
       .setClearValue(vk::ClearDepthStencilValue(1.0f, 0));
 
-   beginRenderPass(commandBuffer, &colorAttachmentInfo, &depthStencilAttachmentInfo);
-
+   executePass(commandBuffer, &colorAttachmentInfo, &depthStencilAttachmentInfo, [this, &sceneRenderInfo](vk::CommandBuffer commandBuffer)
    {
-      SCOPED_LABEL("Opaque");
-      renderMeshes<BlendMode::Opaque>(commandBuffer, sceneRenderInfo);
-   }
+      {
+         SCOPED_LABEL("Opaque");
+         renderMeshes<BlendMode::Opaque>(commandBuffer, sceneRenderInfo);
+      }
 
-   {
-      SCOPED_LABEL("Masked");
-      renderMeshes<BlendMode::Masked>(commandBuffer, sceneRenderInfo);
-   }
-
-   endRenderPass(commandBuffer);
+      {
+         SCOPED_LABEL("Masked");
+         renderMeshes<BlendMode::Masked>(commandBuffer, sceneRenderInfo);
+      }
+   });
 }
 
 void NormalPass::renderMesh(vk::CommandBuffer commandBuffer, const Pipeline& pipeline, const View& view, const Mesh& mesh, uint32_t section, const Material& material)

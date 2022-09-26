@@ -58,28 +58,27 @@ void DepthPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& s
       .setLoadOp(vk::AttachmentLoadOp::eClear)
       .setClearValue(vk::ClearDepthStencilValue(1.0f, 0));
 
-   beginRenderPass(commandBuffer, nullptr, &depthStencilAttachmentInfo);
-
-   if (isShadowPass)
+   executePass(commandBuffer, nullptr, &depthStencilAttachmentInfo, [this, &sceneRenderInfo](vk::CommandBuffer commandBuffer)
    {
-      const ViewInfo& viewInfo = sceneRenderInfo.view.getInfo();
-      commandBuffer.setDepthBias(viewInfo.depthBiasConstantFactor, viewInfo.depthBiasClamp, viewInfo.depthBiasSlopeFactor);
-   }
+      if (isShadowPass)
+      {
+         const ViewInfo& viewInfo = sceneRenderInfo.view.getInfo();
+         commandBuffer.setDepthBias(viewInfo.depthBiasConstantFactor, viewInfo.depthBiasClamp, viewInfo.depthBiasSlopeFactor);
+      }
 
-   {
-      SCOPED_LABEL("Opaque");
+      {
+         SCOPED_LABEL("Opaque");
 
-      depthShader->bindDescriptorSets(commandBuffer, opaquePipelineLayout, sceneRenderInfo.view);
-      renderMeshes<BlendMode::Opaque>(commandBuffer, sceneRenderInfo);
-   }
+         depthShader->bindDescriptorSets(commandBuffer, opaquePipelineLayout, sceneRenderInfo.view);
+         renderMeshes<BlendMode::Opaque>(commandBuffer, sceneRenderInfo);
+      }
 
-   {
-      SCOPED_LABEL("Masked");
+      {
+         SCOPED_LABEL("Masked");
 
-      renderMeshes<BlendMode::Masked>(commandBuffer, sceneRenderInfo);
-   }
-
-   endRenderPass(commandBuffer);
+         renderMeshes<BlendMode::Masked>(commandBuffer, sceneRenderInfo);
+      }
+   });
 }
 
 void DepthPass::renderMesh(vk::CommandBuffer commandBuffer, const Pipeline& pipeline, const View& view, const Mesh& mesh, uint32_t section, const Material& material)
