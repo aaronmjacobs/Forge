@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Core/Assert.h"
+#include "Core/Hash.h"
 
 #include <array>
 #include <initializer_list>
@@ -92,7 +93,28 @@ public:
       return std::span<const T>(data(), size());
    }
 
+   std::size_t hash() const
+   {
+      std::size_t hashValue = used;
+
+      for (std::size_t i = 0; i < used; ++i)
+      {
+         Hash::combine(hashValue, values[i]);
+      }
+
+      return hashValue;
+   }
+
 private:
    std::array<T, Capacity> values;
    std::size_t used = 0;
+};
+
+template<typename T, std::size_t Capacity>
+struct std::hash<StaticVector<T, Capacity>>
+{
+   std::size_t operator()(const StaticVector<T, Capacity>& value) const
+   {
+      return value.hash();
+   }
 };

@@ -107,7 +107,7 @@ PipelineDescription<DepthPass> DepthPass::getPipelineDescription(const View& vie
    return description;
 }
 
-Pipeline DepthPass::createPipeline(const PipelineDescription<DepthPass>& description)
+Pipeline DepthPass::createPipeline(const PipelineDescription<DepthPass>& description, const AttachmentFormats& attachmentFormats)
 {
    PipelineInfo pipelineInfo;
    pipelineInfo.passType = PipelinePassType::Mesh;
@@ -120,9 +120,9 @@ Pipeline DepthPass::createPipeline(const PipelineDescription<DepthPass>& descrip
 
    PipelineData pipelineData;
    pipelineData.layout = description.masked ? maskedPipelineLayout : opaquePipelineLayout;
-   pipelineData.sampleCount = getSampleCount();
-   pipelineData.depthStencilFormat = getDepthStencilFormat();
-   pipelineData.colorFormats = getColorFormats();
+   pipelineData.sampleCount = attachmentFormats.sampleCount;
+   pipelineData.depthStencilFormat = attachmentFormats.depthStencilFormat;
+   pipelineData.colorFormats = attachmentFormats.colorFormats;
    pipelineData.shaderStages = description.masked ? depthMaskedShader->getStages() : depthShader->getStages();
    pipelineData.colorBlendStates = {};
 

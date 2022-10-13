@@ -86,7 +86,7 @@ PipelineDescription<NormalPass> NormalPass::getPipelineDescription(const View& v
    return description;
 }
 
-Pipeline NormalPass::createPipeline(const PipelineDescription<NormalPass>& description)
+Pipeline NormalPass::createPipeline(const PipelineDescription<NormalPass>& description, const AttachmentFormats& attachmentFormats)
 {
    vk::PipelineColorBlendAttachmentState attachmentState = vk::PipelineColorBlendAttachmentState()
       .setColorWriteMask(vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA)
@@ -100,9 +100,9 @@ Pipeline NormalPass::createPipeline(const PipelineDescription<NormalPass>& descr
 
    PipelineData pipelineData;
    pipelineData.layout = pipelineLayout;
-   pipelineData.sampleCount = getSampleCount();
-   pipelineData.depthStencilFormat = getDepthStencilFormat();
-   pipelineData.colorFormats = getColorFormats();
+   pipelineData.sampleCount = attachmentFormats.sampleCount;
+   pipelineData.depthStencilFormat = attachmentFormats.depthStencilFormat;
+   pipelineData.colorFormats = attachmentFormats.colorFormats;
    pipelineData.shaderStages = normalShader->getStages(description.withTextures, description.masked);
    pipelineData.colorBlendStates = { attachmentState };
 

@@ -56,7 +56,7 @@ public:
 
    void render(vk::CommandBuffer commandBuffer, Texture& hdrColorTexture, Texture& defaultBlackTexture, RenderQuality quality);
 
-   void recreateTextures();
+   void recreateTextures(vk::Format format, vk::SampleCountFlagBits sampleCount);
 
    Texture* getOutputTexture() const
    {
@@ -66,13 +66,13 @@ public:
 protected:
    friend class SceneRenderPass<BloomPass>;
 
-   Pipeline createPipeline(const PipelineDescription<BloomPass>& description);
+   Pipeline createPipeline(const PipelineDescription<BloomPass>& description, const AttachmentFormats& attachmentFormats);
 
 private:
    void renderDownsample(vk::CommandBuffer commandBuffer, uint32_t step, Texture& hdrColorTexture, RenderQuality quality);
    void renderUpsample(vk::CommandBuffer commandBuffer, uint32_t step, Texture& defaultBlackTexture, RenderQuality quality, bool horizontal);
 
-   void createTextures();
+   void createTextures(vk::Format format, vk::SampleCountFlagBits sampleCount);
    void destroyTextures();
 
    std::unique_ptr<BloomDownsampleShader> downsampleShader;

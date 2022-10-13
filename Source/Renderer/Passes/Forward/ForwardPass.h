@@ -45,7 +45,7 @@ protected:
    vk::PipelineLayout selectPipelineLayout(BlendMode blendMode) const;
 
    PipelineDescription<ForwardPass> getPipelineDescription(const View& view, const MeshSection& meshSection, const Material& material) const;
-   Pipeline createPipeline(const PipelineDescription<ForwardPass>& description);
+   Pipeline createPipeline(const PipelineDescription<ForwardPass>& description, const AttachmentFormats& attachmentFormats);
 
 private:
    std::unique_ptr<ForwardShader> forwardShader;

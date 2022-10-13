@@ -1,27 +1,16 @@
 #pragma once
 
+#include "Core/Assert.h"
 #include "Core/Containers/StaticVector.h"
+#include "Core/Hash.h"
 
 #include "Graphics/GraphicsResource.h"
 #include "Graphics/TextureInfo.h"
 
+#include <optional>
 #include <span>
 
 constexpr std::size_t kMaxColorAttachments = 4;
-
-struct AttachmentFormats
-{
-   StaticVector<vk::Format, kMaxColorAttachments> colorFormats;
-   vk::Format depthStencilFormat = vk::Format::eUndefined;
-
-   vk::SampleCountFlagBits sampleCount = vk::SampleCountFlagBits::e1;
-
-   AttachmentFormats() = default;
-   AttachmentFormats(std::span<const Texture*> colorAttachments, const Texture* depthStencilAttachment = nullptr);
-   AttachmentFormats(const Texture* colorAttachment, const Texture* depthStencilAttachment = nullptr);
-
-   bool operator==(const AttachmentFormats& other) const = default;
-};
 
 struct AttachmentInfo
 {
@@ -95,22 +84,41 @@ struct AttachmentInfo
    bool matchesFormat(vk::Format format) const;
 };
 
+struct AttachmentFormats
+{
+   StaticVector<vk::Format, kMaxColorAttachments> colorFormats;
+   vk::Format depthStencilFormat = vk::Format::eUndefined;
+
+   vk::SampleCountFlagBits sampleCount = vk::SampleCountFlagBits::e1;
+
+   AttachmentFormats() = default;
+   AttachmentFormats(std::span<const Texture*> colorAttachments, const Texture* depthStencilAttachment = nullptr);
+   AttachmentFormats(const Texture* colorAttachment, const Texture* depthStencilAttachment = nullptr);
+   AttachmentFormats(std::span<const AttachmentInfo> colorAttachments, const AttachmentInfo* depthStencilAttachment = nullptr);
+   AttachmentFormats(const AttachmentInfo* colorAttachment, const AttachmentInfo* depthStencilAttachment = nullptr);
+
+   std::size_t hash() const
+   {
+      std::size_t hashValue = Hash::of(colorFormats);
+      Hash::combine(hashValue, depthStencilFormat);
+      Hash::combine(hashValue, sampleCount);
+
+      return hashValue;
+   }
+
+   bool operator==(const AttachmentFormats& other) const = default;
+};
+
+USE_MEMBER_HASH_FUNCTION(AttachmentFormats);
+
 class RenderPass : public GraphicsResource
 {
 public:
    RenderPass(const GraphicsContext& graphicsContext);
 
-   void updateAttachmentFormats(const AttachmentFormats& formats);
-   void updateAttachmentFormats(std::span<const Texture*> colorAttachments, const Texture* depthStencilAttachment = nullptr);
-   void updateAttachmentFormats(const Texture* colorAttachment, const Texture* depthStencilAttachment = nullptr);
-
-   vk::SampleCountFlagBits getSampleCount() const
-   {
-      return attachmentFormats.sampleCount;
-   }
-
 protected:
-   virtual void postUpdateAttachmentFormats() {}
+   virtual void onRenderPassBegin() {}
+   virtual void onRenderPassEnd() {}
 
    template<typename Func>
    void executePass(vk::CommandBuffer commandBuffer, std::span<const AttachmentInfo> colorAttachments, const AttachmentInfo* depthStencilAttachment, Func&& func)
@@ -137,19 +145,15 @@ protected:
 
    void setViewport(vk::CommandBuffer commandBuffer, const vk::Rect2D& rect);
 
-   vk::Format getDepthStencilFormat() const
+   const AttachmentFormats& getAttachmentFormats() const
    {
-      return attachmentFormats.depthStencilFormat;
-   }
-
-   std::span<const vk::Format> getColorFormats() const
-   {
-      return attachmentFormats.colorFormats;
+      ASSERT(attachmentFormats.has_value(), "Calling getAttachmentFormats() outside of a render pass");
+      return attachmentFormats.value();
    }
 
 private:
    void beginRenderPass(vk::CommandBuffer commandBuffer, std::span<const AttachmentInfo> colorAttachments, const AttachmentInfo* depthStencilAttachment);
    void endRenderPass(vk::CommandBuffer commandBuffer);
 
-   AttachmentFormats attachmentFormats;
+   std::optional<AttachmentFormats> attachmentFormats;
 };

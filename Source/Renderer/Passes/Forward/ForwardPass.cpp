@@ -219,7 +219,7 @@ PipelineDescription<ForwardPass> ForwardPass::getPipelineDescription(const View&
    return description;
 }
 
-Pipeline ForwardPass::createPipeline(const PipelineDescription<ForwardPass>& description)
+Pipeline ForwardPass::createPipeline(const PipelineDescription<ForwardPass>& description, const AttachmentFormats& attachmentFormats)
 {
    std::vector<vk::PipelineColorBlendAttachmentState> blendAttachmentStates;
    if (description.withBlending)
@@ -249,9 +249,9 @@ Pipeline ForwardPass::createPipeline(const PipelineDescription<ForwardPass>& des
 
    PipelineData pipelineData;
    pipelineData.layout = description.skybox ? skyboxPipelineLayout : forwardPipelineLayout;
-   pipelineData.sampleCount = getSampleCount();
-   pipelineData.depthStencilFormat = getDepthStencilFormat();
-   pipelineData.colorFormats = getColorFormats();
+   pipelineData.sampleCount = attachmentFormats.sampleCount;
+   pipelineData.depthStencilFormat = attachmentFormats.depthStencilFormat;
+   pipelineData.colorFormats = attachmentFormats.colorFormats;
    pipelineData.shaderStages = description.skybox ? skyboxShader->getStages() : forwardShader->getStages(description.withTextures, description.withBlending);
    pipelineData.colorBlendStates = blendAttachmentStates;
 

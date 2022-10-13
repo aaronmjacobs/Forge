@@ -40,7 +40,7 @@ public:
 protected:
    friend class SceneRenderPass<CompositePass>;
 
-   Pipeline createPipeline(const PipelineDescription<CompositePass>& description);
+   Pipeline createPipeline(const PipelineDescription<CompositePass>& description, const AttachmentFormats& attachmentFormats);
 
 private:
    std::unique_ptr<CompositeShader> compositeShader;

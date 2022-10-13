@@ -43,7 +43,7 @@ protected:
    vk::PipelineLayout selectPipelineLayout(BlendMode blendMode) const;
 
    PipelineDescription<DepthPass> getPipelineDescription(const View& view, const MeshSection& meshSection, const Material& material) const;
-   Pipeline createPipeline(const PipelineDescription<DepthPass>& description);
+   Pipeline createPipeline(const PipelineDescription<DepthPass>& description, const AttachmentFormats& attachmentFormats);
 
 private:
    std::unique_ptr<DepthShader> depthShader;

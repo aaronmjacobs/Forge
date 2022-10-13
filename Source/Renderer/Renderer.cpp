@@ -545,13 +545,6 @@ Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& reso
       NAME_POINTER(device, tonemapPass, "Tonemap Pass");
    }
 
-   {
-      AttachmentFormats shadowPassAttachmentFormats;
-      shadowPassAttachmentFormats.depthStencilFormat = depthStencilFormat;
-
-      shadowPass->updateAttachmentFormats(shadowPassAttachmentFormats);
-   }
-
    onSwapchainRecreated();
 }
 
@@ -673,7 +666,8 @@ void Renderer::onSwapchainRecreated()
    NAME_POINTER(device, roughnessMetalnessTexture, "Roughness Metalness Texture");
    NAME_POINTER(device, uiColorTexture, "UI Color Texture");
 
-   updateSwapchainDependentPasses();
+   bloomPass->recreateTextures(hdrColorTexture->getImageProperties().format, hdrColorTexture->getTextureProperties().sampleCount);
+   uiPass->onOutputTextureCreated(*uiColorTexture);
 }
 
 void Renderer::updateRenderSettings(const RenderSettings& settings)
@@ -762,26 +756,4 @@ void Renderer::renderShadowMaps(vk::CommandBuffer commandBuffer, const Scene& sc
    }
 
    forwardLighting->transitionShadowMapLayout(commandBuffer, true);
-}
-
-void Renderer::updateSwapchainDependentPasses()
-{
-   normalPass->updateAttachmentFormats(normalTexture.get(), depthTexture.get());
-
-   ASSERT(ssaoTexture->getImageProperties().format == ssaoBlurTexture->getImageProperties().format);
-   ssaoPass->updateAttachmentFormats(ssaoTexture.get());
-
-   std::array<const Texture*, 2> forwardAttachments = { hdrColorTexture.get(), roughnessMetalnessTexture.get() };
-   forwardPass->updateAttachmentFormats(forwardAttachments, depthTexture.get());
-
-   bloomPass->updateAttachmentFormats(hdrColorTexture.get());
-   bloomPass->recreateTextures();
-
-   uiPass->updateAttachmentFormats(uiColorTexture.get());
-   uiPass->updateFramebuffer(*uiColorTexture);
-
-   Texture* compositeColorAttachment = hdrResolveTexture ? hdrResolveTexture.get() : hdrColorTexture.get();
-   compositePass->updateAttachmentFormats(compositeColorAttachment);
-
-   tonemapPass->updateAttachmentFormats(&context.getSwapchain().getCurrentTexture());
 }

@@ -41,7 +41,7 @@ protected:
    vk::PipelineLayout selectPipelineLayout(BlendMode blendMode) const;
 
    PipelineDescription<NormalPass> getPipelineDescription(const View& view, const MeshSection& meshSection, const Material& material) const;
-   Pipeline createPipeline(const PipelineDescription<NormalPass>& description);
+   Pipeline createPipeline(const PipelineDescription<NormalPass>& description, const AttachmentFormats& attachmentFormats);
 
 private:
    std::unique_ptr<NormalShader> normalShader;

@@ -44,8 +44,6 @@ public:
 private:
    void renderShadowMaps(vk::CommandBuffer commandBuffer, const Scene& scene, const SceneRenderInfo& sceneRenderInfo);
 
-   void updateSwapchainDependentPasses();
-
    ResourceManager& resourceManager;
 
    RenderSettings renderSettings;

@@ -55,7 +55,7 @@ public:
 protected:
    friend class SceneRenderPass<SSAOPass>;
 
-   Pipeline createPipeline(const PipelineDescription<SSAOPass>& description);
+   Pipeline createPipeline(const PipelineDescription<SSAOPass>& description, const AttachmentFormats& attachmentFormats);
 
 private:
    void renderSSAO(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, Texture& depthTexture, Texture& normalTexture, Texture& ssaoTexture, RenderQuality quality);

@@ -8,24 +8,6 @@
 
 namespace
 {
-   bool formatsMatch(std::span<const AttachmentInfo> attachments, std::span<vk::Format> formats)
-   {
-      if (attachments.size() != formats.size())
-      {
-         return false;
-      }
-
-      for (std::size_t i = 0; i < attachments.size(); ++i)
-      {
-         if (!attachments[i].matchesFormat(formats[i]))
-         {
-            return false;
-         }
-      }
-
-      return true;
-   }
-
    bool extentsMatch(std::span<const AttachmentInfo> colorAttachments, const AttachmentInfo* depthStencilAttachment)
    {
       std::optional<vk::Extent2D> extent;
@@ -71,6 +53,18 @@ namespace
       }
 
       return vk::Extent2D(0, 0);
+   }
+
+   StaticVector<const Texture*, kMaxColorAttachments> getAttachmentTextures(std::span<const AttachmentInfo> attachments)
+   {
+      StaticVector<const Texture*, kMaxColorAttachments> textures;
+
+      for (const AttachmentInfo& attachment : attachments)
+      {
+         textures.push(attachment.texture);
+      }
+
+      return textures;
    }
 }
 
@@ -123,6 +117,16 @@ AttachmentFormats::AttachmentFormats(const Texture* colorAttachment, const Textu
 {
 }
 
+AttachmentFormats::AttachmentFormats(std::span<const AttachmentInfo> colorAttachments, const AttachmentInfo* depthStencilAttachment)
+   : AttachmentFormats(getAttachmentTextures(colorAttachments), depthStencilAttachment ? depthStencilAttachment->texture : nullptr)
+{
+}
+
+AttachmentFormats::AttachmentFormats(const AttachmentInfo* colorAttachment, const AttachmentInfo* depthStencilAttachment)
+   : AttachmentFormats(colorAttachment ? std::span<const AttachmentInfo>(colorAttachment, 1) : std::span<const AttachmentInfo>{}, depthStencilAttachment)
+{
+}
+
 vk::RenderingAttachmentInfo AttachmentInfo::getRenderingAttachmentInfo() const
 {
    return vk::RenderingAttachmentInfo()
@@ -146,26 +150,6 @@ RenderPass::RenderPass(const GraphicsContext& graphicsContext)
 {
 }
 
-void RenderPass::updateAttachmentFormats(const AttachmentFormats& formats)
-{
-   if (formats != attachmentFormats)
-   {
-      attachmentFormats = formats;
-
-      postUpdateAttachmentFormats();
-   }
-}
-
-void RenderPass::updateAttachmentFormats(std::span<const Texture*> colorAttachments, const Texture* depthStencilAttachment)
-{
-   updateAttachmentFormats(AttachmentFormats(colorAttachments, depthStencilAttachment));
-}
-
-void RenderPass::updateAttachmentFormats(const Texture* colorAttachment, const Texture* depthStencilAttachment)
-{
-   updateAttachmentFormats(AttachmentFormats(colorAttachment, depthStencilAttachment));
-}
-
 void RenderPass::setViewport(vk::CommandBuffer commandBuffer, const vk::Rect2D& rect)
 {
    SCOPED_LABEL("Set viewport");
@@ -184,8 +168,8 @@ void RenderPass::setViewport(vk::CommandBuffer commandBuffer, const vk::Rect2D& 
 
 void RenderPass::beginRenderPass(vk::CommandBuffer commandBuffer, std::span<const AttachmentInfo> colorAttachments, const AttachmentInfo* depthStencilAttachment)
 {
-   ASSERT((depthStencilAttachment == nullptr && attachmentFormats.depthStencilFormat == vk::Format::eUndefined) || (depthStencilAttachment != nullptr && depthStencilAttachment->matchesFormat(attachmentFormats.depthStencilFormat)));
-   ASSERT(formatsMatch(colorAttachments, attachmentFormats.colorFormats));
+   ASSERT(!attachmentFormats.has_value(), "Beginning a render pass, but another render pass is already in progress");
+   attachmentFormats = AttachmentFormats(colorAttachments, depthStencilAttachment);
 
    StaticVector<vk::RenderingAttachmentInfo, kMaxColorAttachments> colorRenderingAttachmentInfo;
    for (const AttachmentInfo& colorAttachment : colorAttachments)
@@ -212,9 +196,16 @@ void RenderPass::beginRenderPass(vk::CommandBuffer commandBuffer, std::span<cons
    commandBuffer.beginRendering(renderingInfo, GraphicsContext::GetDynamicLoader());
 
    setViewport(commandBuffer, renderArea);
+
+   onRenderPassBegin();
 }
 
 void RenderPass::endRenderPass(vk::CommandBuffer commandBuffer)
 {
+   ASSERT(attachmentFormats.has_value());
+   attachmentFormats.reset();
+
    commandBuffer.endRendering(GraphicsContext::GetDynamicLoader());
+
+   onRenderPassEnd();
 }

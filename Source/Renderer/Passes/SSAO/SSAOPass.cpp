@@ -150,7 +150,7 @@ void SSAOPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sc
    renderBlur(commandBuffer, sceneRenderInfo, depthTexture, ssaoBlurTexture, ssaoTexture, false);
 }
 
-Pipeline SSAOPass::createPipeline(const PipelineDescription<SSAOPass>& description)
+Pipeline SSAOPass::createPipeline(const PipelineDescription<SSAOPass>& description, const AttachmentFormats& attachmentFormats)
 {
    vk::PipelineColorBlendAttachmentState attachmentState = vk::PipelineColorBlendAttachmentState()
       .setColorWriteMask(vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA)
@@ -161,9 +161,9 @@ Pipeline SSAOPass::createPipeline(const PipelineDescription<SSAOPass>& descripti
 
    PipelineData pipelineData;
    pipelineData.layout = description.blur ? blurPipelineLayout : ssaoPipelineLayout;
-   pipelineData.sampleCount = getSampleCount();
-   pipelineData.depthStencilFormat = getDepthStencilFormat();
-   pipelineData.colorFormats = getColorFormats();
+   pipelineData.sampleCount = attachmentFormats.sampleCount;
+   pipelineData.depthStencilFormat = attachmentFormats.depthStencilFormat;
+   pipelineData.colorFormats = attachmentFormats.colorFormats;
    pipelineData.shaderStages = description.blur ? blurShader->getStages(description.horizontal) : ssaoShader->getStages();
    pipelineData.colorBlendStates = { attachmentState };
 

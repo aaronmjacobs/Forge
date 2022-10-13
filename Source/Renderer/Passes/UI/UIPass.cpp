@@ -51,13 +51,13 @@ UIPass::~UIPass()
    terminateRenderPass();
 }
 
-void UIPass::render(vk::CommandBuffer commandBuffer, Texture& uiTexture)
+void UIPass::render(vk::CommandBuffer commandBuffer, Texture& outputTexture)
 {
    SCOPED_LABEL(getName());
 
-   uiTexture.transitionLayout(commandBuffer, TextureLayoutType::AttachmentWrite);
+   outputTexture.transitionLayout(commandBuffer, TextureLayoutType::AttachmentWrite);
 
-   vk::Rect2D renderArea(vk::Offset2D(0, 0), uiTexture.getExtent());
+   vk::Rect2D renderArea(vk::Offset2D(0, 0), outputTexture.getExtent());
 
    vk::ClearValue clearValue(std::array<float, 4> { 0.0f, 0.0f, 0.0f, 0.0f });
 
@@ -76,29 +76,31 @@ void UIPass::render(vk::CommandBuffer commandBuffer, Texture& uiTexture)
    commandBuffer.endRenderPass();
 }
 
-void UIPass::updateFramebuffer(const Texture& uiTexture)
+void UIPass::onOutputTextureCreated(const Texture& outputTexture)
 {
+   vk::Format format = outputTexture.getImageProperties().format;
+   vk::SampleCountFlagBits sampleCount = outputTexture.getTextureProperties().sampleCount;
+
+   if (format != cachedFormat || sampleCount != cachedSampleCount)
+   {
+      terminateImgui();
+      terminateRenderPass();
+
+      initializeRenderPass(format, sampleCount);
+      initializeImgui();
+   }
+
    terminateFramebuffer();
-   initializeFramebuffer(uiTexture);
+   initializeFramebuffer(outputTexture);
 }
 
-void UIPass::postUpdateAttachmentFormats()
-{
-   terminateImgui();
-   terminateRenderPass();
-
-   initializeRenderPass();
-   initializeImgui();
-}
-
-void UIPass::initializeRenderPass()
+void UIPass::initializeRenderPass(vk::Format format, vk::SampleCountFlagBits sampleCount)
 {
    ASSERT(!renderPass);
-   ASSERT(getColorFormats().size() == 1);
 
    vk::AttachmentDescription colorAttachment = vk::AttachmentDescription()
-      .setFormat(getColorFormats()[0])
-      .setSamples(getSampleCount())
+      .setFormat(format)
+      .setSamples(sampleCount)
       .setLoadOp(vk::AttachmentLoadOp::eClear)
       .setStoreOp(vk::AttachmentStoreOp::eStore)
       .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
@@ -132,6 +134,9 @@ void UIPass::initializeRenderPass()
 
    renderPass = device.createRenderPass(renderPassCreateInfo);
    NAME_CHILD(renderPass, "Render Pass");
+
+   cachedFormat = format;
+   cachedSampleCount = sampleCount;
 }
 
 void UIPass::terminateRenderPass()
@@ -172,7 +177,7 @@ void UIPass::initializeImgui()
       initInfo.Device = device;
       initInfo.QueueFamily = context.getQueueFamilyIndices().graphicsFamily;
       initInfo.Queue = context.getGraphicsQueue();
-      initInfo.PipelineCache = nullptr;
+      initInfo.PipelineCache = context.getPipelineCache();
       initInfo.DescriptorPool = descriptorPool;
       initInfo.Subpass = 0;
       initInfo.MinImageCount = context.getSwapchain().getMinImageCount();

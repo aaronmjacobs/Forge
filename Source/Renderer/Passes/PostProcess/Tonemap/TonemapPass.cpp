@@ -129,7 +129,7 @@ void TonemapPass::render(vk::CommandBuffer commandBuffer, Texture& outputTexture
    });
 }
 
-Pipeline TonemapPass::createPipeline(const PipelineDescription<TonemapPass>& description)
+Pipeline TonemapPass::createPipeline(const PipelineDescription<TonemapPass>& description, const AttachmentFormats& attachmentFormats)
 {
    vk::PipelineColorBlendAttachmentState attachmentState = vk::PipelineColorBlendAttachmentState()
       .setColorWriteMask(vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA)
@@ -140,9 +140,9 @@ Pipeline TonemapPass::createPipeline(const PipelineDescription<TonemapPass>& des
 
    PipelineData pipelineData;
    pipelineData.layout = pipelineLayout;
-   pipelineData.sampleCount = getSampleCount();
-   pipelineData.depthStencilFormat = getDepthStencilFormat();
-   pipelineData.colorFormats = getColorFormats();
+   pipelineData.sampleCount = attachmentFormats.sampleCount;
+   pipelineData.depthStencilFormat = attachmentFormats.depthStencilFormat;
+   pipelineData.colorFormats = attachmentFormats.colorFormats;
    pipelineData.shaderStages = tonemapShader->getStages(description.hdr, description.withBloom, description.withUI);
    pipelineData.colorBlendStates = { attachmentState };
 

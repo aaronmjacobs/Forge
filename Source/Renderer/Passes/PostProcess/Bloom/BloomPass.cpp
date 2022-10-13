@@ -219,13 +219,13 @@ void BloomPass::render(vk::CommandBuffer commandBuffer, Texture& hdrColorTexture
    }
 }
 
-void BloomPass::recreateTextures()
+void BloomPass::recreateTextures(vk::Format format, vk::SampleCountFlagBits sampleCount)
 {
    destroyTextures();
-   createTextures();
+   createTextures(format, sampleCount);
 }
 
-Pipeline BloomPass::createPipeline(const PipelineDescription<BloomPass>& description)
+Pipeline BloomPass::createPipeline(const PipelineDescription<BloomPass>& description, const AttachmentFormats& attachmentFormats)
 {
    vk::PipelineColorBlendAttachmentState attachmentState = vk::PipelineColorBlendAttachmentState()
       .setColorWriteMask(vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA)
@@ -236,9 +236,9 @@ Pipeline BloomPass::createPipeline(const PipelineDescription<BloomPass>& descrip
 
    PipelineData pipelineData;
    pipelineData.layout = description.type == BloomPassType::Downsample ? downsamplePipelineLayout : upsamplePipelineLayout;
-   pipelineData.sampleCount = getSampleCount();
-   pipelineData.depthStencilFormat = getDepthStencilFormat();
-   pipelineData.colorFormats = getColorFormats();
+   pipelineData.sampleCount = attachmentFormats.sampleCount;
+   pipelineData.depthStencilFormat = attachmentFormats.depthStencilFormat;
+   pipelineData.colorFormats = attachmentFormats.colorFormats;
    pipelineData.shaderStages = description.type == BloomPassType::Downsample ? downsampleShader->getStages(description.quality) : upsampleShader->getStages(description.quality, description.type == BloomPassType::HorizontalUpsample);
    pipelineData.colorBlendStates = { attachmentState };
 
@@ -351,18 +351,15 @@ void BloomPass::renderUpsample(vk::CommandBuffer commandBuffer, uint32_t step, T
    });
 }
 
-void BloomPass::createTextures()
+void BloomPass::createTextures(vk::Format format, vk::SampleCountFlagBits sampleCount)
 {
-   ASSERT(getColorFormats().size() == 1);
-   vk::Format format = getColorFormats()[0];
-
    for (uint32_t i = 0; i < kNumSteps; ++i)
    {
       ASSERT(!textures[i]);
       ASSERT(!horizontalBlurTextures[i]);
 
-      textures[i] = createBloomTexture(context, format, getSampleCount(), 1 << (i + 1));
-      horizontalBlurTextures[i] = createBloomTexture(context, format, getSampleCount(), 1 << (i + 1));
+      textures[i] = createBloomTexture(context, format, sampleCount, 1 << (i + 1));
+      horizontalBlurTextures[i] = createBloomTexture(context, format, sampleCount, 1 << (i + 1));
 
       NAME_CHILD_POINTER(textures[i], "Texture " + DebugUtils::toString(i));
       NAME_CHILD_POINTER(horizontalBlurTextures[i], "Horizontal Blur Texture " + DebugUtils::toString(i));

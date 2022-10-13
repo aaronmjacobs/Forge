@@ -13,15 +13,12 @@ public:
    UIPass(const GraphicsContext& graphicsContext);
    ~UIPass();
 
-   void render(vk::CommandBuffer commandBuffer, Texture& uiTexture);
+   void render(vk::CommandBuffer commandBuffer, Texture& outputTexture);
 
-   void updateFramebuffer(const Texture& uiTexture);
-
-protected:
-   void postUpdateAttachmentFormats() override;
+   void onOutputTextureCreated(const Texture& outputTexture);
 
 private:
-   void initializeRenderPass();
+   void initializeRenderPass(vk::Format format, vk::SampleCountFlagBits sampleCount);
    void terminateRenderPass();
 
    void initializeFramebuffer(const Texture& uiTexture);
@@ -35,4 +32,7 @@ private:
 
    vk::DescriptorPool descriptorPool;
    bool imguiInitialized = false;
+
+   vk::Format cachedFormat = vk::Format::eUndefined;
+   vk::SampleCountFlagBits cachedSampleCount = vk::SampleCountFlagBits::e1;
 };

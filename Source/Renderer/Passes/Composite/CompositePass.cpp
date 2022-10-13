@@ -96,7 +96,7 @@ void CompositePass::render(vk::CommandBuffer commandBuffer, Texture& destination
    });
 }
 
-Pipeline CompositePass::createPipeline(const PipelineDescription<CompositePass>& description)
+Pipeline CompositePass::createPipeline(const PipelineDescription<CompositePass>& description, const AttachmentFormats& attachmentFormats)
 {
    vk::PipelineColorBlendAttachmentState attachmentState = vk::PipelineColorBlendAttachmentState()
       .setColorWriteMask(vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA)
@@ -113,9 +113,9 @@ Pipeline CompositePass::createPipeline(const PipelineDescription<CompositePass>&
 
    PipelineData pipelineData;
    pipelineData.layout = pipelineLayout;
-   pipelineData.sampleCount = getSampleCount();
-   pipelineData.depthStencilFormat = getDepthStencilFormat();
-   pipelineData.colorFormats = getColorFormats();
+   pipelineData.sampleCount = attachmentFormats.sampleCount;
+   pipelineData.depthStencilFormat = attachmentFormats.depthStencilFormat;
+   pipelineData.colorFormats = attachmentFormats.colorFormats;
    pipelineData.shaderStages = compositeShader->getStages(description.mode);
    pipelineData.colorBlendStates = { attachmentState };
 

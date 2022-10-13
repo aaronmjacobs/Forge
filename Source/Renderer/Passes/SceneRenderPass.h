@@ -26,13 +26,25 @@ public:
 
    ~SceneRenderPass()
    {
-      pipelineMap.clear();
    }
 
 protected:
-   void postUpdateAttachmentFormats() override
+   void onRenderPassBegin() override
    {
-      pipelineMap.clear();
+      const AttachmentFormats& attachmentFormats = getAttachmentFormats();
+
+      auto location = pipelineMapsByAttachmentFormat.find(attachmentFormats);
+      if (location == pipelineMapsByAttachmentFormat.end())
+      {
+         location = pipelineMapsByAttachmentFormat.emplace(attachmentFormats, PipelineMap{}).first;
+      }
+
+      currentPipelineMap = &location->second;
+   }
+
+   void onRenderPassEnd() override
+   {
+      currentPipelineMap = nullptr;
    }
 
    template<BlendMode blendMode>
@@ -103,15 +115,20 @@ protected:
 
    const Pipeline& getPipeline(const PipelineDescription<Derived>& description)
    {
-      auto location = pipelineMap.find(description);
-      if (location == pipelineMap.end())
+      ASSERT(currentPipelineMap);
+
+      auto location = currentPipelineMap->find(description);
+      if (location == currentPipelineMap->end())
       {
-         location = pipelineMap.emplace(description, static_cast<Derived*>(this)->createPipeline(description)).first;
+         location = currentPipelineMap->emplace(description, static_cast<Derived*>(this)->createPipeline(description, getAttachmentFormats())).first;
       }
 
       return location->second;
    }
 
 private:
-   std::unordered_map<PipelineDescription<Derived>, Pipeline> pipelineMap;
+   using PipelineMap = std::unordered_map<PipelineDescription<Derived>, Pipeline>;
+
+   std::unordered_map<AttachmentFormats, PipelineMap> pipelineMapsByAttachmentFormat;
+   PipelineMap* currentPipelineMap = nullptr;
 };

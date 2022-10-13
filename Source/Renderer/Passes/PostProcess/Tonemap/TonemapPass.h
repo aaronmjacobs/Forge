@@ -40,7 +40,7 @@ public:
 protected:
    friend class SceneRenderPass<TonemapPass>;
 
-   Pipeline createPipeline(const PipelineDescription<TonemapPass>& description);
+   Pipeline createPipeline(const PipelineDescription<TonemapPass>& description, const AttachmentFormats& attachmentFormats);
 
 private:
    std::unique_ptr<TonemapShader> tonemapShader;
