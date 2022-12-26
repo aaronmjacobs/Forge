@@ -5,6 +5,7 @@
 #include "Graphics/DebugUtils.h"
 #include "Graphics/Mesh.h"
 #include "Graphics/GraphicsContext.h"
+#include "Graphics/RenderPass.h"
 
 #include <utility>
 
@@ -92,6 +93,13 @@ namespace
 
       return context.getDevice().createGraphicsPipeline(context.getPipelineCache(), graphicsPipelineCreateInfo).value;
    }
+}
+
+PipelineData::PipelineData(const AttachmentFormats& attachmentFormats)
+   : sampleCount(attachmentFormats.sampleCount)
+   , depthStencilFormat(attachmentFormats.depthStencilFormat)
+   , colorFormats(attachmentFormats.colorFormats)
+{
 }
 
 Pipeline::Pipeline(const GraphicsContext& graphicsContext, const PipelineInfo& pipelineInfo, const PipelineData& pipelineData)

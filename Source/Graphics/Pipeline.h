@@ -5,6 +5,8 @@
 #include <span>
 #include <vector>
 
+struct AttachmentFormats;
+
 enum class PipelinePassType
 {
    Mesh,
@@ -34,6 +36,9 @@ struct PipelineData
 
    std::vector<vk::PipelineShaderStageCreateInfo> shaderStages;
    std::vector<vk::PipelineColorBlendAttachmentState> colorBlendStates;
+
+   PipelineData() = default;
+   PipelineData(const AttachmentFormats& attachmentFormats);
 };
 
 class Pipeline : public GraphicsResource

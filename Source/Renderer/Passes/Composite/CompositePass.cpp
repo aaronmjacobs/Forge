@@ -111,11 +111,8 @@ Pipeline CompositePass::createPipeline(const PipelineDescription<CompositePass>&
    PipelineInfo pipelineInfo;
    pipelineInfo.passType = PipelinePassType::Screen;
 
-   PipelineData pipelineData;
+   PipelineData pipelineData(attachmentFormats);
    pipelineData.layout = pipelineLayout;
-   pipelineData.sampleCount = attachmentFormats.sampleCount;
-   pipelineData.depthStencilFormat = attachmentFormats.depthStencilFormat;
-   pipelineData.colorFormats = attachmentFormats.colorFormats;
    pipelineData.shaderStages = compositeShader->getStages(description.mode);
    pipelineData.colorBlendStates = { attachmentState };
 

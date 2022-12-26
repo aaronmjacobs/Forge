@@ -118,11 +118,8 @@ Pipeline DepthPass::createPipeline(const PipelineDescription<DepthPass>& descrip
    pipelineInfo.twoSided = description.twoSided;
    pipelineInfo.swapFrontFace = description.cubemap; // Projection matrix Y values will be inverted when rendering to a cubemap, which swaps which faces are "front" facing
 
-   PipelineData pipelineData;
+   PipelineData pipelineData(attachmentFormats);
    pipelineData.layout = description.masked ? maskedPipelineLayout : opaquePipelineLayout;
-   pipelineData.sampleCount = attachmentFormats.sampleCount;
-   pipelineData.depthStencilFormat = attachmentFormats.depthStencilFormat;
-   pipelineData.colorFormats = attachmentFormats.colorFormats;
    pipelineData.shaderStages = description.masked ? depthMaskedShader->getStages() : depthShader->getStages();
    pipelineData.colorBlendStates = {};
 

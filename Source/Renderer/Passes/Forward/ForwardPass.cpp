@@ -247,11 +247,8 @@ Pipeline ForwardPass::createPipeline(const PipelineDescription<ForwardPass>& des
    pipelineInfo.enableDepthTest = true;
    pipelineInfo.twoSided = description.twoSided;
 
-   PipelineData pipelineData;
+   PipelineData pipelineData(attachmentFormats);
    pipelineData.layout = description.skybox ? skyboxPipelineLayout : forwardPipelineLayout;
-   pipelineData.sampleCount = attachmentFormats.sampleCount;
-   pipelineData.depthStencilFormat = attachmentFormats.depthStencilFormat;
-   pipelineData.colorFormats = attachmentFormats.colorFormats;
    pipelineData.shaderStages = description.skybox ? skyboxShader->getStages() : forwardShader->getStages(description.withTextures, description.withBlending);
    pipelineData.colorBlendStates = blendAttachmentStates;
 

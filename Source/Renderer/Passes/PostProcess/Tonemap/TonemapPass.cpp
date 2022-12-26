@@ -138,11 +138,8 @@ Pipeline TonemapPass::createPipeline(const PipelineDescription<TonemapPass>& des
    PipelineInfo pipelineInfo;
    pipelineInfo.passType = PipelinePassType::Screen;
 
-   PipelineData pipelineData;
+   PipelineData pipelineData(attachmentFormats);
    pipelineData.layout = pipelineLayout;
-   pipelineData.sampleCount = attachmentFormats.sampleCount;
-   pipelineData.depthStencilFormat = attachmentFormats.depthStencilFormat;
-   pipelineData.colorFormats = attachmentFormats.colorFormats;
    pipelineData.shaderStages = tonemapShader->getStages(description.hdr, description.withBloom, description.withUI);
    pipelineData.colorBlendStates = { attachmentState };
 

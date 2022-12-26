@@ -98,11 +98,8 @@ Pipeline NormalPass::createPipeline(const PipelineDescription<NormalPass>& descr
    pipelineInfo.writeDepth = true;
    pipelineInfo.twoSided = description.twoSided;
 
-   PipelineData pipelineData;
+   PipelineData pipelineData(attachmentFormats);
    pipelineData.layout = pipelineLayout;
-   pipelineData.sampleCount = attachmentFormats.sampleCount;
-   pipelineData.depthStencilFormat = attachmentFormats.depthStencilFormat;
-   pipelineData.colorFormats = attachmentFormats.colorFormats;
    pipelineData.shaderStages = normalShader->getStages(description.withTextures, description.masked);
    pipelineData.colorBlendStates = { attachmentState };
 
