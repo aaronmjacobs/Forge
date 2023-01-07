@@ -32,6 +32,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include <algorithm>
+#include <execution>
 #include <span>
 
 namespace
@@ -282,6 +283,167 @@ namespace
 
       std::array<glm::vec4, 6> frustumPlanes = computeFrustumPlanes(view.getMatrices().worldToClip);
 
+ #define PARALLEL_TEST 1
+ #if PARALLEL_TEST
+      struct ComponentInfo
+      {
+         const TransformComponent* transformComponent = nullptr;
+         const MeshComponent* meshComponent = nullptr;
+         const Mesh* mesh = nullptr;
+      };
+
+      struct SectionInfo
+      {
+         std::size_t selfIndex = 0;
+         std::size_t componentIndex = 0;
+         uint32_t section = 0;
+      };
+
+      std::vector<ComponentInfo> componentInfo;
+      std::vector<SectionInfo> sectionInfo;
+      scene.forEach<TransformComponent, MeshComponent>([&resourceManager, isShadowPass, &componentInfo, &sectionInfo](const TransformComponent& transformComponent, const MeshComponent& meshComponent)
+      {
+         if (isShadowPass && !meshComponent.castsShadows)
+         {
+            return;
+         }
+
+         if (const Mesh* mesh = resourceManager.getMesh(meshComponent.meshHandle))
+         {
+            componentInfo.push_back(ComponentInfo{ &transformComponent, &meshComponent, mesh });
+            std::size_t componentIndex = componentInfo.size() - 1;
+
+            uint32_t numSections = mesh->getNumSections();
+            for (uint32_t section = 0; section < numSections; ++section)
+            {
+               sectionInfo.push_back(SectionInfo{ sectionInfo.size(), componentIndex, section });
+            }
+         }
+      });
+
+      std::vector<std::optional<MeshRenderInfo>> optMeshRenderInfo(sectionInfo.size());
+      std::for_each(std::execution::par, sectionInfo.begin(), sectionInfo.end(), [&sceneRenderInfo, &componentInfo, &optMeshRenderInfo, &resourceManager, &frustumPlanes, isShadowPass](const SectionInfo& sectInfo)
+      {
+         const ComponentInfo& compInfo = componentInfo[sectInfo.componentIndex];
+         const TransformComponent& transformComponent = *compInfo.transformComponent;
+         const MeshComponent& meshComponent = *compInfo.meshComponent;
+         const Mesh* mesh = compInfo.mesh;
+
+         ASSERT(!isShadowPass || meshComponent.castsShadows);
+         ASSERT(mesh);
+
+         MeshRenderInfo info(*mesh, transformComponent.getAbsoluteTransform());
+
+         bool anyVisible = false;
+         uint32_t numSections = mesh->getNumSections();
+
+         info.materials.resize(numSections);
+         info.visibleOpaqueSections.reserve(numSections);
+         info.visibleMaskedSections.reserve(numSections);
+         info.visibleTranslucentSections.reserve(numSections);
+
+         for (uint32_t section = 0; section < numSections; ++section)
+         {
+            const MeshSection& meshSection = mesh->getSection(section);
+
+            if (const Material* material = resourceManager.getMaterial(meshSection.materialHandle))
+            {
+               bool visible = !frustumCull(transformBounds(meshSection.bounds, info.transform), frustumPlanes);
+               if (visible)
+               {
+                  anyVisible = true;
+
+                  BlendMode blendMode = material->getBlendMode();
+                  if (blendMode == BlendMode::Opaque)
+                  {
+                     info.visibleOpaqueSections.push_back(section);
+                  }
+                  else if (blendMode == BlendMode::Masked)
+                  {
+                     info.visibleMaskedSections.push_back(section);
+                  }
+                  else if (blendMode == BlendMode::Translucent)
+                  {
+                     info.visibleTranslucentSections.push_back(section);
+                  }
+
+                  info.materials[section] = material;
+               }
+            }
+         }
+
+         if (anyVisible)
+         {
+            info.visibleOpaqueSections.shrink_to_fit();
+            info.visibleMaskedSections.shrink_to_fit();
+            info.visibleTranslucentSections.shrink_to_fit();
+
+            sceneRenderInfo.meshes.push_back(info);
+         }
+      });
+
+      /*sceneRenderInfo.meshes = scene.collectParallel<MeshRenderInfo, TransformComponent, MeshComponent>([&resourceManager, &frustumPlanes, isShadowPass](const TransformComponent* transformComponent, const MeshComponent* meshComponent) -> std::optional<MeshRenderInfo>
+      {
+         if (isShadowPass && !meshComponent->castsShadows)
+         {
+            return std::nullopt;
+         }
+
+         if (const Mesh* mesh = resourceManager.getMesh(meshComponent->meshHandle))
+         {
+            MeshRenderInfo info(*mesh, transformComponent->getAbsoluteTransform());
+
+            bool anyVisible = false;
+            uint32_t numSections = mesh->getNumSections();
+
+            info.materials.resize(numSections);
+            info.visibleOpaqueSections.reserve(numSections);
+            info.visibleMaskedSections.reserve(numSections);
+            info.visibleTranslucentSections.reserve(numSections);
+
+            for (uint32_t section = 0; section < numSections; ++section)
+            {
+               const MeshSection& meshSection = mesh->getSection(section);
+
+               if (const Material* material = resourceManager.getMaterial(meshSection.materialHandle))
+               {
+                  bool visible = !frustumCull(transformBounds(meshSection.bounds, info.transform), frustumPlanes);
+                  if (visible)
+                  {
+                     anyVisible = true;
+
+                     BlendMode blendMode = material->getBlendMode();
+                     if (blendMode == BlendMode::Opaque)
+                     {
+                        info.visibleOpaqueSections.push_back(section);
+                     }
+                     else if (blendMode == BlendMode::Masked)
+                     {
+                        info.visibleMaskedSections.push_back(section);
+                     }
+                     else if (blendMode == BlendMode::Translucent)
+                     {
+                        info.visibleTranslucentSections.push_back(section);
+                     }
+
+                     info.materials[section] = material;
+                  }
+               }
+            }
+
+            if (anyVisible)
+            {
+               info.visibleOpaqueSections.shrink_to_fit();
+               info.visibleMaskedSections.shrink_to_fit();
+               info.visibleTranslucentSections.shrink_to_fit();
+
+               return info;
+            }
+         }
+
+         return std::nullopt;
+      });*/
+#else
       scene.forEach<TransformComponent, MeshComponent>([&resourceManager, &sceneRenderInfo, &frustumPlanes, isShadowPass](const TransformComponent& transformComponent, const MeshComponent& meshComponent)
       {
          if (isShadowPass && !meshComponent.castsShadows)
@@ -341,6 +503,7 @@ namespace
             }
          }
       });
+ #endif
 
       std::sort(sceneRenderInfo.meshes.begin(), sceneRenderInfo.meshes.end(), [viewPosition = view.getMatrices().viewPosition](const MeshRenderInfo& first, const MeshRenderInfo& second)
       {
