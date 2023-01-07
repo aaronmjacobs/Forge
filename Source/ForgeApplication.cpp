@@ -400,7 +400,7 @@ void ForgeApplication::initializeRenderer()
    {
       if (pressed)
       {
-         DebugUtils::setLabelsEnabled(!DebugUtils::areLabelsEnabled());
+         DebugUtils::setLabelsEnabled(!DebugUtils::labelsAreEnabled());
       }
    });
 #endif // FORGE_WITH_DEBUG_UTILS

@@ -86,7 +86,7 @@ namespace DebugUtils
       setChildName(device, item, parent, name.c_str());
    }
 
-   bool areLabelsEnabled();
+   bool labelsAreEnabled();
    void setLabelsEnabled(bool enabled);
 
    void insertInlineLabel(vk::CommandBuffer commandBuffer, const char* labelName, const std::array<float, 4>& color = {});

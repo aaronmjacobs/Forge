@@ -354,7 +354,7 @@ namespace DebugUtils
       return dynamic[index];
    }
 
-   bool areLabelsEnabled()
+   bool labelsAreEnabled()
    {
       return labelsEnabled;
    }
@@ -366,7 +366,7 @@ namespace DebugUtils
 
    void insertInlineLabel(vk::CommandBuffer commandBuffer, const char* labelName, const std::array<float, 4>& color /*= {}*/)
    {
-      if (areLabelsEnabled())
+      if (labelsAreEnabled())
       {
          vk::DebugUtilsLabelEXT label(labelName);
          commandBuffer.insertDebugUtilsLabelEXT(label, GraphicsContext::GetDynamicLoader());
@@ -374,10 +374,11 @@ namespace DebugUtils
    }
 
    ScopedCommandBufferLabel::ScopedCommandBufferLabel(vk::CommandBuffer commandBuffer_, const char* labelName, const std::array<float, 4>& color /*= {}*/)
-      : commandBuffer(commandBuffer_)
    {
-      if (areLabelsEnabled())
+      if (labelsAreEnabled())
       {
+         commandBuffer = commandBuffer_;
+
          vk::DebugUtilsLabelEXT label(labelName, color);
          commandBuffer.beginDebugUtilsLabelEXT(label, GraphicsContext::GetDynamicLoader());
       }
