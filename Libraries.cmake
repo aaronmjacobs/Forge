@@ -3,12 +3,14 @@ set(LIB_DIR "${PROJECT_SOURCE_DIR}/Libraries")
 set(BUILD_SHARED_LIBS ON CACHE INTERNAL "Build package with shared libraries.")
 
 # Assimp
-add_subdirectory("${LIB_DIR}/assimp")
 set(ASSIMP_NO_EXPORT ON CACHE INTERNAL "Disable Assimp's export functionality.")
-set(ASSIMP_BUILD_ASSIMP_TOOLS OFF CACHE INTERNAL "If the supplementary tools for Assimp are built in addition to the library.")
 set(ASSIMP_BUILD_TESTS OFF CACHE INTERNAL "If the test suite for Assimp is built in addition to the library.")
 set(ASSIMP_INSTALL OFF CACHE INTERNAL "Disable this if you want to use assimp as a submodule.")
 set(ASSIMP_IGNORE_GIT_HASH ON CACHE INTERNAL "Don't call git to get the hash.")
+set(ASSIMP_BUILD_ALL_IMPORTERS_BY_DEFAULT OFF CACHE INTERNAL "default value of all ASSIMP_BUILD_XXX_IMPORTER values")
+set(ASSIMP_BUILD_GLTF_IMPORTER ON CACHE INTERNAL "")
+set(ASSIMP_BUILD_OBJ_IMPORTER ON CACHE INTERNAL "")
+add_subdirectory("${LIB_DIR}/assimp")
 target_link_libraries(${PROJECT_NAME} PUBLIC assimp)
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
    COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:assimp>" "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
