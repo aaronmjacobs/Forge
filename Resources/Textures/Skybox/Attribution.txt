@@ -1,0 +1,5 @@
+Kloofendal texture (CC0 license)
+https://polyhaven.com/a/kloofendal_48d_partly_cloudy
+
+Cubemap conversion
+https://matheowis.github.io/HDRI-to-CubeMap/

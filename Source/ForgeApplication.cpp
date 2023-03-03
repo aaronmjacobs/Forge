@@ -22,6 +22,7 @@
 #include "Scene/Components/LightComponent.h"
 #include "Scene/Components/MeshComponent.h"
 #include "Scene/Components/NameComponent.h"
+#include "Scene/Components/SkyboxComponent.h"
 #include "Scene/Components/TransformComponent.h"
 
 #include "UI/UI.h"
@@ -548,6 +549,11 @@ void ForgeApplication::loadScene()
          euler.x = glm::clamp(euler.x + value * kCameraLookSpeed * 0.75f * scene.getRawDeltaTime(), -89.0f, 89.0f);
          cameraTransform.orientation = glm::quat(glm::radians(euler));
       });
+   }
+
+   {
+      Entity skyboxEntity = scene.createEntity();
+      skyboxEntity.createComponent<SkyboxComponent>().textureHandle = resourceManager->loadTexture("Resources/Textures/Skybox/Kloofendal.dds");
    }
 
    {
