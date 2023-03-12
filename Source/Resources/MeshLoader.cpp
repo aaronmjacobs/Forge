@@ -1,4 +1,4 @@
-#include "Resources/MeshResourceManager.h"
+#include "Resources/MeshLoader.h"
 
 #include "Core/Enum.h"
 
@@ -321,32 +321,30 @@ namespace
    }
 }
 
-MeshResourceManager::MeshResourceManager(const GraphicsContext& graphicsContext, ResourceManager& owningResourceManager)
-   : ResourceManagerBase(graphicsContext, owningResourceManager)
+MeshLoader::MeshLoader(const GraphicsContext& graphicsContext, ResourceManager& owningResourceManager)
+   : ResourceLoader(graphicsContext, owningResourceManager)
 {
 }
 
-MeshHandle MeshResourceManager::load(const std::filesystem::path& path, const MeshLoadOptions& loadOptions)
+MeshHandle MeshLoader::load(const std::filesystem::path& path, const MeshLoadOptions& loadOptions)
 {
-   if (std::optional<std::filesystem::path> canonicalPath = ResourceHelpers::makeCanonical(path))
+   if (std::optional<std::filesystem::path> canonicalPath = ResourceLoadHelpers::makeCanonical(path))
    {
       std::string canonicalPathString = canonicalPath->string();
-      if (std::optional<Handle> cachedHandle = getCachedHandle(canonicalPathString))
+      if (Handle cachedHandle = container.findHandle(canonicalPathString))
       {
-         return *cachedHandle;
+         return cachedHandle;
       }
 
       std::vector<MeshSectionSourceData> sourceData = loadMesh(*canonicalPath, loadOptions, resourceManager);
       if (!sourceData.empty())
       {
-         MeshHandle handle = emplaceResource(context, sourceData);
-         cacheHandle(canonicalPathString, handle);
-
-         NAME_POINTER(context.getDevice(), get(handle), ResourceHelpers::getName(*canonicalPath));
+         MeshHandle handle = container.emplace(canonicalPathString, context, sourceData);
+         NAME_POINTER(context.getDevice(), get(handle), ResourceLoadHelpers::getName(*canonicalPath));
 
          return handle;
       }
    }
 
-   return MeshHandle();
+   return MeshHandle{};
 }

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Resources/ResourceManagerBase.h"
+#include "Resources/ResourceLoader.h"
 
 #include "Graphics/Mesh.h"
 
@@ -25,10 +25,10 @@ struct MeshLoadOptions
    bool interpretTextureAlphaAsMask = false;
 };
 
-class MeshResourceManager : public ResourceManagerBase<Mesh, std::string>
+class MeshLoader : public ResourceLoader<Mesh, std::string>
 {
 public:
-   MeshResourceManager(const GraphicsContext& graphicsContext, ResourceManager& owningResourceManager);
+   MeshLoader(const GraphicsContext& graphicsContext, ResourceManager& owningResourceManager);
 
    MeshHandle load(const std::filesystem::path& path, const MeshLoadOptions& loadOptions = {});
 };

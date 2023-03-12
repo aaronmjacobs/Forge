@@ -7,12 +7,12 @@
 #include "Resources/ResourceTypes.h"
 
 class DynamicDescriptorPool;
-class MaterialResourceManager;
+class MaterialLoader;
 
 class Material : public GraphicsResource
 {
 public:
-   Material(const GraphicsContext& graphicsContext, MaterialResourceManager& owningResourceManager, const vk::DescriptorSetLayoutCreateInfo& createInfo);
+   Material(const GraphicsContext& graphicsContext, MaterialLoader& owningMaterialLoader, const vk::DescriptorSetLayoutCreateInfo& createInfo);
 
    const DescriptorSet& getDescriptorSet() const
    {
@@ -43,10 +43,10 @@ public:
    {
    }
 
-   friend class MaterialResourceManager;
+   friend class MaterialLoader;
 
 protected:
-   MaterialResourceManager& materialResourceManager;
+   MaterialLoader& materialLoader;
    DescriptorSet descriptorSet;
    BlendMode blendMode = BlendMode::Opaque;
    bool twoSided = false;

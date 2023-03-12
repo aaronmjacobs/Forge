@@ -1,4 +1,4 @@
-#include "Resources/DDSImageLoader.h"
+#include "Resources/DDSImage.h"
 
 #include "Resources/Image.h"
 
@@ -275,7 +275,7 @@ namespace
       uint32_t pitchOrLinearSize = 0;
       uint32_t depth = 0;
       uint32_t mipMapCount = 0;
-      std::array<uint32_t, 11> reserved1;
+      std::array<uint32_t, 11> reserved1{};
       DDSPixelFormat pixelFormat;
       DDSCaps::Enum caps = DDSCaps::None;
       DDSCaps2::Enum caps2 = DDSCaps2::None;
@@ -782,7 +782,7 @@ namespace
    };
 }
 
-namespace DDSImageLoader
+namespace DDS
 {
    std::unique_ptr<Image> loadImage(std::vector<uint8_t> fileData, bool sRGBHint)
    {

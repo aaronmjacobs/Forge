@@ -1,8 +1,8 @@
-#include "Resources/ResourceManagerBase.h"
+#include "Resources/ResourceLoader.h"
 
 #include <PlatformUtils/IOUtils.h>
 
-namespace ResourceHelpers
+namespace ResourceLoadHelpers
 {
    std::optional<std::filesystem::path> makeCanonical(const std::filesystem::path& path)
    {
@@ -18,7 +18,7 @@ namespace ResourceHelpers
          }
       }
 
-      return {};
+      return std::nullopt;
    }
 
 #if FORGE_WITH_DEBUG_UTILS

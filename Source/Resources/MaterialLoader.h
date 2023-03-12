@@ -5,8 +5,7 @@
 #include "Graphics/DynamicDescriptorPool.h"
 #include "Graphics/Material.h"
 
-#include "Resources/ResourceManagerBase.h"
-#include "Resources/TextureResourceManager.h"
+#include "Resources/ResourceLoader.h"
 
 #include <glm/glm.hpp>
 
@@ -60,11 +59,11 @@ struct MaterialParameters
 
 USE_MEMBER_HASH_FUNCTION(MaterialParameters);
 
-class MaterialResourceManager : public ResourceManagerBase<Material, MaterialParameters>
+class MaterialLoader : public ResourceLoader<Material, MaterialParameters>
 {
 public:
-   MaterialResourceManager(const GraphicsContext& graphicsContext, ResourceManager& owningResourceManager);
-   ~MaterialResourceManager();
+   MaterialLoader(const GraphicsContext& graphicsContext, ResourceManager& owningResourceManager);
+   ~MaterialLoader();
 
    void updateMaterials();
 

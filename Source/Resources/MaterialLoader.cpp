@@ -1,4 +1,4 @@
-#include "MaterialResourceManager.h"
+#include "MaterialLoader.h"
 
 #include "Graphics/DebugUtils.h"
 
@@ -66,8 +66,8 @@ std::size_t MaterialParameters::hash() const
    return hash;
 }
 
-MaterialResourceManager::MaterialResourceManager(const GraphicsContext& graphicsContext, ResourceManager& owningResourceManager)
-   : ResourceManagerBase(graphicsContext, owningResourceManager)
+MaterialLoader::MaterialLoader(const GraphicsContext& graphicsContext, ResourceManager& owningResourceManager)
+   : ResourceLoader(graphicsContext, owningResourceManager)
    , dynamicDescriptorPool(graphicsContext, getDynamicDescriptorPoolSizes())
 {
    NAME_ITEM(context.getDevice(), dynamicDescriptorPool, "Material Resource Manager Dynamic Descriptor Pool");
@@ -93,12 +93,12 @@ MaterialResourceManager::MaterialResourceManager(const GraphicsContext& graphics
    NAME_ITEM(context.getDevice(), sampler, "Default Material Sampler");
 }
 
-MaterialResourceManager::~MaterialResourceManager()
+MaterialLoader::~MaterialLoader()
 {
    context.getDevice().destroySampler(sampler);
 }
 
-void MaterialResourceManager::updateMaterials()
+void MaterialLoader::updateMaterials()
 {
    for (auto& [handle, framesToUpdate] : materialsToUpdate)
    {
@@ -117,17 +117,16 @@ void MaterialResourceManager::updateMaterials()
    });
 }
 
-MaterialHandle MaterialResourceManager::load(const MaterialParameters& parameters)
+MaterialHandle MaterialLoader::load(const MaterialParameters& parameters)
 {
-   if (std::optional<Handle> cachedHandle = getCachedHandle(parameters))
+   if (Handle cachedHandle = container.findHandle(parameters))
    {
-      return *cachedHandle;
+      return cachedHandle;
    }
 
    if (std::unique_ptr<Material> material = createMaterial(parameters))
    {
-      MaterialHandle handle = addResource(std::move(material));
-      cacheHandle(parameters, handle);
+      MaterialHandle handle = container.add(parameters, std::move(material));
 
       Material* addedMaterial = get(handle);
       ASSERT(addedMaterial);
@@ -136,15 +135,15 @@ MaterialHandle MaterialResourceManager::load(const MaterialParameters& parameter
       return handle;
    }
 
-   return MaterialHandle();
+   return MaterialHandle{};
 }
 
-void MaterialResourceManager::requestSetOfUpdates(Handle handle)
+void MaterialLoader::requestSetOfUpdates(Handle handle)
 {
    materialsToUpdate.insert_or_assign(handle, static_cast<int>(GraphicsContext::kMaxFramesInFlight));
 }
 
-std::unique_ptr<Material> MaterialResourceManager::createMaterial(const MaterialParameters& parameters)
+std::unique_ptr<Material> MaterialLoader::createMaterial(const MaterialParameters& parameters)
 {
    PhysicallyBasedMaterialParams pbrParams;
 

@@ -5,7 +5,7 @@
 
 #include "Math/MathUtils.h"
 
-#include "Resources/MaterialResourceManager.h"
+#include "Resources/MaterialLoader.h"
 
 // static
 const std::string PhysicallyBasedMaterial::kAlbedoTextureParameterName = "albedo";
@@ -65,8 +65,8 @@ vk::DescriptorSetLayout PhysicallyBasedMaterial::getLayout(const GraphicsContext
    return DescriptorSetLayout::get<PhysicallyBasedMaterial>(context);
 }
 
-PhysicallyBasedMaterial::PhysicallyBasedMaterial(const GraphicsContext& graphicsContext, MaterialResourceManager& owningResourceManager, const PhysicallyBasedMaterialParams& materialParams)
-   : Material(graphicsContext, owningResourceManager, DescriptorSetLayout::getCreateInfo<PhysicallyBasedMaterial>())
+PhysicallyBasedMaterial::PhysicallyBasedMaterial(const GraphicsContext& graphicsContext, MaterialLoader& owningMaterialLoader, const PhysicallyBasedMaterialParams& materialParams)
+   : Material(graphicsContext, owningMaterialLoader, DescriptorSetLayout::getCreateInfo<PhysicallyBasedMaterial>())
    , uniformBuffer(graphicsContext)
 {
    ASSERT(materialParams.albedoTexture && materialParams.normalTexture && materialParams.aoRoughnessMetalnessTexture);
@@ -94,17 +94,17 @@ PhysicallyBasedMaterial::PhysicallyBasedMaterial(const GraphicsContext& graphics
       imageInfo[frameIndex * 3 + 0] = vk::DescriptorImageInfo()
          .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
          .setImageView(materialParams.albedoTexture->getDefaultView())
-         .setSampler(materialResourceManager.getSampler());
+         .setSampler(materialLoader.getSampler());
 
       imageInfo[frameIndex * 3 + 1] = vk::DescriptorImageInfo()
          .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
          .setImageView(materialParams.normalTexture->getDefaultView())
-         .setSampler(materialResourceManager.getSampler());
+         .setSampler(materialLoader.getSampler());
 
       imageInfo[frameIndex * 3 + 2] = vk::DescriptorImageInfo()
          .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
          .setImageView(materialParams.aoRoughnessMetalnessTexture->getDefaultView())
-         .setSampler(materialResourceManager.getSampler());
+         .setSampler(materialLoader.getSampler());
 
       descriptorWrites[frameIndex * 4 + 0] = vk::WriteDescriptorSet()
          .setDstSet(descriptorSet.getSet(frameIndex))
@@ -218,5 +218,5 @@ void PhysicallyBasedMaterial::setAmbientOcclusion(float ambientOcclusion)
 
 void PhysicallyBasedMaterial::onUniformDataChanged()
 {
-   materialResourceManager.requestSetOfUpdates(getHandle());
+   materialLoader.requestSetOfUpdates(getHandle());
 }

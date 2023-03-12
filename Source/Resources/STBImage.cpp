@@ -1,4 +1,4 @@
-#include "Resources/STBImageLoader.h"
+#include "Resources/STBImage.h"
 
 #include "Resources/Image.h"
 
@@ -37,7 +37,7 @@ namespace
    };
 }
 
-namespace STBImageLoader
+namespace STB
 {
    std::unique_ptr<Image> loadImage(std::vector<uint8_t> fileData, bool sRGB)
    {

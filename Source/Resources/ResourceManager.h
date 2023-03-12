@@ -1,18 +1,21 @@
 #pragma once
 
-#include "MaterialResourceManager.h"
-#include "MeshResourceManager.h"
-#include "ShaderModuleResourceManager.h"
-#include "TextureResourceManager.h"
+#include "ResourceContainer.h"
+#include "ResourceTypes.h"
+
+#include "Resources/MaterialLoader.h"
+#include "Resources/MeshLoader.h"
+#include "Resources/ShaderModuleLoader.h"
+#include "Resources/TextureLoader.h"
 
 class ResourceManager
 {
 public:
    ResourceManager(const GraphicsContext& graphicsContext)
-      : materialResourceManager(graphicsContext, *this)
-      , meshResourceManager(graphicsContext, *this)
-      , shaderModuleResourceManager(graphicsContext, *this)
-      , textureResourceManager(graphicsContext, *this)
+      : materialLoader(graphicsContext, *this)
+      , meshLoader(graphicsContext, *this)
+      , shaderModuleLoader(graphicsContext, *this)
+      , textureLoader(graphicsContext, *this)
    {
    }
 
@@ -20,7 +23,7 @@ public:
 
    void update()
    {
-      materialResourceManager.updateMaterials();
+      materialLoader.updateMaterials();
    }
 
    void unloadAll()
@@ -41,158 +44,158 @@ public:
 
    MaterialHandle loadMaterial(const MaterialParameters& materialParameters)
    {
-      return materialResourceManager.load(materialParameters);
+      return materialLoader.load(materialParameters);
    }
 
    bool unloadMaterial(MaterialHandle handle)
    {
-      return materialResourceManager.unload(handle);
+      return materialLoader.unload(handle);
    }
 
    void unloadAllMaterials()
    {
-      materialResourceManager.unloadAll();
+      materialLoader.unloadAll();
    }
 
    void clearMaterials()
    {
-      materialResourceManager.clear();
+      materialLoader.clear();
    }
 
    Material* getMaterial(MaterialHandle handle)
    {
-      return materialResourceManager.get(handle);
+      return materialLoader.get(handle);
    }
 
    const Material* getMaterial(MaterialHandle handle) const
    {
-      return materialResourceManager.get(handle);
+      return materialLoader.get(handle);
    }
 
    const MaterialParameters* getMaterialParameters(MaterialHandle handle) const
    {
-      return materialResourceManager.getIdentifier(handle);
+      return materialLoader.findIdentifier(handle);
    }
 
    // Mesh
 
    MeshHandle loadMesh(const std::filesystem::path& path, const MeshLoadOptions& loadOptions = {})
    {
-      return meshResourceManager.load(path, loadOptions);
+      return meshLoader.load(path, loadOptions);
    }
 
    bool unloadMesh(MeshHandle handle)
    {
-      return meshResourceManager.unload(handle);
+      return meshLoader.unload(handle);
    }
 
    void unloadAllMeshes()
    {
-      meshResourceManager.unloadAll();
+      meshLoader.unloadAll();
    }
 
    void clearMeshes()
    {
-      meshResourceManager.clear();
+      meshLoader.clear();
    }
 
    Mesh* getMesh(MeshHandle handle)
    {
-      return meshResourceManager.get(handle);
+      return meshLoader.get(handle);
    }
 
    const Mesh* getMesh(MeshHandle handle) const
    {
-      return meshResourceManager.get(handle);
+      return meshLoader.get(handle);
    }
 
    const std::string* getMeshPath(MeshHandle handle) const
    {
-      return meshResourceManager.getIdentifier(handle);
+      return meshLoader.findIdentifier(handle);
    }
 
    // ShaderModule
 
    ShaderModuleHandle loadShaderModule(const std::filesystem::path& path)
    {
-      return shaderModuleResourceManager.load(path);
+      return shaderModuleLoader.load(path);
    }
 
    bool unloadShaderModule(ShaderModuleHandle handle)
    {
-      return shaderModuleResourceManager.unload(handle);
+      return shaderModuleLoader.unload(handle);
    }
 
    void unloadAllShaderModules()
    {
-      shaderModuleResourceManager.unloadAll();
+      shaderModuleLoader.unloadAll();
    }
 
    void clearShaderModules()
    {
-      shaderModuleResourceManager.clear();
+      shaderModuleLoader.clear();
    }
 
    ShaderModule* getShaderModule(ShaderModuleHandle handle)
    {
-      return shaderModuleResourceManager.get(handle);
+      return shaderModuleLoader.get(handle);
    }
 
    const ShaderModule* getShaderModule(ShaderModuleHandle handle) const
    {
-      return shaderModuleResourceManager.get(handle);
+      return shaderModuleLoader.get(handle);
    }
 
    const std::string* getShaderModulePath(ShaderModuleHandle handle) const
    {
-      return shaderModuleResourceManager.getIdentifier(handle);
+      return shaderModuleLoader.findIdentifier(handle);
    }
 
    // Texture
 
-   TextureHandle loadTexture(const std::filesystem::path& path, const TextureLoadOptions& loadOptions = {}, const TextureProperties& properties = TextureResourceManager::getDefaultProperties(), const TextureInitialLayout& initialLayout = TextureResourceManager::getDefaultInitialLayout())
+   TextureHandle loadTexture(const std::filesystem::path& path, const TextureLoadOptions& loadOptions = {}, const TextureProperties& properties = TextureLoader::getDefaultProperties(), const TextureInitialLayout& initialLayout = TextureLoader::getDefaultInitialLayout())
    {
-      return textureResourceManager.load(path, loadOptions, properties, initialLayout);
+      return textureLoader.load(path, loadOptions, properties, initialLayout);
    }
 
    bool unloadTexture(TextureHandle handle)
    {
-      return textureResourceManager.unload(handle);
+      return textureLoader.unload(handle);
    }
 
    void unloadAllTextures()
    {
-      textureResourceManager.unloadAll();
+      textureLoader.unloadAll();
    }
 
    void clearTextures()
    {
-      textureResourceManager.clear();
+      textureLoader.clear();
    }
 
    Texture* getTexture(TextureHandle handle)
    {
-      return textureResourceManager.get(handle);
+      return textureLoader.get(handle);
    }
 
    const Texture* getTexture(TextureHandle handle) const
    {
-      return textureResourceManager.get(handle);
+      return textureLoader.get(handle);
    }
 
    const std::string* getTexturePath(TextureHandle handle) const
    {
-      return textureResourceManager.getIdentifier(handle);
+      return textureLoader.findIdentifier(handle);
    }
 
    std::unique_ptr<Texture> createDefaultTexture(DefaultTextureType type) const
    {
-      return textureResourceManager.createDefault(type);
+      return textureLoader.createDefault(type);
    }
 
 private:
-   MaterialResourceManager materialResourceManager;
-   MeshResourceManager meshResourceManager;
-   ShaderModuleResourceManager shaderModuleResourceManager;
-   TextureResourceManager textureResourceManager;
+   MaterialLoader materialLoader;
+   MeshLoader meshLoader;
+   ShaderModuleLoader shaderModuleLoader;
+   TextureLoader textureLoader;
 };

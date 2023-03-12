@@ -6,7 +6,7 @@
 
 class Image;
 
-namespace DDSImageLoader
+namespace DDS
 {
    std::unique_ptr<Image> loadImage(std::vector<uint8_t> fileData, bool sRGBHint);
 }

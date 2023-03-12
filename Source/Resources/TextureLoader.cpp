@@ -1,10 +1,10 @@
-#include "Resources/TextureResourceManager.h"
+#include "Resources/TextureLoader.h"
 
 #include "Graphics/DebugUtils.h"
 
-#include "Resources/DDSImageLoader.h"
+#include "Resources/DDSImage.h"
 #include "Resources/Image.h"
-#include "Resources/STBImageLoader.h"
+#include "Resources/STBImage.h"
 
 #include <PlatformUtils/IOUtils.h>
 
@@ -26,11 +26,11 @@ namespace
 
          if (extension == ".dds")
          {
-            return DDSImageLoader::loadImage(std::move(*fileData), loadOptions.sRGB);
+            return DDS::loadImage(std::move(*fileData), loadOptions.sRGB);
          }
          else
          {
-            return STBImageLoader::loadImage(std::move(*fileData), loadOptions.sRGB);
+            return STB::loadImage(std::move(*fileData), loadOptions.sRGB);
          }
       }
 
@@ -92,28 +92,26 @@ namespace
    }
 }
 
-TextureResourceManager::TextureResourceManager(const GraphicsContext& graphicsContext, ResourceManager& owningResourceManager)
-   : ResourceManagerBase(graphicsContext, owningResourceManager)
+TextureLoader::TextureLoader(const GraphicsContext& graphicsContext, ResourceManager& owningResourceManager)
+   : ResourceLoader(graphicsContext, owningResourceManager)
 {
    createDefaultTextures();
 }
 
-TextureHandle TextureResourceManager::load(const std::filesystem::path& path, const TextureLoadOptions& loadOptions, const TextureProperties& properties, const TextureInitialLayout& initialLayout)
+TextureHandle TextureLoader::load(const std::filesystem::path& path, const TextureLoadOptions& loadOptions, const TextureProperties& properties, const TextureInitialLayout& initialLayout)
 {
-   if (std::optional<std::filesystem::path> canonicalPath = ResourceHelpers::makeCanonical(path))
+   if (std::optional<std::filesystem::path> canonicalPath = ResourceLoadHelpers::makeCanonical(path))
    {
       std::string canonicalPathString = canonicalPath->string();
-      if (std::optional<Handle> cachedHandle = getCachedHandle(canonicalPathString))
+      if (Handle cachedHandle = container.findHandle(canonicalPathString))
       {
-         return *cachedHandle;
+         return cachedHandle;
       }
 
       if (std::unique_ptr<Image> image = loadImage(*canonicalPath, loadOptions))
       {
-         TextureHandle handle = emplaceResource(context, image->getProperties(), properties, initialLayout, image->getTextureData());
-         cacheHandle(canonicalPathString, handle);
-
-         NAME_POINTER(context.getDevice(), get(handle), ResourceHelpers::getName(*canonicalPath));
+         TextureHandle handle = container.emplace(canonicalPathString, context, image->getProperties(), properties, initialLayout, image->getTextureData());
+         NAME_POINTER(context.getDevice(), get(handle), ResourceLoadHelpers::getName(*canonicalPath));
 
          return handle;
       }
@@ -122,7 +120,7 @@ TextureHandle TextureResourceManager::load(const std::filesystem::path& path, co
    return getDefault(loadOptions.fallbackDefaultTextureType);
 }
 
-TextureHandle TextureResourceManager::getDefault(DefaultTextureType type) const
+TextureHandle TextureLoader::getDefault(DefaultTextureType type) const
 {
    TextureHandle handle;
    switch (type)
@@ -148,7 +146,7 @@ TextureHandle TextureResourceManager::getDefault(DefaultTextureType type) const
    return handle;
 }
 
-std::unique_ptr<Texture> TextureResourceManager::createDefault(DefaultTextureType type) const
+std::unique_ptr<Texture> TextureLoader::createDefault(DefaultTextureType type) const
 {
    std::optional<SinglePixelImage> defaultImage = createDefaultImage(type);
    if (!defaultImage.has_value())
@@ -165,7 +163,7 @@ std::unique_ptr<Texture> TextureResourceManager::createDefault(DefaultTextureTyp
 }
 
 // static
-TextureProperties TextureResourceManager::getDefaultProperties()
+TextureProperties TextureLoader::getDefaultProperties()
 {
    TextureProperties defaultProperties;
 
@@ -175,7 +173,7 @@ TextureProperties TextureResourceManager::getDefaultProperties()
 }
 
 // static
-TextureInitialLayout TextureResourceManager::getDefaultInitialLayout()
+TextureInitialLayout TextureLoader::getDefaultInitialLayout()
 {
    TextureInitialLayout defaultInitialLayout;
 
@@ -185,22 +183,22 @@ TextureInitialLayout TextureResourceManager::getDefaultInitialLayout()
    return defaultInitialLayout;
 }
 
-void TextureResourceManager::onAllResourcesUnloaded()
+void TextureLoader::onAllResourcesUnloaded()
 {
    createDefaultTextures();
 }
 
-void TextureResourceManager::createDefaultTextures()
+void TextureLoader::createDefaultTextures()
 {
-   defaultBlackTextureHandle = addResource(createDefault(DefaultTextureType::Black));
+   defaultBlackTextureHandle = container.add("*default|black*", createDefault(DefaultTextureType::Black));
    NAME_POINTER(context.getDevice(), get(defaultBlackTextureHandle), "Default Black Texture");
 
-   defaultWhiteTextureHandle = addResource(createDefault(DefaultTextureType::White));
+   defaultWhiteTextureHandle = container.add("*default|white*", createDefault(DefaultTextureType::White));
    NAME_POINTER(context.getDevice(), get(defaultWhiteTextureHandle), "Default White Texture");
 
-   defaultNormalMapTextureHandle = addResource(createDefault(DefaultTextureType::NormalMap));
+   defaultNormalMapTextureHandle = container.add("*default|normal*", createDefault(DefaultTextureType::NormalMap));
    NAME_POINTER(context.getDevice(), get(defaultNormalMapTextureHandle), "Default Normal Map Texture");
 
-   defaultAoRoughnessMetalnessMapTextureHandle = addResource(createDefault(DefaultTextureType::AoRoughnessMetalnessMap));
+   defaultAoRoughnessMetalnessMapTextureHandle = container.add("*default|ao_roughness_metalness*", createDefault(DefaultTextureType::AoRoughnessMetalnessMap));
    NAME_POINTER(context.getDevice(), get(defaultAoRoughnessMetalnessMapTextureHandle), "Default AO Roughness Metalness Map Texture");
 }

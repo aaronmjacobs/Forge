@@ -1,10 +1,9 @@
 #pragma once
 
-#include "Resources/ResourceManagerBase.h"
+#include "Resources/ResourceLoader.h"
 
 #include "Graphics/Texture.h"
 
-#include <filesystem>
 #include <string>
 
 enum class DefaultTextureType
@@ -22,10 +21,10 @@ struct TextureLoadOptions
    DefaultTextureType fallbackDefaultTextureType = DefaultTextureType::None;
 };
 
-class TextureResourceManager : public ResourceManagerBase<Texture, std::string>
+class TextureLoader : public ResourceLoader<Texture, std::string>
 {
 public:
-   TextureResourceManager(const GraphicsContext& graphicsContext, ResourceManager& owningResourceManager);
+   TextureLoader(const GraphicsContext& graphicsContext, ResourceManager& owningResourceManager);
 
    TextureHandle load(const std::filesystem::path& path, const TextureLoadOptions& loadOptions = {}, const TextureProperties& properties = getDefaultProperties(), const TextureInitialLayout& initialLayout = getDefaultInitialLayout());
 

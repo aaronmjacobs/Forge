@@ -52,7 +52,7 @@ public:
    static std::array<vk::DescriptorSetLayoutBinding, 4> getBindings();
    static vk::DescriptorSetLayout getLayout(const GraphicsContext& context);
 
-   PhysicallyBasedMaterial(const GraphicsContext& graphicsContext, MaterialResourceManager& owningResourceManager, const PhysicallyBasedMaterialParams& materialParams);
+   PhysicallyBasedMaterial(const GraphicsContext& graphicsContext, MaterialLoader& owningMaterialLoader, const PhysicallyBasedMaterialParams& materialParams);
 
    void update() override;
 
