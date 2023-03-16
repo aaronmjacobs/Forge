@@ -2,6 +2,8 @@
 
 #include "Graphics/GraphicsResource.h"
 
+#include "Resources/ResourceTypes.h"
+
 #include <span>
 #include <vector>
 
@@ -27,6 +29,7 @@ protected:
    std::vector<vk::PipelineShaderStageCreateInfo> getStagesForPermutation(uint32_t permutationIndex) const;
 
 private:
+   std::vector<StrongShaderModuleHandle> shaderModuleHandles;
    std::vector<vk::PipelineShaderStageCreateInfo> vertStageCreateInfo;
    std::vector<vk::PipelineShaderStageCreateInfo> fragStageCreateInfo;
 };

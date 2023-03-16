@@ -30,7 +30,7 @@ struct MeshSectionSourceData
    std::vector<uint32_t> indices;
    bool hasValidTexCoords = false;
    Bounds bounds;
-   MaterialHandle materialHandle;
+   StrongMaterialHandle materialHandle;
 };
 
 struct MeshSection
@@ -41,7 +41,7 @@ struct MeshSection
    uint32_t numIndices = 0;
    bool hasValidTexCoords = false;
    Bounds bounds;
-   MaterialHandle materialHandle;
+   StrongMaterialHandle materialHandle;
 };
 
 class Mesh : public GraphicsResource

@@ -1,5 +1,7 @@
 #include "Resources/TextureLoader.h"
 
+#include "Core/Assert.h"
+
 #include "Graphics/DebugUtils.h"
 
 #include "Resources/DDSImage.h"
@@ -95,7 +97,6 @@ namespace
 TextureLoader::TextureLoader(const GraphicsContext& graphicsContext, ResourceManager& owningResourceManager)
    : ResourceLoader(graphicsContext, owningResourceManager)
 {
-   createDefaultTextures();
 }
 
 TextureHandle TextureLoader::load(const std::filesystem::path& path, const TextureLoadOptions& loadOptions, const TextureProperties& properties, const TextureInitialLayout& initialLayout)
@@ -103,6 +104,12 @@ TextureHandle TextureLoader::load(const std::filesystem::path& path, const Textu
    if (std::optional<std::filesystem::path> canonicalPath = ResourceLoadHelpers::makeCanonical(path))
    {
       std::string canonicalPathString = canonicalPath->string();
+      if (canonicalPathString.starts_with('*'))
+      {
+         // Reserved for defaults
+         return TextureHandle{};
+      }
+
       if (Handle cachedHandle = container.findHandle(canonicalPathString))
       {
          return cachedHandle;
@@ -117,49 +124,38 @@ TextureHandle TextureLoader::load(const std::filesystem::path& path, const Textu
       }
    }
 
-   return getDefault(loadOptions.fallbackDefaultTextureType);
+   return TextureHandle{};
 }
 
-TextureHandle TextureLoader::getDefault(DefaultTextureType type) const
+TextureHandle TextureLoader::createDefault(DefaultTextureType type)
 {
-   TextureHandle handle;
-   switch (type)
+   if (type == DefaultTextureType::None)
    {
-   case DefaultTextureType::None:
-      break;
-   case DefaultTextureType::Black:
-      handle = defaultBlackTextureHandle;
-      break;
-   case DefaultTextureType::White:
-      handle = defaultWhiteTextureHandle;
-      break;
-   case DefaultTextureType::NormalMap:
-      handle = defaultNormalMapTextureHandle;
-      break;
-   case DefaultTextureType::AoRoughnessMetalnessMap:
-      handle = defaultAoRoughnessMetalnessMapTextureHandle;
-      break;
-   default:
-      break;
+      return TextureHandle{};
    }
 
-   return handle;
-}
+   const std::string& path = getDefaultPath(type);
 
-std::unique_ptr<Texture> TextureLoader::createDefault(DefaultTextureType type) const
-{
+   if (Handle cachedHandle = container.findHandle(path))
+   {
+      return cachedHandle;
+   }
+
    std::optional<SinglePixelImage> defaultImage = createDefaultImage(type);
-   if (!defaultImage.has_value())
+   if (defaultImage.has_value())
    {
-      return nullptr;
+      TextureProperties defaultTextureProperties = getDefaultProperties();
+      defaultTextureProperties.generateMipMaps = false;
+
+      TextureInitialLayout defaultTextureInitialLayout = getDefaultInitialLayout();
+
+      TextureHandle handle = container.emplace(path, context, defaultImage->getProperties(), defaultTextureProperties, defaultTextureInitialLayout, defaultImage->getTextureData());
+      NAME_POINTER(context.getDevice(), get(handle), getDefaultName(type));
+
+      return handle;
    }
 
-   TextureProperties defaultTextureProperties = getDefaultProperties();
-   defaultTextureProperties.generateMipMaps = false;
-
-   TextureInitialLayout defaultTextureInitialLayout = getDefaultInitialLayout();
-
-   return std::make_unique<Texture>(context, defaultImage->getProperties(), defaultTextureProperties, defaultTextureInitialLayout, defaultImage->getTextureData());
+   return TextureHandle{};
 }
 
 // static
@@ -183,22 +179,56 @@ TextureInitialLayout TextureLoader::getDefaultInitialLayout()
    return defaultInitialLayout;
 }
 
-void TextureLoader::onAllResourcesUnloaded()
+const std::string& TextureLoader::getDefaultPath(DefaultTextureType type) const
 {
-   createDefaultTextures();
+   static const std::string kNonePath = "*none*";
+   static const std::string kBlackPath = "*default|black*";
+   static const std::string kWhitePath = "*default|white*";
+   static const std::string kNormalPath = "*default|normal*";
+   static const std::string kAoRoughnessMetalnessPath = "*default|ao_roughness_metalness*";
+
+   switch (type)
+   {
+   case DefaultTextureType::None:
+      ASSERT(false);
+      return kNonePath;
+   case DefaultTextureType::Black:
+      return kBlackPath;
+   case DefaultTextureType::White:
+      return kWhitePath;
+   case DefaultTextureType::NormalMap:
+      return kNormalPath;
+   case DefaultTextureType::AoRoughnessMetalnessMap:
+      return kAoRoughnessMetalnessPath;
+   default:
+      ASSERT(false);
+      return kNonePath;
+   }
 }
 
-void TextureLoader::createDefaultTextures()
+const std::string& TextureLoader::getDefaultName(DefaultTextureType type) const
 {
-   defaultBlackTextureHandle = container.add("*default|black*", createDefault(DefaultTextureType::Black));
-   NAME_POINTER(context.getDevice(), get(defaultBlackTextureHandle), "Default Black Texture");
+   static const std::string kNoneName = "";
+   static const std::string kBlackName = "Default Black Texture";
+   static const std::string kWhiteName = "Default White Texture";
+   static const std::string kNormalName = "Default Normal Map Texture";
+   static const std::string kAoRoughnessMetalnessName = "Default AO Roughness Metalness Map Texture";
 
-   defaultWhiteTextureHandle = container.add("*default|white*", createDefault(DefaultTextureType::White));
-   NAME_POINTER(context.getDevice(), get(defaultWhiteTextureHandle), "Default White Texture");
-
-   defaultNormalMapTextureHandle = container.add("*default|normal*", createDefault(DefaultTextureType::NormalMap));
-   NAME_POINTER(context.getDevice(), get(defaultNormalMapTextureHandle), "Default Normal Map Texture");
-
-   defaultAoRoughnessMetalnessMapTextureHandle = container.add("*default|ao_roughness_metalness*", createDefault(DefaultTextureType::AoRoughnessMetalnessMap));
-   NAME_POINTER(context.getDevice(), get(defaultAoRoughnessMetalnessMapTextureHandle), "Default AO Roughness Metalness Map Texture");
+   switch (type)
+   {
+   case DefaultTextureType::None:
+      ASSERT(false);
+      return kNoneName;
+   case DefaultTextureType::Black:
+      return kBlackName;
+   case DefaultTextureType::White:
+      return kWhiteName;
+   case DefaultTextureType::NormalMap:
+      return kNormalName;
+   case DefaultTextureType::AoRoughnessMetalnessMap:
+      return kAoRoughnessMetalnessName;
+   default:
+      ASSERT(false);
+      return kNoneName;
+   }
 }

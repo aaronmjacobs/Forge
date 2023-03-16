@@ -17,13 +17,14 @@
 
 #include "Resources/ResourceManager.h"
 
-#include "Scene/Entity.h"
 #include "Scene/Components/CameraComponent.h"
 #include "Scene/Components/LightComponent.h"
 #include "Scene/Components/MeshComponent.h"
 #include "Scene/Components/NameComponent.h"
 #include "Scene/Components/SkyboxComponent.h"
 #include "Scene/Components/TransformComponent.h"
+#include "Scene/Entity.h"
+#include "Scene/Scene.h"
 
 #include "UI/UI.h"
 
@@ -75,6 +76,8 @@ ForgeApplication::ForgeApplication()
 
 ForgeApplication::~ForgeApplication()
 {
+   unloadScene();
+
    terminateSyncObjects();
    terminateCommandBuffers(false);
    terminateUI();
@@ -113,11 +116,11 @@ void ForgeApplication::run()
 #if FORGE_WITH_MIDI
       if (Midi::isConnected())
       {
-         scene.setTimeScale(Midi::getState().groups[7].slider);
+         scene->setTimeScale(Midi::getState().groups[7].slider);
       }
 #endif // FORGE_WITH_MIDI
 
-      scene.tick(static_cast<float>(dt));
+      scene->tick(static_cast<float>(dt));
 
       render();
    }
@@ -128,7 +131,7 @@ void ForgeApplication::run()
 void ForgeApplication::render()
 {
    RenderSettings newRenderSettings = renderSettings;
-   ui->render(*context, scene, renderCapabilities, newRenderSettings, *resourceManager);
+   ui->render(*context, *scene, renderCapabilities, newRenderSettings, *resourceManager);
 
    updateRenderSettings(newRenderSettings);
 
@@ -189,7 +192,7 @@ void ForgeApplication::render()
          .setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
       commandBuffer.begin(commandBufferBeginInfo);
 
-      renderer->render(commandBuffer, scene);
+      renderer->render(commandBuffer, *scene);
 
       commandBuffer.end();
    }
@@ -503,12 +506,14 @@ void ForgeApplication::terminateSyncObjects()
 
 void ForgeApplication::loadScene()
 {
+   scene = std::make_unique<Scene>();
+
    {
       static const float kCameraMoveSpeed = 3.0f;
       static const float kCameraLookSpeed = 180.0f;
 
-      Entity cameraEntity = scene.createEntity();
-      scene.setActiveCamera(cameraEntity);
+      Entity cameraEntity = scene->createEntity();
+      scene->setActiveCamera(cameraEntity);
 
       cameraEntity.createComponent<NameComponent>().name = "Camera";
       cameraEntity.createComponent<CameraComponent>();
@@ -521,43 +526,43 @@ void ForgeApplication::loadScene()
       inputManager.bindAxisMapping(InputActions::kMoveForward, [this, cameraEntity](float value) mutable
       {
          Transform& cameraTransform = cameraEntity.getComponent<TransformComponent>().transform;
-         cameraTransform.translateBy(cameraTransform.getForwardVector() * value * kCameraMoveSpeed * scene.getRawDeltaTime());
+         cameraTransform.translateBy(cameraTransform.getForwardVector() * value * kCameraMoveSpeed * scene->getRawDeltaTime());
       });
 
       inputManager.bindAxisMapping(InputActions::kMoveRight, [this, cameraEntity](float value) mutable
       {
          Transform& cameraTransform = cameraEntity.getComponent<TransformComponent>().transform;
-         cameraTransform.translateBy(cameraTransform.getRightVector() * value * kCameraMoveSpeed * scene.getRawDeltaTime());
+         cameraTransform.translateBy(cameraTransform.getRightVector() * value * kCameraMoveSpeed * scene->getRawDeltaTime());
       });
 
       inputManager.bindAxisMapping(InputActions::kMoveUp, [this, cameraEntity](float value) mutable
       {
          Transform& cameraTransform = cameraEntity.getComponent<TransformComponent>().transform;
-         cameraTransform.translateBy(cameraTransform.getUpVector() * value * kCameraMoveSpeed * scene.getRawDeltaTime());
+         cameraTransform.translateBy(cameraTransform.getUpVector() * value * kCameraMoveSpeed * scene->getRawDeltaTime());
       });
 
       inputManager.bindAxisMapping(InputActions::kLookRight, [this, cameraEntity](float value) mutable
       {
          Transform& cameraTransform = cameraEntity.getComponent<TransformComponent>().transform;
-         cameraTransform.rotateBy(glm::angleAxis(glm::radians(value * kCameraLookSpeed * scene.getRawDeltaTime()), -MathUtils::kUpVector));
+         cameraTransform.rotateBy(glm::angleAxis(glm::radians(value * kCameraLookSpeed * scene->getRawDeltaTime()), -MathUtils::kUpVector));
       });
 
       inputManager.bindAxisMapping(InputActions::kLookUp, [this, cameraEntity](float value) mutable
       {
          Transform& cameraTransform = cameraEntity.getComponent<TransformComponent>().transform;
          glm::vec3 euler = glm::degrees(glm::eulerAngles(cameraTransform.orientation));
-         euler.x = glm::clamp(euler.x + value * kCameraLookSpeed * 0.75f * scene.getRawDeltaTime(), -89.0f, 89.0f);
+         euler.x = glm::clamp(euler.x + value * kCameraLookSpeed * 0.75f * scene->getRawDeltaTime(), -89.0f, 89.0f);
          cameraTransform.orientation = glm::quat(glm::radians(euler));
       });
    }
 
    {
-      Entity skyboxEntity = scene.createEntity();
+      Entity skyboxEntity = scene->createEntity();
       skyboxEntity.createComponent<SkyboxComponent>().textureHandle = resourceManager->loadTexture("Resources/Textures/Skybox/Kloofendal.dds");
    }
 
    {
-      Entity sponzaEntity = scene.createEntity();
+      Entity sponzaEntity = scene->createEntity();
       sponzaEntity.createComponent<NameComponent>().name = "Sponza";
       sponzaEntity.createComponent<TransformComponent>();
       MeshComponent& meshComponent = sponzaEntity.createComponent<MeshComponent>();
@@ -568,7 +573,7 @@ void ForgeApplication::loadScene()
    }
 
    {
-      Entity bunnyEntity = scene.createEntity();
+      Entity bunnyEntity = scene->createEntity();
       bunnyEntity.createComponent<NameComponent>().name = "Bunny";
       TransformComponent& transformComponent = bunnyEntity.createComponent<TransformComponent>();
       transformComponent.transform.position = glm::vec3(0.0f, 1.0f, 0.0f);
@@ -593,7 +598,7 @@ void ForgeApplication::loadScene()
    }
 
    {
-      Entity directionalLightEntity = scene.createEntity();
+      Entity directionalLightEntity = scene->createEntity();
 
       directionalLightEntity.createComponent<NameComponent>().name = "Directional Light";
       directionalLightEntity.createComponent<TransformComponent>();
@@ -604,9 +609,9 @@ void ForgeApplication::loadScene()
       directionalLightComponent.setShadowHeight(15.0f);
       directionalLightComponent.setShadowDepth(25.0f);
 
-      scene.addTickDelegate([this, directionalLightEntity](float dt) mutable
+      scene->addTickDelegate([this, directionalLightEntity](float dt) mutable
       {
-         float time = scene.getTime();
+         float time = scene->getTime();
 
          TransformComponent& transformComponent = directionalLightEntity.getComponent<TransformComponent>();
          float pitchOffset = 25.0f * glm::sin(time * 0.45f - 0.5f);
@@ -616,7 +621,7 @@ void ForgeApplication::loadScene()
    }
 
    {
-      Entity pointLightEntity = scene.createEntity();
+      Entity pointLightEntity = scene->createEntity();
 
       pointLightEntity.createComponent<NameComponent>().name = "Point Light";
       pointLightEntity.createComponent<TransformComponent>();
@@ -626,9 +631,9 @@ void ForgeApplication::loadScene()
       pointLightComponent.setBrightness(70.0f);
       pointLightComponent.setRadius(50.0f);
 
-      scene.addTickDelegate([this, pointLightEntity](float dt) mutable
+      scene->addTickDelegate([this, pointLightEntity](float dt) mutable
       {
-         float time = scene.getTime();
+         float time = scene->getTime();
 
          TransformComponent& transformComponent = pointLightEntity.getComponent<TransformComponent>();
          transformComponent.transform.position = glm::vec3(glm::sin(time) * 5.0f, glm::cos(time * 0.7f) * 1.5f, glm::sin(time * 1.1f) * 2.0f + 3.0f);
@@ -636,7 +641,7 @@ void ForgeApplication::loadScene()
    }
 
    {
-      Entity spotLightEntity = scene.createEntity();
+      Entity spotLightEntity = scene->createEntity();
 
       spotLightEntity.createComponent<NameComponent>().name = "Spot Light";
       spotLightEntity.createComponent<TransformComponent>();
@@ -646,12 +651,17 @@ void ForgeApplication::loadScene()
       spotLightComponent.setBrightness(70.0f);
       spotLightComponent.setRadius(50.0f);
 
-      scene.addTickDelegate([this, spotLightEntity](float dt) mutable
+      scene->addTickDelegate([this, spotLightEntity](float dt) mutable
       {
-         float time = scene.getTime();
+         float time = scene->getTime();
 
          TransformComponent& transformComponent = spotLightEntity.getComponent<TransformComponent>();
          transformComponent.transform.position = glm::vec3(glm::cos(time * 0.6f) * 8.0f, glm::sin(time * 0.3f) - 4.5f, glm::cos(time * 1.3f) * 1.5f + 1.5f);
       });
    }
+}
+
+void ForgeApplication::unloadScene()
+{
+   scene.reset();
 }

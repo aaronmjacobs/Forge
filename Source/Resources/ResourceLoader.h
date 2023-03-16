@@ -40,13 +40,11 @@ public:
    void unloadAll()
    {
       container.removeAll();
-      onAllResourcesUnloaded();
    }
 
    void clear()
    {
       container.clear();
-      onAllResourcesUnloaded();
    }
 
    T* get(Handle handle)
@@ -65,10 +63,6 @@ public:
    }
 
 protected:
-   virtual void onAllResourcesUnloaded()
-   {
-   }
-
    const GraphicsContext& context;
    ResourceManager& resourceManager;
    ResourceContainer<T, Identifier> container;

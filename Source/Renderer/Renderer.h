@@ -58,8 +58,6 @@ private:
    std::array<std::unique_ptr<View>, ForwardLighting::kMaxDirectionalShadowMaps> directionalShadowViews;
    std::unique_ptr<ForwardLighting> forwardLighting;
 
-   std::unique_ptr<Texture> defaultBlackTexture;
-   std::unique_ptr<Texture> defaultWhiteTexture;
    std::unique_ptr<Texture> depthTexture;
    std::unique_ptr<Texture> normalTexture;
    std::unique_ptr<Texture> ssaoTexture;

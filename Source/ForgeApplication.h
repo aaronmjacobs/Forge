@@ -4,8 +4,6 @@
 
 #include "Renderer/RenderSettings.h"
 
-#include "Scene/Scene.h"
-
 #include "UI/UI.h"
 
 #include <memory>
@@ -13,6 +11,7 @@
 class GraphicsContext;
 class Renderer;
 class ResourceManager;
+class Scene;
 class Swapchain;
 class UI;
 class Window;
@@ -54,6 +53,7 @@ private:
    void terminateSyncObjects();
 
    void loadScene();
+   void unloadScene();
 
    RenderCapabilities renderCapabilities;
    RenderSettings renderSettings;
@@ -64,7 +64,7 @@ private:
    std::unique_ptr<GraphicsContext> context;
    std::unique_ptr<Swapchain> swapchain;
 
-   Scene scene;
+   std::unique_ptr<Scene> scene;
    std::unique_ptr<Renderer> renderer;
    std::unique_ptr<UI> ui;
 

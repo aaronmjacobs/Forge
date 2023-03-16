@@ -28,18 +28,12 @@ public:
 
    TextureHandle load(const std::filesystem::path& path, const TextureLoadOptions& loadOptions = {}, const TextureProperties& properties = getDefaultProperties(), const TextureInitialLayout& initialLayout = getDefaultInitialLayout());
 
-   TextureHandle getDefault(DefaultTextureType type) const;
-   std::unique_ptr<Texture> createDefault(DefaultTextureType type) const;
+   TextureHandle createDefault(DefaultTextureType type);
 
    static TextureProperties getDefaultProperties();
    static TextureInitialLayout getDefaultInitialLayout();
 
-protected:
-   void onAllResourcesUnloaded() override;
-   void createDefaultTextures();
-
-   TextureHandle defaultBlackTextureHandle;
-   TextureHandle defaultWhiteTextureHandle;
-   TextureHandle defaultNormalMapTextureHandle;
-   TextureHandle defaultAoRoughnessMetalnessMapTextureHandle;
+private:
+   const std::string& getDefaultPath(DefaultTextureType type) const;
+   const std::string& getDefaultName(DefaultTextureType type) const;
 };

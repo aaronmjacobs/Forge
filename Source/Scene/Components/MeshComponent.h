@@ -4,6 +4,6 @@
 
 struct MeshComponent
 {
-   MeshHandle meshHandle;
+   StrongMeshHandle meshHandle;
    bool castsShadows = true;
 };

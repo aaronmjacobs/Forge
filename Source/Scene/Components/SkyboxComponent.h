@@ -4,5 +4,5 @@
 
 struct SkyboxComponent
 {
-   TextureHandle textureHandle;
+   StrongTextureHandle textureHandle;
 };

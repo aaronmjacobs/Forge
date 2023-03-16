@@ -1,32 +1,39 @@
 #include "Graphics/Shader.h"
 
+#include "Core/Assert.h"
+
 #include "Resources/ResourceManager.h"
+
+#include <utility>
 
 namespace
 {
-   const ShaderModule* loadShaderModule(ResourceManager& resourceManager, const char* path)
+   StrongShaderModuleHandle loadShaderModule(ResourceManager& resourceManager, const char* path)
    {
       if (!path)
       {
-         return nullptr;
+         return StrongShaderModuleHandle{};
       }
 
-      ShaderModuleHandle handle = resourceManager.loadShaderModule(path);
+      StrongShaderModuleHandle handle = resourceManager.loadShaderModule(path);
       const ShaderModule* shaderModule = resourceManager.getShaderModule(handle);
       if (!shaderModule)
       {
          throw std::runtime_error(std::string("Failed to load shader module: ") + path);
       }
 
-      return shaderModule;
+      return handle;
    }
 }
 
 Shader::Shader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager, const InitializationInfo& info)
    : GraphicsResource(graphicsContext)
 {
-   if (const ShaderModule* vertShaderModule = loadShaderModule(resourceManager, info.vertShaderModulePath))
+   if (StrongShaderModuleHandle vertShaderModuleHandle = loadShaderModule(resourceManager, info.vertShaderModulePath))
    {
+      const ShaderModule* vertShaderModule = resourceManager.getShaderModule(vertShaderModuleHandle);
+      ASSERT(vertShaderModule);
+
       vk::PipelineShaderStageCreateInfo vertCreateInfo = vk::PipelineShaderStageCreateInfo()
          .setStage(vk::ShaderStageFlagBits::eVertex)
          .setModule(vertShaderModule->getShaderModule())
@@ -44,10 +51,15 @@ Shader::Shader(const GraphicsContext& graphicsContext, ResourceManager& resource
             vertStageCreateInfo[i] = vertCreateInfo.setPSpecializationInfo(&info.specializationInfo[i]);
          }
       }
+
+      shaderModuleHandles.push_back(vertShaderModuleHandle);
    }
 
-   if (const ShaderModule* fragShaderModule = loadShaderModule(resourceManager, info.fragShaderModulePath))
+   if (StrongShaderModuleHandle fragShaderModuleHandle = loadShaderModule(resourceManager, info.fragShaderModulePath))
    {
+      const ShaderModule* fragShaderModule = resourceManager.getShaderModule(fragShaderModuleHandle);
+      ASSERT(fragShaderModule);
+
       vk::PipelineShaderStageCreateInfo fragCreateInfo = vk::PipelineShaderStageCreateInfo()
          .setStage(vk::ShaderStageFlagBits::eFragment)
          .setModule(fragShaderModule->getShaderModule())
@@ -65,6 +77,8 @@ Shader::Shader(const GraphicsContext& graphicsContext, ResourceManager& resource
             fragStageCreateInfo[i] = fragCreateInfo.setPSpecializationInfo(&info.specializationInfo[i]);
          }
       }
+
+      shaderModuleHandles.push_back(fragShaderModuleHandle);
    }
 }
 

@@ -133,6 +133,7 @@ target_sources(${PROJECT_NAME} PRIVATE
 
    "${SRC_DIR}/Resources/DDSImage.cpp"
    "${SRC_DIR}/Resources/DDSImage.h"
+   "${SRC_DIR}/Resources/ForEachResourceType.inl"
    "${SRC_DIR}/Resources/Image.h"
    "${SRC_DIR}/Resources/MaterialLoader.cpp"
    "${SRC_DIR}/Resources/MaterialLoader.h"
@@ -141,7 +142,9 @@ target_sources(${PROJECT_NAME} PRIVATE
    "${SRC_DIR}/Resources/ResourceContainer.h"
    "${SRC_DIR}/Resources/ResourceLoader.cpp"
    "${SRC_DIR}/Resources/ResourceLoader.h"
+   "${SRC_DIR}/Resources/ResourceManager.cpp"
    "${SRC_DIR}/Resources/ResourceManager.h"
+   "${SRC_DIR}/Resources/ResourceTypes.cpp"
    "${SRC_DIR}/Resources/ResourceTypes.h"
    "${SRC_DIR}/Resources/ShaderModuleLoader.cpp"
    "${SRC_DIR}/Resources/ShaderModuleLoader.h"

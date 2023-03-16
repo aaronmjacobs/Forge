@@ -107,7 +107,7 @@ namespace
       return swizzle;
    }
 
-   TextureHandle loadMaterialTexture(const aiMaterial& assimpMaterial, std::span<const aiTextureType> textureTypes, const std::filesystem::path& directory, ResourceManager& resourceManager)
+   StrongTextureHandle loadMaterialTexture(const aiMaterial& assimpMaterial, std::span<const aiTextureType> textureTypes, const std::filesystem::path& directory, ResourceManager& resourceManager)
    {
       std::filesystem::path texturePath;
       aiTextureType textureType = textureTypes.empty() ? aiTextureType_NONE : textureTypes[0];
@@ -151,15 +151,15 @@ namespace
       return resourceManager.loadTexture(texturePath, loadOptions);
    }
 
-   MaterialHandle processAssimpMaterial(const aiMaterial& assimpMaterial, bool interpretTextureAlphaAsMask, const std::filesystem::path& directory, ResourceManager& resourceManager)
+   StrongMaterialHandle processAssimpMaterial(const aiMaterial& assimpMaterial, bool interpretTextureAlphaAsMask, const std::filesystem::path& directory, ResourceManager& resourceManager)
    {
       static const std::array<aiTextureType, 2> kAlbedoTextureTypes = { aiTextureType_BASE_COLOR, aiTextureType_DIFFUSE };
       static const std::array<aiTextureType, 1> kNormalTextureTypes = { aiTextureType_NORMALS };
       static const std::array<aiTextureType, 4> kAoRMTextureTypes = { aiTextureType_AMBIENT_OCCLUSION, aiTextureType_DIFFUSE_ROUGHNESS, aiTextureType_METALNESS, aiTextureType_UNKNOWN };
       
-      TextureHandle albedoTextureHandle = loadMaterialTexture(assimpMaterial, kAlbedoTextureTypes, directory, resourceManager);
-      TextureHandle normalTextureHandle = loadMaterialTexture(assimpMaterial, kNormalTextureTypes, directory, resourceManager);
-      TextureHandle aoRoughnessMetalnessTextureHandle = loadMaterialTexture(assimpMaterial, kAoRMTextureTypes, directory, resourceManager);
+      StrongTextureHandle albedoTextureHandle = loadMaterialTexture(assimpMaterial, kAlbedoTextureTypes, directory, resourceManager);
+      StrongTextureHandle normalTextureHandle = loadMaterialTexture(assimpMaterial, kNormalTextureTypes, directory, resourceManager);
+      StrongTextureHandle aoRoughnessMetalnessTextureHandle = loadMaterialTexture(assimpMaterial, kAoRMTextureTypes, directory, resourceManager);
 
       TextureMaterialParameter albedoParameter;
       albedoParameter.name = PhysicallyBasedMaterial::kAlbedoTextureParameterName;

@@ -559,8 +559,6 @@ Renderer::~Renderer()
    compositePass = nullptr;
    tonemapPass = nullptr;
 
-   defaultBlackTexture = nullptr;
-   defaultWhiteTexture = nullptr;
    depthTexture = nullptr;
    normalTexture = nullptr;
    ssaoTexture = nullptr;
@@ -590,6 +588,10 @@ Renderer::~Renderer()
 void Renderer::render(vk::CommandBuffer commandBuffer, const Scene& scene)
 {
    SCOPED_LABEL("Scene");
+
+   Texture* defaultBlackTexture = resourceManager.getDefaultTexture(DefaultTextureType::Black);
+   Texture* defaultWhiteTexture = resourceManager.getDefaultTexture(DefaultTextureType::White);
+   ASSERT(defaultBlackTexture && defaultWhiteTexture);
 
    INLINE_LABEL("Update main view");
    ViewInfo activeCameraViewInfo = computeActiveCameraViewInfo(context, scene);
@@ -634,9 +636,6 @@ void Renderer::render(vk::CommandBuffer commandBuffer, const Scene& scene)
 
 void Renderer::onSwapchainRecreated()
 {
-   defaultBlackTexture = resourceManager.createDefaultTexture(DefaultTextureType::Black);
-   defaultWhiteTexture = resourceManager.createDefaultTexture(DefaultTextureType::White);
-
    bool msaaEnabled = renderSettings.msaaSamples != vk::SampleCountFlagBits::e1;
 
    depthTexture = createDepthTexture(context, depthStencilFormat, context.getSwapchain().getExtent(), true, renderSettings.msaaSamples);
@@ -655,8 +654,6 @@ void Renderer::onSwapchainRecreated()
    roughnessMetalnessTexture = createColorTexture(context, vk::Format::eR8G8Unorm, true);
    uiColorTexture = createColorTexture(context, vk::Format::eR8G8B8A8Unorm, true);
 
-   NAME_POINTER(device, defaultBlackTexture, "Default Black Texture");
-   NAME_POINTER(device, defaultWhiteTexture, "Default White Texture");
    NAME_POINTER(device, depthTexture, "Depth Texture");
    NAME_POINTER(device, normalTexture, "Normal Texture");
    NAME_POINTER(device, ssaoTexture, "SSAO Texture");

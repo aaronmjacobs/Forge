@@ -8,16 +8,14 @@
 #include "Resources/ShaderModuleLoader.h"
 #include "Resources/TextureLoader.h"
 
+#include <unordered_map>
+#include <unordered_set>
+
 class ResourceManager
 {
 public:
-   ResourceManager(const GraphicsContext& graphicsContext)
-      : materialLoader(graphicsContext, *this)
-      , meshLoader(graphicsContext, *this)
-      , shaderModuleLoader(graphicsContext, *this)
-      , textureLoader(graphicsContext, *this)
-   {
-   }
+   ResourceManager(const GraphicsContext& graphicsContext);
+   ~ResourceManager();
 
    // All
 
@@ -26,40 +24,16 @@ public:
       materialLoader.updateMaterials();
    }
 
-   void unloadAll()
-   {
-      unloadAllMeshes();
-      unloadAllShaderModules();
-      unloadAllTextures();
-   }
-
-   void clearAll()
-   {
-      clearMeshes();
-      clearShaderModules();
-      clearTextures();
-   }
-
    // Material
 
-   MaterialHandle loadMaterial(const MaterialParameters& materialParameters)
+   StrongMaterialHandle loadMaterial(const MaterialParameters& materialParameters)
    {
-      return materialLoader.load(materialParameters);
+      return StrongMaterialHandle(*this, materialLoader.load(materialParameters));
    }
 
    bool unloadMaterial(MaterialHandle handle)
    {
       return materialLoader.unload(handle);
-   }
-
-   void unloadAllMaterials()
-   {
-      materialLoader.unloadAll();
-   }
-
-   void clearMaterials()
-   {
-      materialLoader.clear();
    }
 
    Material* getMaterial(MaterialHandle handle)
@@ -79,24 +53,14 @@ public:
 
    // Mesh
 
-   MeshHandle loadMesh(const std::filesystem::path& path, const MeshLoadOptions& loadOptions = {})
+   StrongMeshHandle loadMesh(const std::filesystem::path& path, const MeshLoadOptions& loadOptions = {})
    {
-      return meshLoader.load(path, loadOptions);
+      return StrongMeshHandle(*this, meshLoader.load(path, loadOptions));
    }
 
    bool unloadMesh(MeshHandle handle)
    {
       return meshLoader.unload(handle);
-   }
-
-   void unloadAllMeshes()
-   {
-      meshLoader.unloadAll();
-   }
-
-   void clearMeshes()
-   {
-      meshLoader.clear();
    }
 
    Mesh* getMesh(MeshHandle handle)
@@ -116,24 +80,14 @@ public:
 
    // ShaderModule
 
-   ShaderModuleHandle loadShaderModule(const std::filesystem::path& path)
+   StrongShaderModuleHandle loadShaderModule(const std::filesystem::path& path)
    {
-      return shaderModuleLoader.load(path);
+      return StrongShaderModuleHandle(*this, shaderModuleLoader.load(path));
    }
 
    bool unloadShaderModule(ShaderModuleHandle handle)
    {
       return shaderModuleLoader.unload(handle);
-   }
-
-   void unloadAllShaderModules()
-   {
-      shaderModuleLoader.unloadAll();
-   }
-
-   void clearShaderModules()
-   {
-      shaderModuleLoader.clear();
    }
 
    ShaderModule* getShaderModule(ShaderModuleHandle handle)
@@ -153,24 +107,11 @@ public:
 
    // Texture
 
-   TextureHandle loadTexture(const std::filesystem::path& path, const TextureLoadOptions& loadOptions = {}, const TextureProperties& properties = TextureLoader::getDefaultProperties(), const TextureInitialLayout& initialLayout = TextureLoader::getDefaultInitialLayout())
-   {
-      return textureLoader.load(path, loadOptions, properties, initialLayout);
-   }
+   StrongTextureHandle loadTexture(const std::filesystem::path& path, const TextureLoadOptions& loadOptions = {}, const TextureProperties& properties = TextureLoader::getDefaultProperties(), const TextureInitialLayout& initialLayout = TextureLoader::getDefaultInitialLayout());
 
    bool unloadTexture(TextureHandle handle)
    {
       return textureLoader.unload(handle);
-   }
-
-   void unloadAllTextures()
-   {
-      textureLoader.unloadAll();
-   }
-
-   void clearTextures()
-   {
-      textureLoader.clear();
    }
 
    Texture* getTexture(TextureHandle handle)
@@ -183,19 +124,62 @@ public:
       return textureLoader.get(handle);
    }
 
+   Texture* getDefaultTexture(DefaultTextureType type)
+   {
+      return getTexture(getDefaultTextureHandle(type));
+   }
+
+   const Texture* getDefaultTexture(DefaultTextureType type) const
+   {
+      return getTexture(getDefaultTextureHandle(type));
+   }
+
    const std::string* getTexturePath(TextureHandle handle) const
    {
       return textureLoader.findIdentifier(handle);
    }
 
-   std::unique_ptr<Texture> createDefaultTexture(DefaultTextureType type) const
-   {
-      return textureLoader.createDefault(type);
-   }
-
 private:
+   template<typename T>
+   friend class StrongResourceHandle;
+
+   template<typename T>
+   using StrongHandleSet = std::unordered_set<StrongResourceHandle<T>*>;
+
+   template<typename T>
+   using RefCountMap = std::unordered_map<ResourceHandle<T>, StrongHandleSet<T>>;
+
+   void createDefaultTextures();
+
+   TextureHandle getDefaultTextureHandle(DefaultTextureType type) const;
+
+   template<typename T>
+   RefCountMap<T>& getRefCounts();
+
+   template<typename T>
+   void clearRefCounts(RefCountMap<T>& refCounts);
+
+   template<typename T>
+   void addRef(StrongResourceHandle<T>& strongHandle);
+
+   template<typename T>
+   void removeRef(StrongResourceHandle<T>& strongHandle);
+
+   template<typename T>
+   bool unload(ResourceHandle<T> handle);
+
    MaterialLoader materialLoader;
    MeshLoader meshLoader;
    ShaderModuleLoader shaderModuleLoader;
    TextureLoader textureLoader;
+
+   RefCountMap<Material> materialRefCounts;
+   RefCountMap<Mesh> meshRefCounts;
+   RefCountMap<ShaderModule> shaderModuleRefCounts;
+   RefCountMap<Texture> textureRefCounts;
+
+   StrongTextureHandle defaultBlackTextureHandle;
+   StrongTextureHandle defaultWhiteTextureHandle;
+   StrongTextureHandle defaultNormalMapTextureHandle;
+   StrongTextureHandle defaultAoRoughnessMetalnessMapTextureHandle;
 };
