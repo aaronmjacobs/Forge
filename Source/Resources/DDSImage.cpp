@@ -583,7 +583,7 @@ namespace
       return ddsFormat.rBitMask == r && ddsFormat.gBitMask == g && ddsFormat.bBitMask == b && ddsFormat.aBitMask == a;
    }
 
-   vk::Format ddsToVkFormat(const DDSPixelFormat& ddsFormat, const DDSHeaderDX10& headerDx10, bool sRGBHint)
+   vk::Format ddsToVkFormat(const DDSPixelFormat& ddsFormat, const DDSHeaderDX10& headerDX10, bool sRGBHint)
    {
       if (ddsFormat.flags & DDSPixelFormatFlags::RGB)
       {
@@ -682,7 +682,7 @@ namespace
          case DDSFourCC::GRGB:
             return vk::Format::eG8B8G8R8422Unorm;
          case DDSFourCC::DX10:
-            return dxgiToVk(headerDx10.dxgiFormat);
+            return dxgiToVk(headerDX10.dxgiFormat);
          default:
             return vk::Format::eUndefined;
          }
@@ -691,9 +691,9 @@ namespace
       return vk::Format::eUndefined;
    }
 
-   vk::ImageType determineImageType(const DDSHeader& header, const DDSHeaderDX10& headerDx10)
+   vk::ImageType determineImageType(const DDSHeader& header, const DDSHeaderDX10& headerDX10)
    {
-      switch (headerDx10.resourceDimension)
+      switch (headerDX10.resourceDimension)
       {
       case D3D10_RESOURCE_DIMENSION_TEXTURE1D:
          return vk::ImageType::e1D;
@@ -710,11 +710,19 @@ namespace
       }
    }
 
-   uint32_t determineLayerCount(const DDSHeader& header, const DDSHeaderDX10& headerDx10)
+   uint32_t determineLayerCount(const DDSHeader& header, const DDSHeaderDX10& headerDX10)
    {
-      if (headerDx10.arraySize > 0)
+      if (headerDX10.arraySize > 0)
       {
-         return headerDx10.arraySize * (headerDx10.miscFlag & DDSDX10MiscFlag::TextureCube) ? 6 : 1;
+         uint32_t arraySize = headerDX10.arraySize;
+
+         // https://forums.developer.nvidia.com/t/texture-tools-exporter-cubemap-has-incorrect-arraysize/244753/3
+         if (header.reserved1[9] == fourCC("NVT3") && header.reserved1[10] == 0 && (header.caps2 & DDSCaps2::Cubemap))
+         {
+            arraySize /= 6;
+         }
+
+         return arraySize * ((headerDX10.miscFlag & DDSDX10MiscFlag::TextureCube) ? 6 : 1);
       }
 
       uint32_t allCubemapFaces = DDSCaps2::CubemapPositiveX | DDSCaps2::CubemapNegativeX | DDSCaps2::CubemapPositiveY | DDSCaps2::CubemapNegativeY | DDSCaps2::CubemapPositiveZ | DDSCaps2::CubemapNegativeZ;
