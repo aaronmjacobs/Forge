@@ -21,10 +21,13 @@
 #include "Scene/Components/LightComponent.h"
 #include "Scene/Components/MeshComponent.h"
 #include "Scene/Components/NameComponent.h"
+#include "Scene/Components/OscillatingMovementComponent.h"
 #include "Scene/Components/SkyboxComponent.h"
 #include "Scene/Components/TransformComponent.h"
 #include "Scene/Entity.h"
 #include "Scene/Scene.h"
+#include "Scene/Systems/CameraSystem.h"
+#include "Scene/Systems/OscillatingMovementSystem.h"
 
 #include "UI/UI.h"
 
@@ -42,13 +45,6 @@ namespace
 
       const char* kToggleHDR = "ToggleHDR";
       const char* kToggleLabels = "ToggleLabels";
-
-      const char* kMoveForward = "MoveForward";
-      const char* kMoveRight = "MoveRight";
-      const char* kMoveUp = "MoveUp";
-
-      const char* kLookRight = "LookRight";
-      const char* kLookUp = "LookUp";
    }
 
    void glfwErrorCallback(int errorCode, const char* description)
@@ -331,18 +327,18 @@ void ForgeApplication::initializeGlfw()
    {
       std::array<KeyAxisChord, 2> moveForwardKeyAxes = { KeyAxisChord(Key::W, false), KeyAxisChord(Key::S, true) };
       std::array<GamepadAxisChord, 1> moveForwardGamepadAxes = { GamepadAxisChord(GamepadAxis::LeftY, false) };
-      inputManager.createAxisMapping(InputActions::kMoveForward, moveForwardKeyAxes, {}, moveForwardGamepadAxes);
+      inputManager.createAxisMapping(CameraSystemInputActions::kMoveForward, moveForwardKeyAxes, {}, moveForwardGamepadAxes);
 
       std::array<KeyAxisChord, 2> moveRightKeyAxes = { KeyAxisChord(Key::D, false), KeyAxisChord(Key::A, true) };
       std::array<GamepadAxisChord, 1> moveRightGamepadAxes = { GamepadAxisChord(GamepadAxis::LeftX, false) };
-      inputManager.createAxisMapping(InputActions::kMoveRight, moveRightKeyAxes, {}, moveRightGamepadAxes);
+      inputManager.createAxisMapping(CameraSystemInputActions::kMoveRight, moveRightKeyAxes, {}, moveRightGamepadAxes);
 
       std::array<KeyAxisChord, 2> moveUpKeyAxes = { KeyAxisChord(Key::Space, false), KeyAxisChord(Key::LeftControl, true) };
       std::array<GamepadAxisChord, 2> moveUpGamepadAxes = { GamepadAxisChord(GamepadAxis::RightTrigger, false), GamepadAxisChord(GamepadAxis::LeftTrigger, true) };
-      inputManager.createAxisMapping(InputActions::kMoveUp, moveUpKeyAxes, {}, moveUpGamepadAxes);
+      inputManager.createAxisMapping(CameraSystemInputActions::kMoveUp, moveUpKeyAxes, {}, moveUpGamepadAxes);
 
-      inputManager.createAxisMapping(InputActions::kLookRight, {}, CursorAxisChord(CursorAxis::X), GamepadAxisChord(GamepadAxis::RightX));
-      inputManager.createAxisMapping(InputActions::kLookUp, {}, CursorAxisChord(CursorAxis::Y), GamepadAxisChord(GamepadAxis::RightY));
+      inputManager.createAxisMapping(CameraSystemInputActions::kLookRight, {}, CursorAxisChord(CursorAxis::X), GamepadAxisChord(GamepadAxis::RightX));
+      inputManager.createAxisMapping(CameraSystemInputActions::kLookUp, {}, CursorAxisChord(CursorAxis::Y), GamepadAxisChord(GamepadAxis::RightY));
    }
 }
 
@@ -508,52 +504,18 @@ void ForgeApplication::loadScene()
 {
    scene = std::make_unique<Scene>();
 
-   {
-      static const float kCameraMoveSpeed = 3.0f;
-      static const float kCameraLookSpeed = 180.0f;
+   CameraSystem* cameraSystem = scene->createSystem<CameraSystem>(window->getInputManager());
+   scene->createSystem<OscillatingMovementSystem>();
 
+   {
       Entity cameraEntity = scene->createEntity();
-      scene->setActiveCamera(cameraEntity);
+      cameraSystem->setActiveCamera(cameraEntity);
 
       cameraEntity.createComponent<NameComponent>().name = "Camera";
       cameraEntity.createComponent<CameraComponent>();
       Transform& transform = cameraEntity.createComponent<TransformComponent>().transform;
       transform.orientation = glm::quat(glm::radians(glm::vec3(-10.0f, 0.0f, -70.0f)));
       transform.position = glm::vec3(-6.0f, -0.8f, 2.0f);
-
-      InputManager& inputManager = window->getInputManager();
-
-      inputManager.bindAxisMapping(InputActions::kMoveForward, [this, cameraEntity](float value) mutable
-      {
-         Transform& cameraTransform = cameraEntity.getComponent<TransformComponent>().transform;
-         cameraTransform.translateBy(cameraTransform.getForwardVector() * value * kCameraMoveSpeed * scene->getRawDeltaTime());
-      });
-
-      inputManager.bindAxisMapping(InputActions::kMoveRight, [this, cameraEntity](float value) mutable
-      {
-         Transform& cameraTransform = cameraEntity.getComponent<TransformComponent>().transform;
-         cameraTransform.translateBy(cameraTransform.getRightVector() * value * kCameraMoveSpeed * scene->getRawDeltaTime());
-      });
-
-      inputManager.bindAxisMapping(InputActions::kMoveUp, [this, cameraEntity](float value) mutable
-      {
-         Transform& cameraTransform = cameraEntity.getComponent<TransformComponent>().transform;
-         cameraTransform.translateBy(cameraTransform.getUpVector() * value * kCameraMoveSpeed * scene->getRawDeltaTime());
-      });
-
-      inputManager.bindAxisMapping(InputActions::kLookRight, [this, cameraEntity](float value) mutable
-      {
-         Transform& cameraTransform = cameraEntity.getComponent<TransformComponent>().transform;
-         cameraTransform.rotateBy(glm::angleAxis(glm::radians(value * kCameraLookSpeed * scene->getRawDeltaTime()), -MathUtils::kUpVector));
-      });
-
-      inputManager.bindAxisMapping(InputActions::kLookUp, [this, cameraEntity](float value) mutable
-      {
-         Transform& cameraTransform = cameraEntity.getComponent<TransformComponent>().transform;
-         glm::vec3 euler = glm::degrees(glm::eulerAngles(cameraTransform.orientation));
-         euler.x = glm::clamp(euler.x + value * kCameraLookSpeed * 0.75f * scene->getRawDeltaTime(), -89.0f, 89.0f);
-         cameraTransform.orientation = glm::quat(glm::radians(euler));
-      });
    }
 
    {
@@ -601,7 +563,7 @@ void ForgeApplication::loadScene()
       Entity directionalLightEntity = scene->createEntity();
 
       directionalLightEntity.createComponent<NameComponent>().name = "Directional Light";
-      directionalLightEntity.createComponent<TransformComponent>();
+      directionalLightEntity.createComponent<TransformComponent>().transform.orientation = glm::quat(glm::radians(glm::vec3(-90.0f, 0.0f, 0.0f)));
 
       DirectionalLightComponent& directionalLightComponent = directionalLightEntity.createComponent<DirectionalLightComponent>();
       directionalLightComponent.setBrightness(3.0f);
@@ -609,55 +571,47 @@ void ForgeApplication::loadScene()
       directionalLightComponent.setShadowHeight(15.0f);
       directionalLightComponent.setShadowDepth(25.0f);
 
-      scene->addTickDelegate([this, directionalLightEntity](float dt) mutable
-      {
-         float time = scene->getTime();
-
-         TransformComponent& transformComponent = directionalLightEntity.getComponent<TransformComponent>();
-         float pitchOffset = 25.0f * glm::sin(time * 0.45f - 0.5f);
-         float yawOffset = 25.0f * glm::cos(time * 0.25f + 3.14f);
-         transformComponent.transform.orientation = glm::angleAxis(glm::radians(-90.0f + pitchOffset), MathUtils::kRightVector) * glm::angleAxis(glm::radians(yawOffset), MathUtils::kUpVector);
-      });
+      OscillatingMovementComponent& oscillatingMovementComponent = directionalLightEntity.createComponent<OscillatingMovementComponent>();
+      oscillatingMovementComponent.rotation.sin.timeScale = glm::vec3(0.45f, 0.0f, 0.0f);
+      oscillatingMovementComponent.rotation.sin.valueScale = glm::vec3(25.0f, 0.0f, 0.0f);
+      oscillatingMovementComponent.rotation.cos.timeOffset = glm::vec3(0.0f, 0.0f, 3.14f);
+      oscillatingMovementComponent.rotation.cos.timeScale = glm::vec3(0.0f, 0.0f, 0.25f);
+      oscillatingMovementComponent.rotation.cos.valueScale = glm::vec3(0.0f, 0.0f, 25.0f);
    }
 
    {
       Entity pointLightEntity = scene->createEntity();
 
       pointLightEntity.createComponent<NameComponent>().name = "Point Light";
-      pointLightEntity.createComponent<TransformComponent>();
+      TransformComponent& transformComponent = pointLightEntity.createComponent<TransformComponent>();
+      transformComponent.transform.position = glm::vec3(0.0f, 0.0f, 3.0f);
 
       PointLightComponent& pointLightComponent = pointLightEntity.createComponent<PointLightComponent>();
       pointLightComponent.setColor(glm::vec3(0.1f, 0.3f, 0.8f));
       pointLightComponent.setBrightness(70.0f);
       pointLightComponent.setRadius(50.0f);
 
-      scene->addTickDelegate([this, pointLightEntity](float dt) mutable
-      {
-         float time = scene->getTime();
-
-         TransformComponent& transformComponent = pointLightEntity.getComponent<TransformComponent>();
-         transformComponent.transform.position = glm::vec3(glm::sin(time) * 5.0f, glm::cos(time * 0.7f) * 1.5f, glm::sin(time * 1.1f) * 2.0f + 3.0f);
-      });
+      OscillatingMovementComponent& oscillatingMovementComponent = pointLightEntity.createComponent<OscillatingMovementComponent>();
+      oscillatingMovementComponent.location.sin.timeScale = glm::vec3(1.0f, 0.7f, 1.1f);
+      oscillatingMovementComponent.location.sin.valueScale = glm::vec3(5.0f, 1.5f, 2.0f);
    }
 
    {
       Entity spotLightEntity = scene->createEntity();
 
       spotLightEntity.createComponent<NameComponent>().name = "Spot Light";
-      spotLightEntity.createComponent<TransformComponent>();
+      spotLightEntity.createComponent<TransformComponent>().transform.position = glm::vec3(0.0f, -4.5f, 1.5f);
 
       SpotLightComponent& spotLightComponent = spotLightEntity.createComponent<SpotLightComponent>();
       spotLightComponent.setColor(glm::vec3(0.8f, 0.1f, 0.3f));
       spotLightComponent.setBrightness(70.0f);
       spotLightComponent.setRadius(50.0f);
 
-      scene->addTickDelegate([this, spotLightEntity](float dt) mutable
-      {
-         float time = scene->getTime();
-
-         TransformComponent& transformComponent = spotLightEntity.getComponent<TransformComponent>();
-         transformComponent.transform.position = glm::vec3(glm::cos(time * 0.6f) * 8.0f, glm::sin(time * 0.3f) - 4.5f, glm::cos(time * 1.3f) * 1.5f + 1.5f);
-      });
+      OscillatingMovementComponent& oscillatingMovementComponent = spotLightEntity.createComponent<OscillatingMovementComponent>();
+      oscillatingMovementComponent.location.sin.timeScale = glm::vec3(0.0f, 0.3f, 0.0f);
+      oscillatingMovementComponent.location.sin.valueScale = glm::vec3(0.0f, 1.0f, 0.0f);
+      oscillatingMovementComponent.location.cos.timeScale = glm::vec3(0.6f, 0.0f, 1.3f);
+      oscillatingMovementComponent.location.cos.valueScale = glm::vec3(8.0f, 0.0f, 1.5f);
    }
 }
 

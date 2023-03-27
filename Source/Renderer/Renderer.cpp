@@ -27,6 +27,7 @@
 #include "Scene/Components/TransformComponent.h"
 #include "Scene/Entity.h"
 #include "Scene/Scene.h"
+#include "Scene/Systems/CameraSystem.h"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -44,18 +45,21 @@ namespace
       viewInfo.projectionMode = ProjectionMode::Perspective;
       viewInfo.perspectiveInfo.aspectRatio = static_cast<float>(swapchainExtent.width) / swapchainExtent.height;
 
-      if (Entity cameraEntity = scene.getActiveCamera())
+      if (const CameraSystem* cameraSystem = scene.getSystem<CameraSystem>())
       {
-         if (const TransformComponent* transformComponent = cameraEntity.tryGetComponent<TransformComponent>())
+         if (Entity cameraEntity = cameraSystem->getActiveCamera())
          {
-            viewInfo.transform = transformComponent->getAbsoluteTransform();
-         }
+            if (const TransformComponent* transformComponent = cameraEntity.tryGetComponent<TransformComponent>())
+            {
+               viewInfo.transform = transformComponent->getAbsoluteTransform();
+            }
 
-         if (const CameraComponent* cameraComponent = cameraEntity.tryGetComponent<CameraComponent>())
-         {
-            viewInfo.perspectiveInfo.fieldOfView = cameraComponent->fieldOfView;
-            viewInfo.perspectiveInfo.nearPlane = cameraComponent->nearPlane;
-            viewInfo.perspectiveInfo.farPlane = cameraComponent->farPlane;
+            if (const CameraComponent* cameraComponent = cameraEntity.tryGetComponent<CameraComponent>())
+            {
+               viewInfo.perspectiveInfo.fieldOfView = cameraComponent->fieldOfView;
+               viewInfo.perspectiveInfo.nearPlane = cameraComponent->nearPlane;
+               viewInfo.perspectiveInfo.farPlane = cameraComponent->farPlane;
+            }
          }
       }
 

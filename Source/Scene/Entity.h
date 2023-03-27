@@ -55,27 +55,34 @@ public:
    template<typename T>
    T* tryGetComponent()
    {
-      ASSERT(scene);
-      return scene->registry.try_get<T>(id);
+      return isValid() ? scene->registry.try_get<T>(id) : nullptr;
    }
 
    template<typename T>
    const T* tryGetComponent() const
    {
-      ASSERT(scene);
-      return scene->registry.try_get<T>(id);
+      return isValid() ? scene->registry.try_get<T>(id) : nullptr;
    }
 
    template<typename T>
    bool hasComponent() const
    {
-      ASSERT(scene);
-      return scene->registry.all_of<T>(id);
+      return isValid() ? scene->registry.all_of<T>(id) : false;
+   }
+
+   bool isInScene(Scene& queryScene) const
+   {
+      return scene == &queryScene;
+   }
+
+   bool isValid() const
+   {
+      return scene && scene->registry.valid(id);
    }
 
    explicit operator bool() const
    {
-      return scene && scene->registry.valid(id);
+      return isValid();
    }
 
    bool operator==(const Entity& other) const = default;

@@ -5,15 +5,20 @@
 #include <entt/entity/registry.hpp>
 
 #include <memory>
+#include <typeindex>
+#include <typeinfo>
+#include <unordered_map>
+#include <vector>
 
 class Entity;
+class System;
 
 class Scene
 {
 public:
    using TickDelegate = MulticastDelegate<void, float /* dt */>;
 
-   Scene();
+   ~Scene();
 
    DelegateHandle addTickDelegate(TickDelegate::FuncType&& function);
    void removeTickDelegate(DelegateHandle handle);
@@ -65,15 +70,38 @@ public:
       return registry.view<const ComponentTypes...>().each(std::forward<Function>(function));
    }
 
-   Entity getActiveCamera() const;
-   void setActiveCamera(Entity newActiveCamera);
+   template<typename T, typename... Params>
+   T* createSystem(Params&&... params)
+   {
+      storeSystem(std::make_unique<T>(*this, std::forward<Params>(params)...), typeid(T));
+      return getSystem<T>();
+   }
+
+   template<typename T>
+   T* getSystem()
+   {
+      return static_cast<T*>(getSystem(typeid(T)));
+   }
+
+   template<typename T>
+   const T* getSystem() const
+   {
+      return static_cast<const T*>(getSystem(typeid(T)));
+   }
 
 private:
    friend class Entity;
 
+   void storeSystem(std::unique_ptr<System> system, std::type_index typeIndex);
+   System* getSystem(std::type_index typeIndex);
+   const System* getSystem(std::type_index typeIndex) const;
+
    Entity getEntity(std::size_t index);
 
    entt::registry registry;
+
+   std::vector<std::unique_ptr<System>> systems;
+   std::unordered_map<std::type_index, System*> systemsByType;
 
    TickDelegate tickDelegate;
 
@@ -84,6 +112,4 @@ private:
 
    float rawTime = 0.0f;
    float rawDeltaTime = 0.0f;
-
-   std::unique_ptr<Entity> activeCamera;
 };
