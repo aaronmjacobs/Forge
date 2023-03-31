@@ -92,6 +92,37 @@ namespace
          return {};
       }
    }
+
+   TextureProperties getTextureProperties(bool generateMipMaps)
+   {
+      TextureProperties defaultProperties;
+
+      defaultProperties.generateMipMaps = generateMipMaps;
+
+      return defaultProperties;
+   }
+
+   TextureInitialLayout getInitialLayout()
+   {
+      TextureInitialLayout defaultInitialLayout;
+
+      defaultInitialLayout.layout = vk::ImageLayout::eShaderReadOnlyOptimal;
+      defaultInitialLayout.memoryBarrierFlags = TextureMemoryBarrierFlags(vk::AccessFlagBits::eShaderRead, vk::PipelineStageFlagBits::eFragmentShader);
+
+      return defaultInitialLayout;
+   }
+}
+
+std::size_t TextureKey::hash() const
+{
+   std::size_t hash = 0;
+
+   Hash::combine(hash, canonicalPath);
+
+   Hash::combine(hash, options.sRGB);
+   Hash::combine(hash, options.generateMipMaps);
+
+   return hash;
 }
 
 TextureLoader::TextureLoader(const GraphicsContext& graphicsContext, ResourceManager& owningResourceManager)
@@ -99,25 +130,28 @@ TextureLoader::TextureLoader(const GraphicsContext& graphicsContext, ResourceMan
 {
 }
 
-TextureHandle TextureLoader::load(const std::filesystem::path& path, const TextureLoadOptions& loadOptions, const TextureProperties& properties, const TextureInitialLayout& initialLayout)
+TextureHandle TextureLoader::load(const std::filesystem::path& path, const TextureLoadOptions& loadOptions)
 {
    if (std::optional<std::filesystem::path> canonicalPath = ResourceLoadHelpers::makeCanonical(path))
    {
-      std::string canonicalPathString = canonicalPath->string();
-      if (canonicalPathString.starts_with('*'))
+      TextureKey key;
+      key.canonicalPath = canonicalPath->string();
+      key.options = loadOptions;
+
+      if (key.canonicalPath.starts_with('*'))
       {
          // Reserved for defaults
          return TextureHandle{};
       }
 
-      if (Handle cachedHandle = container.findHandle(canonicalPathString))
+      if (Handle cachedHandle = container.findHandle(key))
       {
          return cachedHandle;
       }
 
       if (std::unique_ptr<Image> image = loadImage(*canonicalPath, loadOptions))
       {
-         TextureHandle handle = container.emplace(canonicalPathString, context, image->getProperties(), properties, initialLayout, image->getTextureData());
+         TextureHandle handle = container.emplace(key, context, image->getProperties(), getTextureProperties(loadOptions.generateMipMaps), getInitialLayout(), image->getTextureData());
          NAME_POINTER(context.getDevice(), get(handle), ResourceLoadHelpers::getName(*canonicalPath));
 
          return handle;
@@ -134,9 +168,12 @@ TextureHandle TextureLoader::createDefault(DefaultTextureType type)
       return TextureHandle{};
    }
 
-   const std::string& path = getDefaultPath(type);
+   TextureKey key;
+   key.canonicalPath = getDefaultPath(type);
+   key.options.sRGB = false;
+   key.options.generateMipMaps = false;
 
-   if (Handle cachedHandle = container.findHandle(path))
+   if (Handle cachedHandle = container.findHandle(key))
    {
       return cachedHandle;
    }
@@ -144,39 +181,13 @@ TextureHandle TextureLoader::createDefault(DefaultTextureType type)
    std::optional<SinglePixelImage> defaultImage = createDefaultImage(type);
    if (defaultImage.has_value())
    {
-      TextureProperties defaultTextureProperties = getDefaultProperties();
-      defaultTextureProperties.generateMipMaps = false;
-
-      TextureInitialLayout defaultTextureInitialLayout = getDefaultInitialLayout();
-
-      TextureHandle handle = container.emplace(path, context, defaultImage->getProperties(), defaultTextureProperties, defaultTextureInitialLayout, defaultImage->getTextureData());
+      TextureHandle handle = container.emplace(key, context, defaultImage->getProperties(), getTextureProperties(false), getInitialLayout(), defaultImage->getTextureData());
       NAME_POINTER(context.getDevice(), get(handle), getDefaultName(type));
 
       return handle;
    }
 
    return TextureHandle{};
-}
-
-// static
-TextureProperties TextureLoader::getDefaultProperties()
-{
-   TextureProperties defaultProperties;
-
-   defaultProperties.generateMipMaps = true;
-
-   return defaultProperties;
-}
-
-// static
-TextureInitialLayout TextureLoader::getDefaultInitialLayout()
-{
-   TextureInitialLayout defaultInitialLayout;
-
-   defaultInitialLayout.layout = vk::ImageLayout::eShaderReadOnlyOptimal;
-   defaultInitialLayout.memoryBarrierFlags = TextureMemoryBarrierFlags(vk::AccessFlagBits::eShaderRead, vk::PipelineStageFlagBits::eFragmentShader);
-
-   return defaultInitialLayout;
 }
 
 const std::string& TextureLoader::getDefaultPath(DefaultTextureType type) const

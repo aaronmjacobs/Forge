@@ -128,27 +128,29 @@ namespace
 
       TextureLoadOptions loadOptions;
       loadOptions.sRGB = textureType == aiTextureType_BASE_COLOR || textureType == aiTextureType_DIFFUSE;
+
+      DefaultTextureType fallbackDefaultTextureType = DefaultTextureType::None;
       switch (textureType)
       {
       case aiTextureType_BASE_COLOR:
       case aiTextureType_DIFFUSE:
-         loadOptions.fallbackDefaultTextureType = DefaultTextureType::White;
+         fallbackDefaultTextureType = DefaultTextureType::White;
          break;
       case aiTextureType_NORMALS:
-         loadOptions.fallbackDefaultTextureType = DefaultTextureType::NormalMap;
+         fallbackDefaultTextureType = DefaultTextureType::NormalMap;
          break;
       case aiTextureType_AMBIENT_OCCLUSION:
       case aiTextureType_DIFFUSE_ROUGHNESS:
       case aiTextureType_METALNESS:
       case aiTextureType_UNKNOWN:
-         loadOptions.fallbackDefaultTextureType = DefaultTextureType::AoRoughnessMetalnessMap;
+         fallbackDefaultTextureType = DefaultTextureType::AoRoughnessMetalnessMap;
          break;
       default:
-         loadOptions.fallbackDefaultTextureType = DefaultTextureType::Black;
+         fallbackDefaultTextureType = DefaultTextureType::Black;
          break;
       }
 
-      return resourceManager.loadTexture(texturePath, loadOptions);
+      return resourceManager.loadTexture(texturePath, loadOptions, fallbackDefaultTextureType);
    }
 
    StrongMaterialHandle processAssimpMaterial(const aiMaterial& assimpMaterial, bool interpretTextureAlphaAsMask, const std::filesystem::path& directory, ResourceManager& resourceManager)
@@ -321,6 +323,20 @@ namespace
    }
 }
 
+std::size_t MeshKey::hash() const
+{
+   std::size_t hash = 0;
+
+   Hash::combine(hash, canonicalPath);
+
+   Hash::combine(hash, options.forwardAxis);
+   Hash::combine(hash, options.upAxis);
+   Hash::combine(hash, options.scale);
+   Hash::combine(hash, options.interpretTextureAlphaAsMask);
+
+   return hash;
+}
+
 MeshLoader::MeshLoader(const GraphicsContext& graphicsContext, ResourceManager& owningResourceManager)
    : ResourceLoader(graphicsContext, owningResourceManager)
 {
@@ -330,8 +346,11 @@ MeshHandle MeshLoader::load(const std::filesystem::path& path, const MeshLoadOpt
 {
    if (std::optional<std::filesystem::path> canonicalPath = ResourceLoadHelpers::makeCanonical(path))
    {
-      std::string canonicalPathString = canonicalPath->string();
-      if (Handle cachedHandle = container.findHandle(canonicalPathString))
+      MeshKey key;
+      key.canonicalPath = canonicalPath->string();
+      key.options = loadOptions;
+
+      if (Handle cachedHandle = container.findHandle(key))
       {
          return cachedHandle;
       }
@@ -339,7 +358,7 @@ MeshHandle MeshLoader::load(const std::filesystem::path& path, const MeshLoadOpt
       std::vector<MeshSectionSourceData> sourceData = loadMesh(*canonicalPath, loadOptions, resourceManager);
       if (!sourceData.empty())
       {
-         MeshHandle handle = container.emplace(canonicalPathString, context, sourceData);
+         MeshHandle handle = container.emplace(key, context, sourceData);
          NAME_POINTER(context.getDevice(), get(handle), ResourceLoadHelpers::getName(*canonicalPath));
 
          return handle;

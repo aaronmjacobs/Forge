@@ -7,7 +7,7 @@
 #include <filesystem>
 #include <string>
 
-class ShaderModuleLoader : public ResourceLoader<ShaderModule, std::string>
+class ShaderModuleLoader : public ResourceLoader<std::string, ShaderModule>
 {
 public:
    ShaderModuleLoader(const GraphicsContext& graphicsContext, ResourceManager& owningResourceManager);

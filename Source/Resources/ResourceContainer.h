@@ -8,25 +8,25 @@
 #include <memory>
 #include <utility>
 
-template<typename T, typename Identifier>
+template<typename ResourceKey, typename ResourceValue>
 class ResourceContainer
 {
 public:
-   using Handle = ResourceHandle<T>;
+   using Handle = ResourceHandle<ResourceValue>;
 
-   Handle add(const Identifier& identifier, std::unique_ptr<T> resource)
+   Handle add(const ResourceKey& key, std::unique_ptr<ResourceValue> resource)
    {
       Handle handle = resources.emplace(std::move(resource));
-      cacheHandle(identifier, handle);
+      cacheHandle(key, handle);
 
       return handle;
    }
 
    template<typename... Args>
-   Handle emplace(const Identifier& identifier, Args&&... args)
+   Handle emplace(const ResourceKey& key, Args&&... args)
    {
-      Handle handle = resources.emplace(std::make_unique<T>(std::forward<Args>(args)...));
-      cacheHandle(identifier, handle);
+      Handle handle = resources.emplace(std::make_unique<ResourceValue>(std::forward<Args>(args)...));
+      cacheHandle(key, handle);
 
       return handle;
    }
@@ -49,32 +49,26 @@ public:
       cache.clear();
    }
 
-   void clear()
+   ResourceValue* get(Handle handle)
    {
-      resources.clear();
-      cache.clear();
-   }
-
-   T* get(Handle handle)
-   {
-      std::unique_ptr<T>* resource = resources.get(handle);
+      std::unique_ptr<ResourceValue>* resource = resources.get(handle);
       return resource ? resource->get() : nullptr;
    }
 
-   const T* get(Handle handle) const
+   const ResourceValue* get(Handle handle) const
    {
-      const std::unique_ptr<T>* resource = resources.get(handle);
+      const std::unique_ptr<ResourceValue>* resource = resources.get(handle);
       return resource ? resource->get() : nullptr;
    }
 
-   const Identifier* findIdentifier(Handle handle) const
+   const ResourceKey* findKey(Handle handle) const
    {
       return cache.find(handle);
    }
 
-   Handle findHandle(const Identifier& identifier) const
+   Handle findHandle(const ResourceKey& key) const
    {
-      if (const Handle* handle = cache.find(identifier))
+      if (const Handle* handle = cache.find(key))
       {
          if (resources.get(*handle) != nullptr)
          {
@@ -86,11 +80,11 @@ public:
    }
 
 private:
-   void cacheHandle(const Identifier& identifier, Handle handle)
+   void cacheHandle(const ResourceKey& key, Handle handle)
    {
-      cache.add(identifier, handle);
+      cache.add(key, handle);
    }
 
-   GenerationalArray<std::unique_ptr<T>> resources;
-   ReflectedMap<Identifier, Handle> cache;
+   GenerationalArray<std::unique_ptr<ResourceValue>> resources;
+   ReflectedMap<ResourceKey, Handle> cache;
 };

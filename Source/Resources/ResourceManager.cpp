@@ -19,13 +19,13 @@ ResourceManager::~ResourceManager()
    clearRefCounts(textureRefCounts);
 }
 
-StrongTextureHandle ResourceManager::loadTexture(const std::filesystem::path& path, const TextureLoadOptions& loadOptions, const TextureProperties& properties, const TextureInitialLayout& initialLayout)
+StrongTextureHandle ResourceManager::loadTexture(const std::filesystem::path& path, const TextureLoadOptions& loadOptions, DefaultTextureType fallbackDefaultTextureType)
 {
-   TextureHandle handle = textureLoader.load(path, loadOptions, properties, initialLayout);
+   TextureHandle handle = textureLoader.load(path, loadOptions);
 
    if (!handle)
    {
-      handle = getDefaultTextureHandle(loadOptions.fallbackDefaultTextureType);
+      handle = getDefaultTextureHandle(fallbackDefaultTextureType);
    }
 
    return StrongTextureHandle(*this, handle);
@@ -131,7 +131,7 @@ bool ResourceManager::unload(ResourceHandle<Texture> handle)
 template<typename T>
 void ResourceManager::addRef(StrongResourceHandle<T>& strongHandle)
 {
-   auto& refCounts = getRefCounts<T>();
+   RefCountMap<T>& refCounts = getRefCounts<T>();
 
    auto location = refCounts.find(strongHandle.getHandle());
    if (location == refCounts.end())

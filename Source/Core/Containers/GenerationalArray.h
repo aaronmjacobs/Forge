@@ -67,12 +67,6 @@ public:
       }
    }
 
-   void clear()
-   {
-      elements.clear();
-      freeIndices = std::queue<std::size_t>();
-   }
-
    T* get(Handle handle)
    {
       if (Element* element = find(handle))

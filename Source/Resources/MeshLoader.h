@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Core/Hash.h"
+
 #include "Resources/ResourceLoader.h"
 
 #include "Graphics/Mesh.h"
@@ -23,9 +25,22 @@ struct MeshLoadOptions
    MeshAxis upAxis = MeshAxis::PositiveY;
    float scale = 1.0f;
    bool interpretTextureAlphaAsMask = false;
+
+   bool operator==(const MeshLoadOptions& other) const = default;
 };
 
-class MeshLoader : public ResourceLoader<Mesh, std::string>
+struct MeshKey
+{
+   std::string canonicalPath;
+   MeshLoadOptions options;
+
+   std::size_t hash() const;
+   bool operator==(const MeshKey& other) const = default;
+};
+
+USE_MEMBER_HASH_FUNCTION(MeshKey);
+
+class MeshLoader : public ResourceLoader<MeshKey, Mesh>
 {
 public:
    MeshLoader(const GraphicsContext& graphicsContext, ResourceManager& owningResourceManager);

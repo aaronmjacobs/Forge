@@ -59,7 +59,7 @@ struct MaterialParameters
 
 USE_MEMBER_HASH_FUNCTION(MaterialParameters);
 
-class MaterialLoader : public ResourceLoader<Material, MaterialParameters>
+class MaterialLoader : public ResourceLoader<MaterialParameters, Material>
 {
 public:
    MaterialLoader(const GraphicsContext& graphicsContext, ResourceManager& owningResourceManager);

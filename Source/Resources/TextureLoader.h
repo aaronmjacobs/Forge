@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Core/Hash.h"
+
 #include "Resources/ResourceLoader.h"
 
 #include "Graphics/Texture.h"
@@ -18,20 +20,30 @@ enum class DefaultTextureType
 struct TextureLoadOptions
 {
    bool sRGB = true;
-   DefaultTextureType fallbackDefaultTextureType = DefaultTextureType::None;
+   bool generateMipMaps = true;
+
+   bool operator==(const TextureLoadOptions& other) const = default;
 };
 
-class TextureLoader : public ResourceLoader<Texture, std::string>
+struct TextureKey
+{
+   std::string canonicalPath;
+   TextureLoadOptions options;
+
+   std::size_t hash() const;
+   bool operator==(const TextureKey& other) const = default;
+};
+
+USE_MEMBER_HASH_FUNCTION(TextureKey);
+
+class TextureLoader : public ResourceLoader<TextureKey, Texture>
 {
 public:
    TextureLoader(const GraphicsContext& graphicsContext, ResourceManager& owningResourceManager);
 
-   TextureHandle load(const std::filesystem::path& path, const TextureLoadOptions& loadOptions = {}, const TextureProperties& properties = getDefaultProperties(), const TextureInitialLayout& initialLayout = getDefaultInitialLayout());
+   TextureHandle load(const std::filesystem::path& path, const TextureLoadOptions& loadOptions = {});
 
    TextureHandle createDefault(DefaultTextureType type);
-
-   static TextureProperties getDefaultProperties();
-   static TextureInitialLayout getDefaultInitialLayout();
 
 private:
    const std::string& getDefaultPath(DefaultTextureType type) const;

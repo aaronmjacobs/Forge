@@ -48,7 +48,7 @@ public:
 
    const MaterialParameters* getMaterialParameters(MaterialHandle handle) const
    {
-      return materialLoader.findIdentifier(handle);
+      return materialLoader.findKey(handle);
    }
 
    // Mesh
@@ -75,7 +75,8 @@ public:
 
    const std::string* getMeshPath(MeshHandle handle) const
    {
-      return meshLoader.findIdentifier(handle);
+      const MeshKey* key = meshLoader.findKey(handle);
+      return key ? &key->canonicalPath : nullptr;
    }
 
    // ShaderModule
@@ -102,12 +103,12 @@ public:
 
    const std::string* getShaderModulePath(ShaderModuleHandle handle) const
    {
-      return shaderModuleLoader.findIdentifier(handle);
+      return shaderModuleLoader.findKey(handle);
    }
 
    // Texture
 
-   StrongTextureHandle loadTexture(const std::filesystem::path& path, const TextureLoadOptions& loadOptions = {}, const TextureProperties& properties = TextureLoader::getDefaultProperties(), const TextureInitialLayout& initialLayout = TextureLoader::getDefaultInitialLayout());
+   StrongTextureHandle loadTexture(const std::filesystem::path& path, const TextureLoadOptions& loadOptions = {}, DefaultTextureType fallbackDefaultTextureType = DefaultTextureType::None);
 
    bool unloadTexture(TextureHandle handle)
    {
@@ -136,7 +137,8 @@ public:
 
    const std::string* getTexturePath(TextureHandle handle) const
    {
-      return textureLoader.findIdentifier(handle);
+      const TextureKey* key = textureLoader.findKey(handle);
+      return key ? &key->canonicalPath : nullptr;
    }
 
 private:

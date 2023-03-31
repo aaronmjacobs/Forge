@@ -20,11 +20,11 @@ namespace ResourceLoadHelpers
 #endif // FORGE_WITH_DEBUG_UTILS
 }
 
-template<typename T, typename Identifier>
+template<typename ResourceKey, typename ResourceValue>
 class ResourceLoader
 {
 public:
-   using Handle = ResourceHandle<T>;
+   using Handle = ResourceHandle<ResourceValue>;
 
    ResourceLoader(const GraphicsContext& graphicsContext, ResourceManager& owningResourceManager)
       : context(graphicsContext)
@@ -42,28 +42,23 @@ public:
       container.removeAll();
    }
 
-   void clear()
-   {
-      container.clear();
-   }
-
-   T* get(Handle handle)
+   ResourceValue* get(Handle handle)
    {
       return container.get(handle);
    }
 
-   const T* get(Handle handle) const
+   const ResourceValue* get(Handle handle) const
    {
       return container.get(handle);
    }
 
-   const Identifier* findIdentifier(Handle handle) const
+   const ResourceKey* findKey(Handle handle) const
    {
-      return container.findIdentifier(handle);
+      return container.findKey(handle);
    }
 
 protected:
    const GraphicsContext& context;
    ResourceManager& resourceManager;
-   ResourceContainer<T, Identifier> container;
+   ResourceContainer<ResourceKey, ResourceValue> container;
 };
