@@ -337,11 +337,7 @@ namespace
 
             if (anyVisible)
             {
-               info.visibleOpaqueSections.shrink_to_fit();
-               info.visibleMaskedSections.shrink_to_fit();
-               info.visibleTranslucentSections.shrink_to_fit();
-
-               sceneRenderInfo.meshes.push_back(info);
+               sceneRenderInfo.meshes.push_back(std::move(info));
             }
          }
       });
@@ -592,6 +588,8 @@ Renderer::~Renderer()
 void Renderer::render(vk::CommandBuffer commandBuffer, const Scene& scene)
 {
    SCOPED_LABEL("Scene");
+
+   FrameAllocatorBase::reset();
 
    Texture* defaultBlackTexture = resourceManager.getDefaultTexture(DefaultTextureType::Black);
    Texture* defaultWhiteTexture = resourceManager.getDefaultTexture(DefaultTextureType::White);

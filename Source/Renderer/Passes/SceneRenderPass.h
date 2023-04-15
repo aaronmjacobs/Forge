@@ -57,7 +57,7 @@ protected:
       vk::Pipeline lastPipeline;
       for (const MeshRenderInfo& meshRenderInfo : sceneRenderInfo.meshes)
       {
-         const std::vector<uint32_t>& sections = blendMode == BlendMode::Translucent ? meshRenderInfo.visibleTranslucentSections : blendMode == BlendMode::Masked ? meshRenderInfo.visibleMaskedSections : meshRenderInfo.visibleOpaqueSections;
+         const FrameVector<uint32_t>& sections = blendMode == BlendMode::Translucent ? meshRenderInfo.visibleTranslucentSections : blendMode == BlendMode::Masked ? meshRenderInfo.visibleMaskedSections : meshRenderInfo.visibleOpaqueSections;
          if (!sections.empty())
          {
             ASSERT(meshRenderInfo.mesh);

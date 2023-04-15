@@ -7,6 +7,7 @@ target_sources(${PROJECT_NAME} PRIVATE
    "${SRC_DIR}/PCH.h"
 
    "${SRC_DIR}/Core/Assert.h"
+   "${SRC_DIR}/Core/Containers/FrameVector.h"
    "${SRC_DIR}/Core/Containers/GenerationalArray.h"
    "${SRC_DIR}/Core/Containers/GenerationalArrayHandle.h"
    "${SRC_DIR}/Core/Containers/ReflectedMap.h"
@@ -18,6 +19,8 @@ target_sources(${PROJECT_NAME} PRIVATE
    "${SRC_DIR}/Core/Log.cpp"
    "${SRC_DIR}/Core/Log.h"
    "${SRC_DIR}/Core/Macros.h"
+   "${SRC_DIR}/Core/Memory/FrameAllocator.cpp"
+   "${SRC_DIR}/Core/Memory/FrameAllocator.h"
    "${SRC_DIR}/Core/Types.h"
 
    "${SRC_DIR}/Graphics/BlendMode.h"

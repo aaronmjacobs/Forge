@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Core/Containers/FrameVector.h"
+
 #include "Math/Transform.h"
 
 #include "Renderer/ViewInfo.h"
@@ -18,10 +20,10 @@ struct MeshRenderInfo
    Transform transform;
    glm::mat4 localToWorld;
 
-   std::vector<uint32_t> visibleOpaqueSections;
-   std::vector<uint32_t> visibleMaskedSections;
-   std::vector<uint32_t> visibleTranslucentSections;
-   std::vector<const Material*> materials;
+   FrameVector<uint32_t> visibleOpaqueSections;
+   FrameVector<uint32_t> visibleMaskedSections;
+   FrameVector<uint32_t> visibleTranslucentSections;
+   FrameVector<const Material*> materials;
    const Mesh* mesh = nullptr;
 
    MeshRenderInfo(const Mesh& m, const Transform& t)
@@ -65,11 +67,11 @@ struct SceneRenderInfo
 {
    const View& view;
 
-   std::vector<MeshRenderInfo> meshes;
+   FrameVector<MeshRenderInfo> meshes;
 
-   std::vector<PointLightRenderInfo> pointLights;
-   std::vector<SpotLightRenderInfo> spotLights;
-   std::vector<DirectionalLightRenderInfo> directionalLights;
+   FrameVector<PointLightRenderInfo> pointLights;
+   FrameVector<SpotLightRenderInfo> spotLights;
+   FrameVector<DirectionalLightRenderInfo> directionalLights;
 
    SceneRenderInfo(const View& v)
       : view(v)
