@@ -15,12 +15,21 @@ enum class RenderQuality
    High
 };
 
+enum class TonemappingAlgorithm
+{
+   None,
+   Curve,
+   Reinhard,
+   TonyMcMapface
+};
+
 struct RenderSettings
 {
    vk::SampleCountFlagBits msaaSamples = vk::SampleCountFlagBits::e1;
    RenderQuality ssaoQuality = RenderQuality::Medium;
    RenderQuality bloomQuality = RenderQuality::High;
    bool presentHDR = false;
+   TonemappingAlgorithm tonemappingAlgorithm = TonemappingAlgorithm::Curve;
 
    bool operator==(const RenderSettings& other) const = default;
 

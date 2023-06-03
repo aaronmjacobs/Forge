@@ -502,6 +502,7 @@ namespace
    const float kSceneWindowHeight = 320.0f;
 
    const std::array<const char*, 4> kRenderQualityNames = { "Disabled", "Low", "Medium", "High" };
+   const std::array<const char*, 4> kTonemappingAlgorithmNames = { "None", "Curve", "Reinhard", "TonyMcMapface" };
 }
 
 // static
@@ -694,6 +695,10 @@ void UI::renderSettings(const GraphicsContext& graphicsContext, const RenderCapa
    int bloomQuality = Enum::cast(settings.bloomQuality);
    ImGui::Combo("Bloom", &bloomQuality, kRenderQualityNames.data(), static_cast<int>(kRenderQualityNames.size()));
    settings.bloomQuality = static_cast<RenderQuality>(bloomQuality);
+
+   int tonemappingAlgorithm = Enum::cast(settings.tonemappingAlgorithm);
+   ImGui::Combo("Tonemapping Algorithm", &tonemappingAlgorithm, kTonemappingAlgorithmNames.data(), static_cast<int>(kTonemappingAlgorithmNames.size()));
+   settings.tonemappingAlgorithm = static_cast<TonemappingAlgorithm>(tonemappingAlgorithm);
 
    if (!capabilities.canPresentHDR)
    {

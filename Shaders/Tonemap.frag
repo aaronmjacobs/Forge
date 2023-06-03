@@ -1,13 +1,20 @@
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
 
+const int kTonemappingAlgorithm_None = 0;
+const int kTonemappingAlgorithm_Curve = 1;
+const int kTonemappingAlgorithm_Reinhard = 2;
+const int kTonemappingAlgorithm_TonyMcMapface = 3;
+
 layout(constant_id = 0) const bool kOutputHDR = false;
 layout(constant_id = 1) const bool kWithBloom = false;
 layout(constant_id = 2) const bool kWithUI = false;
+layout(constant_id = 3) const int kTonemappingAlgorithm = kTonemappingAlgorithm_None;
 
 layout(set = 0, binding = 0) uniform sampler2D hdrTexture;
 layout(set = 0, binding = 1) uniform sampler2D bloomTexture;
 layout(set = 0, binding = 2) uniform sampler2D uiTexture;
+layout(set = 0, binding = 3) uniform sampler3D lutTexture;
 
 layout(location = 0) in vec2 inTexCoord;
 
@@ -58,19 +65,46 @@ vec4 ConvertToHDR10(vec4 hdrSceneValue, float paperWhiteNits)
     return vec4(HDR10.rgb, hdrSceneValue.a);
 }
 
+// Tony McMapface Copyright (c) 2023 Tomasz Stachowiak
+vec3 tony_mc_mapface(vec3 stimulus)
+{
+    // Apply a non-linear transform that the LUT is encoded with.
+    const vec3 encoded = stimulus / (stimulus + 1.0);
+
+    // Align the encoded range to texel centers.
+    const float LUT_DIMS = 48.0;
+    const vec3 uv = encoded * ((LUT_DIMS - 1.0) / LUT_DIMS) + 0.5 / LUT_DIMS;
+
+    // Note: for OpenGL, do `uv.y = 1.0 - uv.y`
+
+    return texture(lutTexture, uv).rgb;
+}
+
 vec3 tonemap(vec3 hdrColor)
 {
-   const float curve = 8.0;
+   vec3 clampedHdrColor = max(vec3(0.0), hdrColor);
+   vec3 tonemappedColor = clampedHdrColor;
+
+   if (kTonemappingAlgorithm == kTonemappingAlgorithm_Curve)
+   {
+      const float curve = 4.0;
+      tonemappedColor = clampedHdrColor - (pow(pow(clampedHdrColor, vec3(curve)) + 1.0, vec3(1.0 / curve)) - 1.0);
+   }
+   else if (kTonemappingAlgorithm == kTonemappingAlgorithm_Reinhard)
+   {
+      tonemappedColor = clampedHdrColor / (clampedHdrColor + vec3(1.0));
+   }
+   else if (kTonemappingAlgorithm == kTonemappingAlgorithm_TonyMcMapface)
+   {
+      tonemappedColor = tony_mc_mapface(clampedHdrColor);
+   }
 
    if (kOutputHDR)
    {
-      return ConvertToHDR10(vec4(hdrColor, 1.0), kPaperwhiteNits).rgb;
+      tonemappedColor = ConvertToHDR10(vec4(tonemappedColor, 1.0), kPaperwhiteNits).rgb;
    }
 
-   vec3 clampedHdrColor = max(vec3(0.0), hdrColor);
-   vec3 sdrColor = clampedHdrColor - (pow(pow(clampedHdrColor, vec3(curve)) + 1.0, vec3(1.0 / curve)) - 1.0);
-
-   return sdrColor;
+   return tonemappedColor;
 }
 
 vec3 srgbToLinear(vec3 sRGB)

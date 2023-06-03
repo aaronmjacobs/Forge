@@ -8,6 +8,8 @@
 
 #include "Renderer/Passes/PostProcess/Tonemap/TonemapShader.h"
 
+#include "Resources/ResourceManager.h"
+
 #include <utility>
 
 TonemapPass::TonemapPass(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, ResourceManager& resourceManager)
@@ -40,6 +42,11 @@ TonemapPass::TonemapPass(const GraphicsContext& graphicsContext, DynamicDescript
       .setMaxLod(16.0f);
    sampler = context.getDevice().createSampler(samplerCreateInfo);
    NAME_CHILD(sampler, "Sampler");
+
+   TextureLoadOptions lutLoadOptions;
+   lutLoadOptions.sRGB = false;
+   lutLoadOptions.generateMipMaps = false;
+   lutTextureHandle = resourceManager.loadTexture("Resources/Textures/Tony McMapface/tony_mc_mapface.dds", lutLoadOptions);
 }
 
 TonemapPass::~TonemapPass()
@@ -50,7 +57,7 @@ TonemapPass::~TonemapPass()
    tonemapShader.reset();
 }
 
-void TonemapPass::render(vk::CommandBuffer commandBuffer, Texture& outputTexture, Texture& hdrColorTexture, Texture* bloomTexture, Texture* uiTexture)
+void TonemapPass::render(vk::CommandBuffer commandBuffer, Texture& outputTexture, Texture& hdrColorTexture, Texture* bloomTexture, Texture* uiTexture, TonemappingAlgorithm tonemappingAlgorithm)
 {
    SCOPED_LABEL(getName());
 
@@ -68,9 +75,9 @@ void TonemapPass::render(vk::CommandBuffer commandBuffer, Texture& outputTexture
    AttachmentInfo colorAttachmentInfo = AttachmentInfo(outputTexture)
       .setLoadOp(vk::AttachmentLoadOp::eDontCare);
 
-   executePass(commandBuffer, &colorAttachmentInfo, nullptr, [this, &outputTexture, &hdrColorTexture, bloomTexture, uiTexture](vk::CommandBuffer commandBuffer)
+   executePass(commandBuffer, &colorAttachmentInfo, nullptr, [this, &outputTexture, &hdrColorTexture, bloomTexture, uiTexture, tonemappingAlgorithm](vk::CommandBuffer commandBuffer)
    {
-      StaticVector<vk::WriteDescriptorSet, 3> descriptorWrites;
+      StaticVector<vk::WriteDescriptorSet, 4> descriptorWrites;
 
       vk::DescriptorImageInfo hdrColorImageInfo = vk::DescriptorImageInfo()
          .setImageLayout(hdrColorTexture.getLayout())
@@ -117,12 +124,29 @@ void TonemapPass::render(vk::CommandBuffer commandBuffer, Texture& outputTexture
          descriptorWrites.push(uiDescriptorWrite);
       }
 
+      vk::DescriptorImageInfo lutImageInfo = vk::DescriptorImageInfo()
+         .setSampler(sampler);
+      vk::WriteDescriptorSet lutDescriptorWrite = vk::WriteDescriptorSet()
+         .setDstSet(descriptorSet.getCurrentSet())
+         .setDstBinding(3)
+         .setDstArrayElement(0)
+         .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+         .setDescriptorCount(1)
+         .setPImageInfo(&lutImageInfo);
+      if (Texture* lutTexture = lutTextureHandle.getResource())
+      {
+         lutImageInfo.setImageLayout(lutTexture->getLayout());
+         lutImageInfo.setImageView(lutTexture->getDefaultView());
+         descriptorWrites.push(lutDescriptorWrite);
+      }
+
       device.updateDescriptorSets(descriptorWrites, {});
 
       PipelineDescription<TonemapPass> pipelineDescription;
       pipelineDescription.hdr = outputTexture.getImageProperties().format == vk::Format::eA2R10G10B10UnormPack32;
       pipelineDescription.withBloom = bloomTexture != nullptr;
       pipelineDescription.withUI = uiTexture != nullptr;
+      pipelineDescription.tonemappingAlgorithm = tonemappingAlgorithm;
 
       tonemapShader->bindDescriptorSets(commandBuffer, pipelineLayout, descriptorSet);
       renderScreenMesh(commandBuffer, getPipeline(pipelineDescription));
@@ -140,7 +164,7 @@ Pipeline TonemapPass::createPipeline(const PipelineDescription<TonemapPass>& des
 
    PipelineData pipelineData(attachmentFormats);
    pipelineData.layout = pipelineLayout;
-   pipelineData.shaderStages = tonemapShader->getStages(description.hdr, description.withBloom, description.withUI);
+   pipelineData.shaderStages = tonemapShader->getStages(description.hdr, description.withBloom, description.withUI, description.tonemappingAlgorithm);
    pipelineData.colorBlendStates = { attachmentState };
 
    Pipeline pipeline(context, pipelineInfo, pipelineData);

@@ -44,6 +44,7 @@ namespace
       const char* kReleaseCursor = "ReleaseCursor";
 
       const char* kToggleHDR = "ToggleHDR";
+      const char* kToggleTonemapper = "ToggleTonemapper";
       const char* kToggleLabels = "ToggleLabels";
    }
 
@@ -390,6 +391,33 @@ void ForgeApplication::initializeRenderer()
       {
          RenderSettings newRenderSettings = renderSettings;
          newRenderSettings.presentHDR = !renderSettings.presentHDR;
+         updateRenderSettings(newRenderSettings);
+      }
+   });
+
+   inputManager.createButtonMapping(InputActions::kToggleTonemapper, KeyChord(Key::T), {}, {});
+   inputManager.bindButtonMapping(InputActions::kToggleTonemapper, [this](bool pressed)
+   {
+      if (pressed)
+      {
+         RenderSettings newRenderSettings = renderSettings;
+         switch (renderSettings.tonemappingAlgorithm)
+         {
+         case TonemappingAlgorithm::None:
+            newRenderSettings.tonemappingAlgorithm = TonemappingAlgorithm::Curve;
+            break;
+         case TonemappingAlgorithm::Curve:
+            newRenderSettings.tonemappingAlgorithm = TonemappingAlgorithm::Reinhard;
+            break;
+         case TonemappingAlgorithm::Reinhard:
+            newRenderSettings.tonemappingAlgorithm = TonemappingAlgorithm::TonyMcMapface;
+            break;
+         case TonemappingAlgorithm::TonyMcMapface:
+            newRenderSettings.tonemappingAlgorithm = TonemappingAlgorithm::None;
+            break;
+         default:
+            break;
+         }
          updateRenderSettings(newRenderSettings);
       }
    });

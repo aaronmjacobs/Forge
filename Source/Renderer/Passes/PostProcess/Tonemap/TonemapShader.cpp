@@ -11,10 +11,11 @@ namespace
       VkBool32 outputHDR = false;
       VkBool32 withBloom = false;
       VkBool32 withUI = false;
+      TonemappingAlgorithm tonemappingAlgorithm = TonemappingAlgorithm::None;
 
       uint32_t getIndex() const
       {
-         return outputHDR | (withBloom << 1) | (withUI << 2);
+         return outputHDR | (withBloom << 1) | (withUI << 2) | (static_cast<int32_t>(tonemappingAlgorithm) << 3);
       }
    };
 
@@ -25,15 +26,21 @@ namespace
       builder.registerMember(&TonemapSpecializationValues::outputHDR);
       builder.registerMember(&TonemapSpecializationValues::withBloom);
       builder.registerMember(&TonemapSpecializationValues::withUI);
+      builder.registerMember(&TonemapSpecializationValues::tonemappingAlgorithm);
 
-      builder.addPermutation(TonemapSpecializationValues{ false, false, false });
-      builder.addPermutation(TonemapSpecializationValues{ false, false, true });
-      builder.addPermutation(TonemapSpecializationValues{ false, true, false });
-      builder.addPermutation(TonemapSpecializationValues{ false, true, true });
-      builder.addPermutation(TonemapSpecializationValues{ true, false, false });
-      builder.addPermutation(TonemapSpecializationValues{ true, false, true });
-      builder.addPermutation(TonemapSpecializationValues{ true, true, false });
-      builder.addPermutation(TonemapSpecializationValues{ true, true, true });
+      for (int i = 0; i < 2; ++i)
+      {
+         for (int j = 0; j < 2; ++j)
+         {
+            for (int k = 0; k < 2; ++k)
+            {
+               builder.addPermutation(TonemapSpecializationValues{ i == 0, j == 0, k == 0, TonemappingAlgorithm::None });
+               builder.addPermutation(TonemapSpecializationValues{ i == 0, j == 0, k == 0, TonemappingAlgorithm::Curve });
+               builder.addPermutation(TonemapSpecializationValues{ i == 0, j == 0, k == 0, TonemappingAlgorithm::Reinhard });
+               builder.addPermutation(TonemapSpecializationValues{ i == 0, j == 0, k == 0, TonemappingAlgorithm::TonyMcMapface });
+            }
+         }
+      }
 
       return builder.build();
    }
@@ -54,7 +61,7 @@ namespace
 }
 
 // static
-std::array<vk::DescriptorSetLayoutBinding, 3> TonemapShader::getBindings()
+std::array<vk::DescriptorSetLayoutBinding, 4> TonemapShader::getBindings()
 {
    return
    {
@@ -70,6 +77,11 @@ std::array<vk::DescriptorSetLayoutBinding, 3> TonemapShader::getBindings()
          .setStageFlags(vk::ShaderStageFlagBits::eFragment),
       vk::DescriptorSetLayoutBinding()
          .setBinding(2)
+         .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+         .setDescriptorCount(1)
+         .setStageFlags(vk::ShaderStageFlagBits::eFragment),
+      vk::DescriptorSetLayoutBinding()
+         .setBinding(3)
          .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
          .setDescriptorCount(1)
          .setStageFlags(vk::ShaderStageFlagBits::eFragment)
@@ -98,12 +110,13 @@ void TonemapShader::bindDescriptorSets(vk::CommandBuffer commandBuffer, vk::Pipe
    commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, 0, { descriptorSet.getCurrentSet() }, {});
 }
 
-std::vector<vk::PipelineShaderStageCreateInfo> TonemapShader::getStages(bool outputHDR, bool withBloom, bool withUI) const
+std::vector<vk::PipelineShaderStageCreateInfo> TonemapShader::getStages(bool outputHDR, bool withBloom, bool withUI, TonemappingAlgorithm tonemappingAlgorithm) const
 {
    TonemapSpecializationValues specializationValues;
    specializationValues.outputHDR = outputHDR;
    specializationValues.withBloom = withBloom;
    specializationValues.withUI = withUI;
+   specializationValues.tonemappingAlgorithm = tonemappingAlgorithm;
 
    return getStagesForPermutation(specializationValues.getIndex());
 }
