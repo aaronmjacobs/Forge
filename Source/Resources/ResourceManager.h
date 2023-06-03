@@ -156,6 +156,12 @@ private:
    TextureHandle getDefaultTextureHandle(DefaultTextureType type) const;
 
    template<typename T>
+   T* get(ResourceHandle<T> handle);
+
+   template<typename T>
+   const T* get(ResourceHandle<T> handle) const;
+
+   template<typename T>
    RefCountMap<T>& getRefCounts();
 
    template<typename T>

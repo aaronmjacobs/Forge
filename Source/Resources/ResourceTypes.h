@@ -82,6 +82,9 @@ public:
       return handle;
    }
 
+   T* getResource();
+   const T* getResource() const;
+
    operator ResourceHandle<T>() const
    {
       return getHandle();

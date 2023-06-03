@@ -65,6 +65,14 @@ TextureHandle ResourceManager::getDefaultTextureHandle(DefaultTextureType type) 
    return handle;
 }
 
+#define FOR_EACH_RESOURCE_TYPE(resource_type) \
+template<> resource_type* ResourceManager::get<resource_type>(ResourceHandle<resource_type> handle) { return get##resource_type(handle); } \
+template<> const resource_type* ResourceManager::get<resource_type>(ResourceHandle<resource_type> handle) const { return get##resource_type(handle); }
+
+#include "Resources/ForEachResourceType.inl"
+
+#undef FOR_EACH_RESOURCE_TYPE
+
 template<>
 ResourceManager::RefCountMap<Material>& ResourceManager::getRefCounts()
 {
