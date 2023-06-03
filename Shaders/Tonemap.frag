@@ -103,6 +103,10 @@ vec3 tonemap(vec3 hdrColor)
    {
       tonemappedColor = ConvertToHDR10(vec4(tonemappedColor, 1.0), kPaperwhiteNits).rgb;
    }
+   else
+   {
+      tonemappedColor = clamp(tonemappedColor, 0.0, 1.0);
+   }
 
    return tonemappedColor;
 }
