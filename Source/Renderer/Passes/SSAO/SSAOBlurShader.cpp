@@ -14,7 +14,7 @@ namespace
 
       uint32_t getIndex() const
       {
-         return horizontal;
+         return (horizontal << 0);
       }
    };
 
@@ -23,9 +23,6 @@ namespace
       SpecializationInfoBuilder<SSAOBlurSpecializationValues> builder;
 
       builder.registerMember(&SSAOBlurSpecializationValues::horizontal);
-
-      builder.addPermutation(SSAOBlurSpecializationValues{ false });
-      builder.addPermutation(SSAOBlurSpecializationValues{ true });
 
       return builder.build();
    }

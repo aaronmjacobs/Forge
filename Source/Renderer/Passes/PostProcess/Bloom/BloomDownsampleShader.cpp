@@ -12,7 +12,7 @@ namespace
 
       uint32_t getIndex() const
       {
-         return static_cast<uint32_t>(quality);
+         return (static_cast<uint32_t>(quality) << 0);
       }
    };
 
@@ -20,12 +20,7 @@ namespace
    {
       SpecializationInfoBuilder<BloomDownsampleSpecializationValues> builder;
 
-      builder.registerMember(&BloomDownsampleSpecializationValues::quality);
-
-      builder.addPermutation(BloomDownsampleSpecializationValues{ RenderQuality::Disabled });
-      builder.addPermutation(BloomDownsampleSpecializationValues{ RenderQuality::Low });
-      builder.addPermutation(BloomDownsampleSpecializationValues{ RenderQuality::Medium });
-      builder.addPermutation(BloomDownsampleSpecializationValues{ RenderQuality::High });
+      builder.registerMember(&BloomDownsampleSpecializationValues::quality, RenderQuality::Disabled, RenderQuality::High);
 
       return builder.build();
    }

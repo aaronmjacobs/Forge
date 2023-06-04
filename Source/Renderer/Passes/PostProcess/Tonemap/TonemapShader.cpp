@@ -15,7 +15,7 @@ namespace
 
       uint32_t getIndex() const
       {
-         return outputHDR | (withBloom << 1) | (withUI << 2) | (static_cast<int32_t>(tonemappingAlgorithm) << 3);
+         return (outputHDR << 4) | (withBloom << 3) | (withUI << 2) | (static_cast<int32_t>(tonemappingAlgorithm) << 0);
       }
    };
 
@@ -26,21 +26,7 @@ namespace
       builder.registerMember(&TonemapSpecializationValues::outputHDR);
       builder.registerMember(&TonemapSpecializationValues::withBloom);
       builder.registerMember(&TonemapSpecializationValues::withUI);
-      builder.registerMember(&TonemapSpecializationValues::tonemappingAlgorithm);
-
-      for (int i = 0; i < 2; ++i)
-      {
-         for (int j = 0; j < 2; ++j)
-         {
-            for (int k = 0; k < 2; ++k)
-            {
-               builder.addPermutation(TonemapSpecializationValues{ i == 0, j == 0, k == 0, TonemappingAlgorithm::None });
-               builder.addPermutation(TonemapSpecializationValues{ i == 0, j == 0, k == 0, TonemappingAlgorithm::Curve });
-               builder.addPermutation(TonemapSpecializationValues{ i == 0, j == 0, k == 0, TonemappingAlgorithm::Reinhard });
-               builder.addPermutation(TonemapSpecializationValues{ i == 0, j == 0, k == 0, TonemappingAlgorithm::TonyMcMapface });
-            }
-         }
-      }
+      builder.registerMember(&TonemapSpecializationValues::tonemappingAlgorithm, TonemappingAlgorithm::None, TonemappingAlgorithm::TonyMcMapface);
 
       return builder.build();
    }

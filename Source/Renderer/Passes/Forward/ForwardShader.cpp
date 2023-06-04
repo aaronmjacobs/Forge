@@ -18,7 +18,7 @@ namespace
 
       uint32_t getIndex() const
       {
-         return withTextures | (withBlending << 1);
+         return (withTextures << 1) | (withBlending << 0);
       }
    };
 
@@ -28,11 +28,6 @@ namespace
 
       builder.registerMember(&ForwardSpecializationValues::withTextures);
       builder.registerMember(&ForwardSpecializationValues::withBlending);
-
-      builder.addPermutation(ForwardSpecializationValues{ false, false });
-      builder.addPermutation(ForwardSpecializationValues{ false, true });
-      builder.addPermutation(ForwardSpecializationValues{ true, false });
-      builder.addPermutation(ForwardSpecializationValues{ true, true });
 
       return builder.build();
    }

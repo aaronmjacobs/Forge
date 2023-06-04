@@ -14,7 +14,7 @@ namespace
 
       uint32_t getIndex() const
       {
-         return static_cast<uint32_t>(mode);
+         return (static_cast<uint32_t>(mode) << 0);
       }
    };
 
@@ -22,12 +22,7 @@ namespace
    {
       SpecializationInfoBuilder<CompositeSpecializationValues> builder;
 
-      builder.registerMember(&CompositeSpecializationValues::mode);
-
-      for (int i = 0; i < CompositeShader::kNumModes; ++i)
-      {
-         builder.addPermutation(CompositeSpecializationValues{ static_cast<CompositeShader::Mode>(i) });
-      }
+      builder.registerMember(&CompositeSpecializationValues::mode, CompositeShader::Mode::Passthrough, CompositeShader::Mode::SrgbToLinear);
 
       return builder.build();
    }

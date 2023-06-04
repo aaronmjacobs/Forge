@@ -15,7 +15,7 @@ namespace
 
       uint32_t getIndex() const
       {
-         return horizontal | (static_cast<uint32_t>(quality) << 1);
+         return (static_cast<uint32_t>(quality) << 1) | (horizontal << 0);
       }
    };
 
@@ -23,17 +23,8 @@ namespace
    {
       SpecializationInfoBuilder<BloomUpsampleSpecializationValues> builder;
 
-      builder.registerMember(&BloomUpsampleSpecializationValues::quality);
+      builder.registerMember(&BloomUpsampleSpecializationValues::quality, RenderQuality::Disabled, RenderQuality::High);
       builder.registerMember(&BloomUpsampleSpecializationValues::horizontal);
-
-      builder.addPermutation(BloomUpsampleSpecializationValues{ RenderQuality::Disabled, false });
-      builder.addPermutation(BloomUpsampleSpecializationValues{ RenderQuality::Disabled, true });
-      builder.addPermutation(BloomUpsampleSpecializationValues{ RenderQuality::Low, false });
-      builder.addPermutation(BloomUpsampleSpecializationValues{ RenderQuality::Low, true });
-      builder.addPermutation(BloomUpsampleSpecializationValues{ RenderQuality::Medium, false });
-      builder.addPermutation(BloomUpsampleSpecializationValues{ RenderQuality::Medium, true });
-      builder.addPermutation(BloomUpsampleSpecializationValues{ RenderQuality::High, false });
-      builder.addPermutation(BloomUpsampleSpecializationValues{ RenderQuality::High, true });
 
       return builder.build();
    }

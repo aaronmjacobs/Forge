@@ -15,7 +15,7 @@ namespace
 
       uint32_t getIndex() const
       {
-         return withTextures | (masked << 1);
+         return (withTextures << 1) | (masked << 0);
       }
    };
 
@@ -25,11 +25,6 @@ namespace
 
       builder.registerMember(&NormalSpecializationValues::withTextures);
       builder.registerMember(&NormalSpecializationValues::masked);
-
-      builder.addPermutation(NormalSpecializationValues{ false, false });
-      builder.addPermutation(NormalSpecializationValues{ false, true });
-      builder.addPermutation(NormalSpecializationValues{ true, false });
-      builder.addPermutation(NormalSpecializationValues{ true, true });
 
       return builder.build();
    }
