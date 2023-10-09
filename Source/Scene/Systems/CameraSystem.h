@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Core/Delegate.h"
+#include "Core/DelegateHandle.h"
 
 #include "Scene/Entity.h"
 #include "Scene/System.h"

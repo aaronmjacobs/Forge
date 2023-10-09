@@ -1,4 +1,4 @@
-#include "Core/Delegate.h"
+#include "Core/DelegateHandle.h"
 
 DelegateHandle DelegateHandle::create()
 {
