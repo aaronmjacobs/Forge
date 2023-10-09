@@ -31,6 +31,17 @@ public:
       return handle;
    }
 
+   bool replace(Handle handle, std::unique_ptr<ResourceValue> resource)
+   {
+      return resources.replace(handle, std::move(resource));
+   }
+
+   template<typename... Args>
+   bool replace(Handle handle, Args&&... args)
+   {
+      return resources.replace(handle, std::make_unique<ResourceValue>(std::forward<Args>(args)...));
+   }
+
    bool remove(Handle handle)
    {
       bool unloaded = resources.remove(handle);

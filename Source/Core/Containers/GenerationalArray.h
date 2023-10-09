@@ -15,16 +15,7 @@ class GenerationalArray
 public:
    using Handle = GenerationalArrayHandle<T>;
 
-   Handle add(const T& value)
-   {
-      std::size_t index = allocate();
-
-      elements[index].data = value;
-
-      return createHandle(index);
-   }
-
-   Handle add(T&& value)
+   Handle add(T value)
    {
       std::size_t index = allocate();
 
@@ -41,6 +32,31 @@ public:
       elements[index].data.emplace(std::forward<Args>(args)...);
 
       return createHandle(index);
+   }
+
+   bool replace(Handle handle, T value)
+   {
+      if (Element* element = find(handle))
+      {
+         ASSERT(element->data.has_value());
+         element->data = std::move(value);
+         return true;
+      }
+
+      return false;
+   }
+
+   template<typename... Args>
+   bool replace(Handle handle, Args&&... args)
+   {
+      if (Element* element = find(handle))
+      {
+         ASSERT(element->data.has_value());
+         element->data.emplace(std::forward<Args>(args)...);
+         return true;
+      }
+
+      return false;
    }
 
    bool remove(Handle handle)
