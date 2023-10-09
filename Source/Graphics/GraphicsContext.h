@@ -1,7 +1,6 @@
 #pragma once
 
-#define FORGE_WITH_GPU_MEMORY_TRACKING FORGE_WITH_DEBUG_UTILS
-
+#include "Core/Features.h"
 #include "Core/Types.h"
 
 #include "Graphics/Vulkan.h"
@@ -204,11 +203,11 @@ private:
    std::unique_ptr<DelayedObjectDestroyer> delayedObjectDestroyer;
    std::unique_ptr<DescriptorSetLayoutCache> layoutCache;
 
-#if FORGE_DEBUG
+#if FORGE_WITH_DEBUG_UTILS
    VkDebugUtilsMessengerEXT debugMessenger = nullptr;
    PFN_vkCreateDebugUtilsMessengerEXT pfnCreateDebugUtilsMessengerEXT = nullptr;
    PFN_vkDestroyDebugUtilsMessengerEXT pfnDestroyDebugUtilsMessengerEXT = nullptr;
-#endif // FORGE_DEBUG
+#endif // FORGE_WITH_DEBUG_UTILS
 
 #if FORGE_WITH_GPU_MEMORY_TRACKING
    void onVmaAllocate(VmaAllocator allocator, uint32_t memoryType, VkDeviceSize size);

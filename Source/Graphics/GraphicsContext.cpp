@@ -57,9 +57,9 @@ namespace
       }
 
       std::vector<const char*> optionalExtensions = { VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME, VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME };
-#if FORGE_DEBUG
+#if FORGE_WITH_DEBUG_UTILS
       optionalExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-#endif // FORGE_DEBUG
+#endif // FORGE_WITH_DEBUG_UTILS
 
       for (const char* optionalExtension : optionalExtensions)
       {
@@ -76,7 +76,7 @@ namespace
    {
       std::vector<const char*> layers;
 
-#if FORGE_DEBUG
+#if FORGE_WITH_DEBUG_UTILS
       static const std::array<const char*, 2> kDesiredValidationLayers =
       {
          "VK_LAYER_KHRONOS_validation",
@@ -91,12 +91,12 @@ namespace
             layers.push_back(validationLayer);
          }
       }
-#endif // FORGE_DEBUG
+#endif // FORGE_WITH_DEBUG_UTILS
 
       return layers;
    }
 
-#if FORGE_DEBUG
+#if FORGE_WITH_DEBUG_UTILS
    bool isDebugMessageIgnored(int32_t messageId)
    {
       // VUID-vkCmdBindPipeline-pipeline-06195, etc.
@@ -165,7 +165,7 @@ namespace
          .setMessageSeverity(vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose | vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo | vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning | vk::DebugUtilsMessageSeverityFlagBitsEXT::eError)
          .setMessageType(vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral | vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation | vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance);
    }
-#endif // FORGE_DEBUG
+#endif // FORGE_WITH_DEBUG_UTILS
 
    std::vector<const char*> getDeviceExtensions(vk::PhysicalDevice physicalDevice)
    {
@@ -400,15 +400,15 @@ GraphicsContext::GraphicsContext(Window& window)
       createInfo.setFlags(vk::InstanceCreateFlagBits::eEnumeratePortabilityKHR);
    }
 
-#if FORGE_DEBUG
+#if FORGE_WITH_DEBUG_UTILS
    VkDebugUtilsMessengerCreateInfoEXT debugUtilsMessengerCreateInfo = static_cast<VkDebugUtilsMessengerCreateInfoEXT>(createDebugMessengerCreateInfo());
    createInfo.setPNext(&debugUtilsMessengerCreateInfo);
-#endif // FORGE_DEBUG
+#endif // FORGE_WITH_DEBUG_UTILS
 
    instance = vk::createInstance(createInfo);
    dispatchLoaderDynamic.init(instance, vk::Device());
 
-#if FORGE_DEBUG
+#if FORGE_WITH_DEBUG_UTILS
 #  define FIND_VULKAN_FUNCTION(instance, name) reinterpret_cast<PFN_##name>(window.getInstanceProcAddress(instance, #name))
    pfnCreateDebugUtilsMessengerEXT = FIND_VULKAN_FUNCTION(instance, vkCreateDebugUtilsMessengerEXT);
    pfnDestroyDebugUtilsMessengerEXT = FIND_VULKAN_FUNCTION(instance, vkDestroyDebugUtilsMessengerEXT);
@@ -421,7 +421,7 @@ GraphicsContext::GraphicsContext(Window& window)
          ASSERT(false);
       }
    }
-#endif // FORGE_DEBUG
+#endif // FORGE_WITH_DEBUG_UTILS
 
    surface = window.createSurface(instance);
 
@@ -559,13 +559,13 @@ GraphicsContext::~GraphicsContext()
 
    instance.destroySurfaceKHR(surface);
 
-#if FORGE_DEBUG
+#if FORGE_WITH_DEBUG_UTILS
    if (pfnDestroyDebugUtilsMessengerEXT)
    {
       pfnDestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
       debugMessenger = nullptr;
    }
-#endif // FORGE_DEBUG
+#endif // FORGE_WITH_DEBUG_UTILS
 
    instance.destroy();
 }

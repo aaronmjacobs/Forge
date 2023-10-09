@@ -15,6 +15,7 @@ target_sources(${PROJECT_NAME} PRIVATE
    "${SRC_DIR}/Core/Delegate.cpp"
    "${SRC_DIR}/Core/Delegate.h"
    "${SRC_DIR}/Core/Enum.h"
+   "${SRC_DIR}/Core/Features.h"
    "${SRC_DIR}/Core/Hash.h"
    "${SRC_DIR}/Core/Log.cpp"
    "${SRC_DIR}/Core/Log.h"
