@@ -66,6 +66,7 @@ target_sources(${PROJECT_NAME} PRIVATE
    "${SRC_DIR}/Graphics/TextureInfo.cpp"
    "${SRC_DIR}/Graphics/TextureInfo.h"
    "${SRC_DIR}/Graphics/UniformBuffer.h"
+   "${SRC_DIR}/Graphics/Vulkan.cpp"
    "${SRC_DIR}/Graphics/Vulkan.h"
 
    "${SRC_DIR}/Math/Bounds.cpp"

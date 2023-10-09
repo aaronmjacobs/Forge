@@ -80,7 +80,9 @@ add_subdirectory("${LIB_DIR}/VulkanMemoryAllocator")
 target_link_libraries(${PROJECT_NAME} PUBLIC VulkanMemoryAllocator)
 
 # PlatformUtils
-add_subdirectory("${LIB_DIR}/PlatformUtils")
+if(NOT TARGET PlatformUtils) # Transitively added by Kontroller (which means we're beholden to its version of it)
+   add_subdirectory("${LIB_DIR}/PlatformUtils")
+endif()
 target_link_libraries(${PROJECT_NAME} PUBLIC PlatformUtils)
 
 # PPK_ASSERT
