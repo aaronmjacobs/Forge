@@ -85,6 +85,11 @@ public:
    T* getResource();
    const T* getResource() const;
 
+   ResourceManager* getResourceManager() const
+   {
+      return resourceManager;
+   }
+
    operator ResourceHandle<T>() const
    {
       return getHandle();
