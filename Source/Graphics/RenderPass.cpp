@@ -96,7 +96,7 @@ AttachmentFormats::AttachmentFormats(std::span<const Texture*> colorAttachments,
       sampleCount = depthStencilAttachment->getTextureProperties().sampleCount;
    }
 
-#if FORGE_DEBUG
+#if FORGE_WITH_DEBUG_UTILS
    for (const Texture* colorAttachment : colorAttachments)
    {
       if (colorAttachment)
@@ -109,7 +109,7 @@ AttachmentFormats::AttachmentFormats(std::span<const Texture*> colorAttachments,
    {
       ASSERT(sampleCount == depthStencilAttachment->getTextureProperties().sampleCount, "Not all attachments have the same sample count");
    }
-#endif // FORGE_DEBUG
+#endif // FORGE_WITH_DEBUG_UTILS
 }
 
 AttachmentFormats::AttachmentFormats(const Texture* colorAttachment, const Texture* depthStencilAttachment)

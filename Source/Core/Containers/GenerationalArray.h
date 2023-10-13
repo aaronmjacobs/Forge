@@ -136,12 +136,12 @@ private:
       ASSERT(index < (1 << 24));
       ASSERT(elements[index].data.has_value());
 
-#if FORGE_DEBUG
+#if FORGE_WITH_DEBUG_UTILS
       if (elements[index].version == 255)
       {
          LOG_WARNING("Generational array version overflow (index " << index << ")");
       }
-#endif // FORGE_DEBUG
+#endif // FORGE_WITH_DEBUG_UTILS
 
       uint8_t version = ++elements[index].version;
       return Handle(static_cast<uint32_t>(index), version);

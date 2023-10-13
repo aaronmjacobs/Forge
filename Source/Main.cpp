@@ -1,6 +1,6 @@
-#if FORGE_PLATFORM_WINDOWS && !FORGE_DEBUG
+#if FORGE_PLATFORM_WINDOWS && !FORGE_WITH_DEBUG_UTILS
 #  pragma comment(linker, "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup")
-#endif // FORGE_PLATFORM_WINDOWS && !FORGE_DEBUG
+#endif // FORGE_PLATFORM_WINDOWS && !FORGE_WITH_DEBUG_UTILS
 
 #include "ForgeApplication.h"
 
@@ -19,7 +19,7 @@ int main(int argc, char* argv[])
    }
    catch (const std::exception& e)
    {
-#if FORGE_DEBUG
+#if FORGE_WITH_DEBUG_UTILS
       ASSERT(false, "Caught exception: %s", e.what());
 #else
       boxer::show((std::string("Caught exception: ") + e.what()).c_str(), "Error");

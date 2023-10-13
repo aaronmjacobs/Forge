@@ -7,9 +7,9 @@
 #include <memory>
 #include <new>
 
-#if FORGE_DEBUG
+#if FORGE_WITH_DEBUG_UTILS
 #  include <cstring>
-#endif // FORGE_DEBUG
+#endif // FORGE_WITH_DEBUG_UTILS
 
 template<std::size_t Size>
 class FrameAllocatorMemory
@@ -35,20 +35,20 @@ public:
       return std::launder(reinterpret_cast<T*>(alignedPointer));
    }
 
-#if FORGE_DEBUG
+#if FORGE_WITH_DEBUG_UTILS
    FrameAllocatorMemory()
    {
       reset();
    }
-#endif // FORGE_DEBUG
+#endif // FORGE_WITH_DEBUG_UTILS
 
    void reset()
    {
       offset = 0;
 
-#if FORGE_DEBUG
+#if FORGE_WITH_DEBUG_UTILS
       std::memset(data.data(), 0xDE, Size);
-#endif // FORGE_DEBUG
+#endif // FORGE_WITH_DEBUG_UTILS
    }
 
 private:

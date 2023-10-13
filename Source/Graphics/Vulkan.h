@@ -6,9 +6,11 @@
 
 #include "Core/Assert.h"
 
-#if PPK_ASSERT_ENABLED
+#if PPK_ASSERT_ENABLED && FORGE_DEBUG
 #  define VULKAN_HPP_ASSERT ASSERT
-#endif // PPK_ASSERT_ENABLED
+#else
+#  define VULKAN_HPP_ASSERT(expression) ((void)0)
+#endif
 
 #if !defined(VK_ENABLE_BETA_EXTENSIONS)
 #  define VK_ENABLE_BETA_EXTENSIONS

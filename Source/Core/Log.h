@@ -38,7 +38,7 @@ namespace Log
       }
    };
 
-#if FORGE_DEBUG
+#if FORGE_WITH_DEBUG_UTILS
 #  define LOG_CERR_SEV_THRESHOLD templog::sev_debug
 #else
 // Prevent text logging in release builds
@@ -61,7 +61,7 @@ namespace Log
 // Error   : For logging errors that do not prevent the program from continuing
 // Fatal   : For logging fatal errors that prevent the program from continuing
 
-#if FORGE_DEBUG
+#if FORGE_WITH_DEBUG_UTILS
 #  define LOG(log_message, log_severity) do { TEMPLOG_LOG(Log::cerr_logger, log_severity, templog::aud_developer) << log_message; } while (0)
 #else
 #  define LOG(_log_message_, log_severity) do {} while (0)

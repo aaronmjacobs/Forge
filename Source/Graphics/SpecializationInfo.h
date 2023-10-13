@@ -25,12 +25,12 @@ public:
          info.push_back(vk::SpecializationInfo().setMapEntries(mapEntries).template setData<T>(permutation));
       }
 
-#if FORGE_DEBUG
+#if FORGE_WITH_DEBUG_UTILS
       for (uint32_t i = 0; i < permutations.size(); ++i)
       {
          ASSERT(i == permutations[i].getIndex(), "Permutation index calculation is incorrect - expected %u, got %u", i, permutations[i].getIndex());
       }
-#endif // FORGE_DEBUG
+#endif // FORGE_WITH_DEBUG_UTILS
    }
 
    SpecializationInfo(const SpecializationInfo& other) = delete;

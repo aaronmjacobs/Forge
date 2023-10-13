@@ -1,5 +1,6 @@
 #pragma once
 
+#define PPK_ASSERT_ENABLED FORGE_WITH_DEBUG_UTILS
 #define PPK_ASSERT_DISABLE_STL // Reduce compile times
 
 #include <ppk_assert.h>
