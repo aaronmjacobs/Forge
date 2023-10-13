@@ -76,7 +76,7 @@ namespace
    {
       std::vector<const char*> layers;
 
-#if FORGE_WITH_DEBUG_UTILS
+#if FORGE_WITH_VALIDATION_LAYERS
       static const std::array<const char*, 2> kDesiredValidationLayers =
       {
          "VK_LAYER_KHRONOS_validation",
@@ -91,12 +91,12 @@ namespace
             layers.push_back(validationLayer);
          }
       }
-#endif // FORGE_WITH_DEBUG_UTILS
+#endif // FORGE_WITH_VALIDATION_LAYERS
 
       return layers;
    }
 
-#if FORGE_WITH_DEBUG_UTILS
+#if FORGE_WITH_VALIDATION_LAYERS
    bool isDebugMessageIgnored(int32_t messageId)
    {
       // VUID-vkCmdBindPipeline-pipeline-06195, etc.
@@ -165,7 +165,7 @@ namespace
          .setMessageSeverity(vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose | vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo | vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning | vk::DebugUtilsMessageSeverityFlagBitsEXT::eError)
          .setMessageType(vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral | vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation | vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance);
    }
-#endif // FORGE_WITH_DEBUG_UTILS
+#endif // FORGE_WITH_VALIDATION_LAYERS
 
    std::vector<const char*> getDeviceExtensions(vk::PhysicalDevice physicalDevice)
    {
@@ -400,17 +400,17 @@ GraphicsContext::GraphicsContext(Window& window)
       createInfo.setFlags(vk::InstanceCreateFlagBits::eEnumeratePortabilityKHR);
    }
 
-#if FORGE_WITH_DEBUG_UTILS
+#if FORGE_WITH_VALIDATION_LAYERS
    VkDebugUtilsMessengerCreateInfoEXT debugUtilsMessengerCreateInfo = static_cast<VkDebugUtilsMessengerCreateInfoEXT>(createDebugMessengerCreateInfo());
    createInfo.setPNext(&debugUtilsMessengerCreateInfo);
-#endif // FORGE_WITH_DEBUG_UTILS
+#endif // FORGE_WITH_VALIDATION_LAYERS
 
    instance = vk::createInstance(createInfo);
    dispatchLoaderDynamic.init(instance, vk::Device());
 
-#if FORGE_WITH_DEBUG_UTILS
+#if FORGE_WITH_VALIDATION_LAYERS
 #  define FIND_VULKAN_FUNCTION(instance, name) reinterpret_cast<PFN_##name>(window.getInstanceProcAddress(instance, #name))
-   pfnCreateDebugUtilsMessengerEXT = FIND_VULKAN_FUNCTION(instance, vkCreateDebugUtilsMessengerEXT);
+   PFN_vkCreateDebugUtilsMessengerEXT pfnCreateDebugUtilsMessengerEXT = FIND_VULKAN_FUNCTION(instance, vkCreateDebugUtilsMessengerEXT);
    pfnDestroyDebugUtilsMessengerEXT = FIND_VULKAN_FUNCTION(instance, vkDestroyDebugUtilsMessengerEXT);
 #  undef FIND_VULKAN_FUNCTION
 
@@ -421,7 +421,7 @@ GraphicsContext::GraphicsContext(Window& window)
          ASSERT(false);
       }
    }
-#endif // FORGE_WITH_DEBUG_UTILS
+#endif // FORGE_WITH_VALIDATION_LAYERS
 
    surface = window.createSurface(instance);
 
@@ -559,13 +559,13 @@ GraphicsContext::~GraphicsContext()
 
    instance.destroySurfaceKHR(surface);
 
-#if FORGE_WITH_DEBUG_UTILS
+#if FORGE_WITH_VALIDATION_LAYERS
    if (pfnDestroyDebugUtilsMessengerEXT)
    {
       pfnDestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
       debugMessenger = nullptr;
    }
-#endif // FORGE_WITH_DEBUG_UTILS
+#endif // FORGE_WITH_VALIDATION_LAYERS
 
    instance.destroy();
 }

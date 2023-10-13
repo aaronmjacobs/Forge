@@ -203,11 +203,10 @@ private:
    std::unique_ptr<DelayedObjectDestroyer> delayedObjectDestroyer;
    std::unique_ptr<DescriptorSetLayoutCache> layoutCache;
 
-#if FORGE_WITH_DEBUG_UTILS
+#if FORGE_WITH_VALIDATION_LAYERS
    VkDebugUtilsMessengerEXT debugMessenger = nullptr;
-   PFN_vkCreateDebugUtilsMessengerEXT pfnCreateDebugUtilsMessengerEXT = nullptr;
    PFN_vkDestroyDebugUtilsMessengerEXT pfnDestroyDebugUtilsMessengerEXT = nullptr;
-#endif // FORGE_WITH_DEBUG_UTILS
+#endif // FORGE_WITH_VALIDATION_LAYERS
 
 #if FORGE_WITH_GPU_MEMORY_TRACKING
    void onVmaAllocate(VmaAllocator allocator, uint32_t memoryType, VkDeviceSize size);
