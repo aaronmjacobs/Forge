@@ -10,7 +10,7 @@ public:
     template<typename Function>
     static void forEach(Scene& scene, Function&& function)
     {
-       for (std::size_t i = 0; i < scene.registry.size(); ++i)
+       for (std::size_t i = 0; i < scene.registry.storage<entt::entity>().size(); ++i)
        {
           function(scene.getEntity(i));
        }

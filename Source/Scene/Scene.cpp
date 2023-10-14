@@ -101,5 +101,5 @@ void Scene::destroyEntity(Entity entity)
 
 Entity Scene::getEntity(std::size_t index)
 {
-   return Entity(this, registry.data()[index]);
+   return Entity(this, registry.storage<entt::entity>().data()[index]);
 }
