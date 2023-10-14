@@ -14,7 +14,7 @@
 NormalPass::NormalPass(const GraphicsContext& graphicsContext, ResourceManager& resourceManager)
    : SceneRenderPass(graphicsContext)
 {
-   normalShader = std::make_unique<NormalShader>(context, resourceManager);
+   normalShader = createShader<NormalShader>(context, resourceManager);
 
    {
       std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = normalShader->getSetLayouts();
@@ -30,8 +30,6 @@ NormalPass::NormalPass(const GraphicsContext& graphicsContext, ResourceManager& 
 NormalPass::~NormalPass()
 {
    context.delayedDestroy(std::move(pipelineLayout));
-
-   normalShader.reset();
 }
 
 void NormalPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, Texture& depthTexture, Texture& normalTexture)

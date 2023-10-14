@@ -43,7 +43,7 @@ protected:
    Pipeline createPipeline(const PipelineDescription<CompositePass>& description, const AttachmentFormats& attachmentFormats);
 
 private:
-   std::unique_ptr<CompositeShader> compositeShader;
+   CompositeShader* compositeShader = nullptr;
 
    vk::PipelineLayout pipelineLayout;
 

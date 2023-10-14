@@ -14,8 +14,8 @@ DepthPass::DepthPass(const GraphicsContext& graphicsContext, ResourceManager& re
    : SceneRenderPass(graphicsContext)
    , isShadowPass(shadowPass)
 {
-   depthShader = std::make_unique<DepthShader>(context, resourceManager);
-   depthMaskedShader = std::make_unique<DepthMaskedShader>(context, resourceManager);
+   depthShader = createShader<DepthShader>(context, resourceManager);
+   depthMaskedShader = createShader<DepthMaskedShader>(context, resourceManager);
 
    {
       std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = depthShader->getSetLayouts();
@@ -42,9 +42,6 @@ DepthPass::~DepthPass()
 {
    context.delayedDestroy(std::move(opaquePipelineLayout));
    context.delayedDestroy(std::move(maskedPipelineLayout));
-
-   depthShader.reset();
-   depthMaskedShader.reset();
 }
 
 void DepthPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, Texture& depthTexture, vk::ImageView depthTextureView)

@@ -48,8 +48,8 @@ SSAOPass::SSAOPass(const GraphicsContext& graphicsContext, DynamicDescriptorPool
    NAME_CHILD(blurPipelineLayout, "Blur");
    NAME_CHILD(uniformBuffer, "");
 
-   ssaoShader = std::make_unique<SSAOShader>(context, resourceManager);
-   blurShader = std::make_unique<SSAOBlurShader>(context, resourceManager);
+   ssaoShader = createShader<SSAOShader>(context, resourceManager);
+   blurShader = createShader<SSAOBlurShader>(context, resourceManager);
 
    {
       std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = ssaoShader->getSetLayouts();
@@ -135,9 +135,6 @@ SSAOPass::~SSAOPass()
 
    context.delayedDestroy(std::move(ssaoPipelineLayout));
    context.delayedDestroy(std::move(blurPipelineLayout));
-
-   ssaoShader.reset();
-   blurShader.reset();
 }
 
 void SSAOPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, Texture& depthTexture, Texture& normalTexture, Texture& ssaoTexture, Texture& ssaoBlurTexture, RenderQuality quality)

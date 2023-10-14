@@ -73,9 +73,13 @@ public:
       return newDelegate.bind(std::move(function));
    }
 
-   void remove(DelegateHandle handle)
+   bool remove(DelegateHandle handle)
    {
+      std::size_t previousSize = delegates.size();
       delegates.erase(std::remove_if(delegates.begin(), delegates.end(), [handle](const DelegateType& delegate) { return delegate.getHandle() == handle; }), delegates.end());
+      std::size_t currentSize = delegates.size();
+
+      return currentSize < previousSize;
    }
 
    void clear()

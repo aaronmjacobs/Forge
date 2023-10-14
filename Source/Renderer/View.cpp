@@ -2,9 +2,6 @@
 
 #include "Graphics/DebugUtils.h"
 #include "Graphics/DescriptorSetLayout.h"
-#include "Graphics/Swapchain.h"
-
-#include "Math/MathUtils.h"
 
 // static
 std::array<vk::DescriptorSetLayoutBinding, 1> View::getBindings()

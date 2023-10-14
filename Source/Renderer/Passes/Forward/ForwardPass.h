@@ -48,8 +48,8 @@ protected:
    Pipeline createPipeline(const PipelineDescription<ForwardPass>& description, const AttachmentFormats& attachmentFormats);
 
 private:
-   std::unique_ptr<ForwardShader> forwardShader;
-   std::unique_ptr<SkyboxShader> skyboxShader;
+   ForwardShader* forwardShader = nullptr;
+   SkyboxShader* skyboxShader = nullptr;
 
    vk::PipelineLayout forwardPipelineLayout;
    vk::PipelineLayout skyboxPipelineLayout;

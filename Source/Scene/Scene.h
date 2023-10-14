@@ -2,6 +2,8 @@
 
 #include "Core/Delegate.h"
 
+#include "Scene/System.h"
+
 #include <entt/entity/registry.hpp>
 
 #include <memory>
@@ -11,7 +13,6 @@
 #include <vector>
 
 class Entity;
-class System;
 
 class Scene
 {

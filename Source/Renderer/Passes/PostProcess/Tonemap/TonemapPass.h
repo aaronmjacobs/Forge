@@ -45,7 +45,7 @@ protected:
    Pipeline createPipeline(const PipelineDescription<TonemapPass>& description, const AttachmentFormats& attachmentFormats);
 
 private:
-   std::unique_ptr<TonemapShader> tonemapShader;
+   TonemapShader* tonemapShader = nullptr;
 
    vk::PipelineLayout pipelineLayout;
 

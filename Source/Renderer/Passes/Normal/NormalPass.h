@@ -44,7 +44,7 @@ protected:
    Pipeline createPipeline(const PipelineDescription<NormalPass>& description, const AttachmentFormats& attachmentFormats);
 
 private:
-   std::unique_ptr<NormalShader> normalShader;
+   NormalShader* normalShader = nullptr;
 
    vk::PipelineLayout pipelineLayout;
 };

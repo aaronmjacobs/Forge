@@ -4,8 +4,6 @@
 #include "Graphics/GraphicsResource.h"
 #include "Graphics/UniformBuffer.h"
 
-#include "Math/Transform.h"
-
 #include "Renderer/ViewInfo.h"
 
 #include <glm/glm.hpp>

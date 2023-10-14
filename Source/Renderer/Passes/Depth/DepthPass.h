@@ -46,8 +46,8 @@ protected:
    Pipeline createPipeline(const PipelineDescription<DepthPass>& description, const AttachmentFormats& attachmentFormats);
 
 private:
-   std::unique_ptr<DepthShader> depthShader;
-   std::unique_ptr<DepthMaskedShader> depthMaskedShader;
+   DepthShader* depthShader = nullptr;
+   DepthMaskedShader* depthMaskedShader = nullptr;
    bool isShadowPass = false;
 
    vk::PipelineLayout opaquePipelineLayout;

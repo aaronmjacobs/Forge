@@ -548,6 +548,7 @@ void ForgeApplication::loadScene()
 
    {
       Entity skyboxEntity = scene->createEntity();
+      skyboxEntity.createComponent<NameComponent>().name = "Skybox";
       skyboxEntity.createComponent<SkyboxComponent>().textureHandle = resourceManager->loadTexture("Resources/Textures/Skybox/Kloofendal.dds");
    }
 

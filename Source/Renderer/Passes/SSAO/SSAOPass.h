@@ -63,8 +63,8 @@ private:
 
    vk::ImageView getDepthView(Texture& depthTexture);
 
-   std::unique_ptr<SSAOShader> ssaoShader;
-   std::unique_ptr<SSAOBlurShader> blurShader;
+   SSAOShader* ssaoShader = nullptr;
+   SSAOBlurShader* blurShader = nullptr;
 
    vk::PipelineLayout ssaoPipelineLayout;
    vk::PipelineLayout blurPipelineLayout;

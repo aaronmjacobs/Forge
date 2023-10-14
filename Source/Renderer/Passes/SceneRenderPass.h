@@ -1,15 +1,21 @@
 #pragma once
 
+#include "Core/Assert.h"
+#include "Core/Features.h"
+
 #include "Graphics/DebugUtils.h"
 #include "Graphics/Material.h"
 #include "Graphics/Mesh.h"
 #include "Graphics/Pipeline.h"
 #include "Graphics/RenderPass.h"
+#include "Graphics/Shader.h"
 
 #include "Renderer/SceneRenderInfo.h"
 #include "Renderer/UniformData.h"
 
 #include <unordered_map>
+#include <unordered_set>
+#include <utility>
 #include <vector>
 
 template<typename PassType>
@@ -31,6 +37,8 @@ public:
 protected:
    void onRenderPassBegin() override
    {
+      ASSERT(!shaders.empty(), "No shaders have been created for scene render pass");
+
       const AttachmentFormats& attachmentFormats = getAttachmentFormats();
 
       auto location = pipelineMapsByAttachmentFormat.find(attachmentFormats);
@@ -45,6 +53,24 @@ protected:
    void onRenderPassEnd() override
    {
       currentPipelineMap = nullptr;
+   }
+
+   template<typename T, typename... Args>
+   T* createShader(Args&&... args)
+   {
+      auto [location, inserted] = shaders.emplace(std::make_unique<T>(std::forward<Args>(args)...));
+      T* shader = static_cast<T*>(location->get());
+      ASSERT(inserted);
+
+#if FORGE_WITH_SHADER_HOT_RELOADING
+      shader->addOnInitialize([this]()
+      {
+         ASSERT(currentPipelineMap == nullptr);
+         pipelineMapsByAttachmentFormat.clear();
+      });
+#endif // FORGE_WITH_SHADER_HOT_RELOADING
+
+      return shader;
    }
 
    template<BlendMode blendMode>
@@ -131,4 +157,6 @@ private:
 
    std::unordered_map<AttachmentFormats, PipelineMap> pipelineMapsByAttachmentFormat;
    PipelineMap* currentPipelineMap = nullptr;
+
+   std::unordered_set<std::unique_ptr<Shader>> shaders;
 };

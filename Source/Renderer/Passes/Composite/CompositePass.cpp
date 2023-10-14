@@ -29,7 +29,7 @@ CompositePass::CompositePass(const GraphicsContext& graphicsContext, DynamicDesc
    : SceneRenderPass(graphicsContext)
    , descriptorSet(graphicsContext, dynamicDescriptorPool, CompositeShader::getLayoutCreateInfo())
 {
-   compositeShader = std::make_unique<CompositeShader>(context, resourceManager);
+   compositeShader = createShader<CompositeShader>(context, resourceManager);
 
    std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = compositeShader->getSetLayouts();
    vk::PipelineLayoutCreateInfo pipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo()
@@ -61,8 +61,6 @@ CompositePass::~CompositePass()
 {
    context.delayedDestroy(std::move(sampler));
    context.delayedDestroy(std::move(pipelineLayout));
-
-   compositeShader.reset();
 }
 
 void CompositePass::render(vk::CommandBuffer commandBuffer, Texture& destinationTexture, Texture& sourceTexture, CompositeShader::Mode mode)

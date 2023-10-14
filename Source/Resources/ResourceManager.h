@@ -10,6 +10,7 @@
 
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 
 class ResourceManager
 {
@@ -22,6 +23,7 @@ public:
    void update()
    {
       materialLoader.updateMaterials();
+      shaderModuleLoader.update();
    }
 
    // Material
@@ -105,6 +107,18 @@ public:
    {
       return shaderModuleLoader.findKey(handle);
    }
+
+#if FORGE_WITH_SHADER_HOT_RELOADING
+   DelegateHandle addShaderModuleHotReloadDelegate(ShaderModuleLoader::HotReloadDelegate::FuncType&& function)
+   {
+      return shaderModuleLoader.addHotReloadDelegate(std::move(function));
+   }
+
+   void removeShaderModuleHotReloadDelegate(DelegateHandle& handle)
+   {
+      shaderModuleLoader.removeHotReloadDelegate(handle);
+   }
+#endif // FORGE_WITH_SHADER_HOT_RELOADING
 
    // Texture
 

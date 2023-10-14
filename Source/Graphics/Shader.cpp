@@ -8,9 +8,9 @@
 
 namespace
 {
-   StrongShaderModuleHandle loadShaderModule(ResourceManager& resourceManager, const char* path)
+   StrongShaderModuleHandle loadShaderModule(ResourceManager& resourceManager, const std::filesystem::path& path)
    {
-      if (!path)
+      if (path.empty())
       {
          return StrongShaderModuleHandle{};
       }
@@ -19,7 +19,7 @@ namespace
       const ShaderModule* shaderModule = resourceManager.getShaderModule(handle);
       if (!shaderModule)
       {
-         throw std::runtime_error(std::string("Failed to load shader module: ") + path);
+         throw std::runtime_error(std::string("Failed to load shader module: ") + path.string());
       }
 
       return handle;
@@ -28,57 +28,49 @@ namespace
 
 Shader::Shader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager, const InitializationInfo& info)
    : GraphicsResource(graphicsContext)
+   , initializationInfo(info)
+   , vertShaderModuleHandle(loadShaderModule(resourceManager, info.vertShaderModulePath))
+   , fragShaderModuleHandle(loadShaderModule(resourceManager, info.fragShaderModulePath))
 {
-   if (StrongShaderModuleHandle vertShaderModuleHandle = loadShaderModule(resourceManager, info.vertShaderModulePath))
+   initializeStageCreateInfo();
+
+#if FORGE_WITH_SHADER_HOT_RELOADING
+   hotReloadDelegateHandle = resourceManager.addShaderModuleHotReloadDelegate([this](ShaderModuleHandle hotReloadedShaderModuleHandle)
    {
-      const ShaderModule* vertShaderModule = resourceManager.getShaderModule(vertShaderModuleHandle);
-      ASSERT(vertShaderModule);
-
-      vk::PipelineShaderStageCreateInfo vertCreateInfo = vk::PipelineShaderStageCreateInfo()
-         .setStage(vk::ShaderStageFlagBits::eVertex)
-         .setModule(vertShaderModule->getShaderModule())
-         .setPName(info.vertShaderModuleEntryPoint);
-
-      if (info.specializationInfo.empty())
+      if (hotReloadedShaderModuleHandle == vertShaderModuleHandle || hotReloadedShaderModuleHandle == fragShaderModuleHandle)
       {
-         vertStageCreateInfo.push_back(vertCreateInfo);
+         initializeStageCreateInfo();
       }
-      else
-      {
-         vertStageCreateInfo.resize(info.specializationInfo.size());
-         for (std::size_t i = 0; i < info.specializationInfo.size(); ++i)
-         {
-            vertStageCreateInfo[i] = vertCreateInfo.setPSpecializationInfo(&info.specializationInfo[i]);
-         }
-      }
+   });
+#endif // FORGE_WITH_SHADER_HOT_RELOADING
+}
 
-      shaderModuleHandles.push_back(vertShaderModuleHandle);
+Shader::~Shader()
+{
+#if FORGE_WITH_SHADER_HOT_RELOADING
+   ResourceManager* resourceManager = vertShaderModuleHandle.getResourceManager();
+   if (!resourceManager)
+   {
+      resourceManager = fragShaderModuleHandle.getResourceManager();
    }
 
-   if (StrongShaderModuleHandle fragShaderModuleHandle = loadShaderModule(resourceManager, info.fragShaderModulePath))
+   if (resourceManager)
    {
-      const ShaderModule* fragShaderModule = resourceManager.getShaderModule(fragShaderModuleHandle);
-      ASSERT(fragShaderModule);
+      resourceManager->removeShaderModuleHotReloadDelegate(hotReloadDelegateHandle);
+   }
+#endif // FORGE_WITH_SHADER_HOT_RELOADING
+}
 
-      vk::PipelineShaderStageCreateInfo fragCreateInfo = vk::PipelineShaderStageCreateInfo()
-         .setStage(vk::ShaderStageFlagBits::eFragment)
-         .setModule(fragShaderModule->getShaderModule())
-         .setPName(info.fragShaderModuleEntryPoint);
+DelegateHandle Shader::addOnInitialize(InitializeDelegate::FuncType&& function)
+{
+   return onInitialize.add(std::move(function));
+}
 
-      if (info.specializationInfo.empty())
-      {
-         fragStageCreateInfo.push_back(fragCreateInfo);
-      }
-      else
-      {
-         fragStageCreateInfo.resize(info.specializationInfo.size());
-         for (std::size_t i = 0; i < info.specializationInfo.size(); ++i)
-         {
-            fragStageCreateInfo[i] = fragCreateInfo.setPSpecializationInfo(&info.specializationInfo[i]);
-         }
-      }
-
-      shaderModuleHandles.push_back(fragShaderModuleHandle);
+void Shader::removeOnInitialize(DelegateHandle& handle)
+{
+   if (onInitialize.remove(handle))
+   {
+      handle.invalidate();
    }
 }
 
@@ -97,4 +89,53 @@ std::vector<vk::PipelineShaderStageCreateInfo> Shader::getStagesForPermutation(u
    }
 
    return stages;
+}
+
+void Shader::initializeStageCreateInfo()
+{
+   vertStageCreateInfo.clear();
+   if (const ShaderModule* vertShaderModule = vertShaderModuleHandle.getResource())
+   {
+      vk::PipelineShaderStageCreateInfo vertCreateInfo = vk::PipelineShaderStageCreateInfo()
+         .setStage(vk::ShaderStageFlagBits::eVertex)
+         .setModule(vertShaderModule->getShaderModule())
+         .setPName(initializationInfo.vertShaderModuleEntryPoint.c_str());
+
+      if (initializationInfo.specializationInfo.empty())
+      {
+         vertStageCreateInfo.push_back(vertCreateInfo);
+      }
+      else
+      {
+         vertStageCreateInfo.resize(initializationInfo.specializationInfo.size());
+         for (std::size_t i = 0; i < initializationInfo.specializationInfo.size(); ++i)
+         {
+            vertStageCreateInfo[i] = vertCreateInfo.setPSpecializationInfo(&initializationInfo.specializationInfo[i]);
+         }
+      }
+   }
+
+   fragStageCreateInfo.clear();
+   if (const ShaderModule* fragShaderModule = fragShaderModuleHandle.getResource())
+   {
+      vk::PipelineShaderStageCreateInfo fragCreateInfo = vk::PipelineShaderStageCreateInfo()
+         .setStage(vk::ShaderStageFlagBits::eFragment)
+         .setModule(fragShaderModule->getShaderModule())
+         .setPName(initializationInfo.fragShaderModuleEntryPoint.c_str());
+
+      if (initializationInfo.specializationInfo.empty())
+      {
+         fragStageCreateInfo.push_back(fragCreateInfo);
+      }
+      else
+      {
+         fragStageCreateInfo.resize(initializationInfo.specializationInfo.size());
+         for (std::size_t i = 0; i < initializationInfo.specializationInfo.size(); ++i)
+         {
+            fragStageCreateInfo[i] = fragCreateInfo.setPSpecializationInfo(&initializationInfo.specializationInfo[i]);
+         }
+      }
+   }
+
+   onInitialize.broadcast();
 }

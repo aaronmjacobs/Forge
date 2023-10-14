@@ -108,8 +108,8 @@ namespace
 
 BloomPass::BloomPass(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, ResourceManager& resourceManager)
    : SceneRenderPass(graphicsContext)
-   , downsampleShader(std::make_unique<BloomDownsampleShader>(context, resourceManager))
-   , upsampleShader(std::make_unique<BloomUpsampleShader>(context, resourceManager))
+   , downsampleShader(createShader<BloomDownsampleShader>(context, resourceManager))
+   , upsampleShader(createShader<BloomUpsampleShader>(context, resourceManager))
 {
    downsampleDescriptorSets.reserve(kNumSteps);
    horizontalUpsampleDescriptorSets.reserve(kNumSteps);
@@ -190,9 +190,6 @@ BloomPass::~BloomPass()
    context.delayedDestroy(std::move(sampler));
    context.delayedDestroy(std::move(downsamplePipelineLayout));
    context.delayedDestroy(std::move(upsamplePipelineLayout));
-
-   downsampleShader.reset();
-   upsampleShader.reset();
 }
 
 void BloomPass::render(vk::CommandBuffer commandBuffer, Texture& hdrColorTexture, Texture& defaultBlackTexture, RenderQuality quality)

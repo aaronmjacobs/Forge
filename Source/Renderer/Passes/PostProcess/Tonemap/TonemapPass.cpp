@@ -16,7 +16,7 @@ TonemapPass::TonemapPass(const GraphicsContext& graphicsContext, DynamicDescript
    : SceneRenderPass(graphicsContext)
    , descriptorSet(graphicsContext, dynamicDescriptorPool, TonemapShader::getLayoutCreateInfo())
 {
-   tonemapShader = std::make_unique<TonemapShader>(context, resourceManager);
+   tonemapShader = createShader<TonemapShader>(context, resourceManager);
 
    std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = tonemapShader->getSetLayouts();
    vk::PipelineLayoutCreateInfo pipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo()
@@ -53,8 +53,6 @@ TonemapPass::~TonemapPass()
 {
    context.delayedDestroy(std::move(sampler));
    context.delayedDestroy(std::move(pipelineLayout));
-
-   tonemapShader.reset();
 }
 
 void TonemapPass::render(vk::CommandBuffer commandBuffer, Texture& outputTexture, Texture& hdrColorTexture, Texture* bloomTexture, Texture* uiTexture, TonemappingAlgorithm tonemappingAlgorithm)

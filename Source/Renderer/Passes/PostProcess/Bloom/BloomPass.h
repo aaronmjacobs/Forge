@@ -75,8 +75,8 @@ private:
    void createTextures(vk::Format format, vk::SampleCountFlagBits sampleCount);
    void destroyTextures();
 
-   std::unique_ptr<BloomDownsampleShader> downsampleShader;
-   std::unique_ptr<BloomUpsampleShader> upsampleShader;
+   BloomDownsampleShader* downsampleShader = nullptr;
+   BloomUpsampleShader* upsampleShader = nullptr;
 
    vk::PipelineLayout downsamplePipelineLayout;
    vk::PipelineLayout upsamplePipelineLayout;

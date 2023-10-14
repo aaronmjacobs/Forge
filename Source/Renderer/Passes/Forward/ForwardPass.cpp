@@ -21,8 +21,8 @@ ForwardPass::ForwardPass(const GraphicsContext& graphicsContext, DynamicDescript
    , skyboxDescriptorSet(graphicsContext, dynamicDescriptorPool, SkyboxShader::getLayoutCreateInfo())
    , lighting(forwardLighting)
 {
-   forwardShader = std::make_unique<ForwardShader>(context, resourceManager);
-   skyboxShader = std::make_unique<SkyboxShader>(context, resourceManager);
+   forwardShader = createShader<ForwardShader>(context, resourceManager);
+   skyboxShader = createShader<SkyboxShader>(context, resourceManager);
 
    {
       std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = forwardShader->getSetLayouts();
@@ -88,9 +88,6 @@ ForwardPass::~ForwardPass()
 
    context.delayedDestroy(std::move(forwardPipelineLayout));
    context.delayedDestroy(std::move(skyboxPipelineLayout));
-
-   forwardShader.reset();
-   skyboxShader.reset();
 }
 
 void ForwardPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& sceneRenderInfo, Texture& depthTexture, Texture& colorTexture, Texture* colorResolveTexture, Texture& roughnessMetalnessTexture, Texture& normalTexture, Texture& ssaoTexture, const Texture* skyboxTexture)
