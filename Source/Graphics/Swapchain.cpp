@@ -119,12 +119,7 @@ Swapchain::Swapchain(const GraphicsContext& graphicsContext, vk::Extent2D desire
    format = surfaceFormat.format;
    extent = chooseExtent(supportDetails.capabilities, desiredExtent);
 
-#if defined(__APPLE__)
-   // Using 3 buffers causes framerate stutter on macOS (see https://github.com/KhronosGroup/MoltenVK/issues/1407)
-   uint32_t desiredMinImageCount = supportDetails.capabilities.minImageCount;
-#else
    uint32_t desiredMinImageCount = supportDetails.capabilities.minImageCount + 1;
-#endif
    minImageCount = supportDetails.capabilities.maxImageCount > 0 ? std::min(supportDetails.capabilities.maxImageCount, desiredMinImageCount) : desiredMinImageCount;
 
    vk::SwapchainCreateInfoKHR createInfo = vk::SwapchainCreateInfoKHR()
