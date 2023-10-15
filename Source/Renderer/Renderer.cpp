@@ -14,6 +14,7 @@
 #include "Renderer/Passes/PostProcess/Bloom/BloomPass.h"
 #include "Renderer/Passes/PostProcess/Tonemap/TonemapPass.h"
 #include "Renderer/Passes/SSAO/SSAOPass.h"
+#include "Renderer/Passes/SSR/SSRPass.h"
 #include "Renderer/Passes/UI/UIPass.h"
 #include "Renderer/SceneRenderInfo.h"
 #include "Renderer/View.h"
@@ -532,6 +533,9 @@ Renderer::Renderer(const GraphicsContext& graphicsContext, ResourceManager& reso
       forwardPass = std::make_unique<ForwardPass>(context, dynamicDescriptorPool, resourceManager, forwardLighting.get());
       NAME_POINTER(device, forwardPass, "Forward Pass");
 
+      ssrPass = std::make_unique<SSRPass>(context, dynamicDescriptorPool, resourceManager);
+      NAME_POINTER(device, ssrPass, "SSR Pass");
+
       bloomPass = std::make_unique<BloomPass>(context, dynamicDescriptorPool, resourceManager);
       NAME_POINTER(device, bloomPass, "Bloom Pass");
 
@@ -554,6 +558,7 @@ Renderer::~Renderer()
    ssaoPass = nullptr;
    shadowPass = nullptr;
    forwardPass = nullptr;
+   ssrPass = nullptr;
    bloomPass = nullptr;
    uiPass = nullptr;
    compositePass = nullptr;
@@ -622,6 +627,8 @@ void Renderer::render(vk::CommandBuffer commandBuffer, const Scene& scene)
 
    forwardPass->render(commandBuffer, sceneRenderInfo, *depthTexture, *hdrColorTexture, hdrResolveTexture.get(), *roughnessMetalnessTexture, *normalTexture, ssaoEnabled ? *ssaoTexture : *defaultWhiteTexture, skyboxTexture);
 
+   ssrPass->render(commandBuffer, sceneRenderInfo, *depthTexture, *normalTexture);
+
    bool bloomEnabled = renderSettings.bloomQuality != RenderQuality::Disabled;
    if (bloomEnabled)
    {
@@ -665,6 +672,7 @@ void Renderer::onSwapchainRecreated()
    NAME_POINTER(device, roughnessMetalnessTexture, "Roughness Metalness Texture");
    NAME_POINTER(device, uiColorTexture, "UI Color Texture");
 
+   ssrPass->recreateTextures(renderSettings.msaaSamples);
    bloomPass->recreateTextures(hdrColorTexture->getImageProperties().format, hdrColorTexture->getTextureProperties().sampleCount);
    uiPass->onOutputTextureCreated(*uiColorTexture);
 }

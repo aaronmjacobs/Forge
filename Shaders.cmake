@@ -4,6 +4,7 @@ set(SHADER_BIN_DIR "${RES_DIR}/Shaders")
 set(SHADER_HEADER_FILES
    "${SHADER_DIR}/Lighting.glsl"
    "${SHADER_DIR}/Masked.glsl"
+   "${SHADER_DIR}/RenderQuality.glsl"
    "${SHADER_DIR}/View.glsl"
 )
 
@@ -23,6 +24,9 @@ set(SHADER_SOURCE_FILES
    "${SHADER_DIR}/Skybox.frag"
    "${SHADER_DIR}/SSAO.frag"
    "${SHADER_DIR}/SSAOBlur.frag"
+   "${SHADER_DIR}/SSRApply.frag"
+   "${SHADER_DIR}/SSRBlur.frag"
+   "${SHADER_DIR}/SSRGenerate.frag"
 )
 
 find_program(GLSLC glslc)

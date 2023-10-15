@@ -22,18 +22,6 @@ layout(location = 0) in vec2 inTexCoord;
 
 layout(location = 0) out float outSSAO;
 
-vec3 getViewPosition(vec2 uv)
-{
-   float depth = texture(depthBuffer, uv).r;
-   float z = depth * 2.0 - 1.0;
-
-   vec4 clipPosition = vec4(uv * 2.0 - 1.0, z, 1.0);
-   vec4 viewPosition = view.clipToView * clipPosition;
-   viewPosition /= viewPosition.w;
-
-   return viewPosition.xyz;
-}
-
 vec3 randomVec()
 {
    uvec2 noiseCoord = uvec2(gl_FragCoord.xy) % kNoiseSize;
@@ -48,8 +36,8 @@ vec3 randomVec()
 
 void main()
 {
-   vec3 position = getViewPosition(inTexCoord);
-   vec3 normal = normalize(view.worldToView * vec4(texture(normalBuffer, inTexCoord).xyz, 0.0)).xyz;
+   vec3 position = getViewPosition(depthBuffer, inTexCoord);
+   vec3 normal = getViewNormal(normalBuffer, inTexCoord);
    vec3 randVec = randomVec();
 
    vec3 tangent = normalize(randVec - normal * dot(randVec, normal));
@@ -64,7 +52,7 @@ void main()
 
       vec4 offset = view.viewToClip * vec4(samplePosition, 1.0);
       offset.xyz = (offset.xyz / offset.w) * 0.5 + 0.5;
-      float sampleDepth = getViewPosition(offset.xy).z;
+      float sampleDepth = getViewPosition(depthBuffer, offset.xy).z;
 
       float rangeCheck = smoothstep(0.0, 1.0, radius / abs(position.z - sampleDepth));
       const float kBias = 0.025;

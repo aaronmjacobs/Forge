@@ -12,21 +12,9 @@ layout(location = 0) in vec2 inTexCoord;
 
 layout(location = 0) out float outBlurredSSAO;
 
-vec3 getViewPosition(vec2 uv)
-{
-   float depth = texture(depthTexture, uv).r;
-   float z = depth * 2.0 - 1.0;
-
-   vec4 clipPosition = vec4(uv * 2.0 - 1.0, z, 1.0);
-   vec4 viewPosition = view.clipToView * clipPosition;
-   viewPosition /= viewPosition.w;
-
-   return viewPosition.xyz;
-}
-
 float getDepth(vec2 uv)
 {
-   return getViewPosition(uv).z;
+   return getViewPosition(depthTexture, uv).z;
 }
 
 void main()

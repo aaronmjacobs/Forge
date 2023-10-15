@@ -23,6 +23,7 @@ class ResourceManager;
 class Scene;
 class SimpleRenderPass;
 class SSAOPass;
+class SSRPass;
 class Swapchain;
 class Texture;
 class TonemapPass;
@@ -71,6 +72,7 @@ private:
    std::unique_ptr<SSAOPass> ssaoPass;
    std::unique_ptr<DepthPass> shadowPass;
    std::unique_ptr<ForwardPass> forwardPass;
+   std::unique_ptr<SSRPass> ssrPass;
    std::unique_ptr<BloomPass> bloomPass;
    std::unique_ptr<UIPass> uiPass;
    std::unique_ptr<CompositePass> compositePass;
