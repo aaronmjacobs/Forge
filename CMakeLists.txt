@@ -26,8 +26,6 @@ if(APPLE)
    set_target_properties(${PROJECT_NAME} PROPERTIES DISABLE_PRECOMPILE_HEADERS ON) # Xcode gets angry about the PCH format for some reason, so disable PCH usage on macOS for now
 endif(APPLE)
 
-find_package(Vulkan REQUIRED)
-
 set(RES_DIR "${PROJECT_SOURCE_DIR}/Resources")
 include("${PROJECT_SOURCE_DIR}/Source.cmake")
 include("${PROJECT_SOURCE_DIR}/Shaders.cmake")
