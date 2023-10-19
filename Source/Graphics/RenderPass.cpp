@@ -193,7 +193,7 @@ void RenderPass::beginRenderPass(vk::CommandBuffer commandBuffer, std::span<cons
       .setPStencilAttachment(depthStencilAttachment ? &depthStencilRenderingAttachmentInfo : nullptr)
       .setColorAttachments(colorRenderingAttachmentInfo);
 
-   commandBuffer.beginRendering(renderingInfo, GraphicsContext::GetDynamicLoader());
+   commandBuffer.beginRenderingKHR(renderingInfo, GraphicsContext::GetDynamicLoader());
 
    setViewport(commandBuffer, renderArea);
 
@@ -205,7 +205,7 @@ void RenderPass::endRenderPass(vk::CommandBuffer commandBuffer)
    ASSERT(attachmentFormats.has_value());
    attachmentFormats.reset();
 
-   commandBuffer.endRendering(GraphicsContext::GetDynamicLoader());
+   commandBuffer.endRenderingKHR(GraphicsContext::GetDynamicLoader());
 
    onRenderPassEnd();
 }
