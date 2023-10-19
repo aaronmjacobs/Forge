@@ -92,6 +92,11 @@ public:
       return physicalDeviceFeatures;
    }
 
+   uint32_t getVulkanVersion() const
+   {
+      return physicalDeviceProperties.apiVersion;
+   }
+
    vk::CommandPool getTransientCommandPool() const
    {
       return transientCommandPool;
