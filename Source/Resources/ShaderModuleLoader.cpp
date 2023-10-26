@@ -18,7 +18,13 @@ namespace
 #if FORGE_PLATFORM_WINDOWS
       static const char kPathSeparator = ';';
       static const char* kExecutableName = "glslc.exe";
+#else
+      static const char kPathSeparator = ':';
+      static const char* kExecutableName = "glslc";
+#endif
 
+#if FORGE_PLATFORM_WINDOWS
+      // Windows has a special environment variable, so we check that first
       if (const char* sdkPath = std::getenv("VULKAN_SDK"))
       {
          std::filesystem::path glslcPath = std::filesystem::path(sdkPath) / "Bin" / kExecutableName;
@@ -27,10 +33,7 @@ namespace
             return glslcPath;
          }
       }
-#else
-      static const char kPathSeparator = ':';
-      static const char* kExecutableName = "glslc";
-#endif
+#endif // FORGE_PLATFORM_WINDOWS
 
       if (const char* path = std::getenv("PATH"))
       {
@@ -46,6 +49,15 @@ namespace
             }
          }
       }
+
+#if FORGE_PLATFORM_MACOS
+      // Xcode has its own sanitized PATH, which doesn't include /usr/local/bin, so we need to manually check it
+      std::filesystem::path localBinGlslcPath = std::filesystem::path("/usr/local/bin") / kExecutableName;
+      if (std::filesystem::is_regular_file(localBinGlslcPath))
+      {
+         return localBinGlslcPath;
+      }
+#endif // FORGE_PLATFORM_MACOS
 
       return std::nullopt;
    }
