@@ -613,7 +613,7 @@ void ForgeApplication::loadScene()
 
       pointLightEntity.createComponent<NameComponent>().name = "Point Light";
       TransformComponent& transformComponent = pointLightEntity.createComponent<TransformComponent>();
-      transformComponent.transform.position = glm::vec3(0.0f, 0.0f, 3.0f);
+      transformComponent.transform.position = glm::vec3(0.0f, 0.0f, 4.0f);
 
       PointLightComponent& pointLightComponent = pointLightEntity.createComponent<PointLightComponent>();
       pointLightComponent.setColor(glm::vec3(0.1f, 0.3f, 0.8f));
@@ -622,14 +622,15 @@ void ForgeApplication::loadScene()
 
       OscillatingMovementComponent& oscillatingMovementComponent = pointLightEntity.createComponent<OscillatingMovementComponent>();
       oscillatingMovementComponent.location.sin.timeScale = glm::vec3(1.0f, 0.7f, 1.1f);
-      oscillatingMovementComponent.location.sin.valueScale = glm::vec3(5.0f, 1.5f, 2.0f);
+      oscillatingMovementComponent.location.sin.valueScale = glm::vec3(5.5f, 1.0f, 2.5f);
    }
+
 
    {
       Entity spotLightEntity = scene->createEntity();
 
       spotLightEntity.createComponent<NameComponent>().name = "Spot Light";
-      spotLightEntity.createComponent<TransformComponent>().transform.position = glm::vec3(0.0f, -4.5f, 1.5f);
+      spotLightEntity.createComponent<TransformComponent>().transform.position = glm::vec3(8.0f, -3.5f, 2.0f);
 
       SpotLightComponent& spotLightComponent = spotLightEntity.createComponent<SpotLightComponent>();
       spotLightComponent.setColor(glm::vec3(0.8f, 0.1f, 0.3f));
@@ -640,7 +641,7 @@ void ForgeApplication::loadScene()
       oscillatingMovementComponent.location.sin.timeScale = glm::vec3(0.0f, 0.3f, 0.0f);
       oscillatingMovementComponent.location.sin.valueScale = glm::vec3(0.0f, 1.0f, 0.0f);
       oscillatingMovementComponent.location.cos.timeScale = glm::vec3(0.6f, 0.0f, 1.3f);
-      oscillatingMovementComponent.location.cos.valueScale = glm::vec3(8.0f, 0.0f, 1.5f);
+      oscillatingMovementComponent.location.cos.valueScale = glm::vec3(8.0f, 0.0f, 1.0f);
    }
 }
 
