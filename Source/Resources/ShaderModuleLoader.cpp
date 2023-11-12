@@ -62,9 +62,39 @@ namespace
       return std::nullopt;
    }
 
+   std::unordered_set<std::string> parseIncludes(const std::filesystem::path& sourcePath)
+   {
+      std::unordered_set<std::string> includePaths;
+
+      if (std::optional<std::string> sourceText = IOUtils::readTextFile(sourcePath))
+      {
+         std::stringstream ss(*sourceText);
+
+         std::string line;
+         while (std::getline(ss, line))
+         {
+            std::array<char, 256> include{};
+            if (std::sscanf(line.c_str(), "#include \"%256[^\"]s\"", include.data()) > 0)
+            {
+               if (std::optional<std::filesystem::path> absoluteIncludePath = IOUtils::getAboluteProjectPath("Shaders" / std::filesystem::path(include.data())))
+               {
+                  includePaths.emplace(absoluteIncludePath->string());
+               }
+            }
+         }
+      }
+
+      return includePaths;
+   }
+
    std::optional<std::filesystem::path> getBinaryPath(const std::filesystem::path& sourcePath)
    {
       return IOUtils::getAboluteProjectPath("Resources/Shaders" / sourcePath.filename().concat(".spv"));
+   }
+
+   std::optional<std::filesystem::path> getSourcePath(const std::filesystem::path& binaryPath)
+   {
+      return IOUtils::getAboluteProjectPath("Shaders" / binaryPath.filename().stem());
    }
 #endif // FORGE_WITH_SHADER_HOT_RELOADING
 }
@@ -75,13 +105,7 @@ ShaderModuleLoader::ShaderModuleLoader(const GraphicsContext& graphicsContext, R
 #if FORGE_WITH_SHADER_HOT_RELOADING
    if (std::optional<std::filesystem::path> shaderSourceDirectory = IOUtils::getAboluteProjectPath("Shaders"))
    {
-      shaderSourceDirectoryWatcher.addWatch(*shaderSourceDirectory, false, [this](OSUtils::DirectoryWatchEvent event, const std::filesystem::path& directory, const std::filesystem::path& file)
-      {
-         if (event == OSUtils::DirectoryWatchEvent::Modify)
-         {
-            compile(directory / file);
-         }
-      });
+      shaderSourceDirectoryWatcher.addWatch(*shaderSourceDirectory, false, std::bind(&ShaderModuleLoader::onFileModified, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
    }
 #endif // FORGE_WITH_SHADER_HOT_RELOADING
 }
@@ -110,6 +134,10 @@ ShaderModuleHandle ShaderModuleLoader::load(const std::filesystem::path& path)
          ShaderModuleHandle handle = container.emplace(canonicalPathString, context, *code);
          NAME_POINTER(context.getDevice(), get(handle), ResourceLoadHelpers::getName(*canonicalPath));
 
+#if FORGE_WITH_SHADER_HOT_RELOADING
+         updateIncludeMap(*canonicalPath);
+#endif // FORGE_WITH_SHADER_HOT_RELOADING
+
          return handle;
       }
    }
@@ -128,6 +156,34 @@ void ShaderModuleLoader::removeHotReloadDelegate(DelegateHandle& handle)
    if (hotReloadDelegate.remove(handle))
    {
       handle.invalidate();
+   }
+}
+
+void ShaderModuleLoader::onFileModified(OSUtils::DirectoryWatchEvent event, const std::filesystem::path& directory, const std::filesystem::path& file)
+{
+   if (event == OSUtils::DirectoryWatchEvent::Modify)
+   {
+      if (std::optional<std::filesystem::path> canonicalSourcePath = ResourceLoadHelpers::makeCanonical(directory / file))
+      {
+         std::string canonicalSourcePathString = canonicalSourcePath->string();
+
+         LOG_INFO("Detected file change: " << canonicalSourcePathString);
+
+         auto referencingFilesLocation = includeMap.find(canonicalSourcePathString);
+         if (referencingFilesLocation != includeMap.end())
+         {
+            // Header
+            for (const std::string& referencingSourceFile : referencingFilesLocation->second)
+            {
+               compile(referencingSourceFile);
+            }
+         }
+         else
+         {
+            // Source file
+            compile(*canonicalSourcePath);
+         }
+      }
    }
 }
 
@@ -151,7 +207,7 @@ void ShaderModuleLoader::pollCompilationResults()
          {
             if (compilationResult.exitInfo)
             {
-               LOG_ERROR("glslc failed:\n" << compilationResult.exitInfo->stdErr);
+               LOG_ERROR("glslc failed while compiling " << canonicalPathString << ":\n" << compilationResult.exitInfo->stdErr);
             }
             else
             {
@@ -187,6 +243,8 @@ void ShaderModuleLoader::compile(const std::filesystem::path& sourcePath)
             return;
          }
 
+         LOG_INFO("Compiling: " << canonicalPathString);
+
          OSUtils::ProcessStartInfo glslcStartInfo;
          glslcStartInfo.path = *glslcPath;
          glslcStartInfo.args = { "-o", binaryPath->string(), sourcePath.string() };
@@ -208,12 +266,53 @@ void ShaderModuleLoader::compile(const std::filesystem::path& sourcePath)
    }
 }
 
-void ShaderModuleLoader::hotReload(const std::string& canonicalPathString, const std::vector<uint8_t>& code)
+void ShaderModuleLoader::hotReload(const std::string& canonicalBinaryPathString, const std::vector<uint8_t>& code)
 {
-   if (Handle cachedHandle = container.findHandle(canonicalPathString))
+   if (Handle cachedHandle = container.findHandle(canonicalBinaryPathString))
    {
+      LOG_INFO("Hot reloading: " << canonicalBinaryPathString);
+
       container.replace(cachedHandle, context, code);
+
+      updateIncludeMap(canonicalBinaryPathString);
+
       hotReloadDelegate.broadcast(cachedHandle);
+   }
+}
+
+void ShaderModuleLoader::updateIncludeMap(const std::filesystem::path& binaryPath)
+{
+   if (std::optional<std::filesystem::path> sourcePath = getSourcePath(binaryPath))
+   {
+      updateIncludesRecursive(sourcePath->string(), *sourcePath, 0);
+   }
+}
+
+void ShaderModuleLoader::updateIncludesRecursive(const std::string& sourcePathString, const std::filesystem::path& currentPath, int recursionDepth)
+{
+   static const int kMaxRecursionDepth = 10;
+
+   if (recursionDepth > kMaxRecursionDepth)
+   {
+      ASSERT(false, "Shader include max recursion depth reached - is there a circular include?");
+      return;
+   }
+
+   std::unordered_set<std::string> includePaths = parseIncludes(currentPath);
+   for (const std::string& includePath : includePaths)
+   {
+      auto includeLocation = includeMap.find(includePath);
+      if (includeLocation == includeMap.end())
+      {
+         includeLocation = includeMap.emplace(includePath, std::unordered_set<std::string>{}).first;
+      }
+
+      includeLocation->second.emplace(sourcePathString);
+   }
+
+   for (const std::string& includePath : includePaths)
+   {
+      updateIncludesRecursive(sourcePathString, includePath, recursionDepth + 1);
    }
 }
 #endif // FORGE_WITH_SHADER_HOT_RELOADING

@@ -15,6 +15,7 @@
 
 #  include <future>
 #  include <unordered_map>
+#  include <unordered_set>
 #endif // FORGE_WITH_SHADER_HOT_RELOADING
 
 class ShaderModuleLoader : public ResourceLoader<std::string, ShaderModule>
@@ -36,9 +37,13 @@ public:
 
 private:
 #if FORGE_WITH_SHADER_HOT_RELOADING
+   void onFileModified(OSUtils::DirectoryWatchEvent event, const std::filesystem::path& directory, const std::filesystem::path& file);
    void pollCompilationResults();
+
    void compile(const std::filesystem::path& sourcePath);
-   void hotReload(const std::string& canonicalPathString, const std::vector<uint8_t>& code);
+   void hotReload(const std::string& canonicalBinaryPathString, const std::vector<uint8_t>& code);
+   void updateIncludeMap(const std::filesystem::path& binaryPath);
+   void updateIncludesRecursive(const std::string& sourcePathString, const std::filesystem::path& currentPath, int recursionDepth);
 
    struct CompilationResult
    {
@@ -48,6 +53,7 @@ private:
 
    HotReloadDelegate hotReloadDelegate;
    std::unordered_map<std::string, std::future<CompilationResult>> compilationResults;
+   std::unordered_map<std::string, std::unordered_set<std::string>> includeMap;
 
    OSUtils::DirectoryWatcher shaderSourceDirectoryWatcher;
 #endif // FORGE_WITH_SHADER_HOT_RELOADING
