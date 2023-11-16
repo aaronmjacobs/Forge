@@ -74,7 +74,7 @@ namespace
          while (std::getline(ss, line))
          {
             std::array<char, 256> include{};
-            if (std::sscanf(line.c_str(), "#include \"%256[^\"]s\"", include.data()) > 0)
+            if (std::sscanf(line.c_str(), "#include \"%255[^\"]s\"", include.data()) > 0)
             {
                if (std::optional<std::filesystem::path> absoluteIncludePath = IOUtils::getAboluteProjectPath("Shaders" / std::filesystem::path(include.data())))
                {
