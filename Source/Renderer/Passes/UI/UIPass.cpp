@@ -175,7 +175,7 @@ void UIPass::initializeImgui()
       initInfo.Instance = context.getInstance();
       initInfo.PhysicalDevice = context.getPhysicalDevice();
       initInfo.Device = device;
-      initInfo.QueueFamily = context.getQueueFamilyIndices().graphicsFamily;
+      initInfo.QueueFamily = context.getGraphicsFamilyIndex();
       initInfo.Queue = context.getGraphicsQueue();
       initInfo.PipelineCache = context.getPipelineCache();
       initInfo.DescriptorPool = descriptorPool;

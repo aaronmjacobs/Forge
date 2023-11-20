@@ -136,8 +136,8 @@ Swapchain::Swapchain(const GraphicsContext& graphicsContext, vk::Extent2D desire
       .setClipped(true)
       .setImageSharingMode(vk::SharingMode::eExclusive);
 
-   std::array<uint32_t, 2> indices = { context.getQueueFamilyIndices().graphicsFamily, context.getQueueFamilyIndices().presentFamily };
-   if (context.getQueueFamilyIndices().graphicsFamily != context.getQueueFamilyIndices().presentFamily)
+   std::array<uint32_t, 2> indices = { context.getGraphicsFamilyIndex(), context.getPresentFamilyIndex() };
+   if (context.getGraphicsFamilyIndex() != context.getPresentFamilyIndex())
    {
       createInfo.setImageSharingMode(vk::SharingMode::eConcurrent);
       createInfo.setQueueFamilyIndices(indices);

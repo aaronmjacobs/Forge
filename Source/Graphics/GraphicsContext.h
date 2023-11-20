@@ -6,29 +6,11 @@
 #include "Graphics/Vulkan.h"
 
 #include <memory>
-#include <optional>
-#include <set>
-#if FORGE_WITH_GPU_MEMORY_TRACKING
-#  include <unordered_map>
-#endif // FORGE_WITH_GPU_MEMORY_TRACKING
 
 class DescriptorSetLayoutCache;
 class DelayedObjectDestroyer;
 class Swapchain;
 class Window;
-
-struct QueueFamilyIndices
-{
-   uint32_t graphicsFamily = 0;
-   uint32_t presentFamily = 0;
-
-   static std::optional<QueueFamilyIndices> get(vk::PhysicalDevice physicalDevice, vk::SurfaceKHR surface);
-
-   std::set<uint32_t> getUniqueIndices() const
-   {
-      return { graphicsFamily, presentFamily };
-   }
-};
 
 class GraphicsContext
 {
@@ -77,9 +59,14 @@ public:
       return presentQueue;
    }
 
-   const QueueFamilyIndices& getQueueFamilyIndices() const
+   uint32_t getGraphicsFamilyIndex() const
    {
-      return queueFamilyIndices;
+      return graphicsFamilyIndex;
+   }
+
+   uint32_t getPresentFamilyIndex() const
+   {
+      return presentFamilyIndex;
    }
 
    const vk::PhysicalDeviceProperties& getPhysicalDeviceProperties() const
@@ -169,13 +156,6 @@ public:
       object = nullptr;
    }
 
-#if FORGE_WITH_GPU_MEMORY_TRACKING
-   const std::unordered_map<uint32_t, VkDeviceSize>& getMemoryUsageByType() const
-   {
-      return memoryUsageByType;
-   }
-#endif // FORGE_WITH_GPU_MEMORY_TRACKING
-
 private:
    static vk::DispatchLoaderDynamic dispatchLoaderDynamic;
 
@@ -188,9 +168,11 @@ private:
    vk::PhysicalDevice physicalDevice;
    vk::Device device;
 
+   uint32_t graphicsFamilyIndex = 0;
+   uint32_t presentFamilyIndex = 0;
+
    vk::Queue graphicsQueue;
    vk::Queue presentQueue;
-   QueueFamilyIndices queueFamilyIndices;
 
    vk::PhysicalDeviceProperties physicalDeviceProperties;
    vk::PhysicalDeviceFeatures physicalDeviceFeatures;
@@ -214,11 +196,7 @@ private:
 #endif // FORGE_WITH_VALIDATION_LAYERS
 
 #if FORGE_WITH_GPU_MEMORY_TRACKING
-   void onVmaAllocate(VmaAllocator allocator, uint32_t memoryType, VkDeviceSize size);
-   void onVmaFree(VmaAllocator allocator, uint32_t memoryType, VkDeviceSize size);
-
-   std::unordered_map<uint32_t, VkDeviceSize> memoryUsageByType;
-
-   friend class VmaAllocationCallbacks;
+   class MemoryTracker;
+   std::unique_ptr<MemoryTracker> memoryTracker;
 #endif // FORGE_WITH_GPU_MEMORY_TRACKING
 };

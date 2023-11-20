@@ -454,7 +454,7 @@ void ForgeApplication::initializeCommandBuffers()
    if (!commandPool)
    {
       vk::CommandPoolCreateInfo commandPoolCreateInfo = vk::CommandPoolCreateInfo()
-         .setQueueFamilyIndex(context->getQueueFamilyIndices().graphicsFamily)
+         .setQueueFamilyIndex(context->getGraphicsFamilyIndex())
          .setFlags(vk::CommandPoolCreateFlagBits::eResetCommandBuffer | vk::CommandPoolCreateFlagBits::eTransient);
 
       commandPool = context->getDevice().createCommandPool(commandPoolCreateInfo);

@@ -15,8 +15,11 @@
 #include <array>
 #include <cstring>
 #include <map>
+#include <optional>
+#include <set>
 #include <stdexcept>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace
@@ -211,6 +214,37 @@ namespace
       return deviceExtensions;
    }
 
+   bool getQueueFamilyIndices(vk::PhysicalDevice physicalDevice, vk::SurfaceKHR surface, uint32_t& graphicsFamilyIndex, uint32_t& presentFamilyIndex)
+   {
+      bool determinedGraphicsFamilyIndex = false;
+      bool determinedPresentFamilyIndex = false;
+
+      uint32_t index = 0;
+      for (const vk::QueueFamilyProperties& queueFamilyProperties : physicalDevice.getQueueFamilyProperties())
+      {
+         if (!determinedGraphicsFamilyIndex && (queueFamilyProperties.queueFlags & vk::QueueFlagBits::eGraphics))
+         {
+            determinedGraphicsFamilyIndex = true;
+            graphicsFamilyIndex = index;
+         }
+
+         if (!determinedPresentFamilyIndex && physicalDevice.getSurfaceSupportKHR(index, surface))
+         {
+            determinedPresentFamilyIndex = true;
+            presentFamilyIndex = index;
+         }
+
+         if (determinedGraphicsFamilyIndex && determinedPresentFamilyIndex)
+         {
+            break;
+         }
+
+         ++index;
+      }
+
+      return determinedGraphicsFamilyIndex && determinedPresentFamilyIndex;
+   }
+
    int getPhysicalDeviceScore(vk::PhysicalDevice physicalDevice, vk::SurfaceKHR surface)
    {
       std::vector<const char*> deviceExtensions;
@@ -229,8 +263,9 @@ namespace
          return -1;
       }
 
-      std::optional<QueueFamilyIndices> queueFamilyIndices = QueueFamilyIndices::get(physicalDevice, surface);
-      if (!queueFamilyIndices)
+      uint32_t graphicsFamilyIndex = 0;
+      uint32_t presentFamilyIndex = 0;
+      if (!getQueueFamilyIndices(physicalDevice, surface, graphicsFamilyIndex, presentFamilyIndex))
       {
          return -1;
       }
@@ -314,60 +349,64 @@ namespace
 }
 
 #if FORGE_WITH_GPU_MEMORY_TRACKING
-class VmaAllocationCallbacks
+class GraphicsContext::MemoryTracker
 {
 public:
    static void onAllocate(VmaAllocator allocator, uint32_t memoryType, VkDeviceMemory memory, VkDeviceSize size, void* pUserData)
    {
-      GraphicsContext* context = reinterpret_cast<GraphicsContext*>(pUserData);
-      ASSERT(context);
+      MemoryTracker* self = reinterpret_cast<MemoryTracker*>(pUserData);
+      ASSERT(self);
 
-      context->onVmaAllocate(allocator, memoryType, size);
+      self->onVmaAllocate(allocator, memoryType, size);
    }
 
    static void onFree(VmaAllocator allocator, uint32_t memoryType, VkDeviceMemory memory, VkDeviceSize size, void* pUserData)
    {
-      GraphicsContext* context = reinterpret_cast<GraphicsContext*>(pUserData);
-      ASSERT(context);
+      MemoryTracker* self = reinterpret_cast<MemoryTracker*>(pUserData);
+      ASSERT(self);
 
-      context->onVmaFree(allocator, memoryType, size);
+      self->onVmaFree(allocator, memoryType, size);
    }
+
+   ~MemoryTracker()
+   {
+      for (const auto& [memoryType, allocatedBytes] : memoryUsageByType)
+      {
+         ASSERT(allocatedBytes == 0, "%llu bytes leaked for memory type %u", allocatedBytes, memoryType);
+      }
+   }
+
+   void setAllocator(VmaAllocator allocator)
+   {
+      vmaAllocator = allocator;
+   }
+
+private:
+   void onVmaAllocate(VmaAllocator allocator, uint32_t memoryType, VkDeviceSize size)
+   {
+      ASSERT(allocator == vmaAllocator);
+
+      auto location = memoryUsageByType.find(memoryType);
+      if (location == memoryUsageByType.end())
+      {
+         location = memoryUsageByType.emplace(memoryType, 0).first;
+      }
+      location->second += size;
+   }
+
+   void onVmaFree(VmaAllocator allocator, uint32_t memoryType, VkDeviceSize size)
+   {
+      ASSERT(allocator == vmaAllocator);
+
+      ASSERT(memoryUsageByType.contains(memoryType));
+      ASSERT(memoryUsageByType[memoryType] >= size);
+      memoryUsageByType[memoryType] -= size;
+   }
+
+   VmaAllocator vmaAllocator = nullptr;
+   std::unordered_map<uint32_t, VkDeviceSize> memoryUsageByType;
 };
 #endif // FORGE_WITH_GPU_MEMORY_TRACKING
-
-// static
-std::optional<QueueFamilyIndices> QueueFamilyIndices::get(vk::PhysicalDevice physicalDevice, vk::SurfaceKHR surface)
-{
-   std::optional<uint32_t> graphicsFamilyIndex;
-   std::optional<uint32_t> presentFamilyIndex;
-
-   uint32_t index = 0;
-   for (const vk::QueueFamilyProperties& queueFamilyProperties : physicalDevice.getQueueFamilyProperties())
-   {
-      if (!graphicsFamilyIndex && (queueFamilyProperties.queueFlags & vk::QueueFlagBits::eGraphics))
-      {
-         graphicsFamilyIndex = index;
-      }
-
-      if (!presentFamilyIndex && physicalDevice.getSurfaceSupportKHR(index, surface))
-      {
-         presentFamilyIndex = index;
-      }
-
-      if (graphicsFamilyIndex && presentFamilyIndex)
-      {
-         QueueFamilyIndices indices;
-         indices.graphicsFamily = *graphicsFamilyIndex;
-         indices.presentFamily = *presentFamilyIndex;
-
-         return indices;
-      }
-
-      ++index;
-   }
-
-   return {};
-}
 
 // static
 const vk::DispatchLoaderDynamic& GraphicsContext::GetDynamicLoader()
@@ -433,17 +472,14 @@ GraphicsContext::GraphicsContext(Window& window)
    physicalDeviceProperties = physicalDevice.getProperties();
    physicalDeviceFeatures = physicalDevice.getFeatures();
 
-   std::optional<QueueFamilyIndices> potentialQueueFamilyIndices = QueueFamilyIndices::get(physicalDevice, surface);
-   if (!potentialQueueFamilyIndices)
+   if (!getQueueFamilyIndices(physicalDevice, surface, graphicsFamilyIndex, presentFamilyIndex))
    {
       throw std::runtime_error("Failed to get queue family indices");
    }
-   queueFamilyIndices = *potentialQueueFamilyIndices;
-   std::set<uint32_t> uniqueQueueIndices = queueFamilyIndices.getUniqueIndices();
 
    float queuePriority = 1.0f;
    std::vector<vk::DeviceQueueCreateInfo> deviceQueueCreateInfos;
-   for (uint32_t queueFamilyIndex : uniqueQueueIndices)
+   for (uint32_t queueFamilyIndex : std::set<uint32_t>{ graphicsFamilyIndex, presentFamilyIndex })
    {
       deviceQueueCreateInfos.push_back(vk::DeviceQueueCreateInfo()
          .setQueueFamilyIndex(queueFamilyIndex)
@@ -483,11 +519,11 @@ GraphicsContext::GraphicsContext(Window& window)
    device = physicalDevice.createDevice(deviceCreateInfo);
    dispatchLoaderDynamic.init(device);
 
-   graphicsQueue = device.getQueue(queueFamilyIndices.graphicsFamily, 0);
-   presentQueue = device.getQueue(queueFamilyIndices.presentFamily, 0);
+   graphicsQueue = device.getQueue(graphicsFamilyIndex, 0);
+   presentQueue = device.getQueue(presentFamilyIndex, 0);
 
    vk::CommandPoolCreateInfo commandPoolCreateInfo = vk::CommandPoolCreateInfo()
-      .setQueueFamilyIndex(queueFamilyIndices.graphicsFamily)
+      .setQueueFamilyIndex(graphicsFamilyIndex)
       .setFlags(vk::CommandPoolCreateFlagBits::eTransient);
 
    transientCommandPool = device.createCommandPool(commandPoolCreateInfo);
@@ -514,10 +550,12 @@ GraphicsContext::GraphicsContext(Window& window)
    allocatorCreateInfo.vulkanApiVersion = kVulkanTargetVersion;
 
 #if FORGE_WITH_GPU_MEMORY_TRACKING
+   memoryTracker = std::make_unique<MemoryTracker>();
+
    VmaDeviceMemoryCallbacks memoryCallbacks{};
-   memoryCallbacks.pfnAllocate = &VmaAllocationCallbacks::onAllocate;
-   memoryCallbacks.pfnFree = &VmaAllocationCallbacks::onFree;
-   memoryCallbacks.pUserData = this;
+   memoryCallbacks.pfnAllocate = &GraphicsContext::MemoryTracker::onAllocate;
+   memoryCallbacks.pfnFree = &GraphicsContext::MemoryTracker::onFree;
+   memoryCallbacks.pUserData = memoryTracker.get();
 
    allocatorCreateInfo.pDeviceMemoryCallbacks = &memoryCallbacks;
 #endif // FORGE_WITH_GPU_MEMORY_TRACKING
@@ -526,6 +564,10 @@ GraphicsContext::GraphicsContext(Window& window)
    {
       throw std::runtime_error("Failed to create VMA allocator");
    }
+
+#if FORGE_WITH_GPU_MEMORY_TRACKING
+   memoryTracker->setAllocator(vmaAllocator);
+#endif // FORGE_WITH_GPU_MEMORY_TRACKING
 
    delayedObjectDestroyer = std::make_unique<DelayedObjectDestroyer>(*this);
    layoutCache = std::make_unique<DescriptorSetLayoutCache>(*this);
@@ -540,10 +582,7 @@ GraphicsContext::~GraphicsContext()
    vmaAllocator = nullptr;
 
 #if FORGE_WITH_GPU_MEMORY_TRACKING
-   for (const auto& [memoryType, allocatedBytes] : memoryUsageByType)
-   {
-      ASSERT(allocatedBytes == 0, "%llu bytes leaked for memory type %u", allocatedBytes, memoryType);
-   }
+   memoryTracker = nullptr;
 #endif // FORGE_WITH_GPU_MEMORY_TRACKING
 
    if (std::optional<std::filesystem::path> pipelineCachePath = getPipelineCachePath())
@@ -602,25 +641,3 @@ void GraphicsContext::delayedFree(uint64_t pool, uint64_t handle, vk::ObjectType
    ASSERT(delayedObjectDestroyer);
    delayedObjectDestroyer->delayedFree(pool, handle, type);
 }
-
-#if FORGE_WITH_GPU_MEMORY_TRACKING
-void GraphicsContext::onVmaAllocate(VmaAllocator allocator, uint32_t memoryType, VkDeviceSize size)
-{
-   ASSERT(allocator == vmaAllocator);
-
-   if (!memoryUsageByType.contains(memoryType))
-   {
-      memoryUsageByType.emplace(memoryType, 0);
-   }
-   memoryUsageByType[memoryType] += size;
-}
-
-void GraphicsContext::onVmaFree(VmaAllocator allocator, uint32_t memoryType, VkDeviceSize size)
-{
-   ASSERT(allocator == vmaAllocator);
-
-   ASSERT(memoryUsageByType.contains(memoryType));
-   ASSERT(memoryUsageByType[memoryType] >= size);
-   memoryUsageByType[memoryType] -= size;
-}
-#endif // FORGE_WITH_GPU_MEMORY_TRACKING
