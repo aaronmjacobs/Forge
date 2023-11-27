@@ -8,6 +8,7 @@
 
 #include <glm/glm.hpp>
 
+#include <cstdint>
 #include <span>
 #include <vector>
 
@@ -65,6 +66,11 @@ public:
       return sections[index];
    }
 
+   uint32_t getMaterialTypeMask() const
+   {
+      return materialTypeMask;
+   }
+
    void bindBuffers(vk::CommandBuffer commandBuffer, uint32_t section, bool positionOnly) const;
    void draw(vk::CommandBuffer commandBuffer, uint32_t section) const;
 
@@ -73,4 +79,5 @@ private:
    VmaAllocation bufferAllocation = nullptr;
 
    std::vector<MeshSection> sections;
+   uint32_t materialTypeMask = 0;
 };

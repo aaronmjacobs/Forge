@@ -27,11 +27,11 @@ namespace
 
 CompositePass::CompositePass(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, ResourceManager& resourceManager)
    : SceneRenderPass(graphicsContext)
-   , descriptorSet(graphicsContext, dynamicDescriptorPool, CompositeShader::getLayoutCreateInfo())
+   , descriptorSet(graphicsContext, dynamicDescriptorPool)
 {
    compositeShader = createShader<CompositeShader>(context, resourceManager);
 
-   std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = compositeShader->getSetLayouts();
+   std::array descriptorSetLayouts = compositeShader->getDescriptorSetLayouts();
    vk::PipelineLayoutCreateInfo pipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo()
       .setSetLayouts(descriptorSetLayouts);
    pipelineLayout = device.createPipelineLayout(pipelineLayoutCreateInfo);

@@ -1,6 +1,5 @@
 #include "Renderer/PhysicallyBasedMaterial.h"
 
-#include "Graphics/DescriptorSetLayout.h"
 #include "Graphics/Texture.h"
 
 #include "Math/MathUtils.h"
@@ -32,7 +31,7 @@ const std::string PhysicallyBasedMaterial::kMetalnessScalarParameterName = "meta
 const std::string PhysicallyBasedMaterial::kAmbientOcclusionScalarParameterName = "ambientOcclusion";
 
 // static
-std::array<vk::DescriptorSetLayoutBinding, 4> PhysicallyBasedMaterial::getBindings()
+std::vector<vk::DescriptorSetLayoutBinding> PhysicallyBasedMaterialDescriptorSet::getBindings()
 {
    return
    {
@@ -59,17 +58,15 @@ std::array<vk::DescriptorSetLayoutBinding, 4> PhysicallyBasedMaterial::getBindin
    };
 }
 
-// static
-vk::DescriptorSetLayout PhysicallyBasedMaterial::getLayout(const GraphicsContext& context)
-{
-   return DescriptorSetLayout::get<PhysicallyBasedMaterial>(context);
-}
-
 PhysicallyBasedMaterial::PhysicallyBasedMaterial(const GraphicsContext& graphicsContext, MaterialLoader& owningMaterialLoader, const PhysicallyBasedMaterialParams& materialParams)
-   : Material(graphicsContext, owningMaterialLoader, DescriptorSetLayout::getCreateInfo<PhysicallyBasedMaterial>())
+   : Material(graphicsContext, owningMaterialLoader, kTypeFlag)
+   , descriptorSet(graphicsContext, owningMaterialLoader.getDynamicDescriptorPool())
    , uniformBuffer(graphicsContext)
 {
    ASSERT(materialParams.albedoTexture && materialParams.normalTexture && materialParams.aoRoughnessMetalnessTexture);
+
+   NAME_CHILD(descriptorSet, "");
+   NAME_CHILD(uniformBuffer, "");
 
    cachedUniformData.albedo = MathUtils::saturate(materialParams.albedo);
    cachedUniformData.emissive = MathUtils::saturate(materialParams.emissive);

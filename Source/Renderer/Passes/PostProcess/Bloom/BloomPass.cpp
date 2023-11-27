@@ -117,9 +117,9 @@ BloomPass::BloomPass(const GraphicsContext& graphicsContext, DynamicDescriptorPo
    upsampleUniformBuffers.reserve(kNumSteps);
    for (uint32_t i = 0; i < kNumSteps; ++i)
    {
-      downsampleDescriptorSets.emplace_back(context, dynamicDescriptorPool, BloomDownsampleShader::getLayoutCreateInfo());
-      horizontalUpsampleDescriptorSets.emplace_back(context, dynamicDescriptorPool, BloomUpsampleShader::getLayoutCreateInfo());
-      verticalUpsampleDescriptorSets.emplace_back(context, dynamicDescriptorPool, BloomUpsampleShader::getLayoutCreateInfo());
+      downsampleDescriptorSets.emplace_back(context, dynamicDescriptorPool);
+      horizontalUpsampleDescriptorSets.emplace_back(context, dynamicDescriptorPool);
+      verticalUpsampleDescriptorSets.emplace_back(context, dynamicDescriptorPool);
       upsampleUniformBuffers.emplace_back(context);
 
       NAME_CHILD(downsampleDescriptorSets.back(), "Downsample Step " + DebugUtils::toString(i));
@@ -151,13 +151,13 @@ BloomPass::BloomPass(const GraphicsContext& graphicsContext, DynamicDescriptorPo
       }
    }
 
-   std::vector<vk::DescriptorSetLayout> downsampleDescriptorSetLayouts = downsampleShader->getSetLayouts();
+   std::array downsampleDescriptorSetLayouts = downsampleShader->getDescriptorSetLayouts();
    vk::PipelineLayoutCreateInfo downsamplePipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo()
       .setSetLayouts(downsampleDescriptorSetLayouts);
    downsamplePipelineLayout = device.createPipelineLayout(downsamplePipelineLayoutCreateInfo);
    NAME_CHILD(downsamplePipelineLayout, "Downsample Pipeline Layout");
 
-   std::vector<vk::DescriptorSetLayout> upsampleDescriptorSetLayouts = upsampleShader->getSetLayouts();
+   std::array upsampleDescriptorSetLayouts = upsampleShader->getDescriptorSetLayouts();
    vk::PipelineLayoutCreateInfo upsamplePipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo()
       .setSetLayouts(upsampleDescriptorSetLayouts);
    upsamplePipelineLayout = device.createPipelineLayout(upsamplePipelineLayoutCreateInfo);
@@ -248,7 +248,7 @@ void BloomPass::renderDownsample(vk::CommandBuffer commandBuffer, uint32_t step,
 
    Texture& inputTexture = step == 0 ? hdrColorTexture : *textures[step - 1];
    Texture& outputTexture = *textures[step];
-   const DescriptorSet& descriptorSet = downsampleDescriptorSets[step];
+   const BloomDownsampleDescriptorSet& descriptorSet = downsampleDescriptorSets[step];
 
    RenderQuality stepQuality = getDownsampleStepQuality(quality, step);
 
@@ -291,7 +291,7 @@ void BloomPass::renderUpsample(vk::CommandBuffer commandBuffer, uint32_t step, T
    Texture& inputTexture = horizontal ? *textures[step] : *horizontalBlurTextures[step];
    Texture& blendTexture = step == kNumSteps - 1 ? defaultBlackTexture : *textures[step + 1];
    Texture& outputTexture = horizontal ? *horizontalBlurTextures[step] : *textures[step];
-   const DescriptorSet& descriptorSet = horizontal ? horizontalUpsampleDescriptorSets[step] : verticalUpsampleDescriptorSets[step];
+   const BloomUpsampleDescriptorSet& descriptorSet = horizontal ? horizontalUpsampleDescriptorSets[step] : verticalUpsampleDescriptorSets[step];
    UniformBuffer<BloomUpsampleUniformData>& uniformBuffer = upsampleUniformBuffers[step];
 
    RenderQuality stepQuality = getUpsampleStepQuality(quality, step);

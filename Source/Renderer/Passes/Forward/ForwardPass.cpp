@@ -1,6 +1,7 @@
 #include "Renderer/Passes/Forward/ForwardPass.h"
 
 #include "Core/Containers/StaticVector.h"
+#include "Core/Types.h"
 
 #include "Graphics/DebugUtils.h"
 #include "Graphics/Mesh.h"
@@ -17,15 +18,15 @@
 
 ForwardPass::ForwardPass(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, ResourceManager& resourceManager, const ForwardLighting* forwardLighting)
    : SceneRenderPass(graphicsContext)
-   , forwardDescriptorSet(graphicsContext, dynamicDescriptorPool, ForwardShader::getLayoutCreateInfo())
-   , skyboxDescriptorSet(graphicsContext, dynamicDescriptorPool, SkyboxShader::getLayoutCreateInfo())
+   , forwardDescriptorSet(graphicsContext, dynamicDescriptorPool)
+   , skyboxDescriptorSet(graphicsContext, dynamicDescriptorPool)
    , lighting(forwardLighting)
 {
    forwardShader = createShader<ForwardShader>(context, resourceManager);
    skyboxShader = createShader<SkyboxShader>(context, resourceManager);
 
    {
-      std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = forwardShader->getSetLayouts();
+      std::array descriptorSetLayouts = forwardShader->getDescriptorSetLayouts();
       std::vector<vk::PushConstantRange> pushConstantRanges = forwardShader->getPushConstantRanges();
       vk::PipelineLayoutCreateInfo pipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo()
          .setSetLayouts(descriptorSetLayouts)
@@ -35,7 +36,7 @@ ForwardPass::ForwardPass(const GraphicsContext& graphicsContext, DynamicDescript
    }
 
    {
-      std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = skyboxShader->getSetLayouts();
+      std::array descriptorSetLayouts = skyboxShader->getDescriptorSetLayouts();
       vk::PipelineLayoutCreateInfo pipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo()
          .setSetLayouts(descriptorSetLayouts);
       skyboxPipelineLayout = device.createPipelineLayout(pipelineLayoutCreateInfo);
@@ -186,16 +187,23 @@ void ForwardPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo&
          pipelineDescription.withTextures = true;
          pipelineDescription.skybox = true;
 
-         skyboxShader->bindDescriptorSets(commandBuffer, skyboxPipelineLayout, sceneRenderInfo.view, skyboxDescriptorSet);
+         skyboxShader->bindDescriptorSets(commandBuffer, skyboxPipelineLayout, sceneRenderInfo.view.getDescriptorSet(), skyboxDescriptorSet);
          renderScreenMesh(commandBuffer, getPipeline(pipelineDescription));
       }
    });
 }
 
+bool ForwardPass::supportsMaterialType(uint32_t typeMask) const
+{
+   return (typeMask & PhysicallyBasedMaterial::kTypeFlag) != 0;
+}
+
 void ForwardPass::renderMesh(vk::CommandBuffer commandBuffer, const Pipeline& pipeline, const View& view, const Mesh& mesh, uint32_t section, const Material& material)
 {
    ASSERT(lighting);
-   forwardShader->bindDescriptorSets(commandBuffer, pipeline.getLayout(), view, forwardDescriptorSet, *lighting, material);
+   const PhysicallyBasedMaterial& pbrMaterial = *Types::checked_cast<const PhysicallyBasedMaterial*>(&material);
+
+   forwardShader->bindDescriptorSets(commandBuffer, pipeline.getLayout(), view.getDescriptorSet(), forwardDescriptorSet, lighting->getDescriptorSet(), pbrMaterial.getDescriptorSet());
 
    SceneRenderPass::renderMesh(commandBuffer, pipeline, view, mesh, section, material);
 }

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Core/Assert.h"
+
 #if defined(__has_include)
 #  if __has_include(<bit>)
 #     include <bit>
@@ -24,4 +26,11 @@ namespace Types
       return to;
    }
 #endif
+
+   template<typename T, typename U>
+   T checked_cast(U u)
+   {
+      ASSERT(dynamic_cast<T>(u));
+      return static_cast<T>(u);
+   }
 }

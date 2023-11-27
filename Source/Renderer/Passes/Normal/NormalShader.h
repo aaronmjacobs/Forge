@@ -2,19 +2,16 @@
 
 #include "Graphics/Shader.h"
 
+#include "Renderer/PhysicallyBasedMaterial.h"
+#include "Renderer/View.h"
+
 #include <vector>
 
-class Material;
-class View;
-
-class NormalShader : public Shader
+class NormalShader : public ShaderWithDescriptors<ViewDescriptorSet, PhysicallyBasedMaterialDescriptorSet>
 {
 public:
    NormalShader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager);
 
-   void bindDescriptorSets(vk::CommandBuffer commandBuffer, vk::PipelineLayout pipelineLayout, const View& view, const Material& material);
-
    std::vector<vk::PipelineShaderStageCreateInfo> getStages(bool withTextures, bool masked) const;
-   std::vector<vk::DescriptorSetLayout> getSetLayouts() const;
    std::vector<vk::PushConstantRange> getPushConstantRanges() const;
 };

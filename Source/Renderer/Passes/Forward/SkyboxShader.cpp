@@ -1,10 +1,5 @@
 #include "Renderer/Passes/Forward/SkyboxShader.h"
 
-#include "Graphics/DescriptorSet.h"
-#include "Graphics/DescriptorSetLayout.h"
-
-#include "Renderer/View.h"
-
 namespace
 {
    Shader::InitializationInfo getInitializationInfo()
@@ -19,7 +14,7 @@ namespace
 }
 
 // static
-std::array<vk::DescriptorSetLayoutBinding, 1> SkyboxShader::getBindings()
+std::vector<vk::DescriptorSetLayoutBinding> SkyboxDescriptorSet::getBindings()
 {
    return
    {
@@ -31,34 +26,12 @@ std::array<vk::DescriptorSetLayoutBinding, 1> SkyboxShader::getBindings()
    };
 }
 
-// static
-const vk::DescriptorSetLayoutCreateInfo& SkyboxShader::getLayoutCreateInfo()
-{
-   return DescriptorSetLayout::getCreateInfo<SkyboxShader>();
-}
-
-// static
-vk::DescriptorSetLayout SkyboxShader::getLayout(const GraphicsContext& context)
-{
-   return DescriptorSetLayout::get<SkyboxShader>(context);
-}
-
 SkyboxShader::SkyboxShader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager)
-   : Shader(graphicsContext, resourceManager, getInitializationInfo())
+   : ShaderWithDescriptors(graphicsContext, resourceManager, getInitializationInfo())
 {
-}
-
-void SkyboxShader::bindDescriptorSets(vk::CommandBuffer commandBuffer, vk::PipelineLayout pipelineLayout, const View& view, const DescriptorSet& descriptorSet)
-{
-   commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, 0, { view.getDescriptorSet().getCurrentSet(), descriptorSet.getCurrentSet() }, {});
 }
 
 std::vector<vk::PipelineShaderStageCreateInfo> SkyboxShader::getStages() const
 {
    return getStagesForPermutation(0);
-}
-
-std::vector<vk::DescriptorSetLayout> SkyboxShader::getSetLayouts() const
-{
-   return { View::getLayout(context), getLayout(context) };
 }

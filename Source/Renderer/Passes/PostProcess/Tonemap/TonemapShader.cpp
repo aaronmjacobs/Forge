@@ -1,7 +1,5 @@
 #include "Renderer/Passes/PostProcess/Tonemap/TonemapShader.h"
 
-#include "Graphics/DescriptorSet.h"
-#include "Graphics/DescriptorSetLayout.h"
 #include "Graphics/SpecializationInfo.h"
 
 namespace
@@ -47,7 +45,7 @@ namespace
 }
 
 // static
-std::array<vk::DescriptorSetLayoutBinding, 4> TonemapShader::getBindings()
+std::vector<vk::DescriptorSetLayoutBinding> TonemapDescriptorSet::getBindings()
 {
    return
    {
@@ -74,26 +72,9 @@ std::array<vk::DescriptorSetLayoutBinding, 4> TonemapShader::getBindings()
    };
 }
 
-// static
-const vk::DescriptorSetLayoutCreateInfo& TonemapShader::getLayoutCreateInfo()
-{
-   return DescriptorSetLayout::getCreateInfo<TonemapShader>();
-}
-
-// static
-vk::DescriptorSetLayout TonemapShader::getLayout(const GraphicsContext& context)
-{
-   return DescriptorSetLayout::get<TonemapShader>(context);
-}
-
 TonemapShader::TonemapShader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager)
-   : Shader(graphicsContext, resourceManager, getInitializationInfo())
+   : ShaderWithDescriptors(graphicsContext, resourceManager, getInitializationInfo())
 {
-}
-
-void TonemapShader::bindDescriptorSets(vk::CommandBuffer commandBuffer, vk::PipelineLayout pipelineLayout, const DescriptorSet& descriptorSet)
-{
-   commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, 0, { descriptorSet.getCurrentSet() }, {});
 }
 
 std::vector<vk::PipelineShaderStageCreateInfo> TonemapShader::getStages(bool outputHDR, bool withBloom, bool withUI, TonemappingAlgorithm tonemappingAlgorithm) const
@@ -105,9 +86,4 @@ std::vector<vk::PipelineShaderStageCreateInfo> TonemapShader::getStages(bool out
    specializationValues.tonemappingAlgorithm = tonemappingAlgorithm;
 
    return getStagesForPermutation(specializationValues.getIndex());
-}
-
-std::vector<vk::DescriptorSetLayout> TonemapShader::getSetLayouts() const
-{
-   return { getLayout(context) };
 }

@@ -4,6 +4,7 @@
 
 #include "Graphics/Buffer.h"
 #include "Graphics/DebugUtils.h"
+#include "Graphics/Material.h"
 #include "Graphics/Memory.h"
 
 #include <array>
@@ -178,6 +179,11 @@ Mesh::Mesh(const GraphicsContext& graphicsContext, std::span<const MeshSectionSo
 
       meshSection.bounds = sectionData.bounds;
       meshSection.materialHandle = sectionData.materialHandle;
+
+      if (const Material* material = meshSection.materialHandle.getResource())
+      {
+         materialTypeMask |= material->getTypeFlag();
+      }
 
       sections.push_back(meshSection);
    }

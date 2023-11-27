@@ -35,9 +35,9 @@ namespace
 }
 
 // static
-const vk::DescriptorSetLayoutCreateInfo& ForwardLighting::getLayoutCreateInfo()
+std::vector<vk::DescriptorSetLayoutBinding> ForwardLightingDescriptorSet::getBindings()
 {
-   static const std::array<vk::DescriptorSetLayoutBinding, 4> kBindings =
+   return
    {
       vk::DescriptorSetLayoutBinding()
          .setBinding(0)
@@ -60,16 +60,6 @@ const vk::DescriptorSetLayoutCreateInfo& ForwardLighting::getLayoutCreateInfo()
          .setDescriptorCount(1)
          .setStageFlags(vk::ShaderStageFlagBits::eFragment),
    };
-
-   static const vk::DescriptorSetLayoutCreateInfo kCreateInfo = vk::DescriptorSetLayoutCreateInfo(vk::DescriptorSetLayoutCreateFlags(), kBindings);
-
-   return kCreateInfo;
-}
-
-// static
-vk::DescriptorSetLayout ForwardLighting::getLayout(const GraphicsContext& context)
-{
-   return context.getDescriptorSetLayout(getLayoutCreateInfo());
 }
 
 // static
@@ -81,7 +71,7 @@ uint32_t ForwardLighting::getPointViewIndex(uint32_t shadowMapIndex, uint32_t fa
 ForwardLighting::ForwardLighting(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, vk::Format depthFormat)
    : GraphicsResource(graphicsContext)
    , uniformBuffer(graphicsContext)
-   , descriptorSet(graphicsContext, dynamicDescriptorPool, getLayoutCreateInfo())
+   , descriptorSet(graphicsContext, dynamicDescriptorPool)
 {
    NAME_CHILD(uniformBuffer, "");
    NAME_CHILD(descriptorSet, "");

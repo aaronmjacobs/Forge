@@ -1,25 +1,24 @@
 #pragma once
 
+#include "Graphics/DescriptorSet.h"
 #include "Graphics/Shader.h"
 
 #include "Renderer/RenderSettings.h"
 
-#include <array>
 #include <vector>
 
-class DescriptorSet;
-
-class BloomUpsampleShader : public Shader
+class BloomUpsampleDescriptorSet : public TypedDescriptorSet<BloomUpsampleDescriptorSet>
 {
 public:
-   static std::array<vk::DescriptorSetLayoutBinding, 3> getBindings();
-   static const vk::DescriptorSetLayoutCreateInfo& getLayoutCreateInfo();
-   static vk::DescriptorSetLayout getLayout(const GraphicsContext& context);
+   static std::vector<vk::DescriptorSetLayoutBinding> getBindings();
 
+   using TypedDescriptorSet::TypedDescriptorSet;
+};
+
+class BloomUpsampleShader : public ShaderWithDescriptors<BloomUpsampleDescriptorSet>
+{
+public:
    BloomUpsampleShader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager);
 
-   void bindDescriptorSets(vk::CommandBuffer commandBuffer, vk::PipelineLayout pipelineLayout, const DescriptorSet& descriptorSet);
-
    std::vector<vk::PipelineShaderStageCreateInfo> getStages(RenderQuality quality, bool horizontal) const;
-   std::vector<vk::DescriptorSetLayout> getSetLayouts() const;
 };

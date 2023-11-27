@@ -1,13 +1,17 @@
 #include "Graphics/Material.h"
 
-#include "Graphics/DebugUtils.h"
+namespace
+{
+   bool isPowerOfTwo(uint32_t flag)
+   {
+      return (flag & (flag - 1)) == 0;
+   }
+}
 
-#include "Resources/MaterialLoader.h"
-
-Material::Material(const GraphicsContext& graphicsContext, MaterialLoader& owningMaterialLoader, const vk::DescriptorSetLayoutCreateInfo& createInfo)
+Material::Material(const GraphicsContext& graphicsContext, MaterialLoader& owningMaterialLoader, uint32_t typeFlagBit)
    : GraphicsResource(graphicsContext)
    , materialLoader(owningMaterialLoader)
-   , descriptorSet(graphicsContext, owningMaterialLoader.getDynamicDescriptorPool(), createInfo)
+   , typeFlag(typeFlagBit)
 {
-   NAME_CHILD(descriptorSet, "Descriptor Set");
+   ASSERT(isPowerOfTwo(typeFlag));
 }

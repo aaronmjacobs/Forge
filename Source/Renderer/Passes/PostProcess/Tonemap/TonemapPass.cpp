@@ -14,11 +14,11 @@
 
 TonemapPass::TonemapPass(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, ResourceManager& resourceManager)
    : SceneRenderPass(graphicsContext)
-   , descriptorSet(graphicsContext, dynamicDescriptorPool, TonemapShader::getLayoutCreateInfo())
+   , descriptorSet(graphicsContext, dynamicDescriptorPool)
 {
    tonemapShader = createShader<TonemapShader>(context, resourceManager);
 
-   std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = tonemapShader->getSetLayouts();
+   std::array descriptorSetLayouts = tonemapShader->getDescriptorSetLayouts();
    vk::PipelineLayoutCreateInfo pipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo()
       .setSetLayouts(descriptorSetLayouts);
    pipelineLayout = device.createPipelineLayout(pipelineLayoutCreateInfo);

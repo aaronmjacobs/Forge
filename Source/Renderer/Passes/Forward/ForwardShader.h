@@ -1,26 +1,27 @@
 #pragma once
 
+#include "Graphics/DescriptorSet.h"
 #include "Graphics/Shader.h"
+
+#include "Renderer/ForwardLighting.h"
+#include "Renderer/PhysicallyBasedMaterial.h"
+#include "Renderer/View.h"
 
 #include <vector>
 
-class DescriptorSet;
-class ForwardLighting;
-class Material;
-class View;
-
-class ForwardShader : public Shader
+class ForwardDescriptorSet : public TypedDescriptorSet<ForwardDescriptorSet>
 {
 public:
-   static std::array<vk::DescriptorSetLayoutBinding, 2> getBindings();
-   static const vk::DescriptorSetLayoutCreateInfo& getLayoutCreateInfo();
-   static vk::DescriptorSetLayout getLayout(const GraphicsContext& context);
+   static std::vector<vk::DescriptorSetLayoutBinding> getBindings();
 
+   using TypedDescriptorSet::TypedDescriptorSet;
+};
+
+class ForwardShader : public ShaderWithDescriptors<ViewDescriptorSet, ForwardDescriptorSet, ForwardLightingDescriptorSet, PhysicallyBasedMaterialDescriptorSet>
+{
+public:
    ForwardShader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager);
 
-   void bindDescriptorSets(vk::CommandBuffer commandBuffer, vk::PipelineLayout pipelineLayout, const View& view, const DescriptorSet& descriptorSet, const ForwardLighting& lighting, const Material& material);
-
    std::vector<vk::PipelineShaderStageCreateInfo> getStages(bool withTextures, bool withBlending) const;
-   std::vector<vk::DescriptorSetLayout> getSetLayouts() const;
    std::vector<vk::PushConstantRange> getPushConstantRanges() const;
 };

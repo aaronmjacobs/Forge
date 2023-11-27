@@ -8,7 +8,7 @@
 
 #include <glm/glm.hpp>
 
-#include <array>
+#include <vector>
 
 class DynamicDescriptorPool;
 
@@ -29,13 +29,17 @@ struct ViewUniformData
    alignas(16) glm::vec2 nearFar;
 };
 
+class ViewDescriptorSet : public TypedDescriptorSet<ViewDescriptorSet>
+{
+public:
+   static std::vector<vk::DescriptorSetLayoutBinding> getBindings();
+
+   using TypedDescriptorSet::TypedDescriptorSet;
+};
+
 class View : public GraphicsResource
 {
 public:
-   static std::array<vk::DescriptorSetLayoutBinding, 1> getBindings();
-   static const vk::DescriptorSetLayoutCreateInfo& getLayoutCreateInfo();
-   static vk::DescriptorSetLayout getLayout(const GraphicsContext& context);
-
    View(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool);
 
    void update(const ViewInfo& viewInfo);
@@ -45,7 +49,7 @@ public:
       return uniformBuffer.getDescriptorBufferInfo(frameIndex);
    }
 
-   const DescriptorSet& getDescriptorSet() const
+   const ViewDescriptorSet& getDescriptorSet() const
    {
       return descriptorSet;
    }
@@ -64,7 +68,7 @@ private:
    void updateDescriptorSets();
 
    UniformBuffer<ViewUniformData> uniformBuffer;
-   DescriptorSet descriptorSet;
+   ViewDescriptorSet descriptorSet;
 
    ViewInfo info;
    ViewMatrices matrices;

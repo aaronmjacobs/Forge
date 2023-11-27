@@ -7,6 +7,8 @@
 #include "Renderer/RenderSettings.h"
 
 #include "Renderer/Passes/SceneRenderPass.h"
+#include "Renderer/Passes/SSAO/SSAOBlurShader.h"
+#include "Renderer/Passes/SSAO/SSAOShader.h"
 
 #include <glm/glm.hpp>
 
@@ -69,9 +71,9 @@ private:
    vk::PipelineLayout ssaoPipelineLayout;
    vk::PipelineLayout blurPipelineLayout;
 
-   DescriptorSet ssaoDescriptorSet;
-   DescriptorSet horizontalBlurDescriptorSet;
-   DescriptorSet verticalBlurDescriptorSet;
+   SSAODescriptorSet ssaoDescriptorSet;
+   SSAOBlurDescriptorSet horizontalBlurDescriptorSet;
+   SSAOBlurDescriptorSet verticalBlurDescriptorSet;
 
    vk::Sampler sampler;
 

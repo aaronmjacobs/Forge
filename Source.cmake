@@ -36,7 +36,6 @@ target_sources(${PROJECT_NAME} PRIVATE
    "${SRC_DIR}/Graphics/DelayedObjectDestroyer.h"
    "${SRC_DIR}/Graphics/DescriptorSet.cpp"
    "${SRC_DIR}/Graphics/DescriptorSet.h"
-   "${SRC_DIR}/Graphics/DescriptorSetLayout.h"
    "${SRC_DIR}/Graphics/DescriptorSetLayoutCache.cpp"
    "${SRC_DIR}/Graphics/DescriptorSetLayoutCache.h"
    "${SRC_DIR}/Graphics/DynamicDescriptorPool.cpp"

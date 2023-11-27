@@ -2,8 +2,6 @@
 
 #include "Core/Enum.h"
 
-#include "Graphics/DescriptorSet.h"
-#include "Graphics/DescriptorSetLayout.h"
 #include "Graphics/SpecializationInfo.h"
 
 namespace
@@ -45,7 +43,7 @@ namespace
 }
 
 // static
-std::array<vk::DescriptorSetLayoutBinding, 3> BloomUpsampleShader::getBindings()
+std::vector<vk::DescriptorSetLayoutBinding> BloomUpsampleDescriptorSet::getBindings()
 {
    return
    {
@@ -67,26 +65,9 @@ std::array<vk::DescriptorSetLayoutBinding, 3> BloomUpsampleShader::getBindings()
    };
 }
 
-// static
-const vk::DescriptorSetLayoutCreateInfo& BloomUpsampleShader::getLayoutCreateInfo()
-{
-   return DescriptorSetLayout::getCreateInfo<BloomUpsampleShader>();
-}
-
-// static
-vk::DescriptorSetLayout BloomUpsampleShader::getLayout(const GraphicsContext& context)
-{
-   return DescriptorSetLayout::get<BloomUpsampleShader>(context);
-}
-
 BloomUpsampleShader::BloomUpsampleShader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager)
-   : Shader(graphicsContext, resourceManager, getInitializationInfo())
+   : ShaderWithDescriptors(graphicsContext, resourceManager, getInitializationInfo())
 {
-}
-
-void BloomUpsampleShader::bindDescriptorSets(vk::CommandBuffer commandBuffer, vk::PipelineLayout pipelineLayout, const DescriptorSet& descriptorSet)
-{
-   commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, 0, { descriptorSet.getCurrentSet() }, {});
 }
 
 std::vector<vk::PipelineShaderStageCreateInfo> BloomUpsampleShader::getStages(RenderQuality quality, bool horizontal) const
@@ -96,9 +77,4 @@ std::vector<vk::PipelineShaderStageCreateInfo> BloomUpsampleShader::getStages(Re
    specializationValues.horizontal = horizontal;
 
    return getStagesForPermutation(specializationValues.getIndex());
-}
-
-std::vector<vk::DescriptorSetLayout> BloomUpsampleShader::getSetLayouts() const
-{
-   return { getLayout(context) };
 }

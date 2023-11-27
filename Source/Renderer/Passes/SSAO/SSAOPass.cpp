@@ -38,9 +38,9 @@ namespace
 
 SSAOPass::SSAOPass(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, ResourceManager& resourceManager)
    : SceneRenderPass(graphicsContext)
-   , ssaoDescriptorSet(graphicsContext, dynamicDescriptorPool, SSAOShader::getLayoutCreateInfo())
-   , horizontalBlurDescriptorSet(graphicsContext, dynamicDescriptorPool, SSAOBlurShader::getLayoutCreateInfo())
-   , verticalBlurDescriptorSet(graphicsContext, dynamicDescriptorPool, SSAOBlurShader::getLayoutCreateInfo())
+   , ssaoDescriptorSet(graphicsContext, dynamicDescriptorPool)
+   , horizontalBlurDescriptorSet(graphicsContext, dynamicDescriptorPool)
+   , verticalBlurDescriptorSet(graphicsContext, dynamicDescriptorPool)
    , uniformBuffer(graphicsContext)
    , ssaoQuality(RenderQuality::Medium)
 {
@@ -52,7 +52,7 @@ SSAOPass::SSAOPass(const GraphicsContext& graphicsContext, DynamicDescriptorPool
    blurShader = createShader<SSAOBlurShader>(context, resourceManager);
 
    {
-      std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = ssaoShader->getSetLayouts();
+      std::array descriptorSetLayouts = ssaoShader->getDescriptorSetLayouts();
       vk::PipelineLayoutCreateInfo pipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo()
          .setSetLayouts(descriptorSetLayouts);
       ssaoPipelineLayout = device.createPipelineLayout(pipelineLayoutCreateInfo);
@@ -60,7 +60,7 @@ SSAOPass::SSAOPass(const GraphicsContext& graphicsContext, DynamicDescriptorPool
    }
 
    {
-      std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = blurShader->getSetLayouts();
+      std::array descriptorSetLayouts = blurShader->getDescriptorSetLayouts();
       vk::PipelineLayoutCreateInfo pipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo()
          .setSetLayouts(descriptorSetLayouts);
       blurPipelineLayout = device.createPipelineLayout(pipelineLayoutCreateInfo);
@@ -215,7 +215,7 @@ void SSAOPass::renderSSAO(vk::CommandBuffer commandBuffer, const SceneRenderInfo
       PipelineDescription<SSAOPass> pipelineDescription;
       pipelineDescription.blur = false;
 
-      ssaoShader->bindDescriptorSets(commandBuffer, ssaoPipelineLayout, sceneRenderInfo.view, ssaoDescriptorSet);
+      ssaoShader->bindDescriptorSets(commandBuffer, ssaoPipelineLayout, sceneRenderInfo.view.getDescriptorSet(), ssaoDescriptorSet);
       renderScreenMesh(commandBuffer, getPipeline(pipelineDescription));
    });
 }
@@ -233,7 +233,7 @@ void SSAOPass::renderBlur(vk::CommandBuffer commandBuffer, const SceneRenderInfo
 
    executePass(commandBuffer, &colorAttachmentInfo, nullptr, [this, &sceneRenderInfo, &depthTexture, &inputTexture, horizontal](vk::CommandBuffer commandBuffer)
    {
-      DescriptorSet& blurDescriptorSet = horizontal ? horizontalBlurDescriptorSet : verticalBlurDescriptorSet;
+      SSAOBlurDescriptorSet& blurDescriptorSet = horizontal ? horizontalBlurDescriptorSet : verticalBlurDescriptorSet;
 
       vk::DescriptorImageInfo sourceBufferImageInfo = vk::DescriptorImageInfo()
          .setImageLayout(inputTexture.getLayout())
@@ -263,7 +263,7 @@ void SSAOPass::renderBlur(vk::CommandBuffer commandBuffer, const SceneRenderInfo
       pipelineDescription.blur = true;
       pipelineDescription.horizontal = horizontal;
 
-      blurShader->bindDescriptorSets(commandBuffer, blurPipelineLayout, sceneRenderInfo.view, blurDescriptorSet);
+      blurShader->bindDescriptorSets(commandBuffer, blurPipelineLayout, sceneRenderInfo.view.getDescriptorSet(), blurDescriptorSet);
       renderScreenMesh(commandBuffer, getPipeline(pipelineDescription));
    });
 }

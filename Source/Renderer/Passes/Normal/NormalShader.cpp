@@ -2,9 +2,7 @@
 
 #include "Graphics/SpecializationInfo.h"
 
-#include "Renderer/PhysicallyBasedMaterial.h"
 #include "Renderer/UniformData.h"
-#include "Renderer/View.h"
 
 namespace
 {
@@ -45,13 +43,8 @@ namespace
 }
 
 NormalShader::NormalShader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager)
-   : Shader(graphicsContext, resourceManager, getInitializationInfo())
+   : ShaderWithDescriptors(graphicsContext, resourceManager, getInitializationInfo())
 {
-}
-
-void NormalShader::bindDescriptorSets(vk::CommandBuffer commandBuffer, vk::PipelineLayout pipelineLayout, const View& view, const Material& material)
-{
-   commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, 0, { view.getDescriptorSet().getCurrentSet(), material.getDescriptorSet().getCurrentSet() }, {});
 }
 
 std::vector<vk::PipelineShaderStageCreateInfo> NormalShader::getStages(bool withTextures, bool masked) const
@@ -61,11 +54,6 @@ std::vector<vk::PipelineShaderStageCreateInfo> NormalShader::getStages(bool with
    specializationValues.masked = masked;
 
    return getStagesForPermutation(specializationValues.getIndex());
-}
-
-std::vector<vk::DescriptorSetLayout> NormalShader::getSetLayouts() const
-{
-   return { View::getLayout(context), PhysicallyBasedMaterial::getLayout(context) };
 }
 
 std::vector<vk::PushConstantRange> NormalShader::getPushConstantRanges() const

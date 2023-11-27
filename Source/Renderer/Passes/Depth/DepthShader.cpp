@@ -1,7 +1,6 @@
 #include "Renderer/Passes/Depth/DepthShader.h"
 
 #include "Renderer/UniformData.h"
-#include "Renderer/View.h"
 
 namespace
 {
@@ -16,23 +15,13 @@ namespace
 }
 
 DepthShader::DepthShader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager)
-   : Shader(graphicsContext, resourceManager, getInitializationInfo())
+   : ShaderWithDescriptors(graphicsContext, resourceManager, getInitializationInfo())
 {
-}
-
-void DepthShader::bindDescriptorSets(vk::CommandBuffer commandBuffer, vk::PipelineLayout pipelineLayout, const View& view)
-{
-   commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, 0, { view.getDescriptorSet().getCurrentSet() }, {});
 }
 
 std::vector<vk::PipelineShaderStageCreateInfo> DepthShader::getStages() const
 {
    return getStagesForPermutation(0);
-}
-
-std::vector<vk::DescriptorSetLayout> DepthShader::getSetLayouts() const
-{
-   return { View::getLayout(context) };
 }
 
 std::vector<vk::PushConstantRange> DepthShader::getPushConstantRanges() const

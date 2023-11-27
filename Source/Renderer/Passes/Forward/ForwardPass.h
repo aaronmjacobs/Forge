@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Renderer/Passes/Forward/ForwardShader.h"
+#include "Renderer/Passes/Forward/SkyboxShader.h"
 #include "Renderer/Passes/SceneRenderPass.h"
 
 #include "Graphics/DescriptorSet.h"
@@ -41,6 +43,8 @@ public:
 protected:
    friend class SceneRenderPass<ForwardPass>;
 
+   bool supportsMaterialType(uint32_t typeMask) const;
+
    void renderMesh(vk::CommandBuffer commandBuffer, const Pipeline& pipeline, const View& view, const Mesh& mesh, uint32_t section, const Material& material);
    vk::PipelineLayout selectPipelineLayout(BlendMode blendMode) const;
 
@@ -54,10 +58,10 @@ private:
    vk::PipelineLayout forwardPipelineLayout;
    vk::PipelineLayout skyboxPipelineLayout;
 
-   DescriptorSet forwardDescriptorSet;
+   ForwardDescriptorSet forwardDescriptorSet;
    vk::Sampler normalSampler;
 
    const ForwardLighting* lighting = nullptr;
-   DescriptorSet skyboxDescriptorSet;
+   SkyboxDescriptorSet skyboxDescriptorSet;
    vk::Sampler skyboxSampler;
 };

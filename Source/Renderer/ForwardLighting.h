@@ -52,15 +52,20 @@ struct ForwardLightingUniformData
    alignas(4) int numDirectionalLights = 0;
 };
 
+class ForwardLightingDescriptorSet : public TypedDescriptorSet<ForwardLightingDescriptorSet>
+{
+public:
+   static std::vector<vk::DescriptorSetLayoutBinding> getBindings();
+
+   using TypedDescriptorSet::TypedDescriptorSet;
+};
+
 class ForwardLighting : public GraphicsResource
 {
 public:
    static const uint32_t kMaxPointShadowMaps = 2;
    static const uint32_t kMaxSpotShadowMaps = 4;
    static const uint32_t kMaxDirectionalShadowMaps = 1;
-
-   static const vk::DescriptorSetLayoutCreateInfo& getLayoutCreateInfo();
-   static vk::DescriptorSetLayout getLayout(const GraphicsContext& context);
 
    static uint32_t getPointViewIndex(uint32_t shadowMapIndex, uint32_t faceIndex);
 
@@ -70,7 +75,7 @@ public:
    void transitionShadowMapLayout(vk::CommandBuffer commandBuffer, bool forReading);
    void update(const SceneRenderInfo& sceneRenderInfo);
 
-   const DescriptorSet& getDescriptorSet() const
+   const ForwardLightingDescriptorSet& getDescriptorSet() const
    {
       return descriptorSet;
    }
@@ -98,7 +103,7 @@ protected:
    void updateDescriptorSets();
 
    UniformBuffer<ForwardLightingUniformData> uniformBuffer;
-   DescriptorSet descriptorSet;
+   ForwardLightingDescriptorSet descriptorSet;
 
    vk::Sampler shadowMapSampler;
    std::unique_ptr<Texture> pointShadowMapTextureArray;

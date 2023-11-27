@@ -2,8 +2,6 @@
 
 #include "Core/Enum.h"
 
-#include "Graphics/DescriptorSet.h"
-#include "Graphics/DescriptorSetLayout.h"
 #include "Graphics/SpecializationInfo.h"
 
 namespace
@@ -43,7 +41,7 @@ namespace
 }
 
 // static
-std::array<vk::DescriptorSetLayoutBinding, 1> CompositeShader::getBindings()
+std::vector<vk::DescriptorSetLayoutBinding> CompositeDescriptorSet::getBindings()
 {
    return
    {
@@ -55,26 +53,9 @@ std::array<vk::DescriptorSetLayoutBinding, 1> CompositeShader::getBindings()
    };
 }
 
-// static
-const vk::DescriptorSetLayoutCreateInfo& CompositeShader::getLayoutCreateInfo()
-{
-   return DescriptorSetLayout::getCreateInfo<CompositeShader>();
-}
-
-// static
-vk::DescriptorSetLayout CompositeShader::getLayout(const GraphicsContext& context)
-{
-   return DescriptorSetLayout::get<CompositeShader>(context);
-}
-
 CompositeShader::CompositeShader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager)
-   : Shader(graphicsContext, resourceManager, getInitializationInfo())
+   : ShaderWithDescriptors(graphicsContext, resourceManager, getInitializationInfo())
 {
-}
-
-void CompositeShader::bindDescriptorSets(vk::CommandBuffer commandBuffer, vk::PipelineLayout pipelineLayout, const DescriptorSet& descriptorSet)
-{
-   commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, 0, { descriptorSet.getCurrentSet() }, {});
 }
 
 std::vector<vk::PipelineShaderStageCreateInfo> CompositeShader::getStages(Mode mode) const
@@ -83,9 +64,4 @@ std::vector<vk::PipelineShaderStageCreateInfo> CompositeShader::getStages(Mode m
    specializationValues.mode = mode;
 
    return getStagesForPermutation(specializationValues.getIndex());
-}
-
-std::vector<vk::DescriptorSetLayout> CompositeShader::getSetLayouts() const
-{
-   return { getLayout(context) };
 }

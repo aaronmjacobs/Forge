@@ -24,3 +24,21 @@ public:
 private:
    std::array<vk::DescriptorSet, GraphicsContext::kMaxFramesInFlight> sets;
 };
+
+template<typename Derived>
+class TypedDescriptorSet : public DescriptorSet
+{
+public:
+   static const vk::DescriptorSetLayoutCreateInfo& getCreateInfo()
+   {
+      static const auto kBindings = Derived::getBindings();
+      static const auto kCreateInfo = vk::DescriptorSetLayoutCreateInfo(vk::DescriptorSetLayoutCreateFlags{}, kBindings);
+
+      return kCreateInfo;
+   }
+
+   TypedDescriptorSet(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool)
+      : DescriptorSet(graphicsContext, dynamicDescriptorPool, getCreateInfo())
+   {
+   }
+};

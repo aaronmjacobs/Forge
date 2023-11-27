@@ -1,24 +1,24 @@
 #pragma once
 
+#include "Graphics/DescriptorSet.h"
 #include "Graphics/Shader.h"
 
-#include <array>
+#include "Renderer/View.h"
+
 #include <vector>
 
-class DescriptorSet;
-class View;
-
-class SkyboxShader : public Shader
+class SkyboxDescriptorSet : public TypedDescriptorSet<SkyboxDescriptorSet>
 {
 public:
-   static std::array<vk::DescriptorSetLayoutBinding, 1> getBindings();
-   static const vk::DescriptorSetLayoutCreateInfo& getLayoutCreateInfo();
-   static vk::DescriptorSetLayout getLayout(const GraphicsContext& context);
+   static std::vector<vk::DescriptorSetLayoutBinding> getBindings();
 
+   using TypedDescriptorSet::TypedDescriptorSet;
+};
+
+class SkyboxShader : public ShaderWithDescriptors<ViewDescriptorSet, SkyboxDescriptorSet>
+{
+public:
    SkyboxShader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager);
 
-   void bindDescriptorSets(vk::CommandBuffer commandBuffer, vk::PipelineLayout pipelineLayout, const View& view, const DescriptorSet& descriptorSet);
-
    std::vector<vk::PipelineShaderStageCreateInfo> getStages() const;
-   std::vector<vk::DescriptorSetLayout> getSetLayouts() const;
 };

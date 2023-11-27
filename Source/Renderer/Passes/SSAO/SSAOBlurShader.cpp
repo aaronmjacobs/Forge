@@ -1,10 +1,6 @@
 #include "Renderer/Passes/SSAO/SSAOBlurShader.h"
 
-#include "Graphics/DescriptorSet.h"
-#include "Graphics/DescriptorSetLayout.h"
 #include "Graphics/SpecializationInfo.h"
-
-#include "Renderer/View.h"
 
 namespace
 {
@@ -43,7 +39,7 @@ namespace
 }
 
 // static
-std::array<vk::DescriptorSetLayoutBinding, 2> SSAOBlurShader::getBindings()
+std::vector<vk::DescriptorSetLayoutBinding> SSAOBlurDescriptorSet::getBindings()
 {
    return
    {
@@ -60,26 +56,9 @@ std::array<vk::DescriptorSetLayoutBinding, 2> SSAOBlurShader::getBindings()
    };
 }
 
-// static
-const vk::DescriptorSetLayoutCreateInfo& SSAOBlurShader::getLayoutCreateInfo()
-{
-   return DescriptorSetLayout::getCreateInfo<SSAOBlurShader>();
-}
-
-// static
-vk::DescriptorSetLayout SSAOBlurShader::getLayout(const GraphicsContext& context)
-{
-   return DescriptorSetLayout::get<SSAOBlurShader>(context);
-}
-
 SSAOBlurShader::SSAOBlurShader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager)
-   : Shader(graphicsContext, resourceManager, getInitializationInfo())
+   : ShaderWithDescriptors(graphicsContext, resourceManager, getInitializationInfo())
 {
-}
-
-void SSAOBlurShader::bindDescriptorSets(vk::CommandBuffer commandBuffer, vk::PipelineLayout pipelineLayout, const View& view, const DescriptorSet& descriptorSet)
-{
-   commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, 0, { view.getDescriptorSet().getCurrentSet(), descriptorSet.getCurrentSet() }, {});
 }
 
 std::vector<vk::PipelineShaderStageCreateInfo> SSAOBlurShader::getStages(bool horizontal) const
@@ -88,9 +67,4 @@ std::vector<vk::PipelineShaderStageCreateInfo> SSAOBlurShader::getStages(bool ho
    specializationValues.horizontal = horizontal;
 
    return getStagesForPermutation(specializationValues.getIndex());
-}
-
-std::vector<vk::DescriptorSetLayout> SSAOBlurShader::getSetLayouts() const
-{
-   return { View::getLayout(context), getLayout(context) };
 }

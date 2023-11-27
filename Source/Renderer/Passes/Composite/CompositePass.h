@@ -2,8 +2,6 @@
 
 #include "Core/Enum.h"
 
-#include "Graphics/DescriptorSet.h"
-
 #include "Renderer/Passes/Composite/CompositeShader.h"
 #include "Renderer/Passes/SceneRenderPass.h"
 
@@ -47,6 +45,6 @@ private:
 
    vk::PipelineLayout pipelineLayout;
 
-   DescriptorSet descriptorSet;
+   CompositeDescriptorSet descriptorSet;
    vk::Sampler sampler;
 };

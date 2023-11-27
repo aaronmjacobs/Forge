@@ -1,9 +1,12 @@
 #pragma once
 
+#include "Graphics/DescriptorSet.h"
 #include "Graphics/Material.h"
 #include "Graphics/UniformBuffer.h"
 
 #include <glm/glm.hpp>
+
+#include <vector>
 
 class Texture;
 
@@ -35,9 +38,19 @@ struct PhysicallyBasedMaterialParams
    bool twoSided = false;
 };
 
+class PhysicallyBasedMaterialDescriptorSet : public TypedDescriptorSet<PhysicallyBasedMaterialDescriptorSet>
+{
+public:
+   static std::vector<vk::DescriptorSetLayoutBinding> getBindings();
+
+   using TypedDescriptorSet::TypedDescriptorSet;
+};
+
 class PhysicallyBasedMaterial : public Material
 {
 public:
+   static constexpr const uint32_t kTypeFlag = 0x01;
+
    static const std::string kAlbedoTextureParameterName;
    static const std::string kNormalTextureParameterName;
    static const std::string kAoRoughnessMetalnessTextureParameterName;
@@ -49,12 +62,14 @@ public:
    static const std::string kMetalnessScalarParameterName;
    static const std::string kAmbientOcclusionScalarParameterName;
 
-   static std::array<vk::DescriptorSetLayoutBinding, 4> getBindings();
-   static vk::DescriptorSetLayout getLayout(const GraphicsContext& context);
-
    PhysicallyBasedMaterial(const GraphicsContext& graphicsContext, MaterialLoader& owningMaterialLoader, const PhysicallyBasedMaterialParams& materialParams);
 
    void update() override;
+
+   const PhysicallyBasedMaterialDescriptorSet& getDescriptorSet() const
+   {
+      return descriptorSet;
+   }
 
    const glm::vec4& getAlbedoColor() const
    {
@@ -101,6 +116,7 @@ public:
 private:
    void onUniformDataChanged();
 
+   PhysicallyBasedMaterialDescriptorSet descriptorSet;
    UniformBuffer<PhysicallyBasedMaterialUniformData> uniformBuffer;
    PhysicallyBasedMaterialUniformData cachedUniformData;
 };

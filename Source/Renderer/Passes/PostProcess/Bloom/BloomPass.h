@@ -4,15 +4,15 @@
 #include "Graphics/UniformBuffer.h"
 
 #include "Renderer/Passes/SceneRenderPass.h"
+#include "Renderer/Passes/PostProcess/Bloom/BloomDownsampleShader.h"
+#include "Renderer/Passes/PostProcess/Bloom/BloomUpsampleShader.h"
 #include "Renderer/RenderSettings.h"
 
 #include <array>
 #include <memory>
 #include <vector>
 
-class BloomDownsampleShader;
 class BloomPass;
-class BloomUpsampleShader;
 class DynamicDescriptorPool;
 class ResourceManager;
 class Texture;
@@ -81,9 +81,9 @@ private:
    vk::PipelineLayout downsamplePipelineLayout;
    vk::PipelineLayout upsamplePipelineLayout;
 
-   std::vector<DescriptorSet> downsampleDescriptorSets;
-   std::vector<DescriptorSet> horizontalUpsampleDescriptorSets;
-   std::vector<DescriptorSet> verticalUpsampleDescriptorSets;
+   std::vector<BloomDownsampleDescriptorSet> downsampleDescriptorSets;
+   std::vector<BloomUpsampleDescriptorSet> horizontalUpsampleDescriptorSets;
+   std::vector<BloomUpsampleDescriptorSet> verticalUpsampleDescriptorSets;
    vk::Sampler sampler;
 
    std::vector<UniformBuffer<BloomUpsampleUniformData>> upsampleUniformBuffers;

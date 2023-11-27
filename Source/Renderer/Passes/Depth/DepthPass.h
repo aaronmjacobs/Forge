@@ -39,6 +39,8 @@ public:
 protected:
    friend class SceneRenderPass<DepthPass>;
 
+   bool supportsMaterialType(uint32_t typeMask) const;
+
    void renderMesh(vk::CommandBuffer commandBuffer, const Pipeline& pipeline, const View& view, const Mesh& mesh, uint32_t section, const Material& material);
    vk::PipelineLayout selectPipelineLayout(BlendMode blendMode) const;
 

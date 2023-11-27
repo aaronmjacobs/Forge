@@ -1,5 +1,7 @@
 #include "Renderer/Passes/Depth/DepthPass.h"
 
+#include "Core/Types.h"
+
 #include "Graphics/DebugUtils.h"
 #include "Graphics/Mesh.h"
 #include "Graphics/Pipeline.h"
@@ -18,7 +20,7 @@ DepthPass::DepthPass(const GraphicsContext& graphicsContext, ResourceManager& re
    depthMaskedShader = createShader<DepthMaskedShader>(context, resourceManager);
 
    {
-      std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = depthShader->getSetLayouts();
+      std::array descriptorSetLayouts = depthShader->getDescriptorSetLayouts();
       std::vector<vk::PushConstantRange> pushConstantRanges = depthShader->getPushConstantRanges();
       vk::PipelineLayoutCreateInfo pipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo()
          .setSetLayouts(descriptorSetLayouts)
@@ -28,7 +30,7 @@ DepthPass::DepthPass(const GraphicsContext& graphicsContext, ResourceManager& re
    }
 
    {
-      std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = depthMaskedShader->getSetLayouts();
+      std::array descriptorSetLayouts = depthMaskedShader->getDescriptorSetLayouts();
       std::vector<vk::PushConstantRange> pushConstantRanges = depthMaskedShader->getPushConstantRanges();
       vk::PipelineLayoutCreateInfo pipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo()
          .setSetLayouts(descriptorSetLayouts)
@@ -66,7 +68,7 @@ void DepthPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& s
       {
          SCOPED_LABEL("Opaque");
 
-         depthShader->bindDescriptorSets(commandBuffer, opaquePipelineLayout, sceneRenderInfo.view);
+         depthShader->bindDescriptorSets(commandBuffer, opaquePipelineLayout, sceneRenderInfo.view.getDescriptorSet());
          renderMeshes<BlendMode::Opaque>(commandBuffer, sceneRenderInfo);
       }
 
@@ -78,11 +80,17 @@ void DepthPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& s
    });
 }
 
+bool DepthPass::supportsMaterialType(uint32_t typeMask) const
+{
+   return (typeMask & PhysicallyBasedMaterial::kTypeFlag) != 0;
+}
+
 void DepthPass::renderMesh(vk::CommandBuffer commandBuffer, const Pipeline& pipeline, const View& view, const Mesh& mesh, uint32_t section, const Material& material)
 {
    if (pipeline.getLayout() == maskedPipelineLayout)
    {
-      depthMaskedShader->bindDescriptorSets(commandBuffer, pipeline.getLayout(), view, material);
+      const PhysicallyBasedMaterial& pbrMaterial = *Types::checked_cast<const PhysicallyBasedMaterial*>(&material);
+      depthMaskedShader->bindDescriptorSets(commandBuffer, pipeline.getLayout(), view.getDescriptorSet(), pbrMaterial.getDescriptorSet());
    }
 
    SceneRenderPass::renderMesh(commandBuffer, pipeline, view, mesh, section, material);

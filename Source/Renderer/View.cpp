@@ -1,10 +1,9 @@
 #include "Renderer/View.h"
 
 #include "Graphics/DebugUtils.h"
-#include "Graphics/DescriptorSetLayout.h"
 
 // static
-std::array<vk::DescriptorSetLayoutBinding, 1> View::getBindings()
+std::vector<vk::DescriptorSetLayoutBinding> ViewDescriptorSet::getBindings()
 {
    return
    {
@@ -16,22 +15,10 @@ std::array<vk::DescriptorSetLayoutBinding, 1> View::getBindings()
    };
 }
 
-// static
-const vk::DescriptorSetLayoutCreateInfo& View::getLayoutCreateInfo()
-{
-   return DescriptorSetLayout::getCreateInfo<View>();
-}
-
-// static
-vk::DescriptorSetLayout View::getLayout(const GraphicsContext& context)
-{
-   return DescriptorSetLayout::get<View>(context);
-}
-
 View::View(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool)
    : GraphicsResource(graphicsContext)
    , uniformBuffer(graphicsContext)
-   , descriptorSet(graphicsContext, dynamicDescriptorPool, getLayoutCreateInfo())
+   , descriptorSet(graphicsContext, dynamicDescriptorPool)
 {
    NAME_CHILD(uniformBuffer, "");
    NAME_CHILD(descriptorSet, "");

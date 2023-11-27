@@ -1,10 +1,11 @@
 #pragma once
 
 #include "Graphics/BlendMode.h"
-#include "Graphics/DescriptorSet.h"
 #include "Graphics/GraphicsResource.h"
 
 #include "Resources/ResourceTypes.h"
+
+#include <cstdint>
 
 class DynamicDescriptorPool;
 class MaterialLoader;
@@ -12,12 +13,7 @@ class MaterialLoader;
 class Material : public GraphicsResource
 {
 public:
-   Material(const GraphicsContext& graphicsContext, MaterialLoader& owningMaterialLoader, const vk::DescriptorSetLayoutCreateInfo& createInfo);
-
-   const DescriptorSet& getDescriptorSet() const
-   {
-      return descriptorSet;
-   }
+   Material(const GraphicsContext& graphicsContext, MaterialLoader& owningMaterialLoader, uint32_t typeFlagBit);
 
    BlendMode getBlendMode() const
    {
@@ -39,6 +35,11 @@ public:
       twoSided = newTwoSided;
    }
 
+   uint32_t getTypeFlag() const
+   {
+      return typeFlag;
+   }
+
    virtual void update()
    {
    }
@@ -47,7 +48,6 @@ public:
 
 protected:
    MaterialLoader& materialLoader;
-   DescriptorSet descriptorSet;
    BlendMode blendMode = BlendMode::Opaque;
    bool twoSided = false;
 
@@ -58,4 +58,5 @@ protected:
 
 private:
    MaterialHandle handle;
+   uint32_t typeFlag = 0;
 };

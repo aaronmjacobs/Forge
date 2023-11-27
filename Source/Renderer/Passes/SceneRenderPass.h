@@ -13,6 +13,7 @@
 #include "Renderer/SceneRenderInfo.h"
 #include "Renderer/UniformData.h"
 
+#include <cstdint>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -55,6 +56,11 @@ protected:
       currentPipelineMap = nullptr;
    }
 
+   bool supportsMaterialType(uint32_t typeMask) const
+   {
+      return false;
+   }
+
    template<typename T, typename... Args>
    T* createShader(Args&&... args)
    {
@@ -84,7 +90,7 @@ protected:
       for (const MeshRenderInfo& meshRenderInfo : sceneRenderInfo.meshes)
       {
          const FrameVector<uint32_t>& sections = blendMode == BlendMode::Translucent ? meshRenderInfo.visibleTranslucentSections : blendMode == BlendMode::Masked ? meshRenderInfo.visibleMaskedSections : meshRenderInfo.visibleOpaqueSections;
-         if (!sections.empty())
+         if (!sections.empty() && derivedThis->supportsMaterialType(meshRenderInfo.mesh->getMaterialTypeMask()))
          {
             ASSERT(meshRenderInfo.mesh);
 
@@ -96,22 +102,25 @@ protected:
 
             for (uint32_t section : sections)
             {
-               SCOPED_LABEL("Section " + DebugUtils::toString(section));
-
                const Material* material = meshRenderInfo.materials[section];
                ASSERT(material);
 
-               PipelineDescription<Derived> pipelineDescription = derivedThis->getPipelineDescription(sceneRenderInfo.view, meshRenderInfo.mesh->getSection(section), *material);
-               const Pipeline& pipeline = getPipeline(pipelineDescription);
-               ASSERT(pipeline.getLayout() == pipelineLayout);
-
-               if (pipeline.getVkPipeline() != lastPipeline)
+               if (derivedThis->supportsMaterialType(material->getTypeFlag()))
                {
-                  commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline.getVkPipeline());
-                  lastPipeline = pipeline.getVkPipeline();
-               }
+                  SCOPED_LABEL("Section " + DebugUtils::toString(section));
 
-               derivedThis->renderMesh(commandBuffer, pipeline, sceneRenderInfo.view, *meshRenderInfo.mesh, section, *material);
+                  PipelineDescription<Derived> pipelineDescription = derivedThis->getPipelineDescription(sceneRenderInfo.view, meshRenderInfo.mesh->getSection(section), *material);
+                  const Pipeline& pipeline = getPipeline(pipelineDescription);
+                  ASSERT(pipeline.getLayout() == pipelineLayout);
+
+                  if (pipeline.getVkPipeline() != lastPipeline)
+                  {
+                     commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline.getVkPipeline());
+                     lastPipeline = pipeline.getVkPipeline();
+                  }
+
+                  derivedThis->renderMesh(commandBuffer, pipeline, sceneRenderInfo.view, *meshRenderInfo.mesh, section, *material);
+               }
             }
          }
       }

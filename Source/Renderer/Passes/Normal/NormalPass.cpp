@@ -1,5 +1,7 @@
 #include "Renderer/Passes/Normal/NormalPass.h"
 
+#include "Core/Types.h"
+
 #include "Graphics/DebugUtils.h"
 #include "Graphics/Mesh.h"
 #include "Graphics/Pipeline.h"
@@ -17,7 +19,7 @@ NormalPass::NormalPass(const GraphicsContext& graphicsContext, ResourceManager& 
    normalShader = createShader<NormalShader>(context, resourceManager);
 
    {
-      std::vector<vk::DescriptorSetLayout> descriptorSetLayouts = normalShader->getSetLayouts();
+      std::array descriptorSetLayouts = normalShader->getDescriptorSetLayouts();
       std::vector<vk::PushConstantRange> pushConstantRanges = normalShader->getPushConstantRanges();
       vk::PipelineLayoutCreateInfo pipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo()
          .setSetLayouts(descriptorSetLayouts)
@@ -61,9 +63,15 @@ void NormalPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo& 
    });
 }
 
+bool NormalPass::supportsMaterialType(uint32_t typeMask) const
+{
+   return (typeMask & PhysicallyBasedMaterial::kTypeFlag) != 0;
+}
+
 void NormalPass::renderMesh(vk::CommandBuffer commandBuffer, const Pipeline& pipeline, const View& view, const Mesh& mesh, uint32_t section, const Material& material)
 {
-   normalShader->bindDescriptorSets(commandBuffer, pipeline.getLayout(), view, material);
+   const PhysicallyBasedMaterial& pbrMaterial = *Types::checked_cast<const PhysicallyBasedMaterial*>(&material);
+   normalShader->bindDescriptorSets(commandBuffer, pipeline.getLayout(), view.getDescriptorSet(), pbrMaterial.getDescriptorSet());
 
    SceneRenderPass::renderMesh(commandBuffer, pipeline, view, mesh, section, material);
 }

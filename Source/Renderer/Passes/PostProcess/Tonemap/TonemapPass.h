@@ -3,6 +3,7 @@
 #include "Graphics/DescriptorSet.h"
 
 #include "Renderer/Passes/SceneRenderPass.h"
+#include "Renderer/Passes/PostProcess/Tonemap/TonemapShader.h"
 #include "Renderer/RenderSettings.h"
 
 #include <memory>
@@ -11,7 +12,6 @@ class DynamicDescriptorPool;
 class ResourceManager;
 class Texture;
 class TonemapPass;
-class TonemapShader;
 
 template<>
 struct PipelineDescription<TonemapPass>
@@ -49,7 +49,7 @@ private:
 
    vk::PipelineLayout pipelineLayout;
 
-   DescriptorSet descriptorSet;
+   TonemapDescriptorSet descriptorSet;
    vk::Sampler sampler;
 
    StrongTextureHandle lutTextureHandle;

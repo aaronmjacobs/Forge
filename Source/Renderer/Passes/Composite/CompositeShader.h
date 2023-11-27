@@ -2,14 +2,20 @@
 
 #include "Core/Enum.h"
 
+#include "Graphics/DescriptorSet.h"
 #include "Graphics/Shader.h"
 
-#include <array>
 #include <vector>
 
-class DescriptorSet;
+class CompositeDescriptorSet : public TypedDescriptorSet<CompositeDescriptorSet>
+{
+public:
+   static std::vector<vk::DescriptorSetLayoutBinding> getBindings();
 
-class CompositeShader : public Shader
+   using TypedDescriptorSet::TypedDescriptorSet;
+};
+
+class CompositeShader : public ShaderWithDescriptors<CompositeDescriptorSet>
 {
 public:
    enum class Mode
@@ -21,14 +27,7 @@ public:
 
    static constexpr int kNumModes = Enum::cast(Mode::SrgbToLinear) + 1;
 
-   static std::array<vk::DescriptorSetLayoutBinding, 1> getBindings();
-   static const vk::DescriptorSetLayoutCreateInfo& getLayoutCreateInfo();
-   static vk::DescriptorSetLayout getLayout(const GraphicsContext& context);
-
    CompositeShader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager);
 
-   void bindDescriptorSets(vk::CommandBuffer commandBuffer, vk::PipelineLayout pipelineLayout, const DescriptorSet& descriptorSet);
-
    std::vector<vk::PipelineShaderStageCreateInfo> getStages(Mode mode) const;
-   std::vector<vk::DescriptorSetLayout> getSetLayouts() const;
 };
