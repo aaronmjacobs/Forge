@@ -58,7 +58,7 @@ vec3 LinearToST2084(vec3 normalizedLinearValue)
 
 vec4 ConvertToHDR10(vec4 hdrSceneValue, float paperWhiteNits)
 {
-    vec3 rec2020 = /*from709to2020 * */hdrSceneValue.rgb;                             // Rotate Rec.709 color primaries into Rec.2020 color primaries
+    vec3 rec2020 = hdrSceneValue.rgb * from709to2020;                                 // Rotate Rec.709 color primaries into Rec.2020 color primaries
     vec3 normalizedLinearValue = NormalizeHDRSceneValue(rec2020, paperWhiteNits);     // Normalize using paper white nits to prepare for ST.2084
     vec3 HDR10 = LinearToST2084(normalizedLinearValue);                               // Apply ST.2084 curve
 
