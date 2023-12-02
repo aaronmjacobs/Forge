@@ -35,8 +35,8 @@ namespace
 
       Shader::InitializationInfo info;
 
-      info.vertShaderModulePath = "Resources/Shaders/Screen.vert.spv";
-      info.fragShaderModulePath = "Resources/Shaders/Tonemap.frag.spv";
+      info.vertShaderModuleName = "Screen";
+      info.fragShaderModuleName = "Tonemap";
 
       info.specializationInfo = kSpecializationInfo.getInfo();
 

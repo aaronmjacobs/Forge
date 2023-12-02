@@ -8,8 +8,8 @@ namespace
    {
       Shader::InitializationInfo info;
 
-      info.vertShaderModulePath = "Resources/Shaders/DepthMasked.vert.spv";
-      info.fragShaderModulePath = "Resources/Shaders/DepthMasked.frag.spv";
+      info.vertShaderModuleName = "DepthMasked";
+      info.fragShaderModuleName = "DepthMasked";
 
       return info;
    }

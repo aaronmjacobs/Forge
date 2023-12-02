@@ -9,7 +9,6 @@
 #include "Resources/ResourceTypes.h"
 
 #include <array>
-#include <filesystem>
 #include <string>
 #include <span>
 #include <vector>
@@ -21,8 +20,8 @@ class Shader : public GraphicsResource
 public:
    struct InitializationInfo
    {
-      std::filesystem::path vertShaderModulePath;
-      std::filesystem::path fragShaderModulePath;
+      std::string vertShaderModuleName;
+      std::string fragShaderModuleName;
 
       std::string vertShaderModuleEntryPoint = "main";
       std::string fragShaderModuleEntryPoint = "main";

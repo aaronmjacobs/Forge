@@ -4,17 +4,19 @@
 
 #include "Resources/ResourceManager.h"
 
+#include <filesystem>
 #include <utility>
 
 namespace
 {
-   StrongShaderModuleHandle loadShaderModule(ResourceManager& resourceManager, const std::filesystem::path& path)
+   StrongShaderModuleHandle loadShaderModule(ResourceManager& resourceManager, const std::string& name, const char* extension)
    {
-      if (path.empty())
+      if (name.empty())
       {
          return StrongShaderModuleHandle{};
       }
 
+      std::filesystem::path path = "Resources/Shaders/" + name + "." + extension + ".spv";
       StrongShaderModuleHandle handle = resourceManager.loadShaderModule(path);
       const ShaderModule* shaderModule = resourceManager.getShaderModule(handle);
       if (!shaderModule)
@@ -29,8 +31,8 @@ namespace
 Shader::Shader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager, const InitializationInfo& info)
    : GraphicsResource(graphicsContext)
    , initializationInfo(info)
-   , vertShaderModuleHandle(loadShaderModule(resourceManager, info.vertShaderModulePath))
-   , fragShaderModuleHandle(loadShaderModule(resourceManager, info.fragShaderModulePath))
+   , vertShaderModuleHandle(loadShaderModule(resourceManager, info.vertShaderModuleName, "vert"))
+   , fragShaderModuleHandle(loadShaderModule(resourceManager, info.fragShaderModuleName, "frag"))
 {
    initializeStageCreateInfo();
 

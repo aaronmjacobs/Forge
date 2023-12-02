@@ -33,8 +33,8 @@ namespace
 
       Shader::InitializationInfo info;
 
-      info.vertShaderModulePath = "Resources/Shaders/Forward.vert.spv";
-      info.fragShaderModulePath = "Resources/Shaders/Forward.frag.spv";
+      info.vertShaderModuleName = "Forward";
+      info.fragShaderModuleName = "Forward";
 
       info.specializationInfo = kSpecializationInfo.getInfo();
 

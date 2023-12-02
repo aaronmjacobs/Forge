@@ -8,7 +8,7 @@ namespace
    {
       Shader::InitializationInfo info;
 
-      info.vertShaderModulePath = "Resources/Shaders/Depth.vert.spv";
+      info.vertShaderModuleName = "Depth";
 
       return info;
    }
