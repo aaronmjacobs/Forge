@@ -29,9 +29,9 @@ const float g_MaxNitsFor2084 = 10000.0f;
 // Color rotation matrix to rotate Rec.709 color primaries into Rec.2020
 const mat3 from709to2020 =
 {
-    { 0.6274040f, 0.3292820f, 0.0433136f },
-    { 0.0690970f, 0.9195400f, 0.0113612f },
-    { 0.0163916f, 0.0880132f, 0.8955950f }
+    { 0.6274040f, 0.0690970f, 0.0163916f },
+    { 0.3292820f, 0.9195400f, 0.0880132f },
+    { 0.0433136f, 0.0113612f, 0.8955950f }
 };
 
 // Rotation matrix describing a custom color space which is bigger than Rec.709, but a little smaller than P3
@@ -39,9 +39,9 @@ const mat3 from709to2020 =
 // of from709to2020.
 const mat3 fromExpanded709to2020 =
 {
-    { 0.6274040f, 0.3292820f, 0.0433136f },
-    { 0.0457456, 0.941777, 0.0124772 },
-    { -0.00121055, 0.0176041, 0.983607 }
+    { 0.6274040f, 0.0457456, 0.00121055 },
+    { 0.3292820f, 0.941777, 0.0176041 },
+    { -0.0433136f, 0.0124772, 0.983607 }
 };
 
 vec3 NormalizeHDRSceneValue(vec3 hdrSceneValue, float paperWhiteNits)
@@ -58,7 +58,7 @@ vec3 LinearToST2084(vec3 normalizedLinearValue)
 
 vec4 ConvertToHDR10(vec4 hdrSceneValue, float paperWhiteNits)
 {
-    vec3 rec2020 = hdrSceneValue.rgb * from709to2020;                                 // Rotate Rec.709 color primaries into Rec.2020 color primaries
+    vec3 rec2020 = from709to2020 * hdrSceneValue.rgb;                                 // Rotate Rec.709 color primaries into Rec.2020 color primaries
     vec3 normalizedLinearValue = NormalizeHDRSceneValue(rec2020, paperWhiteNits);     // Normalize using paper white nits to prepare for ST.2084
     vec3 HDR10 = LinearToST2084(normalizedLinearValue);                               // Apply ST.2084 curve
 
