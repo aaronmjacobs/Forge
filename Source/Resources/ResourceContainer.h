@@ -12,11 +12,20 @@ template<typename ResourceKey, typename ResourceValue>
 class ResourceContainer
 {
 public:
-   using Handle = ResourceHandle<ResourceValue>;
+   using Container = GenerationalArray<ResourcePointers<ResourceValue>>;
+   using Handle = Container::Handle;
 
    Handle add(const ResourceKey& key, std::unique_ptr<ResourceValue> resource)
    {
       Handle handle = resources.emplace(std::move(resource));
+      cacheHandle(key, handle);
+
+      return handle;
+   }
+
+   Handle addReference(const ResourceKey& key, ResourceValue* reference)
+   {
+      Handle handle = resources.emplace(reference);
       cacheHandle(key, handle);
 
       return handle;
@@ -62,14 +71,14 @@ public:
 
    ResourceValue* get(Handle handle)
    {
-      std::unique_ptr<ResourceValue>* resource = resources.get(handle);
-      return resource ? resource->get() : nullptr;
+      ResourcePointers<ResourceValue>* resourcePointers = resources.get(handle);
+      return resourcePointers ? resourcePointers->referencedResource : nullptr;
    }
 
    const ResourceValue* get(Handle handle) const
    {
-      const std::unique_ptr<ResourceValue>* resource = resources.get(handle);
-      return resource ? resource->get() : nullptr;
+      const ResourcePointers<ResourceValue>* resourcePointers = resources.get(handle);
+      return resourcePointers ? resourcePointers->referencedResource : nullptr;
    }
 
    const ResourceKey* findKey(Handle handle) const
@@ -96,6 +105,6 @@ private:
       cache.add(key, handle);
    }
 
-   GenerationalArray<std::unique_ptr<ResourceValue>> resources;
+   Container resources;
    ReflectedMap<ResourceKey, Handle> cache;
 };

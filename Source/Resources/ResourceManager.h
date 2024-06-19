@@ -122,7 +122,10 @@ public:
 
    // Texture
 
-   StrongTextureHandle loadTexture(const std::filesystem::path& path, const TextureLoadOptions& loadOptions = {}, DefaultTextureType fallbackDefaultTextureType = DefaultTextureType::None);
+   StrongTextureHandle loadTexture(const std::filesystem::path& path, const TextureLoadOptions& loadOptions = {})
+   {
+      return StrongTextureHandle(*this, textureLoader.load(path, loadOptions));
+   }
 
    bool unloadTexture(TextureHandle handle)
    {
@@ -141,12 +144,12 @@ public:
 
    Texture* getDefaultTexture(DefaultTextureType type)
    {
-      return getTexture(getDefaultTextureHandle(type));
+      return textureLoader.getDefault(type);
    }
 
    const Texture* getDefaultTexture(DefaultTextureType type) const
    {
-      return getTexture(getDefaultTextureHandle(type));
+      return textureLoader.getDefault(type);
    }
 
    const std::string* getTexturePath(TextureHandle handle) const
@@ -164,10 +167,6 @@ private:
 
    template<typename T>
    using RefCountMap = std::unordered_map<ResourceHandle<T>, StrongHandleSet<T>>;
-
-   void createDefaultTextures();
-
-   TextureHandle getDefaultTextureHandle(DefaultTextureType type) const;
 
    template<typename T>
    T* get(ResourceHandle<T> handle);
@@ -199,9 +198,4 @@ private:
    RefCountMap<Mesh> meshRefCounts;
    RefCountMap<ShaderModule> shaderModuleRefCounts;
    RefCountMap<Texture> textureRefCounts;
-
-   StrongTextureHandle defaultBlackTextureHandle;
-   StrongTextureHandle defaultWhiteTextureHandle;
-   StrongTextureHandle defaultNormalMapTextureHandle;
-   StrongTextureHandle defaultAoRoughnessMetalnessMapTextureHandle;
 };

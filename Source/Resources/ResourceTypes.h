@@ -11,8 +11,29 @@ class ResourceManager;
 class ShaderModule;
 class Texture;
 
+template<typename ResourceType>
+struct ResourcePointers
+{
+   std::unique_ptr<ResourceType> ownedResource;
+   ResourceType* referencedResource = nullptr;
+
+   ResourcePointers() = default;
+
+   ResourcePointers(std::unique_ptr<ResourceType> resource)
+      : ownedResource(std::move(resource))
+      , referencedResource(ownedResource.get())
+   {
+   }
+
+   ResourcePointers(ResourceType* resource)
+      : ownedResource(nullptr)
+      , referencedResource(resource)
+   {
+   }
+};
+
 template<typename T>
-using ResourceHandle = GenerationalArrayHandle<std::unique_ptr<T>>;
+using ResourceHandle = GenerationalArrayHandle<ResourcePointers<T>>;
 
 template<typename T>
 class StrongResourceHandle

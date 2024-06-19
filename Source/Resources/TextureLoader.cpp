@@ -39,57 +39,106 @@ namespace
       return nullptr;
    }
 
-   class SinglePixelImage : public Image
+   struct Color
+   {
+      uint8_t r = 0;
+      uint8_t g = 0;
+      uint8_t b = 0;
+      uint8_t a = 0;
+
+      static uint8_t quantize(float value)
+      {
+         return static_cast<uint8_t>(glm::clamp(value, 0.0f, 1.0f) * 255.0f + 0.5f);
+      }
+
+      Color() = default;
+
+      Color(uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha)
+         : r(red)
+         , g(green)
+         , b(blue)
+         , a(alpha)
+      {
+      }
+
+      Color(const glm::vec4& color)
+         : r(quantize(color.r))
+         , g(quantize(color.g))
+         , b(quantize(color.b))
+         , a(quantize(color.a))
+      {
+      }
+   };
+
+   class DefaultImage : public Image
    {
    public:
-      SinglePixelImage(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
-         : data({ r, g, b, a })
+      DefaultImage(const Color& color)
+         : data({ color, color, color, color })
       {
          properties.format = vk::Format::eR8G8B8A8Unorm;
-         properties.width = 1;
-         properties.height = 1;
+         properties.width = 2;
+         properties.height = 2;
 
-         mipInfo.extent = vk::Extent3D(1, 1, 1);
+         mipInfo.extent = vk::Extent3D(2, 2, 1);
       }
 
       TextureData getTextureData() const final
       {
          TextureData textureData;
-         textureData.bytes = std::span<const uint8_t>(data);
+         textureData.bytes = std::span<const uint8_t>(reinterpret_cast<const uint8_t*>(data.data()), sizeof(data));
          textureData.mips = std::span<const MipInfo>(&mipInfo, 1);
          textureData.mipsPerLayer = 1;
          return textureData;
       }
 
    private:
-      std::array<uint8_t, 4> data;
+      std::array<Color, 4> data;
       MipInfo mipInfo;
    };
 
-   SinglePixelImage createDefaultImage(const glm::vec4& color)
-   {
-      static const auto to8Bit = [](float value)
-      {
-         return static_cast<uint8_t>(glm::clamp(value, 0.0f, 1.0f) * 255.0f + 0.5f);
-      };
-
-      return SinglePixelImage(to8Bit(color.r), to8Bit(color.g), to8Bit(color.b), to8Bit(color.a));
-   }
-
-   std::optional<SinglePixelImage> createDefaultImage(DefaultTextureType type)
+   DefaultImage createDefaultImage(DefaultTextureType type)
    {
       switch (type)
       {
       case DefaultTextureType::Black:
-         return createDefaultImage(glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
+         return DefaultImage(glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
       case DefaultTextureType::White:
-         return createDefaultImage(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f));
+         return DefaultImage(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f));
       case DefaultTextureType::NormalMap:
-         return createDefaultImage(glm::vec4(0.5f, 0.5f, 1.0f, 1.0f));
+         return DefaultImage(glm::vec4(0.5f, 0.5f, 1.0f, 1.0f));
       case DefaultTextureType::AoRoughnessMetalnessMap:
-         return createDefaultImage(glm::vec4(0.0f, 0.75f, 0.0f, 1.0f));
+         return DefaultImage(glm::vec4(0.0f, 0.75f, 0.0f, 1.0f));
       default:
-         return {};
+         ASSERT(false);
+         return DefaultImage(glm::vec4(0.0f, 0.0f, 0.0f, 0.0f));
+      }
+   }
+
+   const std::string& getDefaultName(DefaultTextureType type)
+   {
+      static const std::string kNoneName = "";
+      static const std::string kBlackName = "Default Black Texture";
+      static const std::string kWhiteName = "Default White Texture";
+      static const std::string kNormalName = "Default Normal Map Texture";
+      static const std::string kAoRoughnessMetalnessName = "Default AO Roughness Metalness Map Texture";
+
+      switch (type)
+      {
+      case DefaultTextureType::None:
+         ASSERT(false);
+         return kNoneName;
+      case DefaultTextureType::Black:
+         return kBlackName;
+      case DefaultTextureType::White:
+         return kWhiteName;
+      case DefaultTextureType::NormalMap:
+         return kNormalName;
+      case DefaultTextureType::AoRoughnessMetalnessMap:
+         return kAoRoughnessMetalnessName;
+      default:
+         ASSERT(false);
+         return kNoneName;
       }
    }
 
@@ -127,22 +176,21 @@ std::size_t TextureKey::hash() const
 
 TextureLoader::TextureLoader(const GraphicsContext& graphicsContext, ResourceManager& owningResourceManager)
    : ResourceLoader(graphicsContext, owningResourceManager)
+   , defaultBlack(createDefault(DefaultTextureType::Black))
+   , defaultWhite(createDefault(DefaultTextureType::White))
+   , defaultNormalMap(createDefault(DefaultTextureType::NormalMap))
+   , defaultAoRoughnessMetalnessMap(createDefault(DefaultTextureType::AoRoughnessMetalnessMap))
 {
 }
 
 TextureHandle TextureLoader::load(const std::filesystem::path& path, const TextureLoadOptions& loadOptions)
 {
+   TextureKey key;
+   key.options = loadOptions;
+
    if (std::optional<std::filesystem::path> canonicalPath = ResourceLoadHelpers::makeCanonical(path))
    {
-      TextureKey key;
       key.canonicalPath = canonicalPath->string();
-      key.options = loadOptions;
-
-      if (key.canonicalPath.starts_with('*'))
-      {
-         // Reserved for defaults
-         return TextureHandle{};
-      }
 
       if (Handle cachedHandle = container.findHandle(key))
       {
@@ -157,89 +205,66 @@ TextureHandle TextureLoader::load(const std::filesystem::path& path, const Textu
          return handle;
       }
    }
-
-   return TextureHandle{};
-}
-
-TextureHandle TextureLoader::createDefault(DefaultTextureType type)
-{
-   if (type == DefaultTextureType::None)
+   else
    {
-      return TextureHandle{};
+      key.canonicalPath = path.string();
    }
 
-   TextureKey key;
-   key.canonicalPath = getDefaultPath(type);
-   key.options.sRGB = false;
-   key.options.generateMipMaps = false;
-
-   if (Handle cachedHandle = container.findHandle(key))
+   if (Texture* defaultTexture = getDefault(loadOptions.fallbackDefaultTextureType))
    {
-      return cachedHandle;
-   }
-
-   std::optional<SinglePixelImage> defaultImage = createDefaultImage(type);
-   if (defaultImage.has_value())
-   {
-      TextureHandle handle = container.emplace(key, context, defaultImage->getProperties(), getTextureProperties(false), getInitialLayout(), defaultImage->getTextureData());
-      NAME_POINTER(context.getDevice(), get(handle), getDefaultName(type));
-
-      return handle;
+      return container.addReference(key, defaultTexture);
    }
 
    return TextureHandle{};
 }
 
-const std::string& TextureLoader::getDefaultPath(DefaultTextureType type) const
+Texture* TextureLoader::getDefault(DefaultTextureType type)
 {
-   static const std::string kNonePath = "*none*";
-   static const std::string kBlackPath = "*default|black*";
-   static const std::string kWhitePath = "*default|white*";
-   static const std::string kNormalPath = "*default|normal*";
-   static const std::string kAoRoughnessMetalnessPath = "*default|ao_roughness_metalness*";
-
    switch (type)
    {
    case DefaultTextureType::None:
-      ASSERT(false);
-      return kNonePath;
+      return nullptr;
    case DefaultTextureType::Black:
-      return kBlackPath;
+      return defaultBlack.get();
    case DefaultTextureType::White:
-      return kWhitePath;
+      return defaultWhite.get();
    case DefaultTextureType::NormalMap:
-      return kNormalPath;
+      return defaultNormalMap.get();
    case DefaultTextureType::AoRoughnessMetalnessMap:
-      return kAoRoughnessMetalnessPath;
+      return defaultAoRoughnessMetalnessMap.get();
    default:
       ASSERT(false);
-      return kNonePath;
+      return nullptr;
    }
 }
 
-const std::string& TextureLoader::getDefaultName(DefaultTextureType type) const
+const Texture* TextureLoader::getDefault(DefaultTextureType type) const
 {
-   static const std::string kNoneName = "";
-   static const std::string kBlackName = "Default Black Texture";
-   static const std::string kWhiteName = "Default White Texture";
-   static const std::string kNormalName = "Default Normal Map Texture";
-   static const std::string kAoRoughnessMetalnessName = "Default AO Roughness Metalness Map Texture";
-
    switch (type)
    {
    case DefaultTextureType::None:
-      ASSERT(false);
-      return kNoneName;
+      return nullptr;
    case DefaultTextureType::Black:
-      return kBlackName;
+      return defaultBlack.get();
    case DefaultTextureType::White:
-      return kWhiteName;
+      return defaultWhite.get();
    case DefaultTextureType::NormalMap:
-      return kNormalName;
+      return defaultNormalMap.get();
    case DefaultTextureType::AoRoughnessMetalnessMap:
-      return kAoRoughnessMetalnessName;
+      return defaultAoRoughnessMetalnessMap.get();
    default:
       ASSERT(false);
-      return kNoneName;
+      return nullptr;
    }
+}
+
+std::unique_ptr<Texture> TextureLoader::createDefault(DefaultTextureType type) const
+{
+   ASSERT(type != DefaultTextureType::None);
+
+   DefaultImage defaultImage = createDefaultImage(type);
+   std::unique_ptr<Texture> defaultTexture = std::make_unique<Texture>(context, defaultImage.getProperties(), getTextureProperties(false), getInitialLayout(), defaultImage.getTextureData());
+   NAME_POINTER(context.getDevice(), defaultTexture.get(), getDefaultName(type));
+
+   return defaultTexture;
 }

@@ -8,7 +8,6 @@ ResourceManager::ResourceManager(const GraphicsContext& graphicsContext)
    , shaderModuleLoader(graphicsContext, *this)
    , textureLoader(graphicsContext, *this)
 {
-   createDefaultTextures();
 }
 
 ResourceManager::~ResourceManager()
@@ -17,52 +16,6 @@ ResourceManager::~ResourceManager()
    clearRefCounts(meshRefCounts);
    clearRefCounts(shaderModuleRefCounts);
    clearRefCounts(textureRefCounts);
-}
-
-StrongTextureHandle ResourceManager::loadTexture(const std::filesystem::path& path, const TextureLoadOptions& loadOptions, DefaultTextureType fallbackDefaultTextureType)
-{
-   TextureHandle handle = textureLoader.load(path, loadOptions);
-
-   if (!handle)
-   {
-      handle = getDefaultTextureHandle(fallbackDefaultTextureType);
-   }
-
-   return StrongTextureHandle(*this, handle);
-}
-
-void ResourceManager::createDefaultTextures()
-{
-   defaultBlackTextureHandle = StrongTextureHandle(*this, textureLoader.createDefault(DefaultTextureType::Black));
-   defaultWhiteTextureHandle = StrongTextureHandle(*this, textureLoader.createDefault(DefaultTextureType::White));
-   defaultNormalMapTextureHandle = StrongTextureHandle(*this, textureLoader.createDefault(DefaultTextureType::NormalMap));
-   defaultAoRoughnessMetalnessMapTextureHandle = StrongTextureHandle(*this, textureLoader.createDefault(DefaultTextureType::AoRoughnessMetalnessMap));
-}
-
-TextureHandle ResourceManager::getDefaultTextureHandle(DefaultTextureType type) const
-{
-   TextureHandle handle;
-   switch (type)
-   {
-   case DefaultTextureType::None:
-      break;
-   case DefaultTextureType::Black:
-      handle = defaultBlackTextureHandle;
-      break;
-   case DefaultTextureType::White:
-      handle = defaultWhiteTextureHandle;
-      break;
-   case DefaultTextureType::NormalMap:
-      handle = defaultNormalMapTextureHandle;
-      break;
-   case DefaultTextureType::AoRoughnessMetalnessMap:
-      handle = defaultAoRoughnessMetalnessMapTextureHandle;
-      break;
-   default:
-      break;
-   }
-
-   return handle;
 }
 
 #define FOR_EACH_RESOURCE_TYPE(resource_type) \

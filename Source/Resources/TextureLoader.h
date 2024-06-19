@@ -21,6 +21,7 @@ struct TextureLoadOptions
 {
    bool sRGB = true;
    bool generateMipMaps = true;
+   DefaultTextureType fallbackDefaultTextureType = DefaultTextureType::Black;
 
    bool operator==(const TextureLoadOptions& other) const = default;
 };
@@ -43,9 +44,14 @@ public:
 
    TextureHandle load(const std::filesystem::path& path, const TextureLoadOptions& loadOptions = {});
 
-   TextureHandle createDefault(DefaultTextureType type);
+   Texture* getDefault(DefaultTextureType type);
+   const Texture* getDefault(DefaultTextureType type) const;
 
 private:
-   const std::string& getDefaultPath(DefaultTextureType type) const;
-   const std::string& getDefaultName(DefaultTextureType type) const;
+   std::unique_ptr<Texture> createDefault(DefaultTextureType type) const;
+
+   std::unique_ptr<Texture> defaultBlack;
+   std::unique_ptr<Texture> defaultWhite;
+   std::unique_ptr<Texture> defaultNormalMap;
+   std::unique_ptr<Texture> defaultAoRoughnessMetalnessMap;
 };

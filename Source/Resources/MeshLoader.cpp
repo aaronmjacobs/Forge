@@ -129,28 +129,27 @@ namespace
       TextureLoadOptions loadOptions;
       loadOptions.sRGB = textureType == aiTextureType_BASE_COLOR || textureType == aiTextureType_DIFFUSE;
 
-      DefaultTextureType fallbackDefaultTextureType = DefaultTextureType::None;
       switch (textureType)
       {
       case aiTextureType_BASE_COLOR:
       case aiTextureType_DIFFUSE:
-         fallbackDefaultTextureType = DefaultTextureType::White;
+         loadOptions.fallbackDefaultTextureType = DefaultTextureType::White;
          break;
       case aiTextureType_NORMALS:
-         fallbackDefaultTextureType = DefaultTextureType::NormalMap;
+         loadOptions.fallbackDefaultTextureType = DefaultTextureType::NormalMap;
          break;
       case aiTextureType_AMBIENT_OCCLUSION:
       case aiTextureType_DIFFUSE_ROUGHNESS:
       case aiTextureType_METALNESS:
       case aiTextureType_UNKNOWN:
-         fallbackDefaultTextureType = DefaultTextureType::AoRoughnessMetalnessMap;
+         loadOptions.fallbackDefaultTextureType = DefaultTextureType::AoRoughnessMetalnessMap;
          break;
       default:
-         fallbackDefaultTextureType = DefaultTextureType::Black;
+         loadOptions.fallbackDefaultTextureType = DefaultTextureType::Black;
          break;
       }
 
-      return resourceManager.loadTexture(texturePath, loadOptions, fallbackDefaultTextureType);
+      return resourceManager.loadTexture(texturePath, loadOptions);
    }
 
    StrongMaterialHandle processAssimpMaterial(const aiMaterial& assimpMaterial, bool interpretTextureAlphaAsMask, const std::filesystem::path& directory, ResourceManager& resourceManager)
