@@ -9,11 +9,7 @@ template<typename T>
 class GenerationalArrayHandle
 {
 public:
-   GenerationalArrayHandle()
-      : index(0)
-      , version(0)
-   {
-   }
+   GenerationalArrayHandle() = default;
 
    bool isValid() const
    {
@@ -35,23 +31,21 @@ public:
 
    std::size_t hash() const
    {
-      return (index << 8) | version;
+      return (version << 16) | index;
    }
 
 private:
    template<typename U>
    friend class GenerationalArray;
 
-   GenerationalArrayHandle(uint32_t indexValue, uint8_t versionValue)
+   GenerationalArrayHandle(uint16_t indexValue, uint16_t versionValue)
       : index(indexValue)
       , version(versionValue)
    {
-      static_assert(sizeof(GenerationalArrayHandle) == 4);
-      ASSERT(indexValue < (1 << 24));
    }
 
-   uint32_t index : 24;
-   uint32_t version : 8;
+   uint16_t index = 0;
+   uint16_t version = 0;
 };
 
 USE_MEMBER_HASH_FUNCTION_TEMPLATE(typename T, GenerationalArrayHandle<T>);

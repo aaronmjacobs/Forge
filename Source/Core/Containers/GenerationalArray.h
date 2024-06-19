@@ -109,7 +109,7 @@ private:
    struct Element
    {
       std::optional<T> data;
-      uint8_t version = 0;
+      uint16_t version = 0;
    };
 
    std::size_t allocate()
@@ -133,18 +133,18 @@ private:
    Handle createHandle(std::size_t index)
    {
       ASSERT(index < elements.size());
-      ASSERT(index < (1 << 24));
+      ASSERT(index < (1 << 16));
       ASSERT(elements[index].data.has_value());
 
 #if FORGE_WITH_DEBUG_UTILS
-      if (elements[index].version == 255)
+      if (elements[index].version == std::numeric_limits<uint16_t>::max())
       {
          LOG_WARNING("Generational array version overflow (index " << index << ")");
       }
 #endif // FORGE_WITH_DEBUG_UTILS
 
-      uint8_t version = ++elements[index].version;
-      return Handle(static_cast<uint32_t>(index), version);
+      uint16_t version = ++elements[index].version;
+      return Handle(static_cast<uint16_t>(index), version);
    }
 
    Element* find(Handle handle)
