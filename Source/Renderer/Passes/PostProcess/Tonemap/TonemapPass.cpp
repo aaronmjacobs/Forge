@@ -46,6 +46,7 @@ TonemapPass::TonemapPass(const GraphicsContext& graphicsContext, DynamicDescript
    TextureLoadOptions lutLoadOptions;
    lutLoadOptions.sRGB = false;
    lutLoadOptions.generateMipMaps = false;
+   lutLoadOptions.fallbackDefaultTextureType = DefaultTextureType::Volume;
    lutTextureHandle = resourceManager.loadTexture("Resources/Textures/Tony McMapface/tony_mc_mapface.dds", lutLoadOptions);
 }
 

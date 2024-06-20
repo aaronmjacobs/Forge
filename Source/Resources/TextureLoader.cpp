@@ -16,6 +16,7 @@
 #include <array>
 #include <cstdint>
 #include <optional>
+#include <vector>
 
 namespace
 {
@@ -73,28 +74,59 @@ namespace
    class DefaultImage : public Image
    {
    public:
-      DefaultImage(const Color& color)
-         : data({ color, color, color, color })
+      DefaultImage(const Color& color, uint32_t depth = 1)
+      {
+         properties.format = vk::Format::eR8G8B8A8Unorm;
+         properties.type = depth == 1 ? vk::ImageType::e2D : vk::ImageType::e3D;
+         properties.width = 2;
+         properties.height = 2;
+         properties.depth = depth;
+
+         data.assign(properties.width * properties.height * properties.depth * properties.layers, color);
+
+         MipInfo mipInfo;
+         mipInfo.extent = vk::Extent3D(properties.width, properties.height, properties.depth);
+         mips.push_back(mipInfo);
+      }
+
+      DefaultImage(const std::array<Color, 6>& faceColors)
       {
          properties.format = vk::Format::eR8G8B8A8Unorm;
          properties.width = 2;
          properties.height = 2;
+         properties.layers = faceColors.size();
+         properties.cubeCompatible = true;
 
-         mipInfo.extent = vk::Extent3D(2, 2, 1);
+         uint32_t numValuesPerLayer = properties.width * properties.height * properties.depth;
+         data.resize(numValuesPerLayer * properties.layers);
+
+         MipInfo mipInfo;
+         mipInfo.extent = vk::Extent3D(properties.width, properties.height, properties.depth);
+
+         for (std::size_t layer = 0; layer < properties.layers; ++layer)
+         {
+            for (std::size_t i = 0; i < numValuesPerLayer; ++i)
+            {
+               data[layer * numValuesPerLayer + i] = faceColors[layer];
+            }
+
+            mipInfo.bufferOffset = layer * (numValuesPerLayer * sizeof(Color));
+            mips.push_back(mipInfo);
+         }
       }
 
       TextureData getTextureData() const final
       {
          TextureData textureData;
-         textureData.bytes = std::span<const uint8_t>(reinterpret_cast<const uint8_t*>(data.data()), sizeof(data));
-         textureData.mips = std::span<const MipInfo>(&mipInfo, 1);
+         textureData.bytes = std::span<const uint8_t>(reinterpret_cast<const uint8_t*>(data.data()), data.size() * sizeof(Color));
+         textureData.mips = mips;
          textureData.mipsPerLayer = 1;
          return textureData;
       }
 
    private:
-      std::array<Color, 4> data;
-      MipInfo mipInfo;
+      std::vector<Color> data;
+      std::vector<MipInfo> mips;
    };
 
    DefaultImage createDefaultImage(DefaultTextureType type)
@@ -105,10 +137,22 @@ namespace
          return DefaultImage(glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
       case DefaultTextureType::White:
          return DefaultImage(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f));
-      case DefaultTextureType::NormalMap:
+      case DefaultTextureType::Normal:
          return DefaultImage(glm::vec4(0.5f, 0.5f, 1.0f, 1.0f));
-      case DefaultTextureType::AoRoughnessMetalnessMap:
+      case DefaultTextureType::AoRoughnessMetalness:
          return DefaultImage(glm::vec4(0.0f, 0.75f, 0.0f, 1.0f));
+      case DefaultTextureType::Cube:
+         return DefaultImage(std::array<Color, 6>
+         {
+            glm::vec4(1.0f, 0.0f, 0.0f, 1.0f),
+            glm::vec4(0.0f, 0.0f, 1.0f, 1.0f),
+            glm::vec4(0.0f, 1.0f, 0.0f, 1.0f),
+            glm::vec4(1.0f, 1.0f, 0.0f, 1.0f),
+            glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
+            glm::vec4(0.0f, 0.0f, 0.0f, 1.0f)
+         });
+      case DefaultTextureType::Volume:
+         return DefaultImage(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f), 2);
       default:
          ASSERT(false);
          return DefaultImage(glm::vec4(0.0f, 0.0f, 0.0f, 0.0f));
@@ -120,8 +164,10 @@ namespace
       static const std::string kNoneName = "";
       static const std::string kBlackName = "Default Black Texture";
       static const std::string kWhiteName = "Default White Texture";
-      static const std::string kNormalName = "Default Normal Map Texture";
-      static const std::string kAoRoughnessMetalnessName = "Default AO Roughness Metalness Map Texture";
+      static const std::string kNormalName = "Default Normal Texture";
+      static const std::string kAoRoughnessMetalnessName = "Default AO Roughness Metalness Texture";
+      static const std::string kCubeName = "Default Cube Texture";
+      static const std::string kVolumeName = "Default Volume Texture";
 
       switch (type)
       {
@@ -132,10 +178,14 @@ namespace
          return kBlackName;
       case DefaultTextureType::White:
          return kWhiteName;
-      case DefaultTextureType::NormalMap:
+      case DefaultTextureType::Normal:
          return kNormalName;
-      case DefaultTextureType::AoRoughnessMetalnessMap:
+      case DefaultTextureType::AoRoughnessMetalness:
          return kAoRoughnessMetalnessName;
+      case DefaultTextureType::Cube:
+         return kCubeName;
+      case DefaultTextureType::Volume:
+         return kVolumeName;
       default:
          ASSERT(false);
          return kNoneName;
@@ -178,8 +228,10 @@ TextureLoader::TextureLoader(const GraphicsContext& graphicsContext, ResourceMan
    : ResourceLoader(graphicsContext, owningResourceManager)
    , defaultBlack(createDefault(DefaultTextureType::Black))
    , defaultWhite(createDefault(DefaultTextureType::White))
-   , defaultNormalMap(createDefault(DefaultTextureType::NormalMap))
-   , defaultAoRoughnessMetalnessMap(createDefault(DefaultTextureType::AoRoughnessMetalnessMap))
+   , defaultNormal(createDefault(DefaultTextureType::Normal))
+   , defaultAoRoughnessMetalness(createDefault(DefaultTextureType::AoRoughnessMetalness))
+   , defaultCube(createDefault(DefaultTextureType::Cube))
+   , defaultVolume(createDefault(DefaultTextureType::Volume))
 {
 }
 
@@ -228,10 +280,14 @@ Texture* TextureLoader::getDefault(DefaultTextureType type)
       return defaultBlack.get();
    case DefaultTextureType::White:
       return defaultWhite.get();
-   case DefaultTextureType::NormalMap:
-      return defaultNormalMap.get();
-   case DefaultTextureType::AoRoughnessMetalnessMap:
-      return defaultAoRoughnessMetalnessMap.get();
+   case DefaultTextureType::Normal:
+      return defaultNormal.get();
+   case DefaultTextureType::AoRoughnessMetalness:
+      return defaultAoRoughnessMetalness.get();
+   case DefaultTextureType::Cube:
+      return defaultCube.get();
+   case DefaultTextureType::Volume:
+      return defaultVolume.get();
    default:
       ASSERT(false);
       return nullptr;
@@ -248,10 +304,14 @@ const Texture* TextureLoader::getDefault(DefaultTextureType type) const
       return defaultBlack.get();
    case DefaultTextureType::White:
       return defaultWhite.get();
-   case DefaultTextureType::NormalMap:
-      return defaultNormalMap.get();
-   case DefaultTextureType::AoRoughnessMetalnessMap:
-      return defaultAoRoughnessMetalnessMap.get();
+   case DefaultTextureType::Normal:
+      return defaultNormal.get();
+   case DefaultTextureType::AoRoughnessMetalness:
+      return defaultAoRoughnessMetalness.get();
+   case DefaultTextureType::Cube:
+      return defaultCube.get();
+   case DefaultTextureType::Volume:
+      return defaultVolume.get();
    default:
       ASSERT(false);
       return nullptr;

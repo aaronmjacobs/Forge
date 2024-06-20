@@ -13,8 +13,10 @@ enum class DefaultTextureType
    None,
    Black,
    White,
-   NormalMap,
-   AoRoughnessMetalnessMap
+   Normal,
+   AoRoughnessMetalness,
+   Cube,
+   Volume
 };
 
 struct TextureLoadOptions
@@ -52,6 +54,8 @@ private:
 
    std::unique_ptr<Texture> defaultBlack;
    std::unique_ptr<Texture> defaultWhite;
-   std::unique_ptr<Texture> defaultNormalMap;
-   std::unique_ptr<Texture> defaultAoRoughnessMetalnessMap;
+   std::unique_ptr<Texture> defaultNormal;
+   std::unique_ptr<Texture> defaultAoRoughnessMetalness;
+   std::unique_ptr<Texture> defaultCube;
+   std::unique_ptr<Texture> defaultVolume;
 };

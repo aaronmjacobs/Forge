@@ -136,13 +136,13 @@ namespace
          loadOptions.fallbackDefaultTextureType = DefaultTextureType::White;
          break;
       case aiTextureType_NORMALS:
-         loadOptions.fallbackDefaultTextureType = DefaultTextureType::NormalMap;
+         loadOptions.fallbackDefaultTextureType = DefaultTextureType::Normal;
          break;
       case aiTextureType_AMBIENT_OCCLUSION:
       case aiTextureType_DIFFUSE_ROUGHNESS:
       case aiTextureType_METALNESS:
       case aiTextureType_UNKNOWN:
-         loadOptions.fallbackDefaultTextureType = DefaultTextureType::AoRoughnessMetalnessMap;
+         loadOptions.fallbackDefaultTextureType = DefaultTextureType::AoRoughnessMetalness;
          break;
       default:
          loadOptions.fallbackDefaultTextureType = DefaultTextureType::Black;
