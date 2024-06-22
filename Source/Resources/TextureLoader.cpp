@@ -94,7 +94,7 @@ namespace
          properties.format = vk::Format::eR8G8B8A8Unorm;
          properties.width = 2;
          properties.height = 2;
-         properties.layers = faceColors.size();
+         properties.layers = static_cast<uint32_t>(faceColors.size());
          properties.cubeCompatible = true;
 
          uint32_t numValuesPerLayer = properties.width * properties.height * properties.depth;
@@ -110,7 +110,7 @@ namespace
                data[layer * numValuesPerLayer + i] = faceColors[layer];
             }
 
-            mipInfo.bufferOffset = layer * (numValuesPerLayer * sizeof(Color));
+            mipInfo.bufferOffset = static_cast<uint32_t>(layer * (numValuesPerLayer * sizeof(Color)));
             mips.push_back(mipInfo);
          }
       }
@@ -152,7 +152,7 @@ namespace
             glm::vec4(0.0f, 0.0f, 0.0f, 1.0f)
          });
       case DefaultTextureType::Volume:
-         return DefaultImage(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f), 2);
+         return DefaultImage(glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), 2);
       default:
          ASSERT(false);
          return DefaultImage(glm::vec4(0.0f, 0.0f, 0.0f, 0.0f));
