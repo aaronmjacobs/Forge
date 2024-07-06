@@ -192,13 +192,13 @@ void ShaderModuleLoader::pollCompilationResults()
    for (auto itr = compilationResults.begin(); itr != compilationResults.end();)
    {
       const std::string& canonicalPathString = itr->first;
-      std::future<CompilationResult>& future = itr->second;
+      Task<CompilationResult>& task = itr->second;
 
-      ASSERT(future.valid());
+      ASSERT(task.isValid());
 
-      if (future.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
+      if (task.isDone())
       {
-         CompilationResult compilationResult = future.get();
+         CompilationResult compilationResult = task.getResult();
          if (compilationResult.code && compilationResult.code->size() > 0)
          {
             hotReload(canonicalPathString, compilationResult.code.value());
@@ -250,7 +250,7 @@ void ShaderModuleLoader::compile(const std::filesystem::path& sourcePath)
          glslcStartInfo.args = { "-o", binaryPath->string(), sourcePath.string() };
          glslcStartInfo.readOutput = true;
 
-         compilationResults.emplace(canonicalPathString, std::async(std::launch::async, [canonicalPathString, processStartInfo = std::move(glslcStartInfo)]()
+         compilationResults.emplace(canonicalPathString, Task<CompilationResult>([canonicalPathString, processStartInfo = std::move(glslcStartInfo)]()
          {
             CompilationResult result;
             result.exitInfo = OSUtils::executeProcess(processStartInfo);

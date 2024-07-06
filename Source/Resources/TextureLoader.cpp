@@ -242,19 +242,15 @@ TextureLoader::~TextureLoader()
 
 void TextureLoader::update()
 {
-   for (auto itr = loadTasks.begin(); itr != loadTasks.end(); )
+   for (Task<LoadResult>& task : loadTasks)
    {
-      Task<LoadResult>& task = *itr;
       if (task.isDone())
       {
          onImageLoaded(task.getResult());
-         itr = loadTasks.erase(itr);
-      }
-      else
-      {
-         ++itr;
       }
    }
+
+   loadTasks.erase(std::remove_if(loadTasks.begin(), loadTasks.end(), [](const Task<LoadResult>& task) { return !task.isValid(); }), loadTasks.end());
 }
 
 TextureHandle TextureLoader::load(const std::filesystem::path& path, const TextureLoadOptions& loadOptions)

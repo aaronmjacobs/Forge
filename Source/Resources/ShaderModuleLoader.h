@@ -11,9 +11,10 @@
 #include <string>
 
 #if FORGE_WITH_SHADER_HOT_RELOADING
+#  include "Core/Task.h"
+
 #  include <PlatformUtils/OSUtils.h>
 
-#  include <future>
 #  include <unordered_map>
 #  include <unordered_set>
 #endif // FORGE_WITH_SHADER_HOT_RELOADING
@@ -52,7 +53,7 @@ private:
    };
 
    HotReloadDelegate hotReloadDelegate;
-   std::unordered_map<std::string, std::future<CompilationResult>> compilationResults;
+   std::unordered_map<std::string, Task<CompilationResult>> compilationResults;
    std::unordered_map<std::string, std::unordered_set<std::string>> includeMap;
 
    OSUtils::DirectoryWatcher shaderSourceDirectoryWatcher;
