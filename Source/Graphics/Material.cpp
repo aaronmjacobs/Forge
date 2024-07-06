@@ -8,9 +8,9 @@ namespace
    }
 }
 
-Material::Material(const GraphicsContext& graphicsContext, MaterialLoader& owningMaterialLoader, uint32_t typeFlagBit)
+Material::Material(const GraphicsContext& graphicsContext, ResourceManager& owningResourceManager, uint32_t typeFlagBit)
    : GraphicsResource(graphicsContext)
-   , materialLoader(owningMaterialLoader)
+   , resourceManager(owningResourceManager)
    , typeFlag(typeFlagBit)
 {
    ASSERT(isPowerOfTwo(typeFlag));

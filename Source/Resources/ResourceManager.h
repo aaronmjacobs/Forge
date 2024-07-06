@@ -24,6 +24,7 @@ public:
    {
       materialLoader.updateMaterials();
       shaderModuleLoader.update();
+      textureLoader.update();
    }
 
    // Material
@@ -51,6 +52,11 @@ public:
    const MaterialParameters* getMaterialParameters(MaterialHandle handle) const
    {
       return materialLoader.findKey(handle);
+   }
+
+   void requestSetOfMaterialUpdates(MaterialHandle handle)
+   {
+      materialLoader.requestSetOfUpdates(handle);
    }
 
    // Mesh
@@ -156,6 +162,16 @@ public:
    {
       const TextureKey* key = textureLoader.findKey(handle);
       return key ? &key->canonicalPath : nullptr;
+   }
+
+   void registerTextureReplaceDelegate(TextureHandle handle, TextureLoader::ReplaceDelegate delegate)
+   {
+      textureLoader.registerReplaceDelegate(handle, std::move(delegate));
+   }
+
+   void unregisterTextureReplaceDelegate(TextureHandle handle)
+   {
+      textureLoader.unregisterReplaceDelegate(handle);
    }
 
 private:

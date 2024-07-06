@@ -4,7 +4,9 @@
 
 #include "Math/MathUtils.h"
 
-#include "Resources/MaterialLoader.h"
+#include "Resources/ResourceManager.h"
+
+#include <vector>
 
 // static
 const std::string PhysicallyBasedMaterial::kAlbedoTextureParameterName = "albedo";
@@ -58,13 +60,16 @@ std::vector<vk::DescriptorSetLayoutBinding> PhysicallyBasedMaterialDescriptorSet
    };
 }
 
-PhysicallyBasedMaterial::PhysicallyBasedMaterial(const GraphicsContext& graphicsContext, MaterialLoader& owningMaterialLoader, const PhysicallyBasedMaterialParams& materialParams)
-   : Material(graphicsContext, owningMaterialLoader, kTypeFlag)
-   , descriptorSet(graphicsContext, owningMaterialLoader.getDynamicDescriptorPool())
+PhysicallyBasedMaterial::PhysicallyBasedMaterial(const GraphicsContext& graphicsContext, ResourceManager& owningResourceManager, DynamicDescriptorPool& dynamicDescriptorPool, vk::Sampler materialSampler, const PhysicallyBasedMaterialParams& materialParams)
+   : Material(graphicsContext, owningResourceManager, kTypeFlag)
+   , descriptorSet(graphicsContext, dynamicDescriptorPool)
    , uniformBuffer(graphicsContext)
+   , sampler(materialSampler)
+   , albedoTextureHandle(materialParams.albedoTexture)
+   , normalTextureHandle(materialParams.normalTexture)
+   , aoRoughnessMetalnessTextureHandle(materialParams.aoRoughnessMetalnessTexture)
+   , interpretAlphaAsMasked(materialParams.interpretAlphaAsMasked)
 {
-   ASSERT(materialParams.albedoTexture && materialParams.normalTexture && materialParams.aoRoughnessMetalnessTexture);
-
    NAME_CHILD(descriptorSet, "");
    NAME_CHILD(uniformBuffer, "");
 
@@ -76,68 +81,25 @@ PhysicallyBasedMaterial::PhysicallyBasedMaterial(const GraphicsContext& graphics
    cachedUniformData.ambientOcclusion = MathUtils::saturate(materialParams.ambientOcclusion);
    uniformBuffer.updateAll(cachedUniformData);
 
-   if (materialParams.albedoTexture->getImageProperties().hasAlpha)
-   {
-      blendMode = materialParams.interpretAlphaAsMasked ? BlendMode::Masked : BlendMode::Translucent;
-   }
-
    twoSided = materialParams.twoSided;
 
-   std::array<vk::DescriptorImageInfo, GraphicsContext::kMaxFramesInFlight * 3> imageInfo;
-   std::array<vk::DescriptorBufferInfo, GraphicsContext::kMaxFramesInFlight> bufferInfo;
-   std::array<vk::WriteDescriptorSet, GraphicsContext::kMaxFramesInFlight * 4> descriptorWrites;
-   for (uint32_t frameIndex = 0; frameIndex < GraphicsContext::kMaxFramesInFlight; ++frameIndex)
+   updateDescriptorSet(true, true, true, true);
+
+   auto replaceLambda = [this](TextureHandle handle)
    {
-      imageInfo[frameIndex * 3 + 0] = vk::DescriptorImageInfo()
-         .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-         .setImageView(materialParams.albedoTexture->getDefaultView())
-         .setSampler(materialLoader.getSampler());
+      updateDescriptorSet(handle == albedoTextureHandle, handle == normalTextureHandle, handle == aoRoughnessMetalnessTextureHandle, false);
+   };
 
-      imageInfo[frameIndex * 3 + 1] = vk::DescriptorImageInfo()
-         .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-         .setImageView(materialParams.normalTexture->getDefaultView())
-         .setSampler(materialLoader.getSampler());
+   resourceManager.registerTextureReplaceDelegate(albedoTextureHandle, TextureLoader::ReplaceDelegate::create(replaceLambda));
+   resourceManager.registerTextureReplaceDelegate(normalTextureHandle, TextureLoader::ReplaceDelegate::create(replaceLambda));
+   resourceManager.registerTextureReplaceDelegate(aoRoughnessMetalnessTextureHandle, TextureLoader::ReplaceDelegate::create(replaceLambda));
+}
 
-      imageInfo[frameIndex * 3 + 2] = vk::DescriptorImageInfo()
-         .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-         .setImageView(materialParams.aoRoughnessMetalnessTexture->getDefaultView())
-         .setSampler(materialLoader.getSampler());
-
-      descriptorWrites[frameIndex * 4 + 0] = vk::WriteDescriptorSet()
-         .setDstSet(descriptorSet.getSet(frameIndex))
-         .setDstBinding(0)
-         .setDstArrayElement(0)
-         .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-         .setDescriptorCount(1)
-         .setPImageInfo(&imageInfo[frameIndex * 3 + 0]);
-
-      descriptorWrites[frameIndex * 4 + 1] = vk::WriteDescriptorSet()
-         .setDstSet(descriptorSet.getSet(frameIndex))
-         .setDstBinding(1)
-         .setDstArrayElement(0)
-         .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-         .setDescriptorCount(1)
-         .setPImageInfo(&imageInfo[frameIndex * 3 + 1]);
-
-      descriptorWrites[frameIndex * 4 + 2] = vk::WriteDescriptorSet()
-         .setDstSet(descriptorSet.getSet(frameIndex))
-         .setDstBinding(2)
-         .setDstArrayElement(0)
-         .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-         .setDescriptorCount(1)
-         .setPImageInfo(&imageInfo[frameIndex * 3 + 2]);
-
-      bufferInfo[frameIndex] = uniformBuffer.getDescriptorBufferInfo(frameIndex);
-      descriptorWrites[frameIndex * 4 + 3] = vk::WriteDescriptorSet()
-         .setDstSet(descriptorSet.getSet(frameIndex))
-         .setDstBinding(3)
-         .setDstArrayElement(0)
-         .setDescriptorType(vk::DescriptorType::eUniformBuffer)
-         .setDescriptorCount(1)
-         .setBufferInfo(bufferInfo[frameIndex]);
-   }
-
-   device.updateDescriptorSets(descriptorWrites, {});
+PhysicallyBasedMaterial::~PhysicallyBasedMaterial()
+{
+   resourceManager.unregisterTextureReplaceDelegate(albedoTextureHandle);
+   resourceManager.unregisterTextureReplaceDelegate(normalTextureHandle);
+   resourceManager.unregisterTextureReplaceDelegate(aoRoughnessMetalnessTextureHandle);
 }
 
 void PhysicallyBasedMaterial::update()
@@ -215,5 +177,100 @@ void PhysicallyBasedMaterial::setAmbientOcclusion(float ambientOcclusion)
 
 void PhysicallyBasedMaterial::onUniformDataChanged()
 {
-   materialLoader.requestSetOfUpdates(getHandle());
+   resourceManager.requestSetOfMaterialUpdates(getHandle());
+}
+
+void PhysicallyBasedMaterial::updateDescriptorSet(bool updateAlbedo, bool updateNormal, bool updateAoRoughnessMetalness, bool updateUniformBuffer)
+{
+   Texture* albedoTexture = updateAlbedo ? resourceManager.getTexture(albedoTextureHandle) : nullptr;
+   Texture* normalTexture = updateNormal ? resourceManager.getTexture(normalTextureHandle) : nullptr;
+   Texture* aoRoughnessMetalnessTexture = updateAoRoughnessMetalness ? resourceManager.getTexture(aoRoughnessMetalnessTextureHandle) : nullptr;
+
+   if (albedoTexture && albedoTexture->getImageProperties().hasAlpha)
+   {
+      blendMode = interpretAlphaAsMasked ? BlendMode::Masked : BlendMode::Translucent;
+   }
+
+   std::vector<vk::DescriptorImageInfo> imageInfo;
+   if (updateAlbedo)
+   {
+      imageInfo.push_back(vk::DescriptorImageInfo()
+         .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+         .setImageView(albedoTexture->getDefaultView())
+         .setSampler(sampler));
+   }
+   if (updateNormal)
+   {
+      imageInfo.push_back(vk::DescriptorImageInfo()
+         .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+         .setImageView(normalTexture->getDefaultView())
+         .setSampler(sampler));
+   }
+   if (updateAoRoughnessMetalness)
+   {
+      imageInfo.push_back(vk::DescriptorImageInfo()
+         .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+         .setImageView(aoRoughnessMetalnessTexture->getDefaultView())
+         .setSampler(sampler));
+   }
+
+   std::array<vk::DescriptorBufferInfo, 3> bufferInfo;
+   std::vector<vk::WriteDescriptorSet> descriptorWrites;
+   for (uint32_t frameIndex = 0; frameIndex < GraphicsContext::kMaxFramesInFlight; ++frameIndex)
+   {
+      uint32_t imageIndex = 0;
+
+      if (updateAlbedo)
+      {
+         descriptorWrites.push_back(vk::WriteDescriptorSet()
+            .setDstSet(descriptorSet.getSet(frameIndex))
+            .setDstBinding(0)
+            .setDstArrayElement(0)
+            .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+            .setDescriptorCount(1)
+            .setPImageInfo(&imageInfo[imageIndex]));
+
+         ++imageIndex;
+      }
+
+      if (updateNormal)
+      {
+         descriptorWrites.push_back(vk::WriteDescriptorSet()
+            .setDstSet(descriptorSet.getSet(frameIndex))
+            .setDstBinding(1)
+            .setDstArrayElement(0)
+            .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+            .setDescriptorCount(1)
+            .setPImageInfo(&imageInfo[imageIndex]));
+
+         ++imageIndex;
+      }
+
+      if (updateAoRoughnessMetalness)
+      {
+         descriptorWrites.push_back(vk::WriteDescriptorSet()
+            .setDstSet(descriptorSet.getSet(frameIndex))
+            .setDstBinding(2)
+            .setDstArrayElement(0)
+            .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+            .setDescriptorCount(1)
+            .setPImageInfo(&imageInfo[imageIndex]));
+
+         ++imageIndex;
+      }
+
+      if (updateUniformBuffer)
+      {
+         bufferInfo[frameIndex] = uniformBuffer.getDescriptorBufferInfo(frameIndex);
+         descriptorWrites.push_back(vk::WriteDescriptorSet()
+            .setDstSet(descriptorSet.getSet(frameIndex))
+            .setDstBinding(3)
+            .setDstArrayElement(0)
+            .setDescriptorType(vk::DescriptorType::eUniformBuffer)
+            .setDescriptorCount(1)
+            .setBufferInfo(bufferInfo[frameIndex]));
+      }
+   }
+
+   device.updateDescriptorSets(descriptorWrites, {});
 }

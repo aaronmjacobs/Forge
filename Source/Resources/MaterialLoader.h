@@ -84,6 +84,10 @@ public:
 private:
    std::unique_ptr<Material> createMaterial(const MaterialParameters& parameters);
 
+#if FORGE_WITH_DEBUG_UTILS
+   std::string getTextureName(TextureHandle handle) const;
+#endif // FORGE_WITH_DEBUG_UTILS
+
    std::unordered_map<Handle, int> materialsToUpdate;
 
    DynamicDescriptorPool dynamicDescriptorPool;

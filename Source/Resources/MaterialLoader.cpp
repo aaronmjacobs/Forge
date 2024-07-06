@@ -151,16 +151,16 @@ std::unique_ptr<Material> MaterialLoader::createMaterial(const MaterialParameter
    {
       if (textureMaterialParameter.name == PhysicallyBasedMaterial::kAlbedoTextureParameterName)
       {
-         pbrParams.albedoTexture = resourceManager.getTexture(textureMaterialParameter.value);
+         pbrParams.albedoTexture = textureMaterialParameter.value;
          pbrParams.interpretAlphaAsMasked = textureMaterialParameter.interpretAlphaAsMask;
       }
       else if (textureMaterialParameter.name == PhysicallyBasedMaterial::kNormalTextureParameterName)
       {
-         pbrParams.normalTexture = resourceManager.getTexture(textureMaterialParameter.value);
+         pbrParams.normalTexture = textureMaterialParameter.value;
       }
       else if (textureMaterialParameter.name == PhysicallyBasedMaterial::kAoRoughnessMetalnessTextureParameterName)
       {
-         pbrParams.aoRoughnessMetalnessTexture = resourceManager.getTexture(textureMaterialParameter.value);
+         pbrParams.aoRoughnessMetalnessTexture = textureMaterialParameter.value;
       }
    }
 
@@ -196,11 +196,19 @@ std::unique_ptr<Material> MaterialLoader::createMaterial(const MaterialParameter
 
    if (pbrParams.albedoTexture && pbrParams.normalTexture && pbrParams.aoRoughnessMetalnessTexture)
    {
-      std::unique_ptr<PhysicallyBasedMaterial> material = std::make_unique<PhysicallyBasedMaterial>(context, *this, pbrParams);
-      NAME_POINTER(context.getDevice(), material, "Physically Based Material (Albedo = " + pbrParams.albedoTexture->getName() + ", Normal = " + pbrParams.normalTexture->getName() + ", Ambient Occlusion / Roughness / Metalness = " + pbrParams.aoRoughnessMetalnessTexture->getName() + ")");
+      std::unique_ptr<PhysicallyBasedMaterial> material = std::make_unique<PhysicallyBasedMaterial>(context, resourceManager, dynamicDescriptorPool, sampler, pbrParams);
+      NAME_POINTER(context.getDevice(), material, "Physically Based Material (Albedo = " + getTextureName(pbrParams.albedoTexture) + ", Normal = " + getTextureName(pbrParams.normalTexture) + ", Ambient Occlusion / Roughness / Metalness = " + getTextureName(pbrParams.aoRoughnessMetalnessTexture) + ")");
 
       return material;
    }
 
    return nullptr;
 }
+
+#if FORGE_WITH_DEBUG_UTILS
+std::string MaterialLoader::getTextureName(TextureHandle handle) const
+{
+   const std::string* texturePath = resourceManager.getTexturePath(handle);
+   return texturePath ? ResourceLoadHelpers::getName(*texturePath) : "";
+}
+#endif // FORGE_WITH_DEBUG_UTILS

@@ -8,12 +8,12 @@
 #include <cstdint>
 
 class DynamicDescriptorPool;
-class MaterialLoader;
+class ResourceManager;
 
 class Material : public GraphicsResource
 {
 public:
-   Material(const GraphicsContext& graphicsContext, MaterialLoader& owningMaterialLoader, uint32_t typeFlagBit);
+   Material(const GraphicsContext& graphicsContext, ResourceManager& owningResourceManager, uint32_t typeFlagBit);
 
    BlendMode getBlendMode() const
    {
@@ -47,7 +47,7 @@ public:
    friend class MaterialLoader;
 
 protected:
-   MaterialLoader& materialLoader;
+   ResourceManager& resourceManager;
    BlendMode blendMode = BlendMode::Opaque;
    bool twoSided = false;
 

@@ -16,6 +16,14 @@ public:
    using ReturnType = RetType;
    using FuncType = std::function<ReturnType(Params...)>;
 
+   static Delegate create(FuncType&& func)
+   {
+      Delegate delegate;
+      delegate.bind(std::move(func));
+
+      return delegate;
+   }
+
    DelegateHandle bind(FuncType&& func)
    {
       function = std::move(func);

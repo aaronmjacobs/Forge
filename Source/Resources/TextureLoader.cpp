@@ -16,6 +16,7 @@
 #include <array>
 #include <cstdint>
 #include <optional>
+#include <utility>
 #include <vector>
 
 namespace
@@ -235,6 +236,27 @@ TextureLoader::TextureLoader(const GraphicsContext& graphicsContext, ResourceMan
 {
 }
 
+TextureLoader::~TextureLoader()
+{
+}
+
+void TextureLoader::update()
+{
+   for (auto itr = loadTasks.begin(); itr != loadTasks.end(); )
+   {
+      Task<LoadResult>& task = *itr;
+      if (task.isDone())
+      {
+         onImageLoaded(task.getResult());
+         itr = loadTasks.erase(itr);
+      }
+      else
+      {
+         ++itr;
+      }
+   }
+}
+
 TextureHandle TextureLoader::load(const std::filesystem::path& path, const TextureLoadOptions& loadOptions)
 {
    TextureKey key;
@@ -243,31 +265,31 @@ TextureHandle TextureLoader::load(const std::filesystem::path& path, const Textu
    if (std::optional<std::filesystem::path> canonicalPath = ResourceLoadHelpers::makeCanonical(path))
    {
       key.canonicalPath = canonicalPath->string();
-
-      if (Handle cachedHandle = container.findHandle(key))
-      {
-         return cachedHandle;
-      }
-
-      if (std::unique_ptr<Image> image = loadImage(*canonicalPath, loadOptions))
-      {
-         TextureHandle handle = container.emplace(key, context, image->getProperties(), getTextureProperties(loadOptions.generateMipMaps), getInitialLayout(), image->getTextureData());
-         NAME_POINTER(context.getDevice(), get(handle), ResourceLoadHelpers::getName(*canonicalPath));
-
-         return handle;
-      }
    }
    else
    {
       key.canonicalPath = path.string();
    }
 
-   if (Texture* defaultTexture = getDefault(loadOptions.fallbackDefaultTextureType))
+   if (Handle cachedHandle = container.findHandle(key))
    {
-      return container.addReference(key, defaultTexture);
+      return cachedHandle;
    }
 
-   return TextureHandle{};
+   TextureHandle handle = container.addReference(key, getDefault(loadOptions.fallbackDefaultTextureType));
+
+   loadTasks.push_back(Task<LoadResult>([canonicalPath = key.canonicalPath, loadOptions, handle]()
+   {
+      LoadResult result;
+      result.image = loadImage(canonicalPath, loadOptions);
+      result.canonicalPath = canonicalPath;
+      result.loadOptions = loadOptions;
+      result.handle = handle;
+
+      return result;
+   }));
+
+   return handle;
 }
 
 Texture* TextureLoader::getDefault(DefaultTextureType type)
@@ -315,6 +337,31 @@ const Texture* TextureLoader::getDefault(DefaultTextureType type) const
    default:
       ASSERT(false);
       return nullptr;
+   }
+}
+
+void TextureLoader::registerReplaceDelegate(TextureHandle handle, ReplaceDelegate delegate)
+{
+   replaceDelegates.emplace(handle, std::move(delegate));
+}
+
+void TextureLoader::unregisterReplaceDelegate(TextureHandle handle)
+{
+   replaceDelegates.erase(handle);
+}
+
+void TextureLoader::onImageLoaded(LoadResult result)
+{
+   if (result.image)
+   {
+      container.replace(result.handle, std::make_unique<Texture>(context, result.image->getProperties(), getTextureProperties(result.loadOptions.generateMipMaps), getInitialLayout(), result.image->getTextureData()));
+      NAME_POINTER(context.getDevice(), get(result.handle), ResourceLoadHelpers::getName(result.canonicalPath));
+
+      auto location = replaceDelegates.find(result.handle);
+      if (location != replaceDelegates.end())
+      {
+         location->second.executeIfBound(result.handle);
+      }
    }
 }
 

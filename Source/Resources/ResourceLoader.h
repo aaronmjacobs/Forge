@@ -57,6 +57,11 @@ public:
       return container.findKey(handle);
    }
 
+   ResourceManager& getResourceManager()
+   {
+      return resourceManager;
+   }
+
 protected:
    const GraphicsContext& context;
    ResourceManager& resourceManager;

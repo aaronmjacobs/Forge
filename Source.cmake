@@ -23,6 +23,7 @@ target_sources(${PROJECT_NAME} PRIVATE
    "${SRC_DIR}/Core/Macros.h"
    "${SRC_DIR}/Core/Memory/FrameAllocator.cpp"
    "${SRC_DIR}/Core/Memory/FrameAllocator.h"
+   "${SRC_DIR}/Core/Task.h"
    "${SRC_DIR}/Core/Types.h"
 
    "${SRC_DIR}/Graphics/BlendMode.h"

@@ -1,12 +1,18 @@
 #pragma once
 
+#include "Core/Delegate.h"
 #include "Core/Hash.h"
+#include "Core/Task.h"
 
 #include "Resources/ResourceLoader.h"
 
 #include "Graphics/Texture.h"
 
+#include <memory>
 #include <string>
+#include <unordered_map>
+
+class Image;
 
 enum class DefaultTextureType
 {
@@ -43,13 +49,29 @@ class TextureLoader : public ResourceLoader<TextureKey, Texture>
 {
 public:
    TextureLoader(const GraphicsContext& graphicsContext, ResourceManager& owningResourceManager);
+   ~TextureLoader();
+
+   void update();
 
    TextureHandle load(const std::filesystem::path& path, const TextureLoadOptions& loadOptions = {});
 
    Texture* getDefault(DefaultTextureType type);
    const Texture* getDefault(DefaultTextureType type) const;
 
+   using ReplaceDelegate = Delegate<void, TextureHandle>;
+   void registerReplaceDelegate(TextureHandle handle, ReplaceDelegate delegate);
+   void unregisterReplaceDelegate(TextureHandle handle);
+
 private:
+   struct LoadResult
+   {
+      std::unique_ptr<Image> image;
+      std::string canonicalPath;
+      TextureLoadOptions loadOptions;
+      TextureHandle handle;
+   };
+
+   void onImageLoaded(LoadResult loadResult);
    std::unique_ptr<Texture> createDefault(DefaultTextureType type) const;
 
    std::unique_ptr<Texture> defaultBlack;
@@ -58,4 +80,7 @@ private:
    std::unique_ptr<Texture> defaultAoRoughnessMetalness;
    std::unique_ptr<Texture> defaultCube;
    std::unique_ptr<Texture> defaultVolume;
+
+   std::vector<Task<LoadResult>> loadTasks;
+   std::unordered_map<Handle, ReplaceDelegate> replaceDelegates;
 };

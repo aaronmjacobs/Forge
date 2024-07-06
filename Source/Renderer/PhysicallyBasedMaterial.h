@@ -3,11 +3,13 @@
 #include "Graphics/DescriptorSet.h"
 #include "Graphics/Material.h"
 #include "Graphics/UniformBuffer.h"
+#include "Resources/ResourceTypes.h"
 
 #include <glm/glm.hpp>
 
 #include <vector>
 
+class DynamicDescriptorPool;
 class Texture;
 
 struct PhysicallyBasedMaterialUniformData
@@ -22,9 +24,9 @@ struct PhysicallyBasedMaterialUniformData
 
 struct PhysicallyBasedMaterialParams
 {
-   const Texture* albedoTexture = nullptr;
-   const Texture* normalTexture = nullptr;
-   const Texture* aoRoughnessMetalnessTexture = nullptr;
+   TextureHandle albedoTexture;
+   TextureHandle normalTexture;
+   TextureHandle aoRoughnessMetalnessTexture;
 
    glm::vec4 albedo = glm::vec4(1.0f);
    glm::vec4 emissive = glm::vec4(0.0f);
@@ -62,7 +64,8 @@ public:
    static const std::string kMetalnessScalarParameterName;
    static const std::string kAmbientOcclusionScalarParameterName;
 
-   PhysicallyBasedMaterial(const GraphicsContext& graphicsContext, MaterialLoader& owningMaterialLoader, const PhysicallyBasedMaterialParams& materialParams);
+   PhysicallyBasedMaterial(const GraphicsContext& graphicsContext, ResourceManager& owningResourceManager, DynamicDescriptorPool& dynamicDescriptorPool, vk::Sampler materialSampler, const PhysicallyBasedMaterialParams& materialParams);
+   ~PhysicallyBasedMaterial();
 
    void update() override;
 
@@ -115,8 +118,15 @@ public:
 
 private:
    void onUniformDataChanged();
+   void updateDescriptorSet(bool updateAlbedo, bool updateNormal, bool updateAoRoughnessMetalness, bool updateUniformBuffer);
 
    PhysicallyBasedMaterialDescriptorSet descriptorSet;
    UniformBuffer<PhysicallyBasedMaterialUniformData> uniformBuffer;
    PhysicallyBasedMaterialUniformData cachedUniformData;
+   vk::Sampler sampler;
+
+   TextureHandle albedoTextureHandle;
+   TextureHandle normalTextureHandle;
+   TextureHandle aoRoughnessMetalnessTextureHandle;
+   bool interpretAlphaAsMasked = false;
 };
