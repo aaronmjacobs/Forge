@@ -336,14 +336,30 @@ const Texture* TextureLoader::getDefault(DefaultTextureType type) const
    }
 }
 
-void TextureLoader::registerReplaceDelegate(TextureHandle handle, ReplaceDelegate delegate)
+DelegateHandle TextureLoader::registerReplaceDelegate(TextureHandle textureHandle, ReplaceDelegate::FuncType function)
 {
-   replaceDelegates.emplace(handle, std::move(delegate));
+   auto location = replaceDelegates.find(textureHandle);
+   if (location == replaceDelegates.end())
+   {
+      location = replaceDelegates.emplace(textureHandle, ReplaceDelegate{}).first;
+   }
+
+   location->second.add(std::move(function));
 }
 
-void TextureLoader::unregisterReplaceDelegate(TextureHandle handle)
+void TextureLoader::unregisterReplaceDelegate(TextureHandle textureHandle, DelegateHandle& delegateHandle)
 {
-   replaceDelegates.erase(handle);
+   auto location = replaceDelegates.find(textureHandle);
+   if (location != replaceDelegates.end())
+   {
+      location->second.remove(delegateHandle);
+      if (!location->second.isBound())
+      {
+         replaceDelegates.erase(textureHandle);
+      }
+   }
+
+   delegateHandle.invalidate();
 }
 
 void TextureLoader::onImageLoaded(LoadResult result)
@@ -356,7 +372,7 @@ void TextureLoader::onImageLoaded(LoadResult result)
       auto location = replaceDelegates.find(result.handle);
       if (location != replaceDelegates.end())
       {
-         location->second.executeIfBound(result.handle);
+         location->second.broadcast(result.handle);
       }
    }
 }

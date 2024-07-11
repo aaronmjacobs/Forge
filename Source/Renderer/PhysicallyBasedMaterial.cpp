@@ -90,16 +90,16 @@ PhysicallyBasedMaterial::PhysicallyBasedMaterial(const GraphicsContext& graphics
       updateDescriptorSet(handle == albedoTextureHandle, handle == normalTextureHandle, handle == aoRoughnessMetalnessTextureHandle, false);
    };
 
-   resourceManager.registerTextureReplaceDelegate(albedoTextureHandle, TextureLoader::ReplaceDelegate::create(replaceLambda));
-   resourceManager.registerTextureReplaceDelegate(normalTextureHandle, TextureLoader::ReplaceDelegate::create(replaceLambda));
-   resourceManager.registerTextureReplaceDelegate(aoRoughnessMetalnessTextureHandle, TextureLoader::ReplaceDelegate::create(replaceLambda));
+   albedoReplaceHandle = resourceManager.registerTextureReplaceDelegate(albedoTextureHandle, replaceLambda);
+   normalReplaceHandle = resourceManager.registerTextureReplaceDelegate(normalTextureHandle, replaceLambda);
+   aoRoughnessMetalnessReplaceHandle = resourceManager.registerTextureReplaceDelegate(aoRoughnessMetalnessTextureHandle, replaceLambda);
 }
 
 PhysicallyBasedMaterial::~PhysicallyBasedMaterial()
 {
-   resourceManager.unregisterTextureReplaceDelegate(albedoTextureHandle);
-   resourceManager.unregisterTextureReplaceDelegate(normalTextureHandle);
-   resourceManager.unregisterTextureReplaceDelegate(aoRoughnessMetalnessTextureHandle);
+   resourceManager.unregisterTextureReplaceDelegate(albedoTextureHandle, albedoReplaceHandle);
+   resourceManager.unregisterTextureReplaceDelegate(normalTextureHandle, normalReplaceHandle);
+   resourceManager.unregisterTextureReplaceDelegate(aoRoughnessMetalnessTextureHandle, aoRoughnessMetalnessReplaceHandle);
 }
 
 void PhysicallyBasedMaterial::update()

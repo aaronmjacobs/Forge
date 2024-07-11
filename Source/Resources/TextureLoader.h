@@ -58,9 +58,9 @@ public:
    Texture* getDefault(DefaultTextureType type);
    const Texture* getDefault(DefaultTextureType type) const;
 
-   using ReplaceDelegate = Delegate<void, TextureHandle>;
-   void registerReplaceDelegate(TextureHandle handle, ReplaceDelegate delegate);
-   void unregisterReplaceDelegate(TextureHandle handle);
+   using ReplaceDelegate = MulticastDelegate<void, TextureHandle>;
+   DelegateHandle registerReplaceDelegate(TextureHandle textureHandle, ReplaceDelegate::FuncType function);
+   void unregisterReplaceDelegate(TextureHandle textureHandle, DelegateHandle& delegateHandle);
 
 private:
    struct LoadResult

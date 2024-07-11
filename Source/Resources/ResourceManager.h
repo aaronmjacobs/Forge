@@ -164,14 +164,14 @@ public:
       return key ? &key->canonicalPath : nullptr;
    }
 
-   void registerTextureReplaceDelegate(TextureHandle handle, TextureLoader::ReplaceDelegate delegate)
+   DelegateHandle registerTextureReplaceDelegate(TextureHandle textureHandle, TextureLoader::ReplaceDelegate::FuncType function)
    {
-      textureLoader.registerReplaceDelegate(handle, std::move(delegate));
+      return textureLoader.registerReplaceDelegate(textureHandle, std::move(function));
    }
 
-   void unregisterTextureReplaceDelegate(TextureHandle handle)
+   void unregisterTextureReplaceDelegate(TextureHandle textureHandle, DelegateHandle& delegateHandle)
    {
-      textureLoader.unregisterReplaceDelegate(handle);
+      textureLoader.unregisterReplaceDelegate(textureHandle, delegateHandle);
    }
 
 private:

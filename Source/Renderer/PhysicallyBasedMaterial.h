@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Core/DelegateHandle.h"
+
 #include "Graphics/DescriptorSet.h"
 #include "Graphics/Material.h"
 #include "Graphics/UniformBuffer.h"
@@ -129,4 +131,8 @@ private:
    TextureHandle normalTextureHandle;
    TextureHandle aoRoughnessMetalnessTextureHandle;
    bool interpretAlphaAsMasked = false;
+
+   DelegateHandle albedoReplaceHandle;
+   DelegateHandle normalReplaceHandle;
+   DelegateHandle aoRoughnessMetalnessReplaceHandle;
 };
