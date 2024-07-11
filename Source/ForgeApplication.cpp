@@ -413,6 +413,9 @@ void ForgeApplication::initializeRenderer()
             newRenderSettings.tonemappingAlgorithm = TonemappingAlgorithm::TonyMcMapface;
             break;
          case TonemappingAlgorithm::TonyMcMapface:
+            newRenderSettings.tonemappingAlgorithm = TonemappingAlgorithm::DoubleFine;
+            break;
+         case TonemappingAlgorithm::DoubleFine:
             newRenderSettings.tonemappingAlgorithm = TonemappingAlgorithm::None;
             break;
          default:

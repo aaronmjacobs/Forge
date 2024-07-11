@@ -20,7 +20,8 @@ enum class TonemappingAlgorithm
    None,
    Curve,
    Reinhard,
-   TonyMcMapface
+   TonyMcMapface,
+   DoubleFine
 };
 
 struct RenderSettings
@@ -30,6 +31,7 @@ struct RenderSettings
    RenderQuality bloomQuality = RenderQuality::High;
    bool presentHDR = false;
    TonemappingAlgorithm tonemappingAlgorithm = TonemappingAlgorithm::Curve;
+   bool showTonemapTestPattern = false;
 
    bool operator==(const RenderSettings& other) const = default;
 

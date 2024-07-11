@@ -6,14 +6,15 @@ namespace
 {
    struct TonemapSpecializationValues
    {
+      TonemappingAlgorithm tonemappingAlgorithm = TonemappingAlgorithm::None;
       VkBool32 outputHDR = false;
       VkBool32 withBloom = false;
       VkBool32 withUI = false;
-      TonemappingAlgorithm tonemappingAlgorithm = TonemappingAlgorithm::None;
+      VkBool32 showTestPattern = false;
 
       uint32_t getIndex() const
       {
-         return (outputHDR << 4) | (withBloom << 3) | (withUI << 2) | (static_cast<int32_t>(tonemappingAlgorithm) << 0);
+         return (static_cast<int32_t>(tonemappingAlgorithm) << 4) | (outputHDR << 3) | (withBloom << 2) | (withUI << 1) | (showTestPattern << 0);
       }
    };
 
@@ -21,10 +22,11 @@ namespace
    {
       SpecializationInfoBuilder<TonemapSpecializationValues> builder;
 
+      builder.registerMember(&TonemapSpecializationValues::tonemappingAlgorithm, TonemappingAlgorithm::None, TonemappingAlgorithm::DoubleFine);
       builder.registerMember(&TonemapSpecializationValues::outputHDR);
       builder.registerMember(&TonemapSpecializationValues::withBloom);
       builder.registerMember(&TonemapSpecializationValues::withUI);
-      builder.registerMember(&TonemapSpecializationValues::tonemappingAlgorithm, TonemappingAlgorithm::None, TonemappingAlgorithm::TonyMcMapface);
+      builder.registerMember(&TonemapSpecializationValues::showTestPattern);
 
       return builder.build();
    }
@@ -77,13 +79,14 @@ TonemapShader::TonemapShader(const GraphicsContext& graphicsContext, ResourceMan
 {
 }
 
-std::vector<vk::PipelineShaderStageCreateInfo> TonemapShader::getStages(bool outputHDR, bool withBloom, bool withUI, TonemappingAlgorithm tonemappingAlgorithm) const
+std::vector<vk::PipelineShaderStageCreateInfo> TonemapShader::getStages(TonemappingAlgorithm tonemappingAlgorithm, bool outputHDR, bool withBloom, bool withUI, bool showTestPattern) const
 {
    TonemapSpecializationValues specializationValues;
+   specializationValues.tonemappingAlgorithm = tonemappingAlgorithm;
    specializationValues.outputHDR = outputHDR;
    specializationValues.withBloom = withBloom;
    specializationValues.withUI = withUI;
-   specializationValues.tonemappingAlgorithm = tonemappingAlgorithm;
+   specializationValues.showTestPattern = showTestPattern;
 
    return getStagesForPermutation(specializationValues.getIndex());
 }

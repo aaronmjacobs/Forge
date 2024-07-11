@@ -20,5 +20,5 @@ class TonemapShader : public ShaderWithDescriptors<TonemapDescriptorSet>
 public:
    TonemapShader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager);
 
-   std::vector<vk::PipelineShaderStageCreateInfo> getStages(bool outputHDR, bool withBloom, bool withUI, TonemappingAlgorithm tonemappingAlgorithm) const;
+   std::vector<vk::PipelineShaderStageCreateInfo> getStages(TonemappingAlgorithm tonemappingAlgorithm, bool outputHDR, bool withBloom, bool withUI, bool showTestPattern) const;
 };

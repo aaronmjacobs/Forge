@@ -5,11 +5,13 @@ const int kTonemappingAlgorithm_None = 0;
 const int kTonemappingAlgorithm_Curve = 1;
 const int kTonemappingAlgorithm_Reinhard = 2;
 const int kTonemappingAlgorithm_TonyMcMapface = 3;
+const int kTonemappingAlgorithm_DoubleFine = 4;
 
-layout(constant_id = 0) const bool kOutputHDR = false;
-layout(constant_id = 1) const bool kWithBloom = false;
-layout(constant_id = 2) const bool kWithUI = false;
-layout(constant_id = 3) const int kTonemappingAlgorithm = kTonemappingAlgorithm_None;
+layout(constant_id = 0) const int kTonemappingAlgorithm = kTonemappingAlgorithm_None;
+layout(constant_id = 1) const bool kOutputHDR = false;
+layout(constant_id = 2) const bool kWithBloom = false;
+layout(constant_id = 3) const bool kWithUI = false;
+layout(constant_id = 4) const bool kShowTestPattern = false;
 
 layout(set = 0, binding = 0) uniform sampler2D hdrTexture;
 layout(set = 0, binding = 1) uniform sampler2D bloomTexture;
@@ -22,7 +24,11 @@ layout(location = 0) out vec4 outColor;
 
 const float kPaperwhiteNits = 100.0;
 
-// Below logic borrowed from the Xbox ATG samples (https://github.com/microsoft/Xbox-ATG-Samples/blob/master/Kits/ATGTK/HDR/HDRCommon.hlsli)
+////////////////////////////////////////////////////////////////////////////////
+// Xbox ATG code begin
+//
+// Logic borrowed from https://github.com/microsoft/Xbox-ATG-Samples/blob/master/Kits/ATGTK/HDR/HDRCommon.hlsli
+////////////////////////////////////////////////////////////////////////////////
 
 const float g_MaxNitsFor2084 = 10000.0f;
 
@@ -65,7 +71,16 @@ vec4 ConvertToHDR10(vec4 hdrSceneValue, float paperWhiteNits)
     return vec4(HDR10.rgb, hdrSceneValue.a);
 }
 
-// Tony McMapface Copyright (c) 2023 Tomasz Stachowiak
+////////////////////////////////////////////////////////////////////////////////
+// Xbox ATG code end
+////////////////////////////////////////////////////////////////////////////////
+
+////////////////////////////////////////////////////////////////////////////////
+// Tony McMapface code begin
+//
+// Copyright (c) 2023 Tomasz Stachowiak
+////////////////////////////////////////////////////////////////////////////////
+
 vec3 tony_mc_mapface(vec3 stimulus)
 {
     // Apply a non-linear transform that the LUT is encoded with.
@@ -79,6 +94,88 @@ vec3 tony_mc_mapface(vec3 stimulus)
 
     return texture(lutTexture, uv).rgb;
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// Tony McMapface code end
+////////////////////////////////////////////////////////////////////////////////
+
+////////////////////////////////////////////////////////////////////////////////
+// Double Fine code begin
+////////////////////////////////////////////////////////////////////////////////
+
+const float Hotspot = 1; // 0 to 1
+const float HuePreservation = 1; // 0 to 1
+
+vec3 HUE_2_LinearRGB_(in float H)
+{
+   float R = abs(H * 6 - 3) - 1;
+   float G = 2 - abs(H * 6 - 2);
+   float B = 2 - abs(H * 6 - 4);
+   return clamp(vec3(R, G, B), vec3(0.0), vec3(1.0));
+}
+
+vec3 HSV_2_LinearRGB_(in vec3 HSV)
+{
+   vec3 RGB = HUE_2_LinearRGB_(HSV.x);
+   return ((RGB - 1) * HSV.y + 1) * HSV.z;
+}
+
+vec3 RGB_2_HCV_(in vec3 RGB)
+{
+   // Based on work by Sam Hocevar and Emil Persson
+   vec4 P = (RGB.g < RGB.b) ? vec4(RGB.bg, -1.0f, 2.0f / 3.0f) : vec4(RGB.gb, 0.0f, -1.0f / 3.0f);
+   vec4 Q = (RGB.r < P.x)   ? vec4(P.xyw, RGB.r) : vec4(RGB.r, P.yzx);
+   float Chroma = Q.x - min(Q.w, Q.y);
+   float Hue = abs((Q.w - Q.y) / (6.0f * Chroma + 1e-10f) + Q.z);
+   return vec3(Hue, Chroma, Q.x);
+}
+
+vec3 LinearRGB_2_HSV_(in vec3 RGB)
+{
+   vec3 HCV = RGB_2_HCV_(RGB);
+   float s = HCV.y / (HCV.z + 1e-10f);
+   return vec3(HCV.x, s, HCV.z);
+}
+
+vec3 DF_New(vec3 Color)
+{
+   vec3 HSV = LinearRGB_2_HSV_(Color);
+   float OriginalBrightness = HSV.z;
+
+   float Shoulder = 0; // 0 to 1
+   float Curve = mix(0.25, 0.05, Shoulder);
+   HSV.z -= pow(pow(HSV.z, 1 / Curve) + 1, Curve) - 1;
+
+   float HotspotSlope = 0.5; // 0 to 1
+   float Overbright = 0.25 * max(OriginalBrightness - HSV.z, 0);
+   float Desaturation = 1 / (Hotspot * pow(Overbright, 1 + HotspotSlope) + 1);
+   HSV.y *= Desaturation;
+
+   vec3 Tonemapped = HSV_2_LinearRGB_(HSV);
+
+   if (HuePreservation < 1)
+   {
+      // Classic DF tonemapper.
+      Color -= pow(pow(Color, vec3(1 / Curve)) + 1, vec3(Curve)) - 1;
+      Color += 1 - Desaturation;
+
+      Tonemapped = mix(Color, Tonemapped, HuePreservation);
+   }
+
+   return Tonemapped;
+}
+
+vec3 TestPattern(vec2 UV, float Power, float Bands)
+{
+  float Hue = floor(Bands * (1-UV.y)) / Bands;
+  float Value = pow(2 * UV.x, Power);
+  vec3 HSV = vec3(Hue, 1, Value);
+  return HSV_2_LinearRGB_(HSV);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Double Fine code end
+////////////////////////////////////////////////////////////////////////////////
 
 vec3 tonemap(vec3 hdrColor)
 {
@@ -97,6 +194,10 @@ vec3 tonemap(vec3 hdrColor)
    else if (kTonemappingAlgorithm == kTonemappingAlgorithm_TonyMcMapface)
    {
       tonemappedColor = tony_mc_mapface(clampedHdrColor);
+   }
+   else if (kTonemappingAlgorithm == kTonemappingAlgorithm_DoubleFine)
+   {
+      tonemappedColor = DF_New(clampedHdrColor);
    }
 
    if (kOutputHDR)
@@ -121,12 +222,20 @@ vec3 srgbToLinear(vec3 sRGB)
 
 void main()
 {
-   vec3 hdrColor = texture(hdrTexture, inTexCoord).rgb;
-
-   if (kWithBloom)
+   vec3 hdrColor;
+   if (kShowTestPattern)
    {
-      vec3 bloom = texture(bloomTexture, inTexCoord).rgb;
-      hdrColor = mix(hdrColor, bloom, 0.05);
+      hdrColor = TestPattern(inTexCoord, 4, 24);
+   }
+   else
+   {
+      hdrColor = texture(hdrTexture, inTexCoord).rgb;
+
+      if (kWithBloom)
+      {
+         vec3 bloom = texture(bloomTexture, inTexCoord).rgb;
+         hdrColor = mix(hdrColor, bloom, 0.05);
+      }
    }
 
    vec3 tonemappedColor = tonemap(hdrColor);

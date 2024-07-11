@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Core/Enum.h"
+
 #include "Graphics/DescriptorSet.h"
 
 #include "Renderer/Passes/SceneRenderPass.h"
@@ -16,14 +18,15 @@ class TonemapPass;
 template<>
 struct PipelineDescription<TonemapPass>
 {
+   TonemappingAlgorithm tonemappingAlgorithm = TonemappingAlgorithm::None;
    bool hdr = false;
    bool withBloom = false;
    bool withUI = false;
-   TonemappingAlgorithm tonemappingAlgorithm = TonemappingAlgorithm::None;
+   bool showTestPattern = false;
 
    std::size_t hash() const
    {
-      return (hdr * 0b001) | (withBloom * 0b010) | (withUI * 0b100) | (static_cast<int>(tonemappingAlgorithm) << 3);
+      return (Enum::cast(tonemappingAlgorithm) << 4) | (hdr * 0b1000) | (withBloom * 0b0100) | (withUI * 0b0010) | (showTestPattern * 0b0001);
    }
 
    bool operator==(const PipelineDescription<TonemapPass>& other) const = default;
@@ -37,7 +40,7 @@ public:
    TonemapPass(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, ResourceManager& resourceManager);
    ~TonemapPass();
 
-   void render(vk::CommandBuffer commandBuffer, Texture& outputTexture, Texture& hdrColorTexture, Texture* bloomTexture, Texture* uiTexture, TonemappingAlgorithm tonemappingAlgorithm);
+   void render(vk::CommandBuffer commandBuffer, Texture& outputTexture, Texture& hdrColorTexture, Texture* bloomTexture, Texture* uiTexture, TonemappingAlgorithm tonemappingAlgorithm, bool showTestPattern);
 
 protected:
    friend class SceneRenderPass<TonemapPass>;

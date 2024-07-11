@@ -502,7 +502,7 @@ namespace
    const float kSceneWindowHeight = 320.0f;
 
    const std::array<const char*, 4> kRenderQualityNames = { "Disabled", "Low", "Medium", "High" };
-   const std::array<const char*, 4> kTonemappingAlgorithmNames = { "None", "Curve", "Reinhard", "TonyMcMapface" };
+   const std::array<const char*, 5> kTonemappingAlgorithmNames = { "None", "Curve", "Reinhard", "Tony McMapface", "Double Fine" };
 }
 
 // static
@@ -626,7 +626,7 @@ void UI::renderSceneWindow(const GraphicsContext& graphicsContext, Scene& scene,
 
 void UI::renderTime(Scene& scene)
 {
-   ImGui::BeginChild("Time", ImVec2(ImGui::GetContentRegionAvail().x * 0.18f, kSceneWindowHeight), true, ImGuiWindowFlags_MenuBar);
+   ImGui::BeginChild("Time", ImVec2(ImGui::GetContentRegionAvail().x * 0.2f, kSceneWindowHeight), true, ImGuiWindowFlags_MenuBar);
    if (ImGui::BeginMenuBar())
    {
       if (ImGui::BeginMenu("Time", false))
@@ -652,7 +652,7 @@ void UI::renderTime(Scene& scene)
 
 void UI::renderSettings(const GraphicsContext& graphicsContext, const RenderCapabilities& capabilities, RenderSettings& settings)
 {
-   ImGui::BeginChild("Features", ImVec2(ImGui::GetContentRegionAvail().x * 0.18f, kSceneWindowHeight), true, ImGuiWindowFlags_MenuBar);
+   ImGui::BeginChild("Features", ImVec2(ImGui::GetContentRegionAvail().x * 0.25f, kSceneWindowHeight), true, ImGuiWindowFlags_MenuBar);
    if (ImGui::BeginMenuBar())
    {
       if (ImGui::BeginMenu("Features", false))
@@ -699,6 +699,8 @@ void UI::renderSettings(const GraphicsContext& graphicsContext, const RenderCapa
    int tonemappingAlgorithm = Enum::cast(settings.tonemappingAlgorithm);
    ImGui::Combo("Tonemapping Algorithm", &tonemappingAlgorithm, kTonemappingAlgorithmNames.data(), static_cast<int>(kTonemappingAlgorithmNames.size()));
    settings.tonemappingAlgorithm = static_cast<TonemappingAlgorithm>(tonemappingAlgorithm);
+
+   ImGui::Checkbox("Show Tonemap Test Pattern", &settings.showTonemapTestPattern);
 
    if (!capabilities.canPresentHDR)
    {

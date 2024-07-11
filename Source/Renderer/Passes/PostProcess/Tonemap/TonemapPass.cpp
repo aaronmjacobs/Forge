@@ -56,7 +56,7 @@ TonemapPass::~TonemapPass()
    context.delayedDestroy(std::move(pipelineLayout));
 }
 
-void TonemapPass::render(vk::CommandBuffer commandBuffer, Texture& outputTexture, Texture& hdrColorTexture, Texture* bloomTexture, Texture* uiTexture, TonemappingAlgorithm tonemappingAlgorithm)
+void TonemapPass::render(vk::CommandBuffer commandBuffer, Texture& outputTexture, Texture& hdrColorTexture, Texture* bloomTexture, Texture* uiTexture, TonemappingAlgorithm tonemappingAlgorithm, bool showTestPattern)
 {
    SCOPED_LABEL(getName());
 
@@ -74,7 +74,7 @@ void TonemapPass::render(vk::CommandBuffer commandBuffer, Texture& outputTexture
    AttachmentInfo colorAttachmentInfo = AttachmentInfo(outputTexture)
       .setLoadOp(vk::AttachmentLoadOp::eDontCare);
 
-   executePass(commandBuffer, &colorAttachmentInfo, nullptr, [this, &outputTexture, &hdrColorTexture, bloomTexture, uiTexture, tonemappingAlgorithm](vk::CommandBuffer commandBuffer)
+   executePass(commandBuffer, &colorAttachmentInfo, nullptr, [this, &outputTexture, &hdrColorTexture, bloomTexture, uiTexture, tonemappingAlgorithm, showTestPattern](vk::CommandBuffer commandBuffer)
    {
       StaticVector<vk::WriteDescriptorSet, 4> descriptorWrites;
 
@@ -142,10 +142,11 @@ void TonemapPass::render(vk::CommandBuffer commandBuffer, Texture& outputTexture
       device.updateDescriptorSets(descriptorWrites, {});
 
       PipelineDescription<TonemapPass> pipelineDescription;
+      pipelineDescription.tonemappingAlgorithm = tonemappingAlgorithm;
       pipelineDescription.hdr = outputTexture.getImageProperties().format == vk::Format::eA2R10G10B10UnormPack32;
       pipelineDescription.withBloom = bloomTexture != nullptr;
       pipelineDescription.withUI = uiTexture != nullptr;
-      pipelineDescription.tonemappingAlgorithm = tonemappingAlgorithm;
+      pipelineDescription.showTestPattern = showTestPattern;
 
       tonemapShader->bindDescriptorSets(commandBuffer, pipelineLayout, descriptorSet);
       renderScreenMesh(commandBuffer, getPipeline(pipelineDescription));
@@ -163,11 +164,11 @@ Pipeline TonemapPass::createPipeline(const PipelineDescription<TonemapPass>& des
 
    PipelineData pipelineData(attachmentFormats);
    pipelineData.layout = pipelineLayout;
-   pipelineData.shaderStages = tonemapShader->getStages(description.hdr, description.withBloom, description.withUI, description.tonemappingAlgorithm);
+   pipelineData.shaderStages = tonemapShader->getStages(description.tonemappingAlgorithm, description.hdr, description.withBloom, description.withUI, description.showTestPattern);
    pipelineData.colorBlendStates = { attachmentState };
 
    Pipeline pipeline(context, pipelineInfo, pipelineData);
-   NAME_CHILD(pipeline, std::string(description.hdr ? "HDR" : "SDR") + (description.withBloom ? " With Bloom" : " Without Bloom") + (description.withUI ? " With UI" : " Without UI"));
+   NAME_CHILD(pipeline, std::string(description.hdr ? "HDR" : "SDR") + (description.withBloom ? " With Bloom" : " Without Bloom") + (description.withUI ? " With UI" : " Without UI") + (description.showTestPattern ? " With Test Pattern" : " Without Test Pattern"));
 
    return pipeline;
 }
