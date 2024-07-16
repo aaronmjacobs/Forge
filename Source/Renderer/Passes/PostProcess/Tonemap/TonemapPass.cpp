@@ -15,7 +15,10 @@
 TonemapPass::TonemapPass(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, ResourceManager& resourceManager)
    : SceneRenderPass(graphicsContext)
    , descriptorSet(graphicsContext, dynamicDescriptorPool)
+   , uniformBuffer(graphicsContext)
 {
+   NAME_CHILD(uniformBuffer, "");
+
    tonemapShader = createShader<TonemapShader>(context, resourceManager);
 
    std::array descriptorSetLayouts = tonemapShader->getDescriptorSetLayouts();
@@ -48,6 +51,21 @@ TonemapPass::TonemapPass(const GraphicsContext& graphicsContext, DynamicDescript
    lutLoadOptions.generateMipMaps = false;
    lutLoadOptions.fallbackDefaultTextureType = DefaultTextureType::Volume;
    lutTextureHandle = resourceManager.loadTexture("Resources/Textures/Tony McMapface/tony_mc_mapface.dds", lutLoadOptions);
+
+   for (uint32_t frameIndex = 0; frameIndex < GraphicsContext::kMaxFramesInFlight; ++frameIndex)
+   {
+      vk::DescriptorBufferInfo bufferInfo = uniformBuffer.getDescriptorBufferInfo(frameIndex);
+
+      vk::WriteDescriptorSet bufferDescriptorWrite = vk::WriteDescriptorSet()
+         .setDstSet(descriptorSet.getSet(frameIndex))
+         .setDstBinding(4)
+         .setDstArrayElement(0)
+         .setDescriptorType(vk::DescriptorType::eUniformBuffer)
+         .setDescriptorCount(1)
+         .setPBufferInfo(&bufferInfo);
+
+      device.updateDescriptorSets({ bufferDescriptorWrite }, {});
+   }
 }
 
 TonemapPass::~TonemapPass()
@@ -56,7 +74,7 @@ TonemapPass::~TonemapPass()
    context.delayedDestroy(std::move(pipelineLayout));
 }
 
-void TonemapPass::render(vk::CommandBuffer commandBuffer, Texture& outputTexture, Texture& hdrColorTexture, Texture* bloomTexture, Texture* uiTexture, TonemappingAlgorithm tonemappingAlgorithm, bool showTestPattern)
+void TonemapPass::render(vk::CommandBuffer commandBuffer, Texture& outputTexture, Texture& hdrColorTexture, Texture* bloomTexture, Texture* uiTexture, const TonemapSettings& settings)
 {
    SCOPED_LABEL(getName());
 
@@ -74,7 +92,7 @@ void TonemapPass::render(vk::CommandBuffer commandBuffer, Texture& outputTexture
    AttachmentInfo colorAttachmentInfo = AttachmentInfo(outputTexture)
       .setLoadOp(vk::AttachmentLoadOp::eDontCare);
 
-   executePass(commandBuffer, &colorAttachmentInfo, nullptr, [this, &outputTexture, &hdrColorTexture, bloomTexture, uiTexture, tonemappingAlgorithm, showTestPattern](vk::CommandBuffer commandBuffer)
+   executePass(commandBuffer, &colorAttachmentInfo, nullptr, [this, &outputTexture, &hdrColorTexture, bloomTexture, uiTexture, settings](vk::CommandBuffer commandBuffer)
    {
       StaticVector<vk::WriteDescriptorSet, 4> descriptorWrites;
 
@@ -141,12 +159,19 @@ void TonemapPass::render(vk::CommandBuffer commandBuffer, Texture& outputTexture
 
       device.updateDescriptorSets(descriptorWrites, {});
 
+      TonemapUniformData uniformData;
+      uniformData.shoulder = settings.shoulder;
+      uniformData.hotspot = settings.hotspot;
+      uniformData.hotspotSlope = settings.hotspotSlope;
+      uniformData.huePreservation = settings.huePreservation;
+      uniformBuffer.update(uniformData);
+
       PipelineDescription<TonemapPass> pipelineDescription;
-      pipelineDescription.tonemappingAlgorithm = tonemappingAlgorithm;
+      pipelineDescription.tonemappingAlgorithm = settings.algorithm;
       pipelineDescription.hdr = outputTexture.getImageProperties().format == vk::Format::eA2R10G10B10UnormPack32;
       pipelineDescription.withBloom = bloomTexture != nullptr;
       pipelineDescription.withUI = uiTexture != nullptr;
-      pipelineDescription.showTestPattern = showTestPattern;
+      pipelineDescription.showTestPattern = settings.showTestPattern;
 
       tonemapShader->bindDescriptorSets(commandBuffer, pipelineLayout, descriptorSet);
       renderScreenMesh(commandBuffer, getPipeline(pipelineDescription));

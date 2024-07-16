@@ -696,11 +696,16 @@ void UI::renderSettings(const GraphicsContext& graphicsContext, const RenderCapa
    ImGui::Combo("Bloom", &bloomQuality, kRenderQualityNames.data(), static_cast<int>(kRenderQualityNames.size()));
    settings.bloomQuality = static_cast<RenderQuality>(bloomQuality);
 
-   int tonemappingAlgorithm = Enum::cast(settings.tonemappingAlgorithm);
+   int tonemappingAlgorithm = Enum::cast(settings.tonemapSettings.algorithm);
    ImGui::Combo("Tonemapping Algorithm", &tonemappingAlgorithm, kTonemappingAlgorithmNames.data(), static_cast<int>(kTonemappingAlgorithmNames.size()));
-   settings.tonemappingAlgorithm = static_cast<TonemappingAlgorithm>(tonemappingAlgorithm);
+   settings.tonemapSettings.algorithm = static_cast<TonemappingAlgorithm>(tonemappingAlgorithm);
 
-   ImGui::Checkbox("Show Tonemap Test Pattern", &settings.showTonemapTestPattern);
+   ImGui::Checkbox("Show Tonemap Test Pattern", &settings.tonemapSettings.showTestPattern);
+
+   ImGui::SliderFloat("Shoulder", &settings.tonemapSettings.shoulder, 0.0f, 1.0f);
+   ImGui::SliderFloat("Hotspot", &settings.tonemapSettings.hotspot, 0.0f, 1.0f);
+   ImGui::SliderFloat("Hotspot Slope", &settings.tonemapSettings.hotspotSlope, 0.0f, 1.0f);
+   ImGui::SliderFloat("Hue Preservation", &settings.tonemapSettings.huePreservation, 0.0f, 1.0f);
 
    if (!capabilities.canPresentHDR)
    {

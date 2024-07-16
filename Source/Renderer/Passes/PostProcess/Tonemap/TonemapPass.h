@@ -3,6 +3,7 @@
 #include "Core/Enum.h"
 
 #include "Graphics/DescriptorSet.h"
+#include "Graphics/UniformBuffer.h"
 
 #include "Renderer/Passes/SceneRenderPass.h"
 #include "Renderer/Passes/PostProcess/Tonemap/TonemapShader.h"
@@ -14,6 +15,14 @@ class DynamicDescriptorPool;
 class ResourceManager;
 class Texture;
 class TonemapPass;
+
+struct TonemapUniformData
+{
+   alignas(4) float shoulder = 0.0f;
+   alignas(4) float hotspot = 0.0f;
+   alignas(4) float hotspotSlope = 0.0f;
+   alignas(4) float huePreservation = 0.0f;
+};
 
 template<>
 struct PipelineDescription<TonemapPass>
@@ -40,7 +49,7 @@ public:
    TonemapPass(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, ResourceManager& resourceManager);
    ~TonemapPass();
 
-   void render(vk::CommandBuffer commandBuffer, Texture& outputTexture, Texture& hdrColorTexture, Texture* bloomTexture, Texture* uiTexture, TonemappingAlgorithm tonemappingAlgorithm, bool showTestPattern);
+   void render(vk::CommandBuffer commandBuffer, Texture& outputTexture, Texture& hdrColorTexture, Texture* bloomTexture, Texture* uiTexture, const TonemapSettings& settings);
 
 protected:
    friend class SceneRenderPass<TonemapPass>;
@@ -56,4 +65,6 @@ private:
    vk::Sampler sampler;
 
    StrongTextureHandle lutTextureHandle;
+
+   UniformBuffer<TonemapUniformData> uniformBuffer;
 };

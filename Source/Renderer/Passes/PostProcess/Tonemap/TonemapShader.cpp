@@ -70,6 +70,11 @@ std::vector<vk::DescriptorSetLayoutBinding> TonemapDescriptorSet::getBindings()
          .setBinding(3)
          .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
          .setDescriptorCount(1)
+         .setStageFlags(vk::ShaderStageFlagBits::eFragment),
+      vk::DescriptorSetLayoutBinding()
+         .setBinding(4)
+         .setDescriptorType(vk::DescriptorType::eUniformBuffer)
+         .setDescriptorCount(1)
          .setStageFlags(vk::ShaderStageFlagBits::eFragment)
    };
 }

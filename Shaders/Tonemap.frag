@@ -1,5 +1,6 @@
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
+#extension GL_EXT_scalar_block_layout : enable
 
 const int kTonemappingAlgorithm_None = 0;
 const int kTonemappingAlgorithm_Curve = 1;
@@ -17,6 +18,14 @@ layout(set = 0, binding = 0) uniform sampler2D hdrTexture;
 layout(set = 0, binding = 1) uniform sampler2D bloomTexture;
 layout(set = 0, binding = 2) uniform sampler2D uiTexture;
 layout(set = 0, binding = 3) uniform sampler3D lutTexture;
+
+layout(std430, set = 0, binding = 4) uniform TonemapData
+{
+   float Shoulder;
+   float Hotspot;
+   float HotspotSlope;
+   float HuePreservation;
+} params;
 
 layout(location = 0) in vec2 inTexCoord;
 
@@ -103,9 +112,6 @@ vec3 tony_mc_mapface(vec3 stimulus)
 // Double Fine code begin
 ////////////////////////////////////////////////////////////////////////////////
 
-const float Hotspot = 1; // 0 to 1
-const float HuePreservation = 1; // 0 to 1
-
 vec3 HUE_2_LinearRGB_(in float H)
 {
    float R = abs(H * 6 - 3) - 1;
@@ -137,32 +143,48 @@ vec3 LinearRGB_2_HSV_(in vec3 RGB)
    return vec3(HCV.x, s, HCV.z);
 }
 
+float ApplyExpShoulder(float Value, float Scale, float White)
+{
+   if (Value < Scale * White)
+      return Value;
+
+   float Term = (1 - Scale) * White;
+   return White - exp((White - Value) / Term - 1) * Term;
+}
+
 vec3 DF_New(vec3 Color)
 {
+   const float White = kOutputHDR ? kPaperwhiteNits : 1; // TODO correct?
+   float Shoulder = kOutputHDR ? 0 : params.Shoulder;
+   float Hotspot = params.Hotspot;
+   float HotspotSlope = params.HotspotSlope;
+   float HuePreservation = params.HuePreservation;
+
    vec3 HSV = LinearRGB_2_HSV_(Color);
    float OriginalBrightness = HSV.z;
+   HSV.z = ApplyExpShoulder(HSV.z, Shoulder, White);
 
-   float Shoulder = 0; // 0 to 1
-   float Curve = mix(0.25, 0.05, Shoulder);
-   HSV.z -= pow(pow(HSV.z, 1 / Curve) + 1, Curve) - 1;
+   float BrightStart = kOutputHDR ? 0.2 : 1;
+   float Overbright = 0.25 * max(OriginalBrightness - BrightStart, 0);
+   float SaturationScale = 1 - pow(1 - exp(-Hotspot * Overbright * (1 + HotspotSlope) / BrightStart), 1 + HotspotSlope);
+   HSV.y *= SaturationScale;
 
-   float HotspotSlope = 0.5; // 0 to 1
-   float Overbright = 0.25 * max(OriginalBrightness - HSV.z, 0);
-   float Desaturation = 1 / (Hotspot * pow(Overbright, 1 + HotspotSlope) + 1);
-   HSV.y *= Desaturation;
+   vec3 FilmColor = HSV_2_LinearRGB_(HSV);
 
-   vec3 Tonemapped = HSV_2_LinearRGB_(HSV);
+   Color.r = ApplyExpShoulder(Color.r, Shoulder, White);
+   Color.g = ApplyExpShoulder(Color.g, Shoulder, White);
+   Color.b = ApplyExpShoulder(Color.b, Shoulder, White);
+
+   // Fix for drop in luminance from squashing lesser color channels.
+   FilmColor += Hotspot * dot(clamp(Color - FilmColor, 0.0, 1.0), vec3(0.3, 0.59, 0.11));
 
    if (HuePreservation < 1)
    {
-      // Classic DF tonemapper.
-      Color -= pow(pow(Color, vec3(1 / Curve)) + 1, vec3(Curve)) - 1;
-      Color += 1 - Desaturation;
-
-      Tonemapped = mix(Color, Tonemapped, HuePreservation);
+      Color = mix(vec3(1), Color, SaturationScale);
+      FilmColor = mix(Color, FilmColor, HuePreservation);
    }
 
-   return Tonemapped;
+   return FilmColor;
 }
 
 vec3 TestPattern(vec2 UV, float Power, float Bands)

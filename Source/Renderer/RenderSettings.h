@@ -24,14 +24,27 @@ enum class TonemappingAlgorithm
    DoubleFine
 };
 
+struct TonemapSettings
+{
+   TonemappingAlgorithm algorithm = TonemappingAlgorithm::DoubleFine;
+
+   bool showTestPattern = false;
+
+   float shoulder = 0.5f;
+   float hotspot = 0.5f;
+   float hotspotSlope = 0.25f;
+   float huePreservation = 1.0f;
+
+   bool operator==(const TonemapSettings& other) const = default;
+};
+
 struct RenderSettings
 {
    vk::SampleCountFlagBits msaaSamples = vk::SampleCountFlagBits::e1;
    RenderQuality ssaoQuality = RenderQuality::Medium;
    RenderQuality bloomQuality = RenderQuality::High;
    bool presentHDR = false;
-   TonemappingAlgorithm tonemappingAlgorithm = TonemappingAlgorithm::Curve;
-   bool showTonemapTestPattern = false;
+   TonemapSettings tonemapSettings;
 
    bool operator==(const RenderSettings& other) const = default;
 

@@ -631,7 +631,7 @@ void Renderer::render(vk::CommandBuffer commandBuffer, const Scene& scene)
    uiPass->render(commandBuffer, *uiColorTexture);
 
    Texture& currentSwapchainTexture = context.getSwapchain().getCurrentTexture();
-   tonemapPass->render(commandBuffer, currentSwapchainTexture, hdrResolveTexture ? *hdrResolveTexture : *hdrColorTexture, bloomEnabled ? bloomPass->getOutputTexture() : nullptr, uiColorTexture.get(), renderSettings.tonemappingAlgorithm, renderSettings.showTonemapTestPattern);
+   tonemapPass->render(commandBuffer, currentSwapchainTexture, hdrResolveTexture ? *hdrResolveTexture : *hdrColorTexture, bloomEnabled ? bloomPass->getOutputTexture() : nullptr, uiColorTexture.get(), renderSettings.tonemapSettings);
 
    currentSwapchainTexture.transitionLayout(commandBuffer, TextureLayoutType::Present);
 }

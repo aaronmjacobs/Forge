@@ -401,22 +401,22 @@ void ForgeApplication::initializeRenderer()
       if (pressed)
       {
          RenderSettings newRenderSettings = renderSettings;
-         switch (renderSettings.tonemappingAlgorithm)
+         switch (renderSettings.tonemapSettings.algorithm)
          {
          case TonemappingAlgorithm::None:
-            newRenderSettings.tonemappingAlgorithm = TonemappingAlgorithm::Curve;
+            newRenderSettings.tonemapSettings.algorithm = TonemappingAlgorithm::Curve;
             break;
          case TonemappingAlgorithm::Curve:
-            newRenderSettings.tonemappingAlgorithm = TonemappingAlgorithm::Reinhard;
+            newRenderSettings.tonemapSettings.algorithm = TonemappingAlgorithm::Reinhard;
             break;
          case TonemappingAlgorithm::Reinhard:
-            newRenderSettings.tonemappingAlgorithm = TonemappingAlgorithm::TonyMcMapface;
+            newRenderSettings.tonemapSettings.algorithm = TonemappingAlgorithm::TonyMcMapface;
             break;
          case TonemappingAlgorithm::TonyMcMapface:
-            newRenderSettings.tonemappingAlgorithm = TonemappingAlgorithm::DoubleFine;
+            newRenderSettings.tonemapSettings.algorithm = TonemappingAlgorithm::DoubleFine;
             break;
          case TonemappingAlgorithm::DoubleFine:
-            newRenderSettings.tonemappingAlgorithm = TonemappingAlgorithm::None;
+            newRenderSettings.tonemapSettings.algorithm = TonemappingAlgorithm::None;
             break;
          default:
             break;
