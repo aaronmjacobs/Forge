@@ -160,6 +160,8 @@ void TonemapPass::render(vk::CommandBuffer commandBuffer, Texture& outputTexture
       device.updateDescriptorSets(descriptorWrites, {});
 
       TonemapUniformData uniformData;
+      uniformData.bloomStrength = settings.bloomStrength;
+      uniformData.peakBrightness = settings.peakBrightness;
       uniformData.shoulder = settings.shoulder;
       uniformData.hotspot = settings.hotspot;
       uniformData.hotspotSlope = settings.hotspotSlope;

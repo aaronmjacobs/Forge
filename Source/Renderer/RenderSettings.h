@@ -30,6 +30,9 @@ struct TonemapSettings
 
    bool showTestPattern = false;
 
+   float bloomStrength = 0.05f;
+   float peakBrightness = 1600.0f;
+
    float shoulder = 0.5f;
    float hotspot = 0.5f;
    float hotspotSlope = 0.25f;

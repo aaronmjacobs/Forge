@@ -702,6 +702,10 @@ void UI::renderSettings(const GraphicsContext& graphicsContext, const RenderCapa
 
    ImGui::Checkbox("Show Tonemap Test Pattern", &settings.tonemapSettings.showTestPattern);
 
+   ImGui::DragFloat("Bloom Strength", &settings.tonemapSettings.bloomStrength, 0.01f, 0.0f, 1.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
+
+   ImGui::DragFloat("Peak Brightness", &settings.tonemapSettings.peakBrightness, 1.0f, 100.0f, 10'000.0f);
+
    ImGui::SliderFloat("Shoulder", &settings.tonemapSettings.shoulder, 0.0f, 1.0f);
    ImGui::SliderFloat("Hotspot", &settings.tonemapSettings.hotspot, 0.0f, 1.0f);
    ImGui::SliderFloat("Hotspot Slope", &settings.tonemapSettings.hotspotSlope, 0.0f, 1.0f);

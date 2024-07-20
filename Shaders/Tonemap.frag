@@ -21,6 +21,9 @@ layout(set = 0, binding = 3) uniform sampler3D lutTexture;
 
 layout(std430, set = 0, binding = 4) uniform TonemapData
 {
+   float bloomStrength;
+   float peakBrightness;
+
    float Shoulder;
    float Hotspot;
    float HotspotSlope;
@@ -154,7 +157,7 @@ float ApplyExpShoulder(float Value, float Scale, float White)
 
 vec3 DF_New(vec3 Color)
 {
-   const float White = kOutputHDR ? kPaperwhiteNits : 1; // TODO correct?
+   const float White = 1;
    float Shoulder = kOutputHDR ? 0 : params.Shoulder;
    float Hotspot = params.Hotspot;
    float HotspotSlope = params.HotspotSlope;
@@ -201,7 +204,9 @@ vec3 TestPattern(vec2 UV, float Power, float Bands)
 
 vec3 tonemap(vec3 hdrColor)
 {
-   vec3 clampedHdrColor = max(vec3(0.0), hdrColor);
+   const float kBrightnessScale = kOutputHDR ? (params.peakBrightness / kPaperwhiteNits) : 1.0f;
+
+   vec3 clampedHdrColor = max(vec3(0.0), hdrColor / kBrightnessScale);
    vec3 tonemappedColor = clampedHdrColor;
 
    if (kTonemappingAlgorithm == kTonemappingAlgorithm_Curve)
@@ -222,14 +227,7 @@ vec3 tonemap(vec3 hdrColor)
       tonemappedColor = DF_New(clampedHdrColor);
    }
 
-   if (kOutputHDR)
-   {
-      tonemappedColor = ConvertToHDR10(vec4(tonemappedColor, 1.0), kPaperwhiteNits).rgb;
-   }
-   else
-   {
-      tonemappedColor = clamp(tonemappedColor, 0.0, 1.0);
-   }
+   tonemappedColor *= kBrightnessScale;
 
    return tonemappedColor;
 }
@@ -256,7 +254,7 @@ void main()
       if (kWithBloom)
       {
          vec3 bloom = texture(bloomTexture, inTexCoord).rgb;
-         hdrColor = mix(hdrColor, bloom, 0.05);
+         hdrColor = mix(hdrColor, bloom, params.bloomStrength);
       }
    }
 
@@ -267,12 +265,16 @@ void main()
       vec4 uiSrgb = texture(uiTexture, inTexCoord);
       vec3 uiLinear = srgbToLinear(uiSrgb.rgb);
 
-      if (kOutputHDR)
-      {
-         uiLinear = ConvertToHDR10(vec4(uiLinear, 1.0), kPaperwhiteNits).rgb;
-      }
-
       tonemappedColor = mix(tonemappedColor, uiLinear, uiSrgb.a);
+   }
+
+   if (kOutputHDR)
+   {
+      tonemappedColor = ConvertToHDR10(vec4(tonemappedColor, 1.0), kPaperwhiteNits).rgb;
+   }
+   else
+   {
+      tonemappedColor = clamp(tonemappedColor, 0.0, 1.0);
    }
 
    outColor = vec4(tonemappedColor, 1.0);
