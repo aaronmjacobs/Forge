@@ -124,7 +124,7 @@ float ApplyExpShoulder(float Value, float Scale, float White)
    }
 
    float Term = (1 - Scale) * White;
-   return White - exp((White - Value) / Term - 1) * Term;
+   return White - exp((White - Value) / (Term + 1e-7) - 1) * Term;
 }
 
 float GetLuminance(vec3 Color)
