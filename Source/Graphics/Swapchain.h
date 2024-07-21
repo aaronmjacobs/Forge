@@ -24,7 +24,7 @@ struct SwapchainSupportDetails
 
    bool supportsHDR() const;
    vk::SurfaceFormatKHR chooseSurfaceFormat(bool preferHDR) const;
-   vk::PresentModeKHR choosePresentMode() const;
+   vk::PresentModeKHR choosePresentMode(bool limitFrameRate) const;
 };
 
 class Swapchain : public GraphicsResource
@@ -32,7 +32,7 @@ class Swapchain : public GraphicsResource
 public:
    static SwapchainSupportDetails getSupportDetails(vk::PhysicalDevice physicalDevice, vk::SurfaceKHR surface);
 
-   Swapchain(const GraphicsContext& graphicsContext, vk::Extent2D desiredExtent, bool preferHDR = false);
+   Swapchain(const GraphicsContext& graphicsContext, vk::Extent2D desiredExtent, bool limitFrameRate, bool preferHDR);
    ~Swapchain();
 
    vk::Format getFormat() const

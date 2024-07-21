@@ -45,6 +45,7 @@ struct RenderSettings
    vk::SampleCountFlagBits msaaSamples = vk::SampleCountFlagBits::e1;
    RenderQuality ssaoQuality = RenderQuality::Medium;
    RenderQuality bloomQuality = RenderQuality::High;
+   bool limitFrameRate = true;
    bool presentHDR = false;
    TonemapSettings tonemapSettings;
 

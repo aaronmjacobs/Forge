@@ -710,6 +710,8 @@ void UI::renderSettings(const GraphicsContext& graphicsContext, const RenderCapa
    ImGui::SliderFloat("Hotspot", &settings.tonemapSettings.hotspot, 0.0f, 1.0f);
    ImGui::SliderFloat("Hue Preservation", &settings.tonemapSettings.huePreservation, 0.0f, 1.0f);
 
+   ImGui::Checkbox("Limit Frame Rate", &settings.limitFrameRate);
+
    if (!capabilities.canPresentHDR)
    {
       ImGui::BeginDisabled();

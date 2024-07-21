@@ -250,6 +250,8 @@ bool ForgeApplication::recreateSwapchain()
    terminateSwapchain();
 
    initializeSwapchain();
+   swapchainFences.resize(swapchain->getImageCount());
+
    renderer->onSwapchainRecreated();
    initializeCommandBuffers();
 
@@ -262,11 +264,12 @@ void ForgeApplication::updateRenderSettings(const RenderSettings& newRenderSetti
 {
    if (renderSettings != newRenderSettings)
    {
+      bool limitFrameRateChanged = newRenderSettings.limitFrameRate != renderSettings.limitFrameRate;
       bool presentHDRChanged = newRenderSettings.presentHDR != renderSettings.presentHDR;
 
       renderSettings = newRenderSettings;
 
-      if (presentHDRChanged)
+      if (limitFrameRateChanged || presentHDRChanged)
       {
          recreateSwapchain();
       }
@@ -365,7 +368,7 @@ void ForgeApplication::terminateVulkan()
 
 void ForgeApplication::initializeSwapchain()
 {
-   swapchain = std::make_unique<Swapchain>(*context, window->getExtent(), renderSettings.presentHDR);
+   swapchain = std::make_unique<Swapchain>(*context, window->getExtent(), renderSettings.limitFrameRate, renderSettings.presentHDR);
    NAME_POINTER(context->getDevice(), swapchain, "Swapchain");
    context->setSwapchain(swapchain.get());
 

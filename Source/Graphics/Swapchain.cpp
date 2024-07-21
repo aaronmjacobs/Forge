@@ -68,16 +68,24 @@ vk::SurfaceFormatKHR SwapchainSupportDetails::chooseSurfaceFormat(bool preferHDR
    throw std::runtime_error("No swapchain formats available");
 }
 
-vk::PresentModeKHR SwapchainSupportDetails::choosePresentMode() const
+vk::PresentModeKHR SwapchainSupportDetails::choosePresentMode(bool limitFrameRate) const
 {
    static const auto containsPresentMode = [](const std::vector<vk::PresentModeKHR>& presentModes, vk::PresentModeKHR presentMode)
    {
       return std::find(presentModes.begin(), presentModes.end(), presentMode) != presentModes.end();
    };
 
-   if (containsPresentMode(presentModes, vk::PresentModeKHR::eMailbox))
+   if (!limitFrameRate)
    {
-      return vk::PresentModeKHR::eMailbox;
+      if (containsPresentMode(presentModes, vk::PresentModeKHR::eMailbox))
+      {
+         return vk::PresentModeKHR::eMailbox;
+      }
+
+      if (containsPresentMode(presentModes, vk::PresentModeKHR::eImmediate))
+      {
+         return vk::PresentModeKHR::eImmediate;
+      }
    }
 
    if (containsPresentMode(presentModes, vk::PresentModeKHR::eFifo))
@@ -105,7 +113,7 @@ SwapchainSupportDetails Swapchain::getSupportDetails(vk::PhysicalDevice physical
    return supportDetails;
 }
 
-Swapchain::Swapchain(const GraphicsContext& graphicsContext, vk::Extent2D desiredExtent, bool preferHDR)
+Swapchain::Swapchain(const GraphicsContext& graphicsContext, vk::Extent2D desiredExtent, bool limitFrameRate, bool preferHDR)
    : GraphicsResource(graphicsContext)
 {
    SwapchainSupportDetails supportDetails = getSupportDetails(context.getPhysicalDevice(), context.getSurface());
@@ -114,12 +122,12 @@ Swapchain::Swapchain(const GraphicsContext& graphicsContext, vk::Extent2D desire
    supportsHDRFormat = supportDetails.supportsHDR();
 
    vk::SurfaceFormatKHR surfaceFormat = supportDetails.chooseSurfaceFormat(preferHDR);
-   vk::PresentModeKHR presentMode = supportDetails.choosePresentMode();
+   vk::PresentModeKHR presentMode = supportDetails.choosePresentMode(limitFrameRate);
 
    format = surfaceFormat.format;
    extent = chooseExtent(supportDetails.capabilities, desiredExtent);
 
-   uint32_t desiredMinImageCount = supportDetails.capabilities.minImageCount + 1;
+   uint32_t desiredMinImageCount = supportDetails.capabilities.minImageCount + (presentMode == vk::PresentModeKHR::eFifo ? 0 : 1);
    minImageCount = supportDetails.capabilities.maxImageCount > 0 ? std::min(supportDetails.capabilities.maxImageCount, desiredMinImageCount) : desiredMinImageCount;
 
    vk::SwapchainCreateInfoKHR createInfo = vk::SwapchainCreateInfoKHR()
