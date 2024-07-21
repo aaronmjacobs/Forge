@@ -344,7 +344,7 @@ DelegateHandle TextureLoader::registerReplaceDelegate(TextureHandle textureHandl
       location = replaceDelegates.emplace(textureHandle, ReplaceDelegate{}).first;
    }
 
-   location->second.add(std::move(function));
+   return location->second.add(std::move(function));
 }
 
 void TextureLoader::unregisterReplaceDelegate(TextureHandle textureHandle, DelegateHandle& delegateHandle)
