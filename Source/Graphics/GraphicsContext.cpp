@@ -102,14 +102,9 @@ namespace
 #if FORGE_WITH_VALIDATION_LAYERS
    bool isDebugMessageIgnored(int32_t messageId)
    {
-      // VUID-vkCmdBindPipeline-pipeline-06195, etc.
+      // VUID-VkGraphicsPipelineCreateInfo-pMultisampleState-09026
       // https://github.com/KhronosGroup/Vulkan-ValidationLayers/issues/4235
-      return messageId == 296975921
-         || messageId == 354377306
-         || messageId == -690520546
-         || messageId == 1813430196
-         || messageId == 604302748
-         || messageId == -945112042;
+      return messageId == 0x92d66fc1;
    }
 
    VKAPI_ATTR VkBool32 VKAPI_CALL vulkanDebugMessageCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData)
