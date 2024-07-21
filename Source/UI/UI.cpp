@@ -708,7 +708,6 @@ void UI::renderSettings(const GraphicsContext& graphicsContext, const RenderCapa
 
    ImGui::SliderFloat("Shoulder", &settings.tonemapSettings.shoulder, 0.0f, 1.0f);
    ImGui::SliderFloat("Hotspot", &settings.tonemapSettings.hotspot, 0.0f, 1.0f);
-   ImGui::SliderFloat("Hotspot Slope", &settings.tonemapSettings.hotspotSlope, 0.0f, 1.0f);
    ImGui::SliderFloat("Hue Preservation", &settings.tonemapSettings.huePreservation, 0.0f, 1.0f);
 
    if (!capabilities.canPresentHDR)

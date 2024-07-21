@@ -35,7 +35,6 @@ struct TonemapSettings
 
    float shoulder = 0.5f;
    float hotspot = 0.5f;
-   float hotspotSlope = 0.25f;
    float huePreservation = 1.0f;
 
    bool operator==(const TonemapSettings& other) const = default;

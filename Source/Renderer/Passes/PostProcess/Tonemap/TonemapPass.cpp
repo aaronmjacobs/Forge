@@ -164,7 +164,6 @@ void TonemapPass::render(vk::CommandBuffer commandBuffer, Texture& outputTexture
       uniformData.peakBrightness = settings.peakBrightness;
       uniformData.shoulder = settings.shoulder;
       uniformData.hotspot = settings.hotspot;
-      uniformData.hotspotSlope = settings.hotspotSlope;
       uniformData.huePreservation = settings.huePreservation;
       uniformBuffer.update(uniformData);
 

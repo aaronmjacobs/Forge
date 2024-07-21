@@ -26,7 +26,6 @@ layout(std430, set = 0, binding = 4) uniform TonemapData
 
    float Shoulder;
    float Hotspot;
-   float HotspotSlope;
    float HuePreservation;
 } params;
 
@@ -113,81 +112,79 @@ vec3 tony_mc_mapface(vec3 stimulus)
 
 ////////////////////////////////////////////////////////////////////////////////
 // Double Fine code begin
+//
+// HSV --> RGB borrowed from https://www.chilliant.com/rgb2hsv.html
 ////////////////////////////////////////////////////////////////////////////////
-
-vec3 HUE_2_LinearRGB_(in float H)
-{
-   float R = abs(H * 6 - 3) - 1;
-   float G = 2 - abs(H * 6 - 2);
-   float B = 2 - abs(H * 6 - 4);
-   return clamp(vec3(R, G, B), vec3(0.0), vec3(1.0));
-}
-
-vec3 HSV_2_LinearRGB_(in vec3 HSV)
-{
-   vec3 RGB = HUE_2_LinearRGB_(HSV.x);
-   return ((RGB - 1) * HSV.y + 1) * HSV.z;
-}
-
-vec3 RGB_2_HCV_(in vec3 RGB)
-{
-   // Based on work by Sam Hocevar and Emil Persson
-   vec4 P = (RGB.g < RGB.b) ? vec4(RGB.bg, -1.0f, 2.0f / 3.0f) : vec4(RGB.gb, 0.0f, -1.0f / 3.0f);
-   vec4 Q = (RGB.r < P.x)   ? vec4(P.xyw, RGB.r) : vec4(RGB.r, P.yzx);
-   float Chroma = Q.x - min(Q.w, Q.y);
-   float Hue = abs((Q.w - Q.y) / (6.0f * Chroma + 1e-10f) + Q.z);
-   return vec3(Hue, Chroma, Q.x);
-}
-
-vec3 LinearRGB_2_HSV_(in vec3 RGB)
-{
-   vec3 HCV = RGB_2_HCV_(RGB);
-   float s = HCV.y / (HCV.z + 1e-10f);
-   return vec3(HCV.x, s, HCV.z);
-}
 
 float ApplyExpShoulder(float Value, float Scale, float White)
 {
    if (Value < Scale * White)
+   {
       return Value;
+   }
 
    float Term = (1 - Scale) * White;
    return White - exp((White - Value) / Term - 1) * Term;
 }
 
-vec3 DF_New(vec3 Color)
+float GetLuminance(vec3 Color)
 {
-   const float White = 1;
-   float Shoulder = kOutputHDR ? 0 : params.Shoulder;
-   float Hotspot = params.Hotspot;
-   float HotspotSlope = params.HotspotSlope;
-   float HuePreservation = params.HuePreservation;
+   return dot(Color, vec3(0.28, 0.58, 0.14));
+}
 
-   vec3 HSV = LinearRGB_2_HSV_(Color);
-   float OriginalBrightness = HSV.z;
-   HSV.z = ApplyExpShoulder(HSV.z, Shoulder, White);
+vec3 DFTonemap(vec3 Color, bool bIsHDR, float HdrWhite)
+{
+   float White = bIsHDR ? HdrWhite : 1;
 
-   float BrightStart = kOutputHDR ? 0.2 : 1;
-   float Overbright = 0.25 * max(OriginalBrightness - BrightStart, 0);
-   float SaturationScale = 1 - pow(1 - exp(-Hotspot * Overbright * (1 + HotspotSlope) / BrightStart), 1 + HotspotSlope);
-   HSV.y *= SaturationScale;
+   // Calculate the normalized hue.
+   float Max = max(max(Color.r, Color.g), Color.b);
+   float Min = min(min(Color.r, Color.g), Color.b);
+   vec3 Hue = (Color - Min) / (Max - Min + 1e-7);
 
-   vec3 FilmColor = HSV_2_LinearRGB_(HSV);
+   // Add hotspot by limiting overbright saturation.
+   float Lum = GetLuminance(Color);
+   float Saturation = ApplyExpShoulder(Max - Min, 1 - 0.5 * params.Hotspot, White);
+   vec3 Tonemapped = Lum + (Hue - GetLuminance(Hue)) * Saturation;
+   Tonemapped = mix(Color, Tonemapped, params.Hotspot * params.Hotspot);
 
-   Color.r = ApplyExpShoulder(Color.r, Shoulder, White);
-   Color.g = ApplyExpShoulder(Color.g, Shoulder, White);
-   Color.b = ApplyExpShoulder(Color.b, Shoulder, White);
+   // Apply shoulder.
+   Tonemapped.r = ApplyExpShoulder(Tonemapped.r, params.Shoulder, White);
+   Tonemapped.g = ApplyExpShoulder(Tonemapped.g, params.Shoulder, White);
+   Tonemapped.b = ApplyExpShoulder(Tonemapped.b, params.Shoulder, White);
 
-   // Fix for drop in luminance from squashing lesser color channels.
-   FilmColor += Hotspot * dot(clamp(Color - FilmColor, 0.0, 1.0), vec3(0.3, 0.59, 0.11));
-
-   if (HuePreservation < 1)
+   // SDR final luminance is after the shoulder.
+   if (!bIsHDR)
    {
-      Color = mix(vec3(1), Color, SaturationScale);
-      FilmColor = mix(Color, FilmColor, HuePreservation);
+      Lum = GetLuminance(Tonemapped);
    }
 
-   return FilmColor;
+   // Preserve original hue.
+   Max = max(max(Tonemapped.r, Tonemapped.g), Tonemapped.b);
+   Min = min(min(Tonemapped.r, Tonemapped.g), Tonemapped.b);
+   vec3 ColorWithOriginalHue = Min + Hue * (Max - Min);
+   Tonemapped = mix(Tonemapped, ColorWithOriginalHue, params.HuePreservation);
+
+   // Preserve luminance.
+   float LuminancePreservation = bIsHDR ? 0.5 * params.Hotspot : clamp(2 * params.Hotspot, 0.0, 1.0);
+   float MissingLuminance = LuminancePreservation * (Lum - GetLuminance(Tonemapped));
+   float EdgeSoften = 0.05 * White;
+   Tonemapped += MissingLuminance * MissingLuminance / (MissingLuminance + EdgeSoften);
+
+   return Tonemapped;
+}
+
+vec3 HUEtoRGB(in float H)
+{
+   float R = abs(H * 6 - 3) - 1;
+   float G = 2 - abs(H * 6 - 2);
+   float B = 2 - abs(H * 6 - 4);
+   return clamp(vec3(R, G, B), vec3(0), vec3(1));
+}
+
+vec3 HSVtoRGB(in vec3 HSV)
+{
+   vec3 RGB = HUEtoRGB(HSV.x);
+   return ((RGB - 1) * HSV.y + 1) * HSV.z;
 }
 
 vec3 TestPattern(vec2 UV, float Power, float Bands)
@@ -195,7 +192,7 @@ vec3 TestPattern(vec2 UV, float Power, float Bands)
   float Hue = floor(Bands * (1-UV.y)) / Bands;
   float Value = pow(2 * UV.x, Power);
   vec3 HSV = vec3(Hue, 1, Value);
-  return HSV_2_LinearRGB_(HSV);
+  return HSVtoRGB(HSV);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -224,7 +221,7 @@ vec3 tonemap(vec3 hdrColor)
    }
    else if (kTonemappingAlgorithm == kTonemappingAlgorithm_DoubleFine)
    {
-      tonemappedColor = DF_New(clampedHdrColor);
+      tonemappedColor = DFTonemap(clampedHdrColor, kOutputHDR, 1.0);
    }
 
    tonemappedColor *= kBrightnessScale;
