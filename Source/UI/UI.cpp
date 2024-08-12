@@ -706,6 +706,7 @@ void UI::renderSettings(const GraphicsContext& graphicsContext, const RenderCapa
 
    ImGui::DragFloat("Peak Brightness", &settings.tonemapSettings.peakBrightness, 1.0f, 100.0f, 10'000.0f);
 
+   ImGui::SliderFloat("Toe", &settings.tonemapSettings.toe, 0.0f, 1.0f);
    ImGui::SliderFloat("Shoulder", &settings.tonemapSettings.shoulder, 0.0f, 1.0f);
    ImGui::SliderFloat("Hotspot", &settings.tonemapSettings.hotspot, 0.0f, 1.0f);
    ImGui::SliderFloat("Hue Preservation", &settings.tonemapSettings.huePreservation, 0.0f, 1.0f);

@@ -21,6 +21,7 @@ struct TonemapUniformData
    alignas(4) float bloomStrength = 0.0f;
    alignas(4) float peakBrightness = 0.0f;
 
+   alignas(4) float toe = 0.0f;
    alignas(4) float shoulder = 0.0f;
    alignas(4) float hotspot = 0.0f;
    alignas(4) float huePreservation = 0.0f;

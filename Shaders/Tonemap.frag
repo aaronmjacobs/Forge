@@ -24,6 +24,7 @@ layout(std430, set = 0, binding = 4) uniform TonemapData
    float bloomStrength;
    float peakBrightness;
 
+   float Toe;
    float Shoulder;
    float Hotspot;
    float HuePreservation;
@@ -116,6 +117,11 @@ vec3 tony_mc_mapface(vec3 stimulus)
 // HSV --> RGB borrowed from https://www.chilliant.com/rgb2hsv.html
 ////////////////////////////////////////////////////////////////////////////////
 
+float ApplyToe(float Value, float Toe)
+{
+   return Value * Value / (Value + 0.25 * Toe / (25 * Value + 1) + 1e-7);
+}
+
 float ApplyExpShoulder(float Value, float Scale, float White)
 {
    if (Value < Scale * White)
@@ -132,6 +138,30 @@ float GetLuminance(vec3 Color)
    return dot(Color, vec3(0.28, 0.58, 0.14));
 }
 
+vec3 ApplyHue(vec3 Color, vec3 Hue, float Amount)
+{
+   float Max = max(max(Color.r, Color.g), Color.b);
+   float Min = min(min(Color.r, Color.g), Color.b);
+   return mix(Color, Min + Hue * (Max - Min), Amount);
+}
+
+vec3 ApplyLuminanceSDR(vec3 Color, float Luminance, float White, float Amount, float Soften)
+{
+   float SourceLum = GetLuminance(Color);
+   float Correction = max(Luminance - SourceLum, 0) / (max(White - SourceLum, 0) + 1e-7);
+   float EdgeSoften = Soften * White;
+   Correction *= Correction / (Correction + EdgeSoften);
+   return mix(Color, vec3(White), Correction * Amount);
+}
+
+vec3 ApplyLuminanceHDR(vec3 Color, vec3 Original, float Amount)
+{
+   float Correction = GetLuminance(Original) - GetLuminance(Color);
+   float EdgeSoften = 4 * GetLuminance(Color);
+   Correction *= Correction / (Correction + EdgeSoften + 1e-7);
+   return mix(Original, Color + Correction, Amount);
+}
+
 vec3 DFTonemap(vec3 Color, bool bIsHDR, float HdrWhite)
 {
    float White = bIsHDR ? HdrWhite : 1;
@@ -140,6 +170,14 @@ vec3 DFTonemap(vec3 Color, bool bIsHDR, float HdrWhite)
    float Max = max(max(Color.r, Color.g), Color.b);
    float Min = min(min(Color.r, Color.g), Color.b);
    vec3 Hue = (Color - Min) / (Max - Min + 1e-7);
+
+   // Increase contrast to keep mid gray levels with toe.
+   Color *= 0.333 / ApplyToe(0.333, params.Toe);
+
+   // Apply toe.
+   Color.r = ApplyToe(Color.r, params.Toe);
+   Color.g = ApplyToe(Color.g, params.Toe);
+   Color.b = ApplyToe(Color.b, params.Toe);
 
    // Add hotspot by limiting overbright saturation.
    float Lum = GetLuminance(Color);
@@ -151,24 +189,25 @@ vec3 DFTonemap(vec3 Color, bool bIsHDR, float HdrWhite)
    Tonemapped.r = ApplyExpShoulder(Tonemapped.r, params.Shoulder, White);
    Tonemapped.g = ApplyExpShoulder(Tonemapped.g, params.Shoulder, White);
    Tonemapped.b = ApplyExpShoulder(Tonemapped.b, params.Shoulder, White);
-
-   // SDR final luminance is after the shoulder.
-   if (!bIsHDR)
-   {
-      Lum = GetLuminance(Tonemapped);
-   }
+   float TonemappedLum = GetLuminance(Tonemapped);
 
    // Preserve original hue.
-   Max = max(max(Tonemapped.r, Tonemapped.g), Tonemapped.b);
-   Min = min(min(Tonemapped.r, Tonemapped.g), Tonemapped.b);
-   vec3 ColorWithOriginalHue = Min + Hue * (Max - Min);
-   Tonemapped = mix(Tonemapped, ColorWithOriginalHue, params.HuePreservation);
+   Tonemapped = ApplyHue(Tonemapped, Hue, params.HuePreservation);
+   float HuePreservedLum = GetLuminance(Tonemapped);
 
-   // Preserve luminance.
-   float LuminancePreservation = bIsHDR ? 0.5 * params.Hotspot : clamp(2 * params.Hotspot, 0.0, 1.0);
-   float MissingLuminance = LuminancePreservation * (Lum - GetLuminance(Tonemapped));
-   float EdgeSoften = 0.05 * White;
-   Tonemapped += MissingLuminance * MissingLuminance / (MissingLuminance + EdgeSoften);
+   // Preserve luminance lost by hue preservation.
+   float LuminancePreservation = clamp(2 * params.Hotspot, 0.0, 1.0);
+   Tonemapped = ApplyLuminanceSDR(Tonemapped, TonemappedLum, White, LuminancePreservation, 0.1);
+
+   // Preserve luminance lost by tonemapping.
+   if (bIsHDR)
+   {
+      Tonemapped = ApplyLuminanceHDR(Tonemapped, Color, LuminancePreservation);
+   }
+   else
+   {
+      Tonemapped = ApplyLuminanceSDR(Tonemapped, ApplyExpShoulder(GetLuminance(Color), params.Shoulder, White), White, LuminancePreservation, 4);
+   }
 
    return Tonemapped;
 }

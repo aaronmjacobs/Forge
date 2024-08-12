@@ -33,6 +33,7 @@ struct TonemapSettings
    float bloomStrength = 0.05f;
    float peakBrightness = 1600.0f;
 
+   float toe = 0.0f;
    float shoulder = 0.5f;
    float hotspot = 0.5f;
    float huePreservation = 1.0f;
