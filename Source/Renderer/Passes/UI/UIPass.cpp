@@ -1,6 +1,5 @@
 #include "Renderer/Passes/UI/UIPass.h"
 
-#include "Graphics/Command.h"
 #include "Graphics/DebugUtils.h"
 #include "Graphics/Swapchain.h"
 #include "Graphics/Texture.h"
@@ -38,17 +37,17 @@ UIPass::UIPass(const GraphicsContext& graphicsContext)
 
    vk::DescriptorPoolCreateInfo poolCreateInfo = vk::DescriptorPoolCreateInfo()
       .setPoolSizes(poolSizes)
-      .setMaxSets(1000 * GraphicsContext::kMaxFramesInFlight);
+      .setMaxSets(1000 * GraphicsContext::kMaxFramesInFlight)
+      .setFlags(vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet);
 
    descriptorPool = device.createDescriptorPool(poolCreateInfo);
+   NAME_CHILD(descriptorPool, "Descriptor Pool");
 }
 
 UIPass::~UIPass()
 {
    terminateImgui();
    context.delayedDestroy(std::move(descriptorPool));
-   terminateFramebuffer();
-   terminateRenderPass();
 }
 
 void UIPass::render(vk::CommandBuffer commandBuffer, Texture& outputTexture)
@@ -57,23 +56,15 @@ void UIPass::render(vk::CommandBuffer commandBuffer, Texture& outputTexture)
 
    outputTexture.transitionLayout(commandBuffer, TextureLayoutType::AttachmentWrite);
 
-   vk::Rect2D renderArea(vk::Offset2D(0, 0), outputTexture.getExtent());
+   ImGui_ImplVulkan_NewFrame();
 
-   vk::ClearValue clearValue(std::array<float, 4> { 0.0f, 0.0f, 0.0f, 0.0f });
+   AttachmentInfo colorAttachmentInfo = AttachmentInfo(outputTexture)
+      .setLoadOp(vk::AttachmentLoadOp::eClear);
 
-   vk::RenderPassBeginInfo renderPassBeginInfo = vk::RenderPassBeginInfo()
-      .setRenderPass(renderPass)
-      .setFramebuffer(framebuffer)
-      .setRenderArea(renderArea)
-      .setClearValueCount(1)
-      .setPClearValues(&clearValue);
-   commandBuffer.beginRenderPass(renderPassBeginInfo, vk::SubpassContents::eInline);
-
-   setViewport(commandBuffer, renderArea);
-
-   ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffer);
-
-   commandBuffer.endRenderPass();
+   executePass(commandBuffer, &colorAttachmentInfo, nullptr, [](vk::CommandBuffer commandBuffer)
+   {
+      ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffer, nullptr);
+   });
 }
 
 void UIPass::onOutputTextureCreated(const Texture& outputTexture)
@@ -81,93 +72,14 @@ void UIPass::onOutputTextureCreated(const Texture& outputTexture)
    vk::Format format = outputTexture.getImageProperties().format;
    vk::SampleCountFlagBits sampleCount = outputTexture.getTextureProperties().sampleCount;
 
-   if (format != cachedFormat || sampleCount != cachedSampleCount)
+   if (!imguiInitialized || format != cachedFormat || sampleCount != cachedSampleCount)
    {
       terminateImgui();
-      terminateRenderPass();
-
-      initializeRenderPass(format, sampleCount);
-      initializeImgui();
+      initializeImgui(format, sampleCount);
    }
-
-   terminateFramebuffer();
-   initializeFramebuffer(outputTexture);
 }
 
-void UIPass::initializeRenderPass(vk::Format format, vk::SampleCountFlagBits sampleCount)
-{
-   ASSERT(!renderPass);
-
-   vk::AttachmentDescription colorAttachment = vk::AttachmentDescription()
-      .setFormat(format)
-      .setSamples(sampleCount)
-      .setLoadOp(vk::AttachmentLoadOp::eClear)
-      .setStoreOp(vk::AttachmentStoreOp::eStore)
-      .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
-      .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
-      .setInitialLayout(vk::ImageLayout::eUndefined)
-      .setFinalLayout(vk::ImageLayout::eColorAttachmentOptimal);
-
-   vk::AttachmentReference colorAttachmentReference = vk::AttachmentReference()
-      .setAttachment(0)
-      .setLayout(vk::ImageLayout::eColorAttachmentOptimal);
-
-   vk::SubpassDescription subpassDescription = vk::SubpassDescription()
-      .setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
-      .setPColorAttachments(&colorAttachmentReference)
-      .setColorAttachmentCount(1);
-
-   vk::SubpassDependency subpassDependency = vk::SubpassDependency()
-      .setSrcSubpass(VK_SUBPASS_EXTERNAL)
-      .setDstSubpass(0)
-      .setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
-      .setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
-      .setDstStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
-      .setDstAccessMask(vk::AccessFlagBits::eColorAttachmentRead | vk::AccessFlagBits::eColorAttachmentWrite);
-
-   vk::RenderPassCreateInfo renderPassCreateInfo = vk::RenderPassCreateInfo()
-      .setPAttachments(&colorAttachment)
-      .setAttachmentCount(1)
-      .setSubpasses(subpassDescription)
-      .setPDependencies(&subpassDependency)
-      .setDependencyCount(1);
-
-   renderPass = device.createRenderPass(renderPassCreateInfo);
-   NAME_CHILD(renderPass, "Render Pass");
-
-   cachedFormat = format;
-   cachedSampleCount = sampleCount;
-}
-
-void UIPass::terminateRenderPass()
-{
-   context.delayedDestroy(std::move(renderPass));
-}
-
-void UIPass::initializeFramebuffer(const Texture& uiTexture)
-{
-   vk::ImageView uiTextureView = uiTexture.getDefaultView();
-   vk::Extent2D extent = uiTexture.getExtent();
-
-   vk::FramebufferCreateInfo framebufferCreateInfo = vk::FramebufferCreateInfo()
-      .setRenderPass(renderPass)
-      .setPAttachments(&uiTextureView)
-      .setAttachmentCount(1)
-      .setWidth(extent.width)
-      .setHeight(extent.height)
-      .setLayers(1);
-
-   ASSERT(!framebuffer);
-   framebuffer = device.createFramebuffer(framebufferCreateInfo);
-   NAME_CHILD(framebuffer, "Framebuffer");
-}
-
-void UIPass::terminateFramebuffer()
-{
-   context.delayedDestroy(std::move(framebuffer));
-}
-
-void UIPass::initializeImgui()
+void UIPass::initializeImgui(vk::Format format, vk::SampleCountFlagBits sampleCount)
 {
    if (!imguiInitialized)
    {
@@ -177,25 +89,28 @@ void UIPass::initializeImgui()
       initInfo.Device = device;
       initInfo.QueueFamily = context.getGraphicsFamilyIndex();
       initInfo.Queue = context.getGraphicsQueue();
-      initInfo.PipelineCache = context.getPipelineCache();
       initInfo.DescriptorPool = descriptorPool;
-      initInfo.Subpass = 0;
+      initInfo.RenderPass = nullptr;
       initInfo.MinImageCount = context.getSwapchain().getMinImageCount();
       initInfo.ImageCount = context.getSwapchain().getImageCount();
-      initInfo.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+      initInfo.MSAASamples = static_cast<VkSampleCountFlagBits>(sampleCount);
+
+      initInfo.PipelineCache = context.getPipelineCache();
+      initInfo.Subpass = 0;
+
+      initInfo.UseDynamicRendering = true;
+      initInfo.PipelineRenderingCreateInfo = vk::PipelineRenderingCreateInfo()
+         .setColorAttachmentFormats(format);
+
       initInfo.Allocator = nullptr;
       initInfo.CheckVkResultFn = &checkUiError;
+      initInfo.MinAllocationSize = 0;
 
-      ImGui_ImplVulkan_Init(&initInfo, renderPass);
-
-      Command::executeSingle(context, [](vk::CommandBuffer commandBuffer)
-      {
-         ImGui_ImplVulkan_CreateFontsTexture(commandBuffer);
-      });
-
-      ImGui_ImplVulkan_DestroyFontUploadObjects();
+      ImGui_ImplVulkan_Init(&initInfo);
 
       imguiInitialized = true;
+      cachedFormat = format;
+      cachedSampleCount = sampleCount;
    }
 }
 

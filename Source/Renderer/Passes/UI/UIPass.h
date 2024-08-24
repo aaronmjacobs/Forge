@@ -18,21 +18,12 @@ public:
    void onOutputTextureCreated(const Texture& outputTexture);
 
 private:
-   void initializeRenderPass(vk::Format format, vk::SampleCountFlagBits sampleCount);
-   void terminateRenderPass();
-
-   void initializeFramebuffer(const Texture& uiTexture);
-   void terminateFramebuffer();
-
-   void initializeImgui();
+   void initializeImgui(vk::Format format, vk::SampleCountFlagBits sampleCount);
    void terminateImgui();
 
-   vk::RenderPass renderPass;
-   vk::Framebuffer framebuffer;
-
    vk::DescriptorPool descriptorPool;
-   bool imguiInitialized = false;
 
+   bool imguiInitialized = false;
    vk::Format cachedFormat = vk::Format::eUndefined;
    vk::SampleCountFlagBits cachedSampleCount = vk::SampleCountFlagBits::e1;
 };
