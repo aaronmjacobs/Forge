@@ -242,28 +242,28 @@ vec3 tonemap(vec3 hdrColor)
 {
    const float kBrightnessScale = kOutputHDR ? (params.peakBrightness / kPaperwhiteNits) : 1.0f;
 
-   vec3 clampedHdrColor = max(vec3(0.0), hdrColor / kBrightnessScale);
-   vec3 tonemappedColor = clampedHdrColor;
+   vec3 scaledHdrColor = max(vec3(0.0), hdrColor / kBrightnessScale);
+   vec3 tonemappedColor = scaledHdrColor;
 
    if (kTonemappingAlgorithm == kTonemappingAlgorithm_Curve)
    {
       const float curve = 4.0;
-      tonemappedColor = clampedHdrColor - (pow(pow(clampedHdrColor, vec3(curve)) + 1.0, vec3(1.0 / curve)) - 1.0);
+      tonemappedColor = scaledHdrColor - (pow(pow(scaledHdrColor, vec3(curve)) + 1.0, vec3(1.0 / curve)) - 1.0);
    }
    else if (kTonemappingAlgorithm == kTonemappingAlgorithm_Reinhard)
    {
-      tonemappedColor = clampedHdrColor / (clampedHdrColor + vec3(1.0));
+      tonemappedColor = scaledHdrColor / (scaledHdrColor + vec3(1.0));
    }
    else if (kTonemappingAlgorithm == kTonemappingAlgorithm_TonyMcMapface)
    {
-      tonemappedColor = tony_mc_mapface(clampedHdrColor);
+      tonemappedColor = tony_mc_mapface(scaledHdrColor);
    }
    else if (kTonemappingAlgorithm == kTonemappingAlgorithm_DoubleFine)
    {
-      tonemappedColor = DFTonemap(clampedHdrColor, kOutputHDR, 1.0);
+      tonemappedColor = DFTonemap(scaledHdrColor, kOutputHDR, 1.0);
    }
 
-   tonemappedColor *= kBrightnessScale;
+   tonemappedColor = clamp(tonemappedColor, 0.0, 1.0) * kBrightnessScale;
 
    return tonemappedColor;
 }
