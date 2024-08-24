@@ -640,14 +640,17 @@ void Renderer::onSwapchainRecreated()
 {
    bool msaaEnabled = renderSettings.msaaSamples != vk::SampleCountFlagBits::e1;
 
+   std::array<vk::Format, 2> hdrColorFormats = { vk::Format::eB10G11R11UfloatPack32, vk::Format::eR16G16B16A16Sfloat };
+   vk::Format hdrColorFormat = Texture::findSupportedFormat(context, hdrColorFormats, vk::ImageTiling::eOptimal, vk::FormatFeatureFlagBits::eSampledImage | vk::FormatFeatureFlagBits::eColorAttachment);
+
    depthTexture = createDepthTexture(context, depthStencilFormat, context.getSwapchain().getExtent(), true, renderSettings.msaaSamples);
    normalTexture = createColorTexture(context, vk::Format::eR16G16B16A16Snorm, true, renderSettings.msaaSamples);
    ssaoTexture = createColorTexture(context, vk::Format::eR8Unorm, true);
    ssaoBlurTexture = createColorTexture(context, vk::Format::eR8Unorm, true);
-   hdrColorTexture = createColorTexture(context, vk::Format::eR16G16B16A16Sfloat, !msaaEnabled, renderSettings.msaaSamples);
+   hdrColorTexture = createColorTexture(context, hdrColorFormat, !msaaEnabled, renderSettings.msaaSamples);
    if (msaaEnabled)
    {
-      hdrResolveTexture = createColorTexture(context, vk::Format::eR16G16B16A16Sfloat, true);
+      hdrResolveTexture = createColorTexture(context, hdrColorFormat, true);
    }
    else
    {
