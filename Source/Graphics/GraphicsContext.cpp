@@ -17,6 +17,7 @@
 #include <map>
 #include <optional>
 #include <set>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
@@ -107,45 +108,71 @@ namespace
       return messageId == 0x92d66fc1;
    }
 
-   VKAPI_ATTR VkBool32 VKAPI_CALL vulkanDebugMessageCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData)
+   const char* getDebugUtilsMessageTypeName(vk::DebugUtilsMessageTypeFlagBitsEXT messageType)
+   {
+      switch (messageType)
+      {
+      case vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral:
+         return "general";
+      case vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation:
+         return "validation";
+      case vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance:
+         return "performance";
+      case vk::DebugUtilsMessageTypeFlagBitsEXT::eDeviceAddressBinding:
+         return "device address binding";
+      default:
+         return "unknown";
+      }
+   }
+
+   VKAPI_ATTR vk::Bool32 VKAPI_CALL vulkanDebugMessageCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageType, const vk::DebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData)
    {
       if (pCallbackData && isDebugMessageIgnored(pCallbackData->messageIdNumber))
       {
          return VK_FALSE;
       }
 
-      const char* typeName = nullptr;
-      switch (messageType)
+      std::stringstream ss;
+      ss << "Vulkan debug message (type = ";
+
+      bool typeSet = false;
+      static const auto appendTypeName = [](std::stringstream& ss, bool& typeSet, vk::DebugUtilsMessageTypeFlagsEXT messageType, vk::DebugUtilsMessageTypeFlagBitsEXT typeBit)
       {
-      case VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT:
-         typeName = "general";
-         break;
-      case VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT:
-         typeName = "validation";
-         break;
-      case VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT:
-         typeName = "performance";
-         break;
-      default:
-         typeName = "unknown";
-         break;
-      }
+         if (messageType & typeBit)
+         {
+            if (typeSet)
+            {
+               ss << ", ";
+            }
+
+            ss << getDebugUtilsMessageTypeName(typeBit);
+            typeSet = true;
+         }
+      };
+
+      appendTypeName(ss, typeSet, messageType, vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral);
+      appendTypeName(ss, typeSet, messageType, vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation);
+      appendTypeName(ss, typeSet, messageType, vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance);
+      appendTypeName(ss, typeSet, messageType, vk::DebugUtilsMessageTypeFlagBitsEXT::eDeviceAddressBinding);
+
+      ss << "): ";
 
       const char* messageText = pCallbackData ? pCallbackData->pMessage : "none";
-      std::string message = std::string("Vulkan debug message (type = ") + typeName + "): " + messageText;
+      ss << messageText;
 
+      std::string message = ss.str();
       switch (messageSeverity)
       {
-      case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT:
+      case vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose:
          LOG_DEBUG(message);
          break;
-      case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT:
+      case vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo:
          LOG_INFO(message);
          break;
-      case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
+      case vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning:
          LOG_WARNING(message);
          break;
-      case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
+      case vk::DebugUtilsMessageSeverityFlagBitsEXT::eError:
          ASSERT(false, "%s", message.c_str());
          break;
       default:
@@ -404,13 +431,13 @@ private:
 #endif // FORGE_WITH_GPU_MEMORY_TRACKING
 
 // static
-const vk::DispatchLoaderDynamic& GraphicsContext::GetDynamicLoader()
+const vk::detail::DispatchLoaderDynamic& GraphicsContext::GetDynamicLoader()
 {
    return dispatchLoaderDynamic;
 }
 
 // static
-vk::DispatchLoaderDynamic GraphicsContext::dispatchLoaderDynamic;
+vk::detail::DispatchLoaderDynamic GraphicsContext::dispatchLoaderDynamic;
 
 GraphicsContext::GraphicsContext(Window& window)
 {

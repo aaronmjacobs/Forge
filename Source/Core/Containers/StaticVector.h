@@ -55,6 +55,16 @@ public:
       return values.data();
    }
 
+   T* begin()
+   {
+      return data();
+   }
+
+   const T* begin() const
+   {
+      return data();
+   }
+
    std::size_t size() const
    {
       return used;
