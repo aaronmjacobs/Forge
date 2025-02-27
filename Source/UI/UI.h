@@ -1,10 +1,11 @@
 #pragma once
 
+#include "Graphics/GraphicsTypes.h"
+
 #include "Scene/Entity.h"
 
 #include <array>
 
-class GraphicsContext;
 class ResourceManager;
 class Scene;
 struct RenderCapabilities;

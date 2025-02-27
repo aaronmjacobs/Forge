@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Graphics/GraphicsTypes.h"
 #include "Graphics/Vulkan.h"
 
 #include "Renderer/RenderSettings.h"
@@ -8,7 +9,6 @@
 
 #include <memory>
 
-class GraphicsContext;
 class Renderer;
 class ResourceManager;
 class Scene;

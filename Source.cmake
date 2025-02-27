@@ -26,6 +26,12 @@ target_sources(${PROJECT_NAME} PRIVATE
    "${SRC_DIR}/Core/Task.h"
    "${SRC_DIR}/Core/Types.h"
 
+   "${SRC_DIR}/Graphics/GraphicsTypes.h"
+   "${SRC_DIR}/Graphics/Base/GraphicsContextBase.cpp"
+   "${SRC_DIR}/Graphics/Base/GraphicsContextBase.h"
+   "${SRC_DIR}/Graphics/Vulkan/VulkanGraphicsContext.cpp"
+   "${SRC_DIR}/Graphics/Vulkan/VulkanGraphicsContext.h"
+
    "${SRC_DIR}/Graphics/BlendMode.h"
    "${SRC_DIR}/Graphics/Buffer.cpp"
    "${SRC_DIR}/Graphics/Buffer.h"

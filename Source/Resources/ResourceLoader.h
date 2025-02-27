@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Graphics/GraphicsTypes.h"
+
 #include "Resources/ResourceContainer.h"
 #include "Resources/ResourceTypes.h"
 
@@ -8,7 +10,6 @@
 #include <optional>
 #include <utility>
 
-class GraphicsContext;
 class ResourceManager;
 
 namespace ResourceLoadHelpers
