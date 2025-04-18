@@ -25,8 +25,6 @@
 
 namespace
 {
-   const uint32_t kVulkanTargetVersion = VK_API_VERSION_1_3;
-
    bool hasExtensionProperty(const std::vector<vk::ExtensionProperties>& extensionProperties, const char* name)
    {
       return std::find_if(extensionProperties.begin(), extensionProperties.end(), [name](const vk::ExtensionProperties& properties)

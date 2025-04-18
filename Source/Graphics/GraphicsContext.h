@@ -15,6 +15,7 @@ class Window;
 class GraphicsContext
 {
 public:
+   static const uint32_t kVulkanTargetVersion = VK_API_VERSION_1_3;
    static const uint32_t kMaxFramesInFlight = 3;
 
    static const vk::detail::DispatchLoaderDynamic& GetDynamicLoader();
