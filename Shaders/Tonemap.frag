@@ -24,7 +24,7 @@ layout(std430, set = 0, binding = 4) uniform TonemapData
    float bloomStrength;
    float peakBrightness;
 
-   float Toe;
+   vec2 ToeAndInv;
    float Shoulder;
    float Hotspot;
    float HuePreservation;
@@ -117,20 +117,24 @@ vec3 tony_mc_mapface(vec3 stimulus)
 // HSV --> RGB borrowed from https://www.chilliant.com/rgb2hsv.html
 ////////////////////////////////////////////////////////////////////////////////
 
-float ApplyToe(float Value, float Toe)
+float ApplyToe(float Value, float InvToe)
 {
-   return Value * Value / (Value + 0.25 * Toe / (25 * Value + 1) + 1e-7);
+   float Bias = 3; // Only apply toe to the lower third of the range at most.
+   float Term = clamp(1 - Bias * Value * InvToe, 0, 1);
+   return Value * (1 - Term * Term * Term);
 }
 
-float ApplyExpShoulder(float Value, float Scale, float White)
+float ApplyShoulder(float Value, float Scale, float White)
 {
    if (Value < Scale * White)
-   {
       return Value;
-   }
 
-   float Term = (1 - Scale) * White;
-   return White - exp((White - Value) / (Term + 1e-7) - 1) * Term;
+   float A = (1 - Scale) * White;
+   float B = Value + A - White;
+   float C = B * B + B * A + A * A;
+   return White - A * A * A / max(C, 1e-7);
+
+   //return White - exp((White - Value) / (A + 1e-7) - 1) * A; // Old exp method.
 }
 
 float GetLuminance(vec3 Color)
@@ -138,78 +142,77 @@ float GetLuminance(vec3 Color)
    return dot(Color, vec3(0.28, 0.58, 0.14));
 }
 
-vec3 ApplyHue(vec3 Color, vec3 Hue, float Amount)
+vec3 ApplyHue(vec3 Color, vec3 Hue, float Amount, float LuminancePreservation)
 {
    float Max = max(max(Color.r, Color.g), Color.b);
    float Min = min(min(Color.r, Color.g), Color.b);
-   return mix(Color, Min + Hue * (Max - Min), Amount);
+   float Saturation = Max - Min;
+   vec3 Result = mix(Color, Min + Hue * Saturation, Amount);
+
+   float LuminanceLost = max(GetLuminance(Color) - GetLuminance(Result), 0);
+   LuminanceLost = ApplyToe(LuminanceLost, 1);
+   Result += LuminanceLost * LuminancePreservation;
+
+   return Result;
 }
 
-vec3 ApplyLuminanceSDR(vec3 Color, float Luminance, float White, float Amount, float Soften)
+vec3 ApplyLuminanceSDR(vec3 Color, float Luminance, float White, float Amount)
 {
    float SourceLum = GetLuminance(Color);
-   float Correction = max(Luminance - SourceLum, 0) / (max(White - SourceLum, 0) + 1e-7);
-   float EdgeSoften = Soften * White;
-   Correction *= Correction / (Correction + EdgeSoften);
+   float TargetLum = ApplyShoulder(Luminance, params.Shoulder, White);
+   float Correction = max(TargetLum - SourceLum, 0) / max(White - SourceLum, 1e-7);
+   Correction = ApplyToe(Correction, 0.05);
+
    return mix(Color, vec3(White), Correction * Amount);
 }
 
-vec3 ApplyLuminanceHDR(vec3 Color, vec3 Original, float Amount)
+vec3 ApplyLuminanceHDR(vec3 Tonemapped, vec3 Original, float Amount)
 {
-   float Correction = GetLuminance(Original) - GetLuminance(Color);
-   float EdgeSoften = 4 * GetLuminance(Color);
-   Correction *= Correction / (Correction + EdgeSoften + 1e-7);
-   return mix(Original, Color + Correction, Amount);
+   vec3 Correction = max(Original - Tonemapped, 0);
+   float Luminance = GetLuminance(Correction);
+   Correction = 0.5 * Correction + 0.25 * Luminance + 0.25 * ApplyToe(Luminance, 0.05);
+
+   return Tonemapped + Correction * clamp(2 * Amount, 0, 1);
 }
 
-vec3 DFTonemap(vec3 Color, bool bIsHDR, float HdrWhite)
+vec3 DFTonemap(vec3 Color, bool bIsHDR)
 {
-   float White = bIsHDR ? HdrWhite : 1;
+    float White = 1;
 
-   // Calculate the normalized hue.
-   float Max = max(max(Color.r, Color.g), Color.b);
-   float Min = min(min(Color.r, Color.g), Color.b);
-   vec3 Hue = (Color - Min) / (Max - Min + 1e-7);
+    // Calculate the normalized hue.
+    float Max = max(max(Color.r, Color.g), Color.b);
+    float Min = min(min(Color.r, Color.g), Color.b);
+    float Saturation = Max - Min;
+    vec3 Hue = (Color - Min) / max(Saturation, 1e-7);
 
-   // Increase contrast to keep mid gray levels with toe.
-   Color *= 0.333 / ApplyToe(0.333, params.Toe);
+    // Apply toe.
+    Max = ApplyToe(Max, params.ToeAndInv.y);
+    Min = ApplyToe(Min, params.ToeAndInv.y);
+    Saturation = Max - Min;
+    Color = Min + Hue * Saturation;
 
-   // Apply toe.
-   Color.r = ApplyToe(Color.r, params.Toe);
-   Color.g = ApplyToe(Color.g, params.Toe);
-   Color.b = ApplyToe(Color.b, params.Toe);
+    // Add hotspot by limiting overbright saturation.
+    float Luminance = GetLuminance(Color);
+    float SaturationLimit = White + (1 - params.Hotspot * params.Hotspot) * (Max - White);
+    Saturation = ApplyShoulder(Saturation, 1 - 0.5 * params.Hotspot * params.Hotspot, SaturationLimit);
+    vec3 Tonemapped = Luminance + (Hue - GetLuminance(Hue)) * Saturation;
 
-   // Add hotspot by limiting overbright saturation.
-   float Lum = GetLuminance(Color);
-   float Saturation = ApplyExpShoulder(Max - Min, 1 - 0.5 * params.Hotspot, White);
-   vec3 Tonemapped = Lum + (Hue - GetLuminance(Hue)) * Saturation;
-   Tonemapped = mix(Color, Tonemapped, params.Hotspot * params.Hotspot);
+    // Apply shoulder.
+    Tonemapped.r = ApplyShoulder(Tonemapped.r, params.Shoulder, White);
+    Tonemapped.g = ApplyShoulder(Tonemapped.g, params.Shoulder, White);
+    Tonemapped.b = ApplyShoulder(Tonemapped.b, params.Shoulder, White);
 
-   // Apply shoulder.
-   Tonemapped.r = ApplyExpShoulder(Tonemapped.r, params.Shoulder, White);
-   Tonemapped.g = ApplyExpShoulder(Tonemapped.g, params.Shoulder, White);
-   Tonemapped.b = ApplyExpShoulder(Tonemapped.b, params.Shoulder, White);
-   float TonemappedLum = GetLuminance(Tonemapped);
+    // Preserve hue shifted by shoulder.
+    float LuminancePreservation = clamp(2 * params.Hotspot, 0, 1);
+    Tonemapped = ApplyHue(Tonemapped, Hue, params.HuePreservation, LuminancePreservation);
 
-   // Preserve original hue.
-   Tonemapped = ApplyHue(Tonemapped, Hue, params.HuePreservation);
-   float HuePreservedLum = GetLuminance(Tonemapped);
+    // Preserve luminance lost by shoulder.
+    Tonemapped = ApplyLuminanceSDR(Tonemapped, Luminance, White, LuminancePreservation);
 
-   // Preserve luminance lost by hue preservation.
-   float LuminancePreservation = clamp(2 * params.Hotspot, 0.0, 1.0);
-   Tonemapped = ApplyLuminanceSDR(Tonemapped, TonemappedLum, White, LuminancePreservation, 0.1);
+    if (bIsHDR)
+        Tonemapped = ApplyLuminanceHDR(Tonemapped, Color, LuminancePreservation);
 
-   // Preserve luminance lost by tonemapping.
-   if (bIsHDR)
-   {
-      Tonemapped = ApplyLuminanceHDR(Tonemapped, Color, LuminancePreservation);
-   }
-   else
-   {
-      Tonemapped = ApplyLuminanceSDR(Tonemapped, ApplyExpShoulder(GetLuminance(Color), params.Shoulder, White), White, LuminancePreservation, 4);
-   }
-
-   return Tonemapped;
+    return Tonemapped;
 }
 
 vec3 HUEtoRGB(in float H)
@@ -260,7 +263,7 @@ vec3 tonemap(vec3 hdrColor)
    }
    else if (kTonemappingAlgorithm == kTonemappingAlgorithm_DoubleFine)
    {
-      tonemappedColor = DFTonemap(scaledHdrColor, kOutputHDR, 1.0);
+      tonemappedColor = DFTonemap(scaledHdrColor, kOutputHDR);
    }
 
    tonemappedColor = clamp(tonemappedColor, 0.0, 1.0) * kBrightnessScale;

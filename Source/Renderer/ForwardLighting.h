@@ -28,7 +28,7 @@ struct ForwardPointLightUniformData
 {
    alignas(16) glm::vec4 colorRadius;
    alignas(16) glm::vec4 position;
-   alignas(16) glm::vec2 nearFar;
+   alignas(8) glm::vec2 nearFar;
    alignas(4) int shadowMapIndex = -1;
 };
 
@@ -37,7 +37,7 @@ struct ForwardDirectionalLightUniformData
    alignas(16) glm::mat4 worldToShadow;
    alignas(16) glm::vec4 color;
    alignas(16) glm::vec4 direction;
-   alignas(16) glm::vec2 nearFar;
+   alignas(8) glm::vec2 nearFar;
    alignas(4) int shadowMapIndex = -1;
 };
 

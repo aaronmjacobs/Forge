@@ -28,9 +28,36 @@ namespace MathUtils
       return glm::vec3(safeReciprocal(value.x, tolerance), safeReciprocal(value.y, tolerance), safeReciprocal(value.z, tolerance));
    }
 
+   template<glm::length_t L, typename T, glm::qualifier Q>
+	glm::vec<L, bool, Q> isFinite(glm::vec<L, T, Q> const& v)
+	{
+		glm::vec<L, bool, Q> Result(true);
+		for(glm::length_t i = 0; i < L; ++i)
+			Result[i] = std::isfinite(v[i]);
+		return Result;
+	}
+
+   template<typename T>
+   T safeNormal(const T& value)
+   {
+      T result = glm::normalize(value);
+      if (!glm::all(isFinite(result)))
+      {
+         return T(0);
+      }
+
+      return result;
+   }
+
    template<typename T>
    T saturate(const T& value)
    {
       return glm::clamp(value, T(0.0), T(1.0));
+   }
+
+   template<typename T>
+   T square(const T& value)
+   {
+      return value * value;
    }
 }

@@ -6,6 +6,8 @@
 #include "Graphics/Pipeline.h"
 #include "Graphics/Texture.h"
 
+#include "Math/MathUtils.h"
+
 #include "Renderer/Passes/PostProcess/Tonemap/TonemapShader.h"
 
 #include "Resources/ResourceManager.h"
@@ -162,7 +164,7 @@ void TonemapPass::render(vk::CommandBuffer commandBuffer, Texture& outputTexture
       TonemapUniformData uniformData;
       uniformData.bloomStrength = settings.bloomStrength;
       uniformData.peakBrightness = settings.peakBrightness;
-      uniformData.toe = settings.toe;
+      uniformData.toeAndInv = glm::vec2(settings.toe, settings.toe < MathUtils::kSmallNumber ? 1.0e8f : 1.0f / settings.toe);
       uniformData.shoulder = settings.shoulder;
       uniformData.hotspot = settings.hotspot;
       uniformData.huePreservation = settings.huePreservation;

@@ -26,7 +26,7 @@ struct ViewUniformData
    alignas(16) glm::vec4 position;
    alignas(16) glm::vec4 direction;
 
-   alignas(16) glm::vec2 nearFar;
+   alignas(8) glm::vec2 nearFar;
 };
 
 class ViewDescriptorSet : public TypedDescriptorSet<ViewDescriptorSet>

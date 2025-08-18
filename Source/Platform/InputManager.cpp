@@ -2,11 +2,20 @@
 
 #include "Core/Enum.h"
 
+#include "Math/MathUtils.h"
+
 #include <GLFW/glfw3.h>
 
 #include <glm/glm.hpp>
 
+#include <cmath>
 #include <utility>
+
+
+
+#include "Platform/Midi.h"
+
+
 
 namespace
 {
@@ -127,35 +136,86 @@ namespace
       }
    }
 
-   float applyDeadzone(float value, float lowerDeadzone, float upperDeadzone)
+   float applyAxialDeadzone(float value, float lowerDeadzone, float upperDeadzone)
    {
       ASSERT(lowerDeadzone >= 0.0f && lowerDeadzone < 1.0f);
       ASSERT(upperDeadzone >= 0.0f && upperDeadzone < 1.0f);
       ASSERT(lowerDeadzone + upperDeadzone < 1.0f);
 
-      if (value <= lowerDeadzone)
+      float absValue = glm::abs(value);
+
+      if (absValue <= lowerDeadzone)
       {
          return 0.0f;
       }
-      else if (value >= 1.0f - upperDeadzone)
+      else if (absValue >= 1.0f - upperDeadzone)
       {
-         return 1.0f;
+         return 1.0f * glm::sign(value);
       }
 
       float scale = 1.0f / (1.0f - (lowerDeadzone + upperDeadzone));
-      float scaledValue = (glm::clamp(value, lowerDeadzone, 1.0f - upperDeadzone) - lowerDeadzone) * scale;
+      float scaledValue = (glm::clamp(absValue, lowerDeadzone, 1.0f - upperDeadzone) - lowerDeadzone) * scale;
 
-      return glm::clamp(scaledValue, 0.0f, 1.0f);
+      return glm::clamp(scaledValue, 0.0f, 1.0f) * glm::sign(value);
    }
 
-   glm::vec2 processStickInput(const glm::vec2& values)
+   glm::vec2 applyRadialDeadzone(const glm::vec2& values, float lowerDeadzone, float upperDeadzone)
+   {
+      return MathUtils::safeNormal(values) * applyAxialDeadzone(glm::length(values), lowerDeadzone, upperDeadzone);
+   }
+
+   glm::vec2 applyRoundedAxialDeadzone(const glm::vec2& values, float lowerDeadzone, float upperDeadzone)
+   {
+      static const float kCirclingAmount = 0.5f;
+
+      glm::vec2 axiallyDeadzonedInput = glm::vec2(applyAxialDeadzone(values.x, lowerDeadzone, upperDeadzone), applyAxialDeadzone(values.y, lowerDeadzone, upperDeadzone));
+
+      float fYawModifier = 1.0f + MathUtils::square(axiallyDeadzonedInput.y) * kCirclingAmount;
+      float fPitchModifier = 1.0f + MathUtils::square(axiallyDeadzonedInput.x) * kCirclingAmount;
+
+      glm::vec2 roundedAxiallyDeadzonedInput = glm::clamp(glm::vec2(axiallyDeadzonedInput.x * fYawModifier, axiallyDeadzonedInput.y * fPitchModifier), -1.0f, 1.0f);
+      return axiallyDeadzonedInput;
+   }
+
+   glm::vec2 applySlopedAxialDeadzone(const glm::vec2& values, float lowerDeadzone)
+   {
+      float lowerDeadzoneX = lowerDeadzone * glm::abs(values.y);
+      float lowerDeadzoneY = lowerDeadzone * glm::abs(values.x);
+
+      return glm::vec2(applyAxialDeadzone(values.x, lowerDeadzoneX, 0.0f) * glm::abs(values.x), applyAxialDeadzone(values.y, lowerDeadzoneY, 0.0f) * glm::abs(values.y));
+   }
+
+   float nonlinearizeInput(float input)
+   {
+      return glm::smoothstep(0.0f, 1.0f, glm::clamp(glm::abs(input), 0.0f, 1.0f)) * glm::sign(input);
+   }
+
+   glm::vec2 processStickInput(const glm::vec2& input)
    {
       static const float kStickLowerDeadzone = 0.1f;
       static const float kStickUpperDeadzone = 0.01f;
 
-      glm::vec2 processedValues;
-      processedValues.x = glm::smoothstep(0.0f, 1.0f, applyDeadzone(glm::abs(values.x), kStickLowerDeadzone, kStickUpperDeadzone)) * glm::sign(values.x);
-      processedValues.y = glm::smoothstep(0.0f, 1.0f, applyDeadzone(glm::abs(values.y), kStickLowerDeadzone, kStickUpperDeadzone)) * glm::sign(values.y) * -1.0f;
+      glm::vec2 radiallyDeadzonedInput = applyRadialDeadzone(input, kStickLowerDeadzone, kStickUpperDeadzone);
+      glm::vec2 slopedAxiallyDeadzoneInput = applySlopedAxialDeadzone(radiallyDeadzonedInput, kStickLowerDeadzone);
+      glm::vec2 nonLinearInput = nonlinearizeInput(glm::length(slopedAxiallyDeadzoneInput)) * MathUtils::safeNormal(slopedAxiallyDeadzoneInput);
+      nonLinearInput.y *= -1.0f;
+
+      if (Midi::getState().groups[0].slider > 0.5f)
+      {
+         return nonLinearInput;
+      }
+
+      glm::vec2 axiallyDeadzonedInput = glm::vec2(applyAxialDeadzone(input.x, kStickLowerDeadzone, kStickUpperDeadzone), applyAxialDeadzone(input.y, kStickLowerDeadzone, kStickUpperDeadzone));
+      glm::vec2 processedValues = glm::vec2(nonlinearizeInput(axiallyDeadzonedInput.x), -nonlinearizeInput(axiallyDeadzonedInput.y));
+
+      glm::vec2 roundedAxial = applyRoundedAxialDeadzone(input, kStickLowerDeadzone, kStickUpperDeadzone);
+      roundedAxial.x = nonlinearizeInput(roundedAxial.x);
+      roundedAxial.y = -nonlinearizeInput(roundedAxial.y);
+
+      if (Midi::getState().groups[1].slider > 0.5f)
+      {
+         return roundedAxial;
+      }
 
       return processedValues;
    }
@@ -165,7 +225,7 @@ namespace
       static const float kTriggerLowerDeadzone = 0.0f;
       static const float kTriggerUpperDeadzone = 0.01f;
 
-      return applyDeadzone((value + 1.0f) * 0.5f, kTriggerLowerDeadzone, kTriggerUpperDeadzone);
+      return applyAxialDeadzone((value + 1.0f) * 0.5f, kTriggerLowerDeadzone, kTriggerUpperDeadzone);
    }
 
    std::optional<GamepadState> pollGamepadState(int gamepadId)
