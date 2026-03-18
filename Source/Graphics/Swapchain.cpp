@@ -45,6 +45,15 @@ vk::SurfaceFormatKHR SwapchainSupportDetails::chooseSurfaceFormat(bool preferHDR
 {
    if (preferHDR)
    {
+      // Prefer ST 2084
+      for (const vk::SurfaceFormatKHR& surfaceFormat : surfaceFormats)
+      {
+         if (isHdrSurfaceFormat(surfaceFormat) && surfaceFormat.colorSpace == vk::ColorSpaceKHR::eHdr10St2084EXT)
+         {
+            return surfaceFormat;
+         }
+      }
+
       for (const vk::SurfaceFormatKHR& surfaceFormat : surfaceFormats)
       {
          if (isHdrSurfaceFormat(surfaceFormat))
