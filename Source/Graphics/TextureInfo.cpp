@@ -21,6 +21,18 @@ namespace FormatHelpers
       }
    }
 
+   bool isUsedForHdrPresentation(vk::Format format)
+   {
+      switch (format)
+      {
+      case vk::Format::eA2R10G10B10UnormPack32:
+      case vk::Format::eA2B10G10R10UnormPack32:
+         return true;
+      default:
+         return false;
+      }
+   }
+
    bool hasAlpha(vk::Format format)
    {
       switch (format)
@@ -357,6 +369,28 @@ namespace FormatHelpers
          return 16;
       default:
          return 0;
+      }
+   }
+}
+
+namespace ColorSpaceHelpers
+{
+   bool isWideGamut(vk::ColorSpaceKHR colorSpace)
+   {
+      switch (colorSpace)
+      {
+      case vk::ColorSpaceKHR::eDisplayP3NonlinearEXT:
+      case vk::ColorSpaceKHR::eExtendedSrgbLinearEXT:
+      case vk::ColorSpaceKHR::eDisplayP3LinearEXT:
+      case vk::ColorSpaceKHR::eDciP3NonlinearEXT:
+      case vk::ColorSpaceKHR::eBt2020LinearEXT:
+      case vk::ColorSpaceKHR::eHdr10St2084EXT:
+      case vk::ColorSpaceKHR::eHdr10HlgEXT:
+      case vk::ColorSpaceKHR::eAdobergbLinearEXT:
+      case vk::ColorSpaceKHR::eAdobergbNonlinearEXT:
+         return true;
+      default:
+         return false;
       }
    }
 }

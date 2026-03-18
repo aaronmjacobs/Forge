@@ -11,15 +11,14 @@ class Texture;
 struct SwapchainSupportDetails
 {
    vk::SurfaceCapabilitiesKHR capabilities;
-   std::vector<vk::SurfaceFormatKHR> formats;
+   std::vector<vk::SurfaceFormatKHR> surfaceFormats;
    std::vector<vk::PresentModeKHR> presentModes;
 
    static const vk::SurfaceFormatKHR kDefaultSurfaceFormat;
-   static const vk::SurfaceFormatKHR kHDRSurfaceFormat;
 
    bool isValid() const
    {
-      return !formats.empty() && !presentModes.empty();
+      return !surfaceFormats.empty() && !presentModes.empty();
    }
 
    bool supportsHDR() const;
@@ -37,13 +36,10 @@ public:
 
    vk::Format getFormat() const
    {
-      return format;
+      return surfaceFormat.format;
    }
 
-   bool isHDR() const
-   {
-      return format == SwapchainSupportDetails::kHDRSurfaceFormat.format;
-   }
+   bool isHDR() const;
 
    bool supportsHDR() const
    {
@@ -73,7 +69,7 @@ public:
    Texture& getCurrentTexture() const;
 
 private:
-   vk::Format format;
+   vk::SurfaceFormatKHR surfaceFormat;
    vk::Extent2D extent;
 
    uint32_t minImageCount = 0;

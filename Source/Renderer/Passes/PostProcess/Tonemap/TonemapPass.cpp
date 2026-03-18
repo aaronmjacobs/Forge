@@ -170,7 +170,7 @@ void TonemapPass::render(vk::CommandBuffer commandBuffer, Texture& outputTexture
 
       PipelineDescription<TonemapPass> pipelineDescription;
       pipelineDescription.tonemappingAlgorithm = settings.algorithm;
-      pipelineDescription.hdr = outputTexture.getImageProperties().format == vk::Format::eA2R10G10B10UnormPack32;
+      pipelineDescription.hdr = FormatHelpers::isUsedForHdrPresentation(outputTexture.getImageProperties().format);
       pipelineDescription.withBloom = bloomTexture != nullptr;
       pipelineDescription.withUI = uiTexture != nullptr;
       pipelineDescription.showTestPattern = settings.showTestPattern;

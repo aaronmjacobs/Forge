@@ -44,7 +44,13 @@ struct TextureData
 namespace FormatHelpers
 {
    bool isDepthStencil(vk::Format format);
+   bool isUsedForHdrPresentation(vk::Format format);
    bool hasAlpha(vk::Format format);
    uint32_t bitsPerPixel(vk::Format format);
    uint32_t bytesPerBlock(vk::Format format);
+}
+
+namespace ColorSpaceHelpers
+{
+   bool isWideGamut(vk::ColorSpaceKHR colorSpace);
 }

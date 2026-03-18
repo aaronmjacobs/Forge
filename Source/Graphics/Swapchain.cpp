@@ -18,19 +18,21 @@ namespace
 
       return extent;
    }
+
+   bool isHdrSurfaceFormat(const vk::SurfaceFormatKHR& surfaceFormat)
+   {
+      return FormatHelpers::isUsedForHdrPresentation(surfaceFormat.format) && ColorSpaceHelpers::isWideGamut(surfaceFormat.colorSpace);
+   }
 }
 
 // static
 const vk::SurfaceFormatKHR SwapchainSupportDetails::kDefaultSurfaceFormat(vk::Format::eB8G8R8A8Srgb, vk::ColorSpaceKHR::eSrgbNonlinear);
 
-// static
-const vk::SurfaceFormatKHR SwapchainSupportDetails::kHDRSurfaceFormat(vk::Format::eA2R10G10B10UnormPack32, vk::ColorSpaceKHR::eHdr10St2084EXT);
-
 bool SwapchainSupportDetails::supportsHDR() const
 {
-   for (const vk::SurfaceFormatKHR& format : formats)
+   for (const vk::SurfaceFormatKHR& surfaceFormat : surfaceFormats)
    {
-      if (format == kHDRSurfaceFormat)
+      if (isHdrSurfaceFormat(surfaceFormat))
       {
          return true;
       }
@@ -43,16 +45,16 @@ vk::SurfaceFormatKHR SwapchainSupportDetails::chooseSurfaceFormat(bool preferHDR
 {
    if (preferHDR)
    {
-      for (const vk::SurfaceFormatKHR& format : formats)
+      for (const vk::SurfaceFormatKHR& surfaceFormat : surfaceFormats)
       {
-         if (format == kHDRSurfaceFormat)
+         if (isHdrSurfaceFormat(surfaceFormat))
          {
-            return format;
+            return surfaceFormat;
          }
       }
    }
 
-   for (const vk::SurfaceFormatKHR& format : formats)
+   for (const vk::SurfaceFormatKHR& format : surfaceFormats)
    {
       if (format == kDefaultSurfaceFormat)
       {
@@ -60,9 +62,9 @@ vk::SurfaceFormatKHR SwapchainSupportDetails::chooseSurfaceFormat(bool preferHDR
       }
    }
 
-   if (!formats.empty())
+   if (!surfaceFormats.empty())
    {
-      return formats[0];
+      return surfaceFormats[0];
    }
 
    throw std::runtime_error("No swapchain formats available");
@@ -107,7 +109,7 @@ SwapchainSupportDetails Swapchain::getSupportDetails(vk::PhysicalDevice physical
    SwapchainSupportDetails supportDetails;
 
    supportDetails.capabilities = physicalDevice.getSurfaceCapabilitiesKHR(surface);
-   supportDetails.formats = physicalDevice.getSurfaceFormatsKHR(surface);
+   supportDetails.surfaceFormats = physicalDevice.getSurfaceFormatsKHR(surface);
    supportDetails.presentModes = physicalDevice.getSurfacePresentModesKHR(surface);
 
    return supportDetails;
@@ -121,10 +123,9 @@ Swapchain::Swapchain(const GraphicsContext& graphicsContext, vk::Extent2D desire
 
    supportsHDRFormat = supportDetails.supportsHDR();
 
-   vk::SurfaceFormatKHR surfaceFormat = supportDetails.chooseSurfaceFormat(preferHDR);
+   surfaceFormat = supportDetails.chooseSurfaceFormat(preferHDR);
    vk::PresentModeKHR presentMode = supportDetails.choosePresentMode(limitFrameRate);
 
-   format = surfaceFormat.format;
    extent = chooseExtent(supportDetails.capabilities, desiredExtent);
 
    uint32_t desiredMinImageCount = supportDetails.capabilities.minImageCount + (presentMode == vk::PresentModeKHR::eFifo ? 0 : 1);
@@ -175,6 +176,11 @@ Swapchain::~Swapchain()
    textures.clear();
 
    device.destroySwapchainKHR(swapchainKHR);
+}
+
+bool Swapchain::isHDR() const
+{
+   return isHdrSurfaceFormat(surfaceFormat);
 }
 
 Texture& Swapchain::getCurrentTexture() const
