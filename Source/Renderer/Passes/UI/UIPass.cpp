@@ -72,11 +72,11 @@ void UIPass::initializeImgui(vk::Format format, vk::SampleCountFlagBits sampleCo
    initInfo.Queue = context.getGraphicsQueue();
    initInfo.MinImageCount = context.getSwapchain().getMinImageCount();
    initInfo.ImageCount = context.getSwapchain().getImageCount();
-   initInfo.MSAASamples = static_cast<VkSampleCountFlagBits>(sampleCount);
    initInfo.PipelineCache = context.getPipelineCache();
+   initInfo.PipelineInfoMain.MSAASamples = static_cast<VkSampleCountFlagBits>(sampleCount);
+   initInfo.PipelineInfoMain.PipelineRenderingCreateInfo = vk::PipelineRenderingCreateInfo().setColorAttachmentFormats(format);
    initInfo.DescriptorPoolSize = 1000 * GraphicsContext::kMaxFramesInFlight;
    initInfo.UseDynamicRendering = true;
-   initInfo.PipelineRenderingCreateInfo = vk::PipelineRenderingCreateInfo().setColorAttachmentFormats(format);
    initInfo.CheckVkResultFn = &checkUiError;
 
    ImGui_ImplVulkan_Init(&initInfo);
