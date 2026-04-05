@@ -8,7 +8,7 @@ option(FORGE_FORCE_ENABLE_DEBUG_UTILS "Force enable debug utils" OFF)
 option(FORGE_FORCE_DISABLE_DEBUG_UTILS "Force disable debug utils" OFF)
 
 add_executable(${PROJECT_NAME} "")
-target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_20)
+target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_23)
 target_compile_definitions(${PROJECT_NAME} PUBLIC FORGE_DEBUG=$<CONFIG:Debug>)
 target_compile_definitions(${PROJECT_NAME} PUBLIC FORGE_WITH_DEBUG_UTILS=$<AND:$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>,$<BOOL:${FORGE_FORCE_ENABLE_DEBUG_UTILS}>>,$<NOT:$<BOOL:${FORGE_FORCE_DISABLE_DEBUG_UTILS}>>>)
 target_compile_definitions(${PROJECT_NAME} PUBLIC FORGE_PLATFORM_WINDOWS=$<PLATFORM_ID:Windows>)
