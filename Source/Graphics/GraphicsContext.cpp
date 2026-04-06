@@ -342,6 +342,23 @@ namespace
          score += 1;
       }
 
+#if FORGE_PLATFORM_MACOS
+      if (properties.apiVersion >= VK_API_VERSION_1_2)
+      {
+         vk::PhysicalDeviceProperties2 deviceProperties2;
+         vk::PhysicalDeviceDriverProperties driverProperties;
+         deviceProperties2.pNext = &driverProperties;
+         physicalDevice.getProperties2(&deviceProperties2);
+
+         if (driverProperties.driverID == vk::DriverId::eMesaKosmickrisp)
+         {
+            // I'm sure Kosmic Krisp will be great eventually, but right now it's significantly slower than MoltenVK, and doesn't support as many swapchain formats
+            score -= 50;
+         }
+      }
+
+#endif // FORGE_PLATFORM_MACOS
+
       return score;
    }
 
