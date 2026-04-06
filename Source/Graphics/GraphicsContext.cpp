@@ -531,7 +531,6 @@ GraphicsContext::GraphicsContext(Window& window)
 
    vk::DeviceCreateInfo deviceCreateInfo = vk::DeviceCreateInfo()
       .setQueueCreateInfos(deviceQueueCreateInfos)
-      .setPEnabledLayerNames(layers)
       .setPEnabledExtensionNames(deviceExtensions)
       .setPEnabledFeatures(&deviceFeatures)
       .setPNext(&dynamicRenderingFeatures);

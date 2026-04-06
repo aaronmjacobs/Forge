@@ -8,11 +8,22 @@ const int kTonemappingAlgorithm_Reinhard = 2;
 const int kTonemappingAlgorithm_TonyMcMapface = 3;
 const int kTonemappingAlgorithm_DoubleFine = 4;
 
+const int kColorGamut_Rec709 = 0;
+const int kColorGamut_Rec2020 = 1;
+const int kColorGamut_P3 = 2;
+
+const int kTransferFunction_Linear = 0;
+const int kTransferFunction_sRGB = 1;
+const int kTransferFunction_PQ = 2;
+const int kTransferFunction_HLG = 3;
+
 layout(constant_id = 0) const int kTonemappingAlgorithm = kTonemappingAlgorithm_None;
-layout(constant_id = 1) const bool kOutputHDR = false;
-layout(constant_id = 2) const bool kWithBloom = false;
-layout(constant_id = 3) const bool kWithUI = false;
-layout(constant_id = 4) const bool kShowTestPattern = false;
+layout(constant_id = 1) const int kColorGamut = kColorGamut_Rec709;
+layout(constant_id = 2) const int kTransferFunction = kTransferFunction_Linear;
+layout(constant_id = 3) const bool kOutputHDR = false;
+layout(constant_id = 4) const bool kWithBloom = false;
+layout(constant_id = 5) const bool kWithUI = false;
+layout(constant_id = 6) const bool kShowTestPattern = false;
 
 layout(set = 0, binding = 0) uniform sampler2D hdrTexture;
 layout(set = 0, binding = 1) uniform sampler2D bloomTexture;
@@ -35,57 +46,6 @@ layout(location = 0) in vec2 inTexCoord;
 layout(location = 0) out vec4 outColor;
 
 const float kPaperwhiteNits = 100.0;
-
-////////////////////////////////////////////////////////////////////////////////
-// Xbox ATG code begin
-//
-// Logic borrowed from https://github.com/microsoft/Xbox-ATG-Samples/blob/master/Kits/ATGTK/HDR/HDRCommon.hlsli
-////////////////////////////////////////////////////////////////////////////////
-
-const float g_MaxNitsFor2084 = 10000.0f;
-
-// Color rotation matrix to rotate Rec.709 color primaries into Rec.2020
-const mat3 from709to2020 =
-{
-    { 0.6274040f, 0.0690970f, 0.0163916f },
-    { 0.3292820f, 0.9195400f, 0.0880132f },
-    { 0.0433136f, 0.0113612f, 0.8955950f }
-};
-
-// Rotation matrix describing a custom color space which is bigger than Rec.709, but a little smaller than P3
-// This enhances colors, especially in the SDR range, by being a little more saturated. This can be used instead
-// of from709to2020.
-const mat3 fromExpanded709to2020 =
-{
-    { 0.6274040f, 0.0457456, 0.00121055 },
-    { 0.3292820f, 0.941777, 0.0176041 },
-    { -0.0433136f, 0.0124772, 0.983607 }
-};
-
-vec3 NormalizeHDRSceneValue(vec3 hdrSceneValue, float paperWhiteNits)
-{
-    vec3 normalizedLinearValue = hdrSceneValue * paperWhiteNits / g_MaxNitsFor2084;
-    return normalizedLinearValue;       // Don't clamp between [0..1], so we can still perform operations on scene values higher than 10,000 nits
-}
-
-vec3 LinearToST2084(vec3 normalizedLinearValue)
-{
-    vec3 ST2084 = pow((0.8359375f + 18.8515625f * pow(abs(normalizedLinearValue), vec3(0.1593017578f))) / (1.0f + 18.6875f * pow(abs(normalizedLinearValue), vec3(0.1593017578f))), vec3(78.84375f));
-    return ST2084;  // Don't clamp between [0..1], so we can still perform operations on scene values higher than 10,000 nits
-}
-
-vec4 ConvertToHDR10(vec4 hdrSceneValue, float paperWhiteNits)
-{
-    vec3 rec2020 = from709to2020 * hdrSceneValue.rgb;                                 // Rotate Rec.709 color primaries into Rec.2020 color primaries
-    vec3 normalizedLinearValue = NormalizeHDRSceneValue(rec2020, paperWhiteNits);     // Normalize using paper white nits to prepare for ST.2084
-    vec3 HDR10 = LinearToST2084(normalizedLinearValue);                               // Apply ST.2084 curve
-
-    return vec4(HDR10.rgb, hdrSceneValue.a);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// Xbox ATG code end
-////////////////////////////////////////////////////////////////////////////////
 
 ////////////////////////////////////////////////////////////////////////////////
 // Tony McMapface code begin
@@ -238,6 +198,31 @@ vec3 TestPattern(vec2 UV, float Power, float Bands)
 // Double Fine code end
 ////////////////////////////////////////////////////////////////////////////////
 
+vec3 linearToHLG(vec3 linear)
+{
+   return mix(0.17883277 * log(12.0 * linear - 0.28466892) + 0.55991073, sqrt(3.0 * linear), lessThanEqual(linear, vec3(1.0 / 12.0)));
+}
+
+vec3 linearToPQ(vec3 linear)
+{
+   return pow((0.8359375 + 18.8515625 * pow(abs(linear), vec3(0.1593017578125))) / (1.0 + 18.6875 * pow(abs(linear), vec3(0.1593017578125))), vec3(78.84375));
+}
+
+vec3 linearToSRGB(vec3 linear)
+{
+   return mix(1.055 * pow(linear, vec3(1.0 / 2.4)) - 0.055, linear * 12.92, lessThanEqual(linear, vec3(0.0031308)));
+}
+
+vec3 srgbToLinear(vec3 sRGB)
+{
+   return mix(sRGB / 12.92, pow((sRGB + 0.055) / 1.055, vec3(2.4)), step(vec3(0.04045), sRGB));
+}
+
+vec3 normalizeHDR(vec3 linearValue, float paperwhiteNits, float maxNits)
+{
+   return linearValue * paperwhiteNits / maxNits;
+}
+
 vec3 tonemap(vec3 hdrColor)
 {
    const float kBrightnessScale = kOutputHDR ? (params.peakBrightness / kPaperwhiteNits) : 1.0f;
@@ -268,12 +253,60 @@ vec3 tonemap(vec3 hdrColor)
    return tonemappedColor;
 }
 
-vec3 srgbToLinear(vec3 sRGB)
+vec3 convertGamut(vec3 color)
 {
-   vec3 a = sRGB / 12.92;
-   vec3 b = pow((sRGB + 0.055) / 1.055, vec3(2.4));
-   vec3 c = step(vec3(0.04045), sRGB);
-   return mix(a, b, c);
+   // Color space rotation matrices generated from https://www.colour-science.org:8010/apps/rgb_colourspace_transformation_matrix
+
+   const mat3 k709to2020 =
+   {
+      { 0.6274038959, 0.0690972894, 0.0163914389 },
+      { 0.3292830384, 0.9195403951, 0.0880133079 },
+      { 0.0433130657, 0.0113623156, 0.8955952532 }
+   };
+
+   const mat3 k709toP3 =
+   {
+      { 0.8224619687, 0.0331941989, 0.0170826307 },
+      { 0.1775380313, 0.9668058011, 0.0723974407 },
+      { 0.0000000000, 0.0000000000, 0.9105199286 }
+   };
+
+   if (kColorGamut == kColorGamut_Rec2020)
+   {
+      return k709to2020 * color;
+   }
+
+   if (kColorGamut == kColorGamut_P3)
+   {
+      return k709toP3 * color;
+   }
+
+   return color;
+}
+
+vec3 applyTransferFunction(vec3 color)
+{
+   if (kTransferFunction == kTransferFunction_sRGB)
+   {
+      return linearToSRGB(color);
+   }
+
+   if (kTransferFunction == kTransferFunction_PQ)
+   {
+      return linearToPQ(normalizeHDR(color, kPaperwhiteNits, 10000.0));
+   }
+
+   if (kTransferFunction == kTransferFunction_HLG)
+   {
+      return linearToHLG(normalizeHDR(color, kPaperwhiteNits, kPaperwhiteNits * 12.0));
+   }
+
+   return color;
+}
+
+vec3 encodeColor(vec3 color)
+{
+   return applyTransferFunction(convertGamut(color));
 }
 
 void main()
@@ -304,14 +337,5 @@ void main()
       tonemappedColor = mix(tonemappedColor, uiLinear, uiSrgb.a);
    }
 
-   if (kOutputHDR)
-   {
-      tonemappedColor = ConvertToHDR10(vec4(tonemappedColor, 1.0), kPaperwhiteNits).rgb;
-   }
-   else
-   {
-      tonemappedColor = clamp(tonemappedColor, 0.0, 1.0);
-   }
-
-   outColor = vec4(tonemappedColor, 1.0);
+   outColor = vec4(encodeColor(tonemappedColor), 1.0);
 }

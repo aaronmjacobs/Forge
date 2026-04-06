@@ -12,6 +12,60 @@
 
 #include <utility>
 
+namespace
+{
+   ColorGamut getColorGamut(vk::ColorSpaceKHR colorSpace)
+   {
+      switch (colorSpace)
+      {
+      case vk::ColorSpaceKHR::eSrgbNonlinear:
+      case vk::ColorSpaceKHR::eExtendedSrgbLinearEXT:
+      case vk::ColorSpaceKHR::eBt709LinearEXT:
+      case vk::ColorSpaceKHR::eBt709NonlinearEXT:
+      case vk::ColorSpaceKHR::eExtendedSrgbNonlinearEXT:
+         return ColorGamut::Rec709;
+      case vk::ColorSpaceKHR::eBt2020LinearEXT:
+      case vk::ColorSpaceKHR::eHdr10St2084EXT:
+      case vk::ColorSpaceKHR::eHdr10HlgEXT:
+         return ColorGamut::Rec2020;
+      case vk::ColorSpaceKHR::eDisplayP3NonlinearEXT:
+      case vk::ColorSpaceKHR::eDisplayP3LinearEXT:
+         return ColorGamut::P3;
+      default:
+         // Don't support anything else
+         return ColorGamut::Rec709;
+      }
+   }
+
+   TransferFunction getTransferFunction(vk::ColorSpaceKHR colorSpace)
+   {
+      switch (colorSpace)
+      {
+      case vk::ColorSpaceKHR::eSrgbNonlinear: // Handled in hardware, so we treat it as linear
+      case vk::ColorSpaceKHR::eExtendedSrgbLinearEXT:
+      case vk::ColorSpaceKHR::eDisplayP3LinearEXT:
+      case vk::ColorSpaceKHR::eBt709LinearEXT:
+      case vk::ColorSpaceKHR::eBt2020LinearEXT:
+      case vk::ColorSpaceKHR::eAdobergbLinearEXT:
+      case vk::ColorSpaceKHR::ePassThroughEXT:
+         return TransferFunction::Linear;
+      case vk::ColorSpaceKHR::eDisplayP3NonlinearEXT:
+      case vk::ColorSpaceKHR::eDciP3NonlinearEXT:
+      case vk::ColorSpaceKHR::eBt709NonlinearEXT: // Technically uses a gamma of 2.4, but we don't support that, so this is the closest option
+      case vk::ColorSpaceKHR::eAdobergbNonlinearEXT: // Technically uses a gamma of ~2.2, but we don't support that, so this is the closest option
+      case vk::ColorSpaceKHR::eExtendedSrgbNonlinearEXT:
+         return TransferFunction::sRGB;
+      case vk::ColorSpaceKHR::eHdr10St2084EXT:
+         return TransferFunction::PerceptualQuantizer;
+      case vk::ColorSpaceKHR::eHdr10HlgEXT:
+         return TransferFunction::HybridLogGamma;
+      default:
+         // Don't support anything else
+         return TransferFunction::Linear;
+      }
+   }
+}
+
 TonemapPass::TonemapPass(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, ResourceManager& resourceManager)
    : SceneRenderPass(graphicsContext)
    , descriptorSet(graphicsContext, dynamicDescriptorPool)
@@ -74,7 +128,7 @@ TonemapPass::~TonemapPass()
    context.delayedDestroy(std::move(pipelineLayout));
 }
 
-void TonemapPass::render(vk::CommandBuffer commandBuffer, Texture& outputTexture, Texture& hdrColorTexture, Texture* bloomTexture, Texture* uiTexture, const TonemapSettings& settings)
+void TonemapPass::render(vk::CommandBuffer commandBuffer, Texture& outputTexture, Texture& hdrColorTexture, Texture* bloomTexture, Texture* uiTexture, const TonemapSettings& settings, vk::ColorSpaceKHR outputColorSpace)
 {
    SCOPED_LABEL(getName());
 
@@ -92,7 +146,7 @@ void TonemapPass::render(vk::CommandBuffer commandBuffer, Texture& outputTexture
    AttachmentInfo colorAttachmentInfo = AttachmentInfo(outputTexture)
       .setLoadOp(vk::AttachmentLoadOp::eDontCare);
 
-   executePass(commandBuffer, &colorAttachmentInfo, nullptr, [this, &outputTexture, &hdrColorTexture, bloomTexture, uiTexture, settings](vk::CommandBuffer commandBuffer)
+   executePass(commandBuffer, &colorAttachmentInfo, nullptr, [this, &outputTexture, &hdrColorTexture, bloomTexture, uiTexture, settings, outputColorSpace](vk::CommandBuffer commandBuffer)
    {
       StaticVector<vk::WriteDescriptorSet, 4> descriptorWrites;
 
@@ -170,6 +224,8 @@ void TonemapPass::render(vk::CommandBuffer commandBuffer, Texture& outputTexture
 
       PipelineDescription<TonemapPass> pipelineDescription;
       pipelineDescription.tonemappingAlgorithm = settings.algorithm;
+      pipelineDescription.colorGamut = getColorGamut(outputColorSpace);
+      pipelineDescription.transferFunction = getTransferFunction(outputColorSpace);
       pipelineDescription.hdr = FormatHelpers::isUsedForHdrPresentation(outputTexture.getImageProperties().format);
       pipelineDescription.withBloom = bloomTexture != nullptr;
       pipelineDescription.withUI = uiTexture != nullptr;
@@ -191,7 +247,7 @@ Pipeline TonemapPass::createPipeline(const PipelineDescription<TonemapPass>& des
 
    PipelineData pipelineData(attachmentFormats);
    pipelineData.layout = pipelineLayout;
-   pipelineData.shaderStages = tonemapShader->getStages(description.tonemappingAlgorithm, description.hdr, description.withBloom, description.withUI, description.showTestPattern);
+   pipelineData.shaderStages = tonemapShader->getStages(description.tonemappingAlgorithm, description.colorGamut, description.transferFunction, description.hdr, description.withBloom, description.withUI, description.showTestPattern);
    pipelineData.colorBlendStates = { attachmentState };
 
    Pipeline pipeline(context, pipelineInfo, pipelineData);

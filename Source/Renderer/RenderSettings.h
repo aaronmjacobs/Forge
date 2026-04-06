@@ -15,6 +15,21 @@ enum class RenderQuality
    High
 };
 
+enum class ColorGamut
+{
+   Rec709,
+   Rec2020,
+   P3
+};
+
+enum class TransferFunction
+{
+   Linear,
+   sRGB,
+   PerceptualQuantizer,
+   HybridLogGamma
+};
+
 enum class TonemappingAlgorithm
 {
    None,

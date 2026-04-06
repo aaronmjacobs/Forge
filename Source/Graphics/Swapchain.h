@@ -14,8 +14,6 @@ struct SwapchainSupportDetails
    std::vector<vk::SurfaceFormatKHR> surfaceFormats;
    std::vector<vk::PresentModeKHR> presentModes;
 
-   static const vk::SurfaceFormatKHR kDefaultSurfaceFormat;
-
    bool isValid() const
    {
       return !surfaceFormats.empty() && !presentModes.empty();
@@ -37,6 +35,11 @@ public:
    vk::Format getFormat() const
    {
       return surfaceFormat.format;
+   }
+
+   vk::ColorSpaceKHR getColorSpace() const
+   {
+      return surfaceFormat.colorSpace;
    }
 
    bool isHDR() const;

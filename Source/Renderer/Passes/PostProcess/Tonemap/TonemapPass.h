@@ -31,6 +31,8 @@ template<>
 struct PipelineDescription<TonemapPass>
 {
    TonemappingAlgorithm tonemappingAlgorithm = TonemappingAlgorithm::None;
+   ColorGamut colorGamut = ColorGamut::Rec709;
+   TransferFunction transferFunction = TransferFunction::Linear;
    bool hdr = false;
    bool withBloom = false;
    bool withUI = false;
@@ -38,7 +40,7 @@ struct PipelineDescription<TonemapPass>
 
    std::size_t hash() const
    {
-      return (Enum::cast(tonemappingAlgorithm) << 4) | (hdr * 0b1000) | (withBloom * 0b0100) | (withUI * 0b0010) | (showTestPattern * 0b0001);
+      return (Enum::cast(tonemappingAlgorithm) << 8) | (Enum::cast(colorGamut) << 6) | (Enum::cast(transferFunction) << 4) | (hdr * 0b1000) | (withBloom * 0b0100) | (withUI * 0b0010) | (showTestPattern * 0b0001);
    }
 
    bool operator==(const PipelineDescription<TonemapPass>& other) const = default;
@@ -52,7 +54,7 @@ public:
    TonemapPass(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, ResourceManager& resourceManager);
    ~TonemapPass();
 
-   void render(vk::CommandBuffer commandBuffer, Texture& outputTexture, Texture& hdrColorTexture, Texture* bloomTexture, Texture* uiTexture, const TonemapSettings& settings);
+   void render(vk::CommandBuffer commandBuffer, Texture& outputTexture, Texture& hdrColorTexture, Texture* bloomTexture, Texture* uiTexture, const TonemapSettings& settings, vk::ColorSpaceKHR outputColorSpace);
 
 protected:
    friend class SceneRenderPass<TonemapPass>;

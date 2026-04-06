@@ -27,6 +27,7 @@ namespace FormatHelpers
       {
       case vk::Format::eA2R10G10B10UnormPack32:
       case vk::Format::eA2B10G10R10UnormPack32:
+      case vk::Format::eR16G16B16A16Sfloat:
          return true;
       default:
          return false;
@@ -388,6 +389,7 @@ namespace ColorSpaceHelpers
       case vk::ColorSpaceKHR::eHdr10HlgEXT:
       case vk::ColorSpaceKHR::eAdobergbLinearEXT:
       case vk::ColorSpaceKHR::eAdobergbNonlinearEXT:
+      case vk::ColorSpaceKHR::eExtendedSrgbNonlinearEXT:
          return true;
       default:
          return false;

@@ -7,6 +7,8 @@ namespace
    struct TonemapSpecializationValues
    {
       TonemappingAlgorithm tonemappingAlgorithm = TonemappingAlgorithm::None;
+      ColorGamut colorGamut = ColorGamut::Rec709;
+      TransferFunction transferFunction = TransferFunction::Linear;
       VkBool32 outputHDR = false;
       VkBool32 withBloom = false;
       VkBool32 withUI = false;
@@ -14,7 +16,7 @@ namespace
 
       uint32_t getIndex() const
       {
-         return (static_cast<int32_t>(tonemappingAlgorithm) << 4) | (outputHDR << 3) | (withBloom << 2) | (withUI << 1) | (showTestPattern << 0);
+         return (static_cast<uint32_t>(tonemappingAlgorithm) * 192) + (static_cast<uint32_t>(colorGamut) * 64) + (static_cast<uint32_t>(transferFunction) * 16) + (outputHDR * 8) + (withBloom * 4) + (withUI * 2) + (showTestPattern * 1);
       }
    };
 
@@ -23,6 +25,8 @@ namespace
       SpecializationInfoBuilder<TonemapSpecializationValues> builder;
 
       builder.registerMember(&TonemapSpecializationValues::tonemappingAlgorithm, TonemappingAlgorithm::None, TonemappingAlgorithm::DoubleFine);
+      builder.registerMember(&TonemapSpecializationValues::colorGamut, ColorGamut::Rec709, ColorGamut::P3);
+      builder.registerMember(&TonemapSpecializationValues::transferFunction, TransferFunction::Linear, TransferFunction::HybridLogGamma);
       builder.registerMember(&TonemapSpecializationValues::outputHDR);
       builder.registerMember(&TonemapSpecializationValues::withBloom);
       builder.registerMember(&TonemapSpecializationValues::withUI);
@@ -84,10 +88,12 @@ TonemapShader::TonemapShader(const GraphicsContext& graphicsContext, ResourceMan
 {
 }
 
-std::vector<vk::PipelineShaderStageCreateInfo> TonemapShader::getStages(TonemappingAlgorithm tonemappingAlgorithm, bool outputHDR, bool withBloom, bool withUI, bool showTestPattern) const
+std::vector<vk::PipelineShaderStageCreateInfo> TonemapShader::getStages(TonemappingAlgorithm tonemappingAlgorithm, ColorGamut colorGamut, TransferFunction transferFunction,  bool outputHDR, bool withBloom, bool withUI, bool showTestPattern) const
 {
    TonemapSpecializationValues specializationValues;
    specializationValues.tonemappingAlgorithm = tonemappingAlgorithm;
+   specializationValues.colorGamut = colorGamut;
+   specializationValues.transferFunction = transferFunction;
    specializationValues.outputHDR = outputHDR;
    specializationValues.withBloom = withBloom;
    specializationValues.withUI = withUI;

@@ -1,7 +1,12 @@
 #include "Graphics/Swapchain.h"
 
+#include "Core/Log.h"
+
 #include "Graphics/DebugUtils.h"
 #include "Graphics/Texture.h"
+
+#include <algorithm>
+#include <ranges>
 
 namespace
 {
@@ -19,14 +24,93 @@ namespace
       return extent;
    }
 
+   std::vector<vk::ColorSpaceKHR> getColorSpacesForFormat(const std::vector<vk::SurfaceFormatKHR>& surfaceFormats, vk::Format format)
+   {
+      std::vector<vk::ColorSpaceKHR> colorSpaces;
+
+      for (const vk::SurfaceFormatKHR& surfaceFormat : surfaceFormats)
+      {
+         if (surfaceFormat.format == format)
+         {
+            colorSpaces.push_back(surfaceFormat.colorSpace);
+         }
+      }
+
+      return colorSpaces;
+   }
+
+   std::span<const vk::ColorSpaceKHR> getPreferredColorSpacesForFormat(vk::Format format)
+   {
+      // For 8-bit formats, we just want plain old sRGB
+      static const std::array<vk::ColorSpaceKHR, 1> kPreferred8BitColorSpaces =
+      {
+         vk::ColorSpaceKHR::eSrgbNonlinear
+      };
+
+      // For 10-bit formats, prefer HDR10 color spaces
+      static const std::array<vk::ColorSpaceKHR, 2> kPreferred10BitColorSpaces =
+      {
+         vk::ColorSpaceKHR::eHdr10St2084EXT,
+         vk::ColorSpaceKHR::eHdr10HlgEXT
+      };
+
+      // For 16-bit formats, prefer linear color spaces, then HDR10 color spaces, then other nonlinear color spaces
+      static const std::array<vk::ColorSpaceKHR, 7> kPreferred16BitColorSpaces =
+      {
+         vk::ColorSpaceKHR::eBt2020LinearEXT,
+         vk::ColorSpaceKHR::eDisplayP3LinearEXT,
+         vk::ColorSpaceKHR::eExtendedSrgbLinearEXT,
+
+         vk::ColorSpaceKHR::eHdr10St2084EXT,
+         vk::ColorSpaceKHR::eHdr10HlgEXT,
+
+         vk::ColorSpaceKHR::eDisplayP3NonlinearEXT,
+         vk::ColorSpaceKHR::eExtendedSrgbNonlinearEXT
+      };
+
+      switch (format)
+      {
+      case vk::Format::eA2R10G10B10UnormPack32:
+      case vk::Format::eA2B10G10R10UnormPack32:
+         return kPreferred10BitColorSpaces;
+      case vk::Format::eR16G16B16A16Sfloat:
+         return kPreferred16BitColorSpaces;
+      default:
+         return kPreferred8BitColorSpaces;
+      }
+   }
+
+   std::optional<vk::SurfaceFormatKHR> chooseSurfaceFormatForFormat(const std::vector<vk::SurfaceFormatKHR>& surfaceFormats, vk::Format format)
+   {
+      std::vector<vk::ColorSpaceKHR> availableColorSpaces = getColorSpacesForFormat(surfaceFormats, format);
+      std::span<const vk::ColorSpaceKHR> preferredColorSpaces = getPreferredColorSpacesForFormat(format);
+
+      std::erase_if(availableColorSpaces, [preferredColorSpaces](vk::ColorSpaceKHR colorSpace)
+      {
+         return !std::ranges::contains(preferredColorSpaces, colorSpace);
+      });
+
+      if (availableColorSpaces.empty())
+      {
+         return std::nullopt;
+      }
+
+      std::ranges::stable_sort(availableColorSpaces, [preferredColorSpaces](vk::ColorSpaceKHR a, vk::ColorSpaceKHR b)
+      {
+         auto aLocation = std::ranges::find(preferredColorSpaces, a);
+         auto bLocation = std::ranges::find(preferredColorSpaces, b);
+
+         return aLocation < bLocation;
+      });
+
+      return vk::SurfaceFormatKHR(format, availableColorSpaces[0]);
+   }
+
    bool isHdrSurfaceFormat(const vk::SurfaceFormatKHR& surfaceFormat)
    {
       return FormatHelpers::isUsedForHdrPresentation(surfaceFormat.format) && ColorSpaceHelpers::isWideGamut(surfaceFormat.colorSpace);
    }
 }
-
-// static
-const vk::SurfaceFormatKHR SwapchainSupportDetails::kDefaultSurfaceFormat(vk::Format::eB8G8R8A8Srgb, vk::ColorSpaceKHR::eSrgbNonlinear);
 
 bool SwapchainSupportDetails::supportsHDR() const
 {
@@ -45,30 +129,28 @@ vk::SurfaceFormatKHR SwapchainSupportDetails::chooseSurfaceFormat(bool preferHDR
 {
    if (preferHDR)
    {
-      // Prefer ST 2084
-      for (const vk::SurfaceFormatKHR& surfaceFormat : surfaceFormats)
+      if (std::optional<vk::SurfaceFormatKHR> abgr10SurfaceFormat = chooseSurfaceFormatForFormat(surfaceFormats, vk::Format::eA2B10G10R10UnormPack32))
       {
-         if (isHdrSurfaceFormat(surfaceFormat) && surfaceFormat.colorSpace == vk::ColorSpaceKHR::eHdr10St2084EXT)
-         {
-            return surfaceFormat;
-         }
+         ASSERT(isHdrSurfaceFormat(abgr10SurfaceFormat.value()));
+         return abgr10SurfaceFormat.value();
       }
 
-      for (const vk::SurfaceFormatKHR& surfaceFormat : surfaceFormats)
+      if (std::optional<vk::SurfaceFormatKHR> argb10SurfaceFormat = chooseSurfaceFormatForFormat(surfaceFormats, vk::Format::eA2R10G10B10UnormPack32))
       {
-         if (isHdrSurfaceFormat(surfaceFormat))
-         {
-            return surfaceFormat;
-         }
+         ASSERT(isHdrSurfaceFormat(argb10SurfaceFormat.value()));
+         return argb10SurfaceFormat.value();
+      }
+
+      if (std::optional<vk::SurfaceFormatKHR> rgba16SurfaceFormat = chooseSurfaceFormatForFormat(surfaceFormats, vk::Format::eR16G16B16A16Sfloat))
+      {
+         ASSERT(isHdrSurfaceFormat(rgba16SurfaceFormat.value()));
+         return rgba16SurfaceFormat.value();
       }
    }
 
-   for (const vk::SurfaceFormatKHR& format : surfaceFormats)
+   if (std::optional<vk::SurfaceFormatKHR> bgra8SurfaceFormat = chooseSurfaceFormatForFormat(surfaceFormats, vk::Format::eB8G8R8A8Srgb))
    {
-      if (format == kDefaultSurfaceFormat)
-      {
-         return format;
-      }
+      return bgra8SurfaceFormat.value();
    }
 
    if (!surfaceFormats.empty())
@@ -133,6 +215,8 @@ Swapchain::Swapchain(const GraphicsContext& graphicsContext, vk::Extent2D desire
    supportsHDRFormat = supportDetails.supportsHDR();
 
    surfaceFormat = supportDetails.chooseSurfaceFormat(preferHDR);
+   LOG_INFO("Swapchain surface format = " << vk::to_string(surfaceFormat.format) << ", color space = " << vk::to_string(surfaceFormat.colorSpace));
+
    vk::PresentModeKHR presentMode = supportDetails.choosePresentMode(limitFrameRate);
 
    extent = chooseExtent(supportDetails.capabilities, desiredExtent);
