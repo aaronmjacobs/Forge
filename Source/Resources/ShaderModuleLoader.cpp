@@ -161,7 +161,7 @@ void ShaderModuleLoader::removeHotReloadDelegate(DelegateHandle& handle)
 
 void ShaderModuleLoader::onFileModified(OSUtils::DirectoryWatchEvent event, const std::filesystem::path& directory, const std::filesystem::path& file)
 {
-   if (event == OSUtils::DirectoryWatchEvent::Modify)
+   if (event == OSUtils::DirectoryWatchEvent::Rename || event == OSUtils::DirectoryWatchEvent::Modify)
    {
       if (std::optional<std::filesystem::path> canonicalSourcePath = ResourceLoadHelpers::makeCanonical(directory / file))
       {
