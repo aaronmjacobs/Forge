@@ -356,7 +356,6 @@ namespace
             score -= 50;
          }
       }
-
 #endif // FORGE_PLATFORM_MACOS
 
       return score;
