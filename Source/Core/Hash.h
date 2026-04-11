@@ -39,6 +39,16 @@ namespace Hash
    {
       hash ^= Hash::of(value) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
    }
+
+   template<typename First, typename... Rest>
+   inline std::size_t of(const First& first, const Rest&... rest)
+   {
+      std::size_t hash = of(first);
+
+      (combine(hash, rest), ...);
+
+      return hash;
+   }
 }
 
 namespace std
