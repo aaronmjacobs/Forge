@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Core/Hash.h"
+
 #include "Graphics/DescriptorSet.h"
 #include "Graphics/UniformBuffer.h"
 
@@ -38,7 +40,7 @@ struct PipelineDescription<BloomPass>
 
    std::size_t hash() const
    {
-      return (static_cast<std::size_t>(type) << 2) | static_cast<std::size_t>(quality);
+      return Hash::of(type, quality);
    }
 
    bool operator==(const PipelineDescription<BloomPass>& other) const = default;

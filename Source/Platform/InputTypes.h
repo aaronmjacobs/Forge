@@ -173,12 +173,7 @@ struct KeyChord
 
    std::size_t hash() const
    {
-      std::size_t hash = 0;
-
-      Hash::combine(hash, key);
-      Hash::combine(hash, mods);
-
-      return hash;
+      return Hash::of(key, mods);
    }
 
    using EnumType = Key;
@@ -208,12 +203,7 @@ struct KeyAxisChord
 
    std::size_t hash() const
    {
-      std::size_t hash = 0;
-
-      Hash::combine(hash, key);
-      Hash::combine(hash, invert);
-
-      return hash;
+      return Hash::of(key, invert);
    }
 
    using EnumType = Key;
@@ -259,12 +249,7 @@ struct MouseButtonChord
 
    std::size_t hash() const
    {
-      std::size_t hash = 0;
-
-      Hash::combine(hash, button);
-      Hash::combine(hash, mods);
-
-      return hash;
+      return Hash::of(button, mods);
    }
 
    using EnumType = MouseButton;
@@ -300,12 +285,7 @@ struct CursorAxisChord
 
    std::size_t hash() const
    {
-      std::size_t hash = 0;
-
-      Hash::combine(hash, axis);
-      Hash::combine(hash, invert);
-
-      return hash;
+      return Hash::of(axis, invert);
    }
 
    using EnumType = CursorAxis;
@@ -359,12 +339,7 @@ struct GamepadButtonChord
 
    std::size_t hash() const
    {
-      std::size_t hash = 0;
-
-      Hash::combine(hash, button);
-      Hash::combine(hash, gamepadId);
-
-      return hash;
+      return Hash::of(button, gamepadId);
    }
 
    using EnumType = GamepadButton;
@@ -406,13 +381,7 @@ struct GamepadAxisChord
 
    std::size_t hash() const
    {
-      std::size_t hash = 0;
-
-      Hash::combine(hash, axis);
-      Hash::combine(hash, invert);
-      Hash::combine(hash, gamepadId);
-
-      return hash;
+      return Hash::of(axis, invert, gamepadId);
    }
 
    using EnumType = GamepadAxis;

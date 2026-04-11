@@ -23,49 +23,6 @@ namespace
    }
 }
 
-std::size_t TextureMaterialParameter::hash() const
-{
-   std::size_t hash = 0;
-
-   Hash::combine(hash, name);
-   Hash::combine(hash, value);
-   Hash::combine(hash, interpretAlphaAsMask);
-
-   return hash;
-}
-
-std::size_t VectorMaterialParameter::hash() const
-{
-   std::size_t hash = 0;
-
-   Hash::combine(hash, name);
-   Hash::combine(hash, value);
-
-   return hash;
-}
-
-std::size_t ScalarMaterialParameter::hash() const
-{
-   std::size_t hash = 0;
-
-   Hash::combine(hash, name);
-   Hash::combine(hash, value);
-
-   return hash;
-}
-
-std::size_t MaterialParameters::hash() const
-{
-   std::size_t hash = 0;
-
-   Hash::combine(hash, textureParameters);
-   Hash::combine(hash, vectorParameters);
-   Hash::combine(hash, scalarParameters);
-   Hash::combine(hash, twoSided);
-
-   return hash;
-}
-
 MaterialLoader::MaterialLoader(const GraphicsContext& graphicsContext, ResourceManager& owningResourceManager)
    : ResourceLoader(graphicsContext, owningResourceManager)
    , dynamicDescriptorPool(graphicsContext, getDynamicDescriptorPoolSizes())

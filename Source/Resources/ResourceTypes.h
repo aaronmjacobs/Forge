@@ -125,12 +125,7 @@ public:
 
    std::size_t hash() const
    {
-      size_t hash = 0;
-
-      Hash::combine(hash, resourceManager);
-      Hash::combine(hash, handle);
-
-      return hash;
+      return Hash::of(resourceManager, handle);
    }
 
 private:

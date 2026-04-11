@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Core/Hash.h"
+
 #include "Graphics/DescriptorSet.h"
 #include "Graphics/FrameData.h"
 #include "Graphics/UniformBuffer.h"
@@ -38,7 +40,7 @@ struct PipelineDescription<SSAOPass>
 
    std::size_t hash() const
    {
-      return (blur * 0b01) | (horizontal * 0b10);
+      return Hash::of(blur, horizontal);
    }
 
    bool operator==(const PipelineDescription<SSAOPass>& other) const = default;

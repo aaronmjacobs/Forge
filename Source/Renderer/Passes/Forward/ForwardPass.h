@@ -1,10 +1,12 @@
 #pragma once
 
+#include "Core/Hash.h"
+
+#include "Graphics/DescriptorSet.h"
+
 #include "Renderer/Passes/Forward/ForwardShader.h"
 #include "Renderer/Passes/Forward/SkyboxShader.h"
 #include "Renderer/Passes/SceneRenderPass.h"
-
-#include "Graphics/DescriptorSet.h"
 
 #include <memory>
 
@@ -24,7 +26,7 @@ struct PipelineDescription<ForwardPass>
 
    std::size_t hash() const
    {
-      return (withTextures * 0b0001) | (withBlending * 0b0010) | (twoSided * 0b0100) | (skybox * 0b1000);
+      return Hash::of(withTextures, withBlending, twoSided, skybox);
    }
 
    bool operator==(const PipelineDescription<ForwardPass>& other) const = default;

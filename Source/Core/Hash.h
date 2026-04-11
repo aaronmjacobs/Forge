@@ -84,14 +84,7 @@ namespace std
    {
       size_t operator()(const glm::vec4& value) const
       {
-         size_t hash = 0;
-
-         Hash::combine(hash, value.x);
-         Hash::combine(hash, value.y);
-         Hash::combine(hash, value.z);
-         Hash::combine(hash, value.w);
-
-         return hash;
+         return Hash::of(value.x, value.y, value.z, value.w);
       }
    };
 }

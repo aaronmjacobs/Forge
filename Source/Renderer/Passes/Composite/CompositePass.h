@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Core/Enum.h"
+#include "Core/Hash.h"
 
 #include "Renderer/Passes/Composite/CompositeShader.h"
 #include "Renderer/Passes/SceneRenderPass.h"
@@ -19,7 +20,7 @@ struct PipelineDescription<CompositePass>
 
    std::size_t hash() const
    {
-      return Enum::cast(mode);
+      return Hash::of(mode);
    }
 
    bool operator==(const PipelineDescription<CompositePass>& other) const = default;

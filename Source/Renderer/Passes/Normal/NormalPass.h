@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Core/Hash.h"
+
 #include "Renderer/Passes/SceneRenderPass.h"
 
 #include <memory>
@@ -18,7 +20,7 @@ struct PipelineDescription<NormalPass>
 
    std::size_t hash() const
    {
-      return (withTextures * 0b001) | (masked * 0b010) | (twoSided * 0b100);
+      return Hash::of(withTextures, masked, twoSided);
    }
 
    bool operator==(const PipelineDescription<NormalPass>& other) const = default;

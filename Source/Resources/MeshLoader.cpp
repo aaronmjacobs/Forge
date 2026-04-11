@@ -324,16 +324,7 @@ namespace
 
 std::size_t MeshKey::hash() const
 {
-   std::size_t hash = 0;
-
-   Hash::combine(hash, canonicalPath);
-
-   Hash::combine(hash, options.forwardAxis);
-   Hash::combine(hash, options.upAxis);
-   Hash::combine(hash, options.scale);
-   Hash::combine(hash, options.interpretTextureAlphaAsMask);
-
-   return hash;
+   return Hash::of(canonicalPath, options.forwardAxis, options.upAxis, options.scale, options.interpretTextureAlphaAsMask);
 }
 
 MeshLoader::MeshLoader(const GraphicsContext& graphicsContext, ResourceManager& owningResourceManager)

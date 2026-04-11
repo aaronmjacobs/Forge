@@ -99,11 +99,7 @@ struct AttachmentFormats
 
    std::size_t hash() const
    {
-      std::size_t hashValue = Hash::of(colorFormats);
-      Hash::combine(hashValue, depthStencilFormat);
-      Hash::combine(hashValue, sampleCount);
-
-      return hashValue;
+      return Hash::of(colorFormats, depthStencilFormat, sampleCount);
    }
 
    bool operator==(const AttachmentFormats& other) const = default;

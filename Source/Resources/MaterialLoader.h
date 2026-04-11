@@ -19,7 +19,11 @@ struct TextureMaterialParameter
    bool interpretAlphaAsMask = false;
 
    bool operator==(const TextureMaterialParameter& other) const = default;
-   std::size_t hash() const;
+
+   std::size_t hash() const
+   {
+      return Hash::of(name, value, interpretAlphaAsMask);
+   }
 };
 
 USE_MEMBER_HASH_FUNCTION(TextureMaterialParameter);
@@ -30,7 +34,11 @@ struct VectorMaterialParameter
    glm::vec4 value;
 
    bool operator==(const VectorMaterialParameter& other) const = default;
-   std::size_t hash() const;
+
+   std::size_t hash() const
+   {
+      return Hash::of(name, value);
+   }
 };
 
 USE_MEMBER_HASH_FUNCTION(VectorMaterialParameter);
@@ -41,7 +49,11 @@ struct ScalarMaterialParameter
    float value = 0.0f;
 
    bool operator==(const ScalarMaterialParameter& other) const = default;
-   std::size_t hash() const;
+
+   std::size_t hash() const
+   {
+      return Hash::of(name, value);
+   }
 };
 
 USE_MEMBER_HASH_FUNCTION(ScalarMaterialParameter);
@@ -54,7 +66,11 @@ struct MaterialParameters
    bool twoSided = false;
 
    bool operator==(const MaterialParameters& other) const = default;
-   std::size_t hash() const;
+
+   std::size_t hash() const
+   {
+      return Hash::of(textureParameters, vectorParameters, scalarParameters, twoSided);
+   }
 };
 
 USE_MEMBER_HASH_FUNCTION(MaterialParameters);

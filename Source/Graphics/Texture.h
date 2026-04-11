@@ -38,14 +38,7 @@ struct ImageViewDesc
 
    std::size_t hash() const
    {
-      std::size_t hash = 0;
-
-      Hash::combine(hash, Hash::of(viewType));
-      Hash::combine(hash, Hash::of(baseLayer));
-      Hash::combine(hash, Hash::of(layerCount));
-      Hash::combine(hash, Hash::of(static_cast<VkImageAspectFlags>(aspectFlags)));
-
-      return hash;
+      return Hash::of(viewType, baseLayer, layerCount, static_cast<VkImageAspectFlags>(aspectFlags));
    }
 };
 

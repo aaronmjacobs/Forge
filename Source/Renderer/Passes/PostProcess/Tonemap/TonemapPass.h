@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Core/Enum.h"
+#include "Core/Hash.h"
 
 #include "Graphics/DescriptorSet.h"
 #include "Graphics/UniformBuffer.h"
@@ -40,7 +41,7 @@ struct PipelineDescription<TonemapPass>
 
    std::size_t hash() const
    {
-      return (Enum::cast(tonemappingAlgorithm) << 8) | (Enum::cast(colorGamut) << 6) | (Enum::cast(transferFunction) << 4) | (hdr * 0b1000) | (withBloom * 0b0100) | (withUI * 0b0010) | (showTestPattern * 0b0001);
+      return Hash::of(tonemappingAlgorithm, colorGamut, transferFunction, hdr, withBloom, withUI, showTestPattern);
    }
 
    bool operator==(const PipelineDescription<TonemapPass>& other) const = default;

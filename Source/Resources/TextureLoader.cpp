@@ -215,14 +215,7 @@ namespace
 
 std::size_t TextureKey::hash() const
 {
-   std::size_t hash = 0;
-
-   Hash::combine(hash, canonicalPath);
-
-   Hash::combine(hash, options.sRGB);
-   Hash::combine(hash, options.generateMipMaps);
-
-   return hash;
+   return Hash::of(canonicalPath, options.sRGB, options.generateMipMaps);
 }
 
 TextureLoader::TextureLoader(const GraphicsContext& graphicsContext, ResourceManager& owningResourceManager)
