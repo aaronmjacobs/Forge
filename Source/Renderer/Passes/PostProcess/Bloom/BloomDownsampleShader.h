@@ -7,6 +7,15 @@
 
 #include <vector>
 
+struct BloomDownsampleShaderConstants
+{
+   RenderQuality quality = RenderQuality::High;
+
+   static void registerMembers(ShaderPermutationManager<BloomDownsampleShaderConstants>& permutationManager);
+
+   bool operator==(const BloomDownsampleShaderConstants& other) const = default;
+};
+
 class BloomDownsampleDescriptorSet : public TypedDescriptorSet<BloomDownsampleDescriptorSet>
 {
 public:
@@ -15,10 +24,8 @@ public:
    using TypedDescriptorSet::TypedDescriptorSet;
 };
 
-class BloomDownsampleShader : public ShaderWithDescriptors<BloomDownsampleDescriptorSet>
+class BloomDownsampleShader : public ParameterizedShader<BloomDownsampleShaderConstants, BloomDownsampleDescriptorSet>
 {
 public:
    BloomDownsampleShader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager);
-
-   std::vector<vk::PipelineShaderStageCreateInfo> getStages(RenderQuality quality) const;
 };

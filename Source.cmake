@@ -58,6 +58,7 @@ target_sources(${PROJECT_NAME} PRIVATE
    "${SRC_DIR}/Graphics/RenderPass.h"
    "${SRC_DIR}/Graphics/Shader.cpp"
    "${SRC_DIR}/Graphics/Shader.h"
+   "${SRC_DIR}/Graphics/ShaderPermutationManager.h"
    "${SRC_DIR}/Graphics/ShaderModule.cpp"
    "${SRC_DIR}/Graphics/ShaderModule.h"
    "${SRC_DIR}/Graphics/SpecializationInfo.h"

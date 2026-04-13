@@ -7,11 +7,10 @@
 
 #include <vector>
 
-class DepthMaskedShader : public ShaderWithDescriptors<ViewDescriptorSet, PhysicallyBasedMaterialDescriptorSet>
+class DepthMaskedShader : public ParameterizedShader<void, ViewDescriptorSet, PhysicallyBasedMaterialDescriptorSet>
 {
 public:
    DepthMaskedShader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager);
 
-   std::vector<vk::PipelineShaderStageCreateInfo> getStages() const;
    std::vector<vk::PushConstantRange> getPushConstantRanges() const;
 };

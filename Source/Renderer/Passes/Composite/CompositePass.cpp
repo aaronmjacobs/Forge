@@ -8,15 +8,15 @@
 
 namespace
 {
-   const char* getModeName(CompositeShader::Mode mode)
+   const char* getModeName(CompositeMode mode)
    {
       switch (mode)
       {
-      case CompositeShader::Mode::Passthrough:
+      case CompositeMode::Passthrough:
          return "Passthrough";
-      case CompositeShader::Mode::LinearToSrgb:
+      case CompositeMode::LinearToSrgb:
          return "LinearToSrgb";
-      case CompositeShader::Mode::SrgbToLinear:
+      case CompositeMode::SrgbToLinear:
          return "SrgbToLinear";
       default:
          ASSERT(false);
@@ -63,7 +63,7 @@ CompositePass::~CompositePass()
    context.delayedDestroy(std::move(pipelineLayout));
 }
 
-void CompositePass::render(vk::CommandBuffer commandBuffer, Texture& destinationTexture, Texture& sourceTexture, CompositeShader::Mode mode)
+void CompositePass::render(vk::CommandBuffer commandBuffer, Texture& destinationTexture, Texture& sourceTexture, CompositeMode mode)
 {
    SCOPED_LABEL(getName());
 
@@ -87,7 +87,7 @@ void CompositePass::render(vk::CommandBuffer commandBuffer, Texture& destination
       device.updateDescriptorSets(descriptorWrite, {});
 
       PipelineDescription<CompositePass> pipelineDescription;
-      pipelineDescription.mode = mode;
+      pipelineDescription.shaderConstants.mode = mode;
 
       compositeShader->bindDescriptorSets(commandBuffer, pipelineLayout, descriptorSet);
       renderScreenMesh(commandBuffer, getPipeline(pipelineDescription));
@@ -111,11 +111,11 @@ Pipeline CompositePass::createPipeline(const PipelineDescription<CompositePass>&
 
    PipelineData pipelineData(attachmentFormats);
    pipelineData.layout = pipelineLayout;
-   pipelineData.shaderStages = compositeShader->getStages(description.mode);
+   pipelineData.shaderStages = compositeShader->getStages(description.shaderConstants);
    pipelineData.colorBlendStates = { attachmentState };
 
    Pipeline pipeline(context, pipelineInfo, pipelineData);
-   NAME_CHILD(pipeline, getModeName(description.mode));
+   NAME_CHILD(pipeline, getModeName(description.shaderConstants.mode));
 
    return pipeline;
 }

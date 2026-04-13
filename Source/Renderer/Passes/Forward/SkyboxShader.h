@@ -15,10 +15,8 @@ public:
    using TypedDescriptorSet::TypedDescriptorSet;
 };
 
-class SkyboxShader : public ShaderWithDescriptors<ViewDescriptorSet, SkyboxDescriptorSet>
+class SkyboxShader : public ParameterizedShader<void, ViewDescriptorSet, SkyboxDescriptorSet>
 {
 public:
    SkyboxShader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager);
-
-   std::vector<vk::PipelineShaderStageCreateInfo> getStages() const;
 };

@@ -2,40 +2,10 @@
 
 #include "Graphics/SpecializationInfo.h"
 
-namespace
+// static
+void BloomDownsampleShaderConstants::registerMembers(ShaderPermutationManager<BloomDownsampleShaderConstants>& permutationManager)
 {
-   struct BloomDownsampleSpecializationValues
-   {
-      RenderQuality quality = RenderQuality::Disabled;
-
-      uint32_t getIndex() const
-      {
-         return (static_cast<uint32_t>(quality) << 0);
-      }
-   };
-
-   SpecializationInfo<BloomDownsampleSpecializationValues> createSpecializationInfo()
-   {
-      SpecializationInfoBuilder<BloomDownsampleSpecializationValues> builder;
-
-      builder.registerMember(&BloomDownsampleSpecializationValues::quality, RenderQuality::Disabled, RenderQuality::High);
-
-      return builder.build();
-   }
-
-   Shader::InitializationInfo getInitializationInfo()
-   {
-      static const SpecializationInfo kSpecializationInfo = createSpecializationInfo();
-
-      Shader::InitializationInfo info;
-
-      info.vertShaderModuleName = "Screen";
-      info.fragShaderModuleName = "BloomDownsample";
-
-      info.specializationInfo = kSpecializationInfo.getInfo();
-
-      return info;
-   }
+   permutationManager.registerMember(&BloomDownsampleShaderConstants::quality, RenderQuality::Disabled, RenderQuality::High);
 }
 
 // static
@@ -52,14 +22,6 @@ std::vector<vk::DescriptorSetLayoutBinding> BloomDownsampleDescriptorSet::getBin
 }
 
 BloomDownsampleShader::BloomDownsampleShader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager)
-   : ShaderWithDescriptors(graphicsContext, resourceManager, getInitializationInfo())
+   : ParameterizedShader(graphicsContext, resourceManager, Shader::ModuleInfo("Screen", "BloomDownsample"))
 {
-}
-
-std::vector<vk::PipelineShaderStageCreateInfo> BloomDownsampleShader::getStages(RenderQuality quality) const
-{
-   BloomDownsampleSpecializationValues specializationValues;
-   specializationValues.quality = quality;
-
-   return getStagesForPermutation(specializationValues.getIndex());
 }

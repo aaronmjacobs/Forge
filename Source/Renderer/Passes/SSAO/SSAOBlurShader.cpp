@@ -2,40 +2,10 @@
 
 #include "Graphics/SpecializationInfo.h"
 
-namespace
+// static
+void SSAOBlurShaderConstants::registerMembers(ShaderPermutationManager<SSAOBlurShaderConstants>& permutationManager)
 {
-   struct SSAOBlurSpecializationValues
-   {
-      VkBool32 horizontal = false;
-
-      uint32_t getIndex() const
-      {
-         return (horizontal << 0);
-      }
-   };
-
-   SpecializationInfo<SSAOBlurSpecializationValues> createSpecializationInfo()
-   {
-      SpecializationInfoBuilder<SSAOBlurSpecializationValues> builder;
-
-      builder.registerMember(&SSAOBlurSpecializationValues::horizontal);
-
-      return builder.build();
-   }
-
-   Shader::InitializationInfo getInitializationInfo()
-   {
-      static const SpecializationInfo kSpecializationInfo = createSpecializationInfo();
-
-      Shader::InitializationInfo info;
-
-      info.vertShaderModuleName = "Screen";
-      info.fragShaderModuleName = "SSAOBlur";
-
-      info.specializationInfo = kSpecializationInfo.getInfo();
-
-      return info;
-   }
+   permutationManager.registerMember(&SSAOBlurShaderConstants::horizontal);
 }
 
 // static
@@ -57,14 +27,6 @@ std::vector<vk::DescriptorSetLayoutBinding> SSAOBlurDescriptorSet::getBindings()
 }
 
 SSAOBlurShader::SSAOBlurShader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager)
-   : ShaderWithDescriptors(graphicsContext, resourceManager, getInitializationInfo())
+   : ParameterizedShader(graphicsContext, resourceManager, Shader::ModuleInfo("Screen", "SSAOBlur"))
 {
-}
-
-std::vector<vk::PipelineShaderStageCreateInfo> SSAOBlurShader::getStages(bool horizontal) const
-{
-   SSAOBlurSpecializationValues specializationValues;
-   specializationValues.horizontal = horizontal;
-
-   return getStagesForPermutation(specializationValues.getIndex());
 }

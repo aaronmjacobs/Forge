@@ -9,6 +9,16 @@
 
 #include <vector>
 
+struct ForwardShaderConstants
+{
+   VkBool32 withTextures = false;
+   VkBool32 withBlending = false;
+
+   static void registerMembers(ShaderPermutationManager<ForwardShaderConstants>& permutationManager);
+
+   bool operator==(const ForwardShaderConstants& other) const = default;
+};
+
 class ForwardDescriptorSet : public TypedDescriptorSet<ForwardDescriptorSet>
 {
 public:
@@ -17,11 +27,10 @@ public:
    using TypedDescriptorSet::TypedDescriptorSet;
 };
 
-class ForwardShader : public ShaderWithDescriptors<ViewDescriptorSet, ForwardDescriptorSet, ForwardLightingDescriptorSet, PhysicallyBasedMaterialDescriptorSet>
+class ForwardShader : public ParameterizedShader<ForwardShaderConstants, ViewDescriptorSet, ForwardDescriptorSet, ForwardLightingDescriptorSet, PhysicallyBasedMaterialDescriptorSet>
 {
 public:
    ForwardShader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager);
 
-   std::vector<vk::PipelineShaderStageCreateInfo> getStages(bool withTextures, bool withBlending) const;
    std::vector<vk::PushConstantRange> getPushConstantRanges() const;
 };

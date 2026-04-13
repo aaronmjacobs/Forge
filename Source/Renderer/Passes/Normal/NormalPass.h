@@ -3,6 +3,7 @@
 #include "Core/Hash.h"
 
 #include "Renderer/Passes/SceneRenderPass.h"
+#include "Renderer/Passes/Normal/NormalShader.h"
 
 #include <memory>
 
@@ -14,13 +15,12 @@ class Texture;
 template<>
 struct PipelineDescription<NormalPass>
 {
-   bool withTextures = true;
-   bool masked = false;
+   NormalShaderConstants shaderConstants;
    bool twoSided = false;
 
    std::size_t hash() const
    {
-      return Hash::of(withTextures, masked, twoSided);
+      return Hash::of(shaderConstants.withTextures, shaderConstants.masked, twoSided);
    }
 
    bool operator==(const PipelineDescription<NormalPass>& other) const = default;

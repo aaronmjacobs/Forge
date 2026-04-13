@@ -15,10 +15,8 @@ public:
    using TypedDescriptorSet::TypedDescriptorSet;
 };
 
-class SSAOShader : public ShaderWithDescriptors<ViewDescriptorSet, SSAODescriptorSet>
+class SSAOShader : public ParameterizedShader<void, ViewDescriptorSet, SSAODescriptorSet>
 {
 public:
    SSAOShader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager);
-
-   std::vector<vk::PipelineShaderStageCreateInfo> getStages() const;
 };

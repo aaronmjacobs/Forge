@@ -31,17 +31,18 @@ struct TonemapUniformData
 template<>
 struct PipelineDescription<TonemapPass>
 {
-   TonemappingAlgorithm tonemappingAlgorithm = TonemappingAlgorithm::None;
-   ColorGamut colorGamut = ColorGamut::Rec709;
-   TransferFunction transferFunction = TransferFunction::Linear;
-   bool hdr = false;
-   bool withBloom = false;
-   bool withUI = false;
-   bool showTestPattern = false;
+   TonemapShaderConstants shaderConstants;
 
    std::size_t hash() const
    {
-      return Hash::of(tonemappingAlgorithm, colorGamut, transferFunction, hdr, withBloom, withUI, showTestPattern);
+      return Hash::of(
+         shaderConstants.tonemappingAlgorithm,
+         shaderConstants.colorGamut,
+         shaderConstants.transferFunction,
+         shaderConstants.outputHDR,
+         shaderConstants.withBloom,
+         shaderConstants.withUI,
+         shaderConstants.showTestPattern);
    }
 
    bool operator==(const PipelineDescription<TonemapPass>& other) const = default;

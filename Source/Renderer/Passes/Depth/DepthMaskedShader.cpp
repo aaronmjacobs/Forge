@@ -2,27 +2,9 @@
 
 #include "Renderer/UniformData.h"
 
-namespace
-{
-   Shader::InitializationInfo getInitializationInfo()
-   {
-      Shader::InitializationInfo info;
-
-      info.vertShaderModuleName = "DepthMasked";
-      info.fragShaderModuleName = "DepthMasked";
-
-      return info;
-   }
-}
-
 DepthMaskedShader::DepthMaskedShader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager)
-   : ShaderWithDescriptors(graphicsContext, resourceManager, getInitializationInfo())
+   : ParameterizedShader(graphicsContext, resourceManager, Shader::ModuleInfo("DepthMasked", "DepthMasked"))
 {
-}
-
-std::vector<vk::PipelineShaderStageCreateInfo> DepthMaskedShader::getStages() const
-{
-   return getStagesForPermutation(0);
 }
 
 std::vector<vk::PushConstantRange> DepthMaskedShader::getPushConstantRanges() const

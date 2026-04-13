@@ -223,13 +223,14 @@ void TonemapPass::render(vk::CommandBuffer commandBuffer, Texture& outputTexture
       uniformBuffer.update(uniformData);
 
       PipelineDescription<TonemapPass> pipelineDescription;
-      pipelineDescription.tonemappingAlgorithm = settings.algorithm;
-      pipelineDescription.colorGamut = getColorGamut(outputColorSpace);
-      pipelineDescription.transferFunction = getTransferFunction(outputColorSpace);
-      pipelineDescription.hdr = FormatHelpers::isUsedForHdrPresentation(outputTexture.getImageProperties().format);
-      pipelineDescription.withBloom = bloomTexture != nullptr;
-      pipelineDescription.withUI = uiTexture != nullptr;
-      pipelineDescription.showTestPattern = settings.showTestPattern;
+      TonemapShaderConstants& shaderConstants = pipelineDescription.shaderConstants;
+      shaderConstants.tonemappingAlgorithm = settings.algorithm;
+      shaderConstants.colorGamut = getColorGamut(outputColorSpace);
+      shaderConstants.transferFunction = getTransferFunction(outputColorSpace);
+      shaderConstants.outputHDR = FormatHelpers::isUsedForHdrPresentation(outputTexture.getImageProperties().format);
+      shaderConstants.withBloom = bloomTexture != nullptr;
+      shaderConstants.withUI = uiTexture != nullptr;
+      shaderConstants.showTestPattern = settings.showTestPattern;
 
       tonemapShader->bindDescriptorSets(commandBuffer, pipelineLayout, descriptorSet);
       renderScreenMesh(commandBuffer, getPipeline(pipelineDescription));
@@ -247,11 +248,11 @@ Pipeline TonemapPass::createPipeline(const PipelineDescription<TonemapPass>& des
 
    PipelineData pipelineData(attachmentFormats);
    pipelineData.layout = pipelineLayout;
-   pipelineData.shaderStages = tonemapShader->getStages(description.tonemappingAlgorithm, description.colorGamut, description.transferFunction, description.hdr, description.withBloom, description.withUI, description.showTestPattern);
+   pipelineData.shaderStages = tonemapShader->getStages(description.shaderConstants);
    pipelineData.colorBlendStates = { attachmentState };
 
    Pipeline pipeline(context, pipelineInfo, pipelineData);
-   NAME_CHILD(pipeline, std::string(description.hdr ? "HDR" : "SDR") + (description.withBloom ? " With Bloom" : " Without Bloom") + (description.withUI ? " With UI" : " Without UI") + (description.showTestPattern ? " With Test Pattern" : " Without Test Pattern"));
+   NAME_CHILD(pipeline, std::string(description.shaderConstants.outputHDR ? "HDR" : "SDR") + (description.shaderConstants.withBloom ? " With Bloom" : " Without Bloom") + (description.shaderConstants.withUI ? " With UI" : " Without UI") + (description.shaderConstants.showTestPattern ? " With Test Pattern" : " Without Test Pattern"));
 
    return pipeline;
 }

@@ -85,8 +85,8 @@ PipelineDescription<NormalPass> NormalPass::getPipelineDescription(const View& v
 {
    PipelineDescription<NormalPass> description;
 
-   description.withTextures = meshSection.hasValidTexCoords;
-   description.masked = material.getBlendMode() == BlendMode::Masked;
+   description.shaderConstants.withTextures = meshSection.hasValidTexCoords;
+   description.shaderConstants.masked = material.getBlendMode() == BlendMode::Masked;
    description.twoSided = material.isTwoSided();
 
    return description;
@@ -106,11 +106,11 @@ Pipeline NormalPass::createPipeline(const PipelineDescription<NormalPass>& descr
 
    PipelineData pipelineData(attachmentFormats);
    pipelineData.layout = pipelineLayout;
-   pipelineData.shaderStages = normalShader->getStages(description.withTextures, description.masked);
+   pipelineData.shaderStages = normalShader->getStages(description.shaderConstants);
    pipelineData.colorBlendStates = { attachmentState };
 
    Pipeline pipeline(context, pipelineInfo, pipelineData);
-   NAME_CHILD(pipeline, std::string(description.withTextures ? "With" : "Without") + " Textures, " + std::string(description.masked ? "Masked" : "") + (description.twoSided ? ", Two Sided" : ""));
+   NAME_CHILD(pipeline, std::string(description.shaderConstants.withTextures ? "With" : "Without") + " Textures, " + std::string(description.shaderConstants.masked ? "Masked" : "") + (description.twoSided ? ", Two Sided" : ""));
 
    return pipeline;
 }

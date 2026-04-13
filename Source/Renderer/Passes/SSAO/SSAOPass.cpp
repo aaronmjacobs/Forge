@@ -156,9 +156,12 @@ Pipeline SSAOPass::createPipeline(const PipelineDescription<SSAOPass>& descripti
    PipelineInfo pipelineInfo;
    pipelineInfo.passType = PipelinePassType::Screen;
 
+   SSAOBlurShaderConstants blurConstants;
+   blurConstants.horizontal = description.horizontal;
+
    PipelineData pipelineData(attachmentFormats);
    pipelineData.layout = description.blur ? blurPipelineLayout : ssaoPipelineLayout;
-   pipelineData.shaderStages = description.blur ? blurShader->getStages(description.horizontal) : ssaoShader->getStages();
+   pipelineData.shaderStages = description.blur ? blurShader->getStages(blurConstants) : ssaoShader->getStages();
    pipelineData.colorBlendStates = { attachmentState };
 
    Pipeline pipeline(context, pipelineInfo, pipelineData);

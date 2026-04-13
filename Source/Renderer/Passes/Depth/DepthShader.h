@@ -6,11 +6,10 @@
 
 #include <vector>
 
-class DepthShader : public ShaderWithDescriptors<ViewDescriptorSet>
+class DepthShader : public ParameterizedShader<void, ViewDescriptorSet>
 {
 public:
    DepthShader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager);
 
-   std::vector<vk::PipelineShaderStageCreateInfo> getStages() const;
    std::vector<vk::PushConstantRange> getPushConstantRanges() const;
 };

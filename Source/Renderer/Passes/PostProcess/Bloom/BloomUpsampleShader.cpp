@@ -4,42 +4,11 @@
 
 #include "Graphics/SpecializationInfo.h"
 
-namespace
+// static
+void BloomUpsampleShaderConstants::registerMembers(ShaderPermutationManager<BloomUpsampleShaderConstants>& permutationManager)
 {
-   struct BloomUpsampleSpecializationValues
-   {
-      RenderQuality quality = RenderQuality::Disabled;
-      VkBool32 horizontal = false;
-
-      uint32_t getIndex() const
-      {
-         return (static_cast<uint32_t>(quality) << 1) | (horizontal << 0);
-      }
-   };
-
-   SpecializationInfo<BloomUpsampleSpecializationValues> createSpecializationInfo()
-   {
-      SpecializationInfoBuilder<BloomUpsampleSpecializationValues> builder;
-
-      builder.registerMember(&BloomUpsampleSpecializationValues::quality, RenderQuality::Disabled, RenderQuality::High);
-      builder.registerMember(&BloomUpsampleSpecializationValues::horizontal);
-
-      return builder.build();
-   }
-
-   Shader::InitializationInfo getInitializationInfo()
-   {
-      static const SpecializationInfo kSpecializationInfo = createSpecializationInfo();
-
-      Shader::InitializationInfo info;
-
-      info.vertShaderModuleName = "Screen";
-      info.fragShaderModuleName = "BloomUpsample";
-
-      info.specializationInfo = kSpecializationInfo.getInfo();
-
-      return info;
-   }
+   permutationManager.registerMember(&BloomUpsampleShaderConstants::quality, RenderQuality::Disabled, RenderQuality::High);
+   permutationManager.registerMember(&BloomUpsampleShaderConstants::horizontal);
 }
 
 // static
@@ -66,15 +35,6 @@ std::vector<vk::DescriptorSetLayoutBinding> BloomUpsampleDescriptorSet::getBindi
 }
 
 BloomUpsampleShader::BloomUpsampleShader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager)
-   : ShaderWithDescriptors(graphicsContext, resourceManager, getInitializationInfo())
+   : ParameterizedShader(graphicsContext, resourceManager, Shader::ModuleInfo("Screen", "BloomUpsample"))
 {
-}
-
-std::vector<vk::PipelineShaderStageCreateInfo> BloomUpsampleShader::getStages(RenderQuality quality, bool horizontal) const
-{
-   BloomUpsampleSpecializationValues specializationValues;
-   specializationValues.quality = quality;
-   specializationValues.horizontal = horizontal;
-
-   return getStagesForPermutation(specializationValues.getIndex());
 }

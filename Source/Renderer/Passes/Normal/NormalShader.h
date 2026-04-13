@@ -7,11 +7,20 @@
 
 #include <vector>
 
-class NormalShader : public ShaderWithDescriptors<ViewDescriptorSet, PhysicallyBasedMaterialDescriptorSet>
+struct NormalShaderConstants
+{
+   VkBool32 withTextures = false;
+   VkBool32 masked = false;
+
+   static void registerMembers(ShaderPermutationManager<NormalShaderConstants>& permutationManager);
+
+   bool operator==(const NormalShaderConstants& other) const = default;
+};
+
+class NormalShader : public ParameterizedShader<NormalShaderConstants, ViewDescriptorSet, PhysicallyBasedMaterialDescriptorSet>
 {
 public:
    NormalShader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager);
 
-   std::vector<vk::PipelineShaderStageCreateInfo> getStages(bool withTextures, bool masked) const;
    std::vector<vk::PushConstantRange> getPushConstantRanges() const;
 };

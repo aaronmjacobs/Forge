@@ -28,13 +28,16 @@ namespace
    }
 }
 
-Shader::Shader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager, const InitializationInfo& info)
+Shader::Shader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager, const ModuleInfo& info, bool delayInitialization)
    : GraphicsResource(graphicsContext)
-   , initializationInfo(info)
-   , vertShaderModuleHandle(loadShaderModule(resourceManager, info.vertShaderModuleName, "vert"))
-   , fragShaderModuleHandle(loadShaderModule(resourceManager, info.fragShaderModuleName, "frag"))
+   , moduleInfo(info)
+   , vertShaderModuleHandle(loadShaderModule(resourceManager, info.vertName, "vert"))
+   , fragShaderModuleHandle(loadShaderModule(resourceManager, info.fragName, "frag"))
 {
-   initializeStageCreateInfo();
+   if (!delayInitialization)
+   {
+      initializeStageCreateInfo();
+   }
 
 #if FORGE_WITH_SHADER_HOT_RELOADING
    hotReloadDelegateHandle = resourceManager.addShaderModuleHotReloadDelegate([this](ShaderModuleHandle hotReloadedShaderModuleHandle)
@@ -76,6 +79,13 @@ void Shader::removeOnInitialize(DelegateHandle& handle)
    }
 }
 
+void Shader::setSpecializationInfo(std::span<const vk::SpecializationInfo> specializations)
+{
+   specializationInfo = specializations;
+
+   initializeStageCreateInfo();
+}
+
 std::vector<vk::PipelineShaderStageCreateInfo> Shader::getStagesForPermutation(uint32_t permutationIndex) const
 {
    std::vector<vk::PipelineShaderStageCreateInfo> stages;
@@ -101,18 +111,18 @@ void Shader::initializeStageCreateInfo()
       vk::PipelineShaderStageCreateInfo vertCreateInfo = vk::PipelineShaderStageCreateInfo()
          .setStage(vk::ShaderStageFlagBits::eVertex)
          .setModule(vertShaderModule->getShaderModule())
-         .setPName(initializationInfo.vertShaderModuleEntryPoint.c_str());
+         .setPName(moduleInfo.vertEntryPoint.c_str());
 
-      if (initializationInfo.specializationInfo.empty())
+      if (specializationInfo.empty())
       {
          vertStageCreateInfo.push_back(vertCreateInfo);
       }
       else
       {
-         vertStageCreateInfo.resize(initializationInfo.specializationInfo.size());
-         for (std::size_t i = 0; i < initializationInfo.specializationInfo.size(); ++i)
+         vertStageCreateInfo.resize(specializationInfo.size());
+         for (std::size_t i = 0; i < specializationInfo.size(); ++i)
          {
-            vertStageCreateInfo[i] = vertCreateInfo.setPSpecializationInfo(&initializationInfo.specializationInfo[i]);
+            vertStageCreateInfo[i] = vertCreateInfo.setPSpecializationInfo(&specializationInfo[i]);
          }
       }
    }
@@ -123,18 +133,18 @@ void Shader::initializeStageCreateInfo()
       vk::PipelineShaderStageCreateInfo fragCreateInfo = vk::PipelineShaderStageCreateInfo()
          .setStage(vk::ShaderStageFlagBits::eFragment)
          .setModule(fragShaderModule->getShaderModule())
-         .setPName(initializationInfo.fragShaderModuleEntryPoint.c_str());
+         .setPName(moduleInfo.fragEntryPoint.c_str());
 
-      if (initializationInfo.specializationInfo.empty())
+      if (specializationInfo.empty())
       {
          fragStageCreateInfo.push_back(fragCreateInfo);
       }
       else
       {
-         fragStageCreateInfo.resize(initializationInfo.specializationInfo.size());
-         for (std::size_t i = 0; i < initializationInfo.specializationInfo.size(); ++i)
+         fragStageCreateInfo.resize(specializationInfo.size());
+         for (std::size_t i = 0; i < specializationInfo.size(); ++i)
          {
-            fragStageCreateInfo[i] = fragCreateInfo.setPSpecializationInfo(&initializationInfo.specializationInfo[i]);
+            fragStageCreateInfo[i] = fragCreateInfo.setPSpecializationInfo(&specializationInfo[i]);
          }
       }
    }

@@ -7,6 +7,16 @@
 
 #include <vector>
 
+struct BloomUpsampleShaderConstants
+{
+   RenderQuality quality = RenderQuality::High;
+   VkBool32 horizontal = false;
+
+   static void registerMembers(ShaderPermutationManager<BloomUpsampleShaderConstants>& permutationManager);
+
+   bool operator==(const BloomUpsampleShaderConstants& other) const = default;
+};
+
 class BloomUpsampleDescriptorSet : public TypedDescriptorSet<BloomUpsampleDescriptorSet>
 {
 public:
@@ -15,10 +25,8 @@ public:
    using TypedDescriptorSet::TypedDescriptorSet;
 };
 
-class BloomUpsampleShader : public ShaderWithDescriptors<BloomUpsampleDescriptorSet>
+class BloomUpsampleShader : public ParameterizedShader<BloomUpsampleShaderConstants, BloomUpsampleDescriptorSet>
 {
 public:
    BloomUpsampleShader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager);
-
-   std::vector<vk::PipelineShaderStageCreateInfo> getStages(RenderQuality quality, bool horizontal) const;
 };

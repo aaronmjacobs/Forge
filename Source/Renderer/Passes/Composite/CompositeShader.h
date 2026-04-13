@@ -7,6 +7,22 @@
 
 #include <vector>
 
+enum class CompositeMode
+{
+   Passthrough = 0,
+   LinearToSrgb = 1,
+   SrgbToLinear = 2
+};
+
+struct CompositeShaderConstants
+{
+   CompositeMode mode = CompositeMode::Passthrough;
+
+   static void registerMembers(ShaderPermutationManager<CompositeShaderConstants>& permutationManager);
+
+   bool operator==(const CompositeShaderConstants& other) const = default;
+};
+
 class CompositeDescriptorSet : public TypedDescriptorSet<CompositeDescriptorSet>
 {
 public:
@@ -15,19 +31,8 @@ public:
    using TypedDescriptorSet::TypedDescriptorSet;
 };
 
-class CompositeShader : public ShaderWithDescriptors<CompositeDescriptorSet>
+class CompositeShader : public ParameterizedShader<CompositeShaderConstants, CompositeDescriptorSet>
 {
 public:
-   enum class Mode
-   {
-      Passthrough = 0,
-      LinearToSrgb = 1,
-      SrgbToLinear = 2
-   };
-
-   static constexpr int kNumModes = Enum::cast(Mode::SrgbToLinear) + 1;
-
    CompositeShader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager);
-
-   std::vector<vk::PipelineShaderStageCreateInfo> getStages(Mode mode) const;
 };

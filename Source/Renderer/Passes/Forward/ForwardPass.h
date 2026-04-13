@@ -19,14 +19,13 @@ class SkyboxShader;
 template<>
 struct PipelineDescription<ForwardPass>
 {
-   bool withTextures = true;
-   bool withBlending = false;
+   ForwardShaderConstants shaderConstants;
    bool twoSided = false;
    bool skybox = false;
 
    std::size_t hash() const
    {
-      return Hash::of(withTextures, withBlending, twoSided, skybox);
+      return Hash::of(shaderConstants.withTextures, shaderConstants.withBlending, twoSided, skybox);
    }
 
    bool operator==(const PipelineDescription<ForwardPass>& other) const = default;

@@ -231,9 +231,16 @@ Pipeline BloomPass::createPipeline(const PipelineDescription<BloomPass>& descrip
    PipelineInfo pipelineInfo;
    pipelineInfo.passType = PipelinePassType::Screen;
 
+   BloomDownsampleShaderConstants downsampleConstants;
+   downsampleConstants.quality = description.quality;
+
+   BloomUpsampleShaderConstants upsampleConstants;
+   upsampleConstants.quality = description.quality;
+   upsampleConstants.horizontal = description.type == BloomPassType::HorizontalUpsample;
+
    PipelineData pipelineData(attachmentFormats);
    pipelineData.layout = description.type == BloomPassType::Downsample ? downsamplePipelineLayout : upsamplePipelineLayout;
-   pipelineData.shaderStages = description.type == BloomPassType::Downsample ? downsampleShader->getStages(description.quality) : upsampleShader->getStages(description.quality, description.type == BloomPassType::HorizontalUpsample);
+   pipelineData.shaderStages = description.type == BloomPassType::Downsample ? downsampleShader->getStages(downsampleConstants) : upsampleShader->getStages(upsampleConstants);
    pipelineData.colorBlendStates = { attachmentState };
 
    Pipeline pipeline(context, pipelineInfo, pipelineData);

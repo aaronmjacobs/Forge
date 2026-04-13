@@ -1,18 +1,5 @@
 #include "Renderer/Passes/Forward/SkyboxShader.h"
 
-namespace
-{
-   Shader::InitializationInfo getInitializationInfo()
-   {
-      Shader::InitializationInfo info;
-
-      info.vertShaderModuleName = "Screen";
-      info.fragShaderModuleName = "Skybox";
-
-      return info;
-   }
-}
-
 // static
 std::vector<vk::DescriptorSetLayoutBinding> SkyboxDescriptorSet::getBindings()
 {
@@ -27,11 +14,6 @@ std::vector<vk::DescriptorSetLayoutBinding> SkyboxDescriptorSet::getBindings()
 }
 
 SkyboxShader::SkyboxShader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager)
-   : ShaderWithDescriptors(graphicsContext, resourceManager, getInitializationInfo())
+   : ParameterizedShader(graphicsContext, resourceManager, Shader::ModuleInfo("Screen", "Skybox"))
 {
-}
-
-std::vector<vk::PipelineShaderStageCreateInfo> SkyboxShader::getStages() const
-{
-   return getStagesForPermutation(0);
 }

@@ -16,11 +16,11 @@ class Texture;
 template<>
 struct PipelineDescription<CompositePass>
 {
-   CompositeShader::Mode mode = CompositeShader::Mode::Passthrough;
+   CompositeShaderConstants shaderConstants;
 
    std::size_t hash() const
    {
-      return Hash::of(mode);
+      return Hash::of(shaderConstants.mode);
    }
 
    bool operator==(const PipelineDescription<CompositePass>& other) const = default;
@@ -34,7 +34,7 @@ public:
    CompositePass(const GraphicsContext& graphicsContext, DynamicDescriptorPool& dynamicDescriptorPool, ResourceManager& resourceManager);
    ~CompositePass();
 
-   void render(vk::CommandBuffer commandBuffer, Texture& destinationTexture, Texture& sourceTexture, CompositeShader::Mode mode);
+   void render(vk::CommandBuffer commandBuffer, Texture& destinationTexture, Texture& sourceTexture, CompositeMode mode);
 
 protected:
    friend class SceneRenderPass<CompositePass>;

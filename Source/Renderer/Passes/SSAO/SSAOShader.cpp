@@ -1,18 +1,5 @@
 #include "Renderer/Passes/SSAO/SSAOShader.h"
 
-namespace
-{
-   Shader::InitializationInfo getInitializationInfo()
-   {
-      Shader::InitializationInfo info;
-
-      info.vertShaderModuleName = "Screen";
-      info.fragShaderModuleName = "SSAO";
-
-      return info;
-   }
-}
-
 // static
 std::vector<vk::DescriptorSetLayoutBinding> SSAODescriptorSet::getBindings()
 {
@@ -37,11 +24,6 @@ std::vector<vk::DescriptorSetLayoutBinding> SSAODescriptorSet::getBindings()
 }
 
 SSAOShader::SSAOShader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager)
-   : ShaderWithDescriptors(graphicsContext, resourceManager, getInitializationInfo())
+   : ParameterizedShader(graphicsContext, resourceManager, Shader::ModuleInfo("Screen", "SSAO"))
 {
-}
-
-std::vector<vk::PipelineShaderStageCreateInfo> SSAOShader::getStages() const
-{
-   return getStagesForPermutation(0);
 }

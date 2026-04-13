@@ -2,26 +2,9 @@
 
 #include "Renderer/UniformData.h"
 
-namespace
-{
-   Shader::InitializationInfo getInitializationInfo()
-   {
-      Shader::InitializationInfo info;
-
-      info.vertShaderModuleName = "Depth";
-
-      return info;
-   }
-}
-
 DepthShader::DepthShader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager)
-   : ShaderWithDescriptors(graphicsContext, resourceManager, getInitializationInfo())
+   : ParameterizedShader(graphicsContext, resourceManager, Shader::ModuleInfo("Depth", ""))
 {
-}
-
-std::vector<vk::PipelineShaderStageCreateInfo> DepthShader::getStages() const
-{
-   return getStagesForPermutation(0);
 }
 
 std::vector<vk::PushConstantRange> DepthShader::getPushConstantRanges() const

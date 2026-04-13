@@ -2,42 +2,12 @@
 
 #include "Core/Enum.h"
 
-#include "Graphics/SpecializationInfo.h"
+#include "Graphics/ShaderPermutationManager.h"
 
-namespace
+// static
+void CompositeShaderConstants::registerMembers(ShaderPermutationManager<CompositeShaderConstants>& permutationManager)
 {
-   struct CompositeSpecializationValues
-   {
-      CompositeShader::Mode mode = CompositeShader::Mode::Passthrough;
-
-      uint32_t getIndex() const
-      {
-         return (static_cast<uint32_t>(mode) << 0);
-      }
-   };
-
-   SpecializationInfo<CompositeSpecializationValues> createSpecializationInfo()
-   {
-      SpecializationInfoBuilder<CompositeSpecializationValues> builder;
-
-      builder.registerMember(&CompositeSpecializationValues::mode, CompositeShader::Mode::Passthrough, CompositeShader::Mode::SrgbToLinear);
-
-      return builder.build();
-   }
-
-   Shader::InitializationInfo getInitializationInfo()
-   {
-      static const SpecializationInfo kSpecializationInfo = createSpecializationInfo();
-
-      Shader::InitializationInfo info;
-
-      info.vertShaderModuleName = "Screen";
-      info.fragShaderModuleName = "Composite";
-
-      info.specializationInfo = kSpecializationInfo.getInfo();
-
-      return info;
-   }
+   permutationManager.registerMember(&CompositeShaderConstants::mode, CompositeMode::Passthrough, CompositeMode::SrgbToLinear);
 }
 
 // static
@@ -54,14 +24,6 @@ std::vector<vk::DescriptorSetLayoutBinding> CompositeDescriptorSet::getBindings(
 }
 
 CompositeShader::CompositeShader(const GraphicsContext& graphicsContext, ResourceManager& resourceManager)
-   : ShaderWithDescriptors(graphicsContext, resourceManager, getInitializationInfo())
+   : ParameterizedShader(graphicsContext, resourceManager, Shader::ModuleInfo("Screen", "Composite"))
 {
-}
-
-std::vector<vk::PipelineShaderStageCreateInfo> CompositeShader::getStages(Mode mode) const
-{
-   CompositeSpecializationValues specializationValues;
-   specializationValues.mode = mode;
-
-   return getStagesForPermutation(specializationValues.getIndex());
 }

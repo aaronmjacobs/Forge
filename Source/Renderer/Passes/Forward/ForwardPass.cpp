@@ -183,8 +183,8 @@ void ForwardPass::render(vk::CommandBuffer commandBuffer, const SceneRenderInfo&
          device.updateDescriptorSets(descriptorWrite, {});
 
          PipelineDescription<ForwardPass> pipelineDescription;
-         pipelineDescription.withBlending = false;
-         pipelineDescription.withTextures = true;
+         pipelineDescription.shaderConstants.withBlending = false;
+         pipelineDescription.shaderConstants.withTextures = true;
          pipelineDescription.skybox = true;
 
          skyboxShader->bindDescriptorSets(commandBuffer, skyboxPipelineLayout, sceneRenderInfo.view.getDescriptorSet(), skyboxDescriptorSet);
@@ -217,8 +217,8 @@ PipelineDescription<ForwardPass> ForwardPass::getPipelineDescription(const View&
 {
    PipelineDescription<ForwardPass> description;
 
-   description.withTextures = meshSection.hasValidTexCoords;
-   description.withBlending = material.getBlendMode() == BlendMode::Translucent;
+   description.shaderConstants.withTextures = meshSection.hasValidTexCoords;
+   description.shaderConstants.withBlending = material.getBlendMode() == BlendMode::Translucent;
    description.twoSided = material.isTwoSided();
 
    return description;
@@ -227,7 +227,7 @@ PipelineDescription<ForwardPass> ForwardPass::getPipelineDescription(const View&
 Pipeline ForwardPass::createPipeline(const PipelineDescription<ForwardPass>& description, const AttachmentFormats& attachmentFormats)
 {
    std::vector<vk::PipelineColorBlendAttachmentState> blendAttachmentStates;
-   if (description.withBlending)
+   if (description.shaderConstants.withBlending)
    {
       blendAttachmentStates.push_back(vk::PipelineColorBlendAttachmentState()
          .setColorWriteMask(vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA)
@@ -254,11 +254,11 @@ Pipeline ForwardPass::createPipeline(const PipelineDescription<ForwardPass>& des
 
    PipelineData pipelineData(attachmentFormats);
    pipelineData.layout = description.skybox ? skyboxPipelineLayout : forwardPipelineLayout;
-   pipelineData.shaderStages = description.skybox ? skyboxShader->getStages() : forwardShader->getStages(description.withTextures, description.withBlending);
+   pipelineData.shaderStages = description.skybox ? skyboxShader->getStages() : forwardShader->getStages(description.shaderConstants);
    pipelineData.colorBlendStates = blendAttachmentStates;
 
    Pipeline pipeline(context, pipelineInfo, pipelineData);
-   NAME_CHILD(pipeline, description.skybox ? "Skybox" : (std::string(description.withTextures ? "With" : "Without") + " Textures, " + std::string(description.withBlending ? "With" : "Without") + " Blending" + (description.twoSided ? ", Two Sided" : "")));
+   NAME_CHILD(pipeline, description.skybox ? "Skybox" : (std::string(description.shaderConstants.withTextures ? "With" : "Without") + " Textures, " + std::string(description.shaderConstants.withBlending ? "With" : "Without") + " Blending" + (description.twoSided ? ", Two Sided" : "")));
 
    return pipeline;
 }
