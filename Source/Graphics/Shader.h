@@ -86,7 +86,7 @@ public:
       }
    }
 
-   std::vector<vk::PipelineShaderStageCreateInfo> getStages() const requires !kHasConstants
+   std::vector<vk::PipelineShaderStageCreateInfo> getStages() const requires (!kHasConstants)
    {
       return getStagesForPermutation(0);
    }
