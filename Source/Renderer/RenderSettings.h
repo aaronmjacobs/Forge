@@ -39,6 +39,12 @@ enum class TonemappingAlgorithm
    DoubleFine
 };
 
+#if FORGE_PLATFORM_MACOS
+constexpr float kDefaultPeakBrightness = 1600.0f;
+#else
+constexpr float kDefaultPeakBrightness = 1000.0f;
+#endif
+
 struct TonemapSettings
 {
    TonemappingAlgorithm algorithm = TonemappingAlgorithm::DoubleFine;
@@ -46,7 +52,7 @@ struct TonemapSettings
    bool showTestPattern = false;
 
    float bloomStrength = 0.05f;
-   float peakBrightness = 1600.0f;
+   float peakBrightness = kDefaultPeakBrightness;
 
    float toe = 0.0f;
    float shoulder = 0.5f;
