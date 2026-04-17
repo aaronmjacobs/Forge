@@ -704,7 +704,10 @@ void UI::renderSettings(const GraphicsContext& graphicsContext, const RenderCapa
 
    ImGui::DragFloat("Bloom Strength", &settings.tonemapSettings.bloomStrength, 0.01f, 0.0f, 1.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
 
-   ImGui::DragFloat("Peak Brightness", &settings.tonemapSettings.peakBrightness, 1.0f, 100.0f, 10'000.0f);
+   static const char* kNitsFormat = "%.0f nits";
+   ImGui::DragFloat("Paper White", &settings.tonemapSettings.paperWhiteNits, 1.0f, 80.0f, 480.0f, kNitsFormat, ImGuiSliderFlags_AlwaysClamp);
+   ImGui::DragFloat("Peak Brightness", &settings.tonemapSettings.peakBrightnessNits, 1.0f, settings.tonemapSettings.paperWhiteNits, 10'000.0f, kNitsFormat, ImGuiSliderFlags_AlwaysClamp);
+   settings.tonemapSettings.peakBrightnessNits = glm::max(settings.tonemapSettings.paperWhiteNits, settings.tonemapSettings.peakBrightnessNits);
 
    ImGui::SliderFloat("Toe", &settings.tonemapSettings.toe, 0.0f, 1.0f);
    ImGui::SliderFloat("Shoulder", &settings.tonemapSettings.shoulder, 0.0f, 1.0f);

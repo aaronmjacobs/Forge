@@ -33,7 +33,9 @@ layout(set = 0, binding = 3) uniform sampler3D lutTexture;
 layout(std430, set = 0, binding = 4) uniform TonemapData
 {
    float bloomStrength;
-   float peakBrightness;
+
+   float paperWhiteNits;
+   float peakBrightnessNits;
 
    float Toe;
    float Shoulder;
@@ -44,8 +46,6 @@ layout(std430, set = 0, binding = 4) uniform TonemapData
 layout(location = 0) in vec2 inTexCoord;
 
 layout(location = 0) out vec4 outColor;
-
-const float kPaperwhiteNits = 100.0;
 
 ////////////////////////////////////////////////////////////////////////////////
 // Tony McMapface code begin
@@ -218,14 +218,14 @@ vec3 linearToHLG(vec3 linear)
    return mix(0.17883277 * log(12.0 * linear - 0.28466892) + 0.55991073, sqrt(3.0 * linear), lessThanEqual(linear, vec3(1.0 / 12.0)));
 }
 
-vec3 normalizeHDR(vec3 linearValue, float paperwhiteNits, float maxNits)
+vec3 normalizeHDR(vec3 linearValue, float reference, float peak)
 {
-   return linearValue * paperwhiteNits / maxNits;
+   return linearValue * reference / peak;
 }
 
 vec3 tonemap(vec3 hdrColor)
 {
-   const float kBrightnessScale = kOutputHDR ? (params.peakBrightness / kPaperwhiteNits) : 1.0f;
+   const float kBrightnessScale = kOutputHDR ? (params.peakBrightnessNits / params.paperWhiteNits) : 1.0f;
 
    vec3 scaledHdrColor = max(vec3(0.0), hdrColor / kBrightnessScale);
    vec3 tonemappedColor = scaledHdrColor;
@@ -293,12 +293,12 @@ vec3 applyTransferFunction(vec3 color)
 
    if (kTransferFunction == kTransferFunction_PQ)
    {
-      return linearToPQ(normalizeHDR(color, kPaperwhiteNits, 10000.0));
+      return linearToPQ(normalizeHDR(color, params.paperWhiteNits, 10000.0));
    }
 
    if (kTransferFunction == kTransferFunction_HLG)
    {
-      return linearToHLG(normalizeHDR(color, kPaperwhiteNits, kPaperwhiteNits * 12.0));
+      return linearToHLG(normalizeHDR(color, 0.5, 0.5 * 12.0));
    }
 
    return color;

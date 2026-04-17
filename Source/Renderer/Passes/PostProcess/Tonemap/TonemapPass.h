@@ -20,7 +20,9 @@ class TonemapPass;
 struct TonemapUniformData
 {
    alignas(4) float bloomStrength = 0.0f;
-   alignas(4) float peakBrightness = 0.0f;
+
+   alignas(4) float paperWhiteNits = 0.0f;
+   alignas(4) float peakBrightnessNits = 0.0f;
 
    alignas(4) float toe = 0.0f;
    alignas(4) float shoulder = 0.0f;
