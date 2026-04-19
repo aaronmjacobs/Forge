@@ -226,7 +226,7 @@ void TonemapPass::render(vk::CommandBuffer commandBuffer, Texture& outputTexture
       PipelineDescription<TonemapPass> pipelineDescription;
       TonemapShaderConstants& shaderConstants = pipelineDescription.shaderConstants;
       shaderConstants.tonemappingAlgorithm = settings.algorithm;
-      shaderConstants.colorGamut = getColorGamut(outputColorSpace);
+      shaderConstants.colorGamut = settings.convertToOutputColorGamut ? getColorGamut(outputColorSpace) : ColorGamut::Rec709;
       shaderConstants.transferFunction = getTransferFunction(outputColorSpace);
       shaderConstants.outputHDR = FormatHelpers::isUsedForHdrPresentation(outputTexture.getImageProperties().format);
       shaderConstants.withBloom = bloomTexture != nullptr;

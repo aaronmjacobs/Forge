@@ -709,6 +709,8 @@ void UI::renderSettings(const GraphicsContext& graphicsContext, const RenderCapa
    ImGui::DragFloat("Peak Brightness", &settings.tonemapSettings.peakBrightnessNits, 1.0f, settings.tonemapSettings.paperWhiteNits, 10'000.0f, kNitsFormat, ImGuiSliderFlags_AlwaysClamp);
    settings.tonemapSettings.peakBrightnessNits = glm::max(settings.tonemapSettings.paperWhiteNits, settings.tonemapSettings.peakBrightnessNits);
 
+   ImGui::Checkbox("Convert to Output Color Gamut", &settings.tonemapSettings.convertToOutputColorGamut);
+
    ImGui::SliderFloat("Toe", &settings.tonemapSettings.toe, 0.0f, 1.0f);
    ImGui::SliderFloat("Shoulder", &settings.tonemapSettings.shoulder, 0.0f, 1.0f);
    ImGui::SliderFloat("Hotspot", &settings.tonemapSettings.hotspot, 0.0f, 1.0f);

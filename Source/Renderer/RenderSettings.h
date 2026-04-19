@@ -76,6 +76,7 @@ struct TonemapSettings
 
    float paperWhiteNits = kDefaultPaperWhiteNits;
    float peakBrightnessNits = kDefaultPeakBrightnessNits;
+   bool convertToOutputColorGamut = true;
 
    float toe = 0.0f;
    float shoulder = 0.5f;
