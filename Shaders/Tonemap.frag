@@ -200,22 +200,49 @@ vec3 TestPattern(vec2 UV, float Power, float Bands)
 
 vec3 linearToSRGB(vec3 linear)
 {
-   return mix(1.055 * pow(linear, vec3(1.0 / 2.4)) - 0.055, linear * 12.92, lessThanEqual(linear, vec3(0.0031308)));
+   vec3 low = linear * 12.92;
+   vec3 high = 1.055 * pow(linear, vec3(1.0 / 2.4)) - 0.055;
+   bvec3 chooseHigh = greaterThan(linear, vec3(0.0031308));
+
+   return mix(low, high, chooseHigh);
 }
 
 vec3 srgbToLinear(vec3 sRGB)
 {
-   return mix(sRGB / 12.92, pow((sRGB + 0.055) / 1.055, vec3(2.4)), step(vec3(0.04045), sRGB));
+   vec3 low = sRGB / 12.92;
+   vec3 high = pow((sRGB + 0.055) / 1.055, vec3(2.4));
+   bvec3 chooseHigh = greaterThan(sRGB, vec3(0.04045));
+
+   return mix(low, high, chooseHigh);
 }
 
 vec3 linearToPQ(vec3 linear)
 {
-   return pow((0.8359375 + 18.8515625 * pow(abs(linear), vec3(0.1593017578125))) / (1.0 + 18.6875 * pow(abs(linear), vec3(0.1593017578125))), vec3(78.84375));
+   const float c1 = 0.8359375;
+   const float c2 = 18.8515625;
+   const float c3 = 18.6875;
+
+   const float m1 = 0.1593017578125;
+   const float m2 = 78.84375;
+
+   vec3 yM1 = pow(linear, vec3(m1));
+   vec3 numerator = c1 + c2 * yM1;
+   vec3 denominator = 1.0 + c3 * yM1;
+
+   return pow(numerator / denominator, vec3(m2));
 }
 
 vec3 linearToHLG(vec3 linear)
 {
-   return mix(0.17883277 * log(12.0 * linear - 0.28466892) + 0.55991073, sqrt(3.0 * linear), lessThanEqual(linear, vec3(1.0 / 12.0)));
+   const float a = 0.17883277;
+   const float b = 0.28466892;
+   const float c = 0.55991073;
+
+   vec3 low = sqrt(3.0 * linear);
+   vec3 high = a * log(12.0 * linear - b) + c;
+   bvec3 chooseHigh = greaterThan(linear, vec3(1.0 / 12.0));
+
+   return mix(low, high, chooseHigh);
 }
 
 vec3 normalizeHDR(vec3 linearValue, float reference, float peak)
