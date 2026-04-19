@@ -9,8 +9,8 @@
 
 namespace
 {
-   const int kInitialWindowWidth = 1280;
-   const int kInitialWindowHeight = 720;
+   const int kInitialWindowWidth = 1600;
+   const int kInitialWindowHeight = 900;
 
    GLFWmonitor* selectFullScreenMonitor(const WindowBounds& windowBounds)
    {
