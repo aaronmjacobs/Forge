@@ -26,7 +26,9 @@ public:
    void render(const GraphicsContext& graphicsContext, Scene& scene, const RenderCapabilities& renderCapabilities, RenderSettings& settings, ResourceManager& resourceManager);
 
 private:
-   void renderSceneWindow(const GraphicsContext& graphicsContext, Scene& scene, const RenderCapabilities& renderCapabilities, RenderSettings& settings, ResourceManager& resourceManager);
+   void renderRendererWindow(const GraphicsContext& graphicsContext, const RenderCapabilities& renderCapabilities, RenderSettings& settings);
+   void renderSceneWindow(Scene& scene, ResourceManager& resourceManager);
+   void renderFrameRate();
    void renderTime(Scene& scene);
    void renderSettings(const GraphicsContext& graphicsContext, const RenderCapabilities& renderCapabilities, RenderSettings& settings);
    void renderEntityList(Scene& scene);
@@ -40,5 +42,4 @@ private:
    std::array<float, 100> frameRates{};
 
    Entity selectedEntity;
-   uint32_t selectedMeshSection = 0;
 };

@@ -33,59 +33,69 @@
 #include <string>
 #include <unordered_map>
 
-namespace
+namespace ImGui
 {
+   static const ImU32 GDefaultRgbaColorMarkers[4] =
+   {
+       IM_COL32(240,20,20,255), IM_COL32(20,240,20,255), IM_COL32(20,20,240,255), IM_COL32(140,140,140,255)
+   };
+
+   static const ImGuiDataTypeInfo GDataTypeInfo[] =
+   {
+       { sizeof(char),             "S8",   "%d",   "%d"    },  // ImGuiDataType_S8
+       { sizeof(unsigned char),    "U8",   "%u",   "%u"    },
+       { sizeof(short),            "S16",  "%d",   "%d"    },  // ImGuiDataType_S16
+       { sizeof(unsigned short),   "U16",  "%u",   "%u"    },
+       { sizeof(int),              "S32",  "%d",   "%d"    },  // ImGuiDataType_S32
+       { sizeof(unsigned int),     "U32",  "%u",   "%u"    },
+   #ifdef _MSC_VER
+       { sizeof(ImS64),            "S64",  "%I64d","%I64d" },  // ImGuiDataType_S64
+       { sizeof(ImU64),            "U64",  "%I64u","%I64u" },
+   #else
+       { sizeof(ImS64),            "S64",  "%lld", "%lld"  },  // ImGuiDataType_S64
+       { sizeof(ImU64),            "U64",  "%llu", "%llu"  },
+   #endif
+       { sizeof(float),            "float", "%.3f","%f"    },  // ImGuiDataType_Float (float are promoted to double in va_arg)
+       { sizeof(double),           "double","%f",  "%lf"   },  // ImGuiDataType_Double
+       { sizeof(bool),             "bool", "%d",   "%d"    },  // ImGuiDataType_Bool
+       { 0,                        "char*","%s",   "%s"    },  // ImGuiDataType_String
+   };
+   IM_STATIC_ASSERT(IM_COUNTOF(GDataTypeInfo) == ImGuiDataType_COUNT);
+
    bool DragScalarNFormat(const char* label, ImGuiDataType data_type, void* p_data, int components, float v_speed = 1.0f, const void* p_min = NULL, const void* p_max = NULL, const char** format = NULL, ImGuiSliderFlags flags = 0)
    {
-      static const ImGuiDataTypeInfo GDataTypeInfo[] =
-      {
-          { sizeof(char),             "S8",   "%d",   "%d"    },  // ImGuiDataType_S8
-          { sizeof(unsigned char),    "U8",   "%u",   "%u"    },
-          { sizeof(short),            "S16",  "%d",   "%d"    },  // ImGuiDataType_S16
-          { sizeof(unsigned short),   "U16",  "%u",   "%u"    },
-          { sizeof(int),              "S32",  "%d",   "%d"    },  // ImGuiDataType_S32
-          { sizeof(unsigned int),     "U32",  "%u",   "%u"    },
-      #ifdef _MSC_VER
-          { sizeof(ImS64),            "S64",  "%I64d","%I64d" },  // ImGuiDataType_S64
-          { sizeof(ImU64),            "U64",  "%I64u","%I64u" },
-      #else
-          { sizeof(ImS64),            "S64",  "%lld", "%lld"  },  // ImGuiDataType_S64
-          { sizeof(ImU64),            "U64",  "%llu", "%llu"  },
-      #endif
-          { sizeof(float),            "float", "%.3f","%f"    },  // ImGuiDataType_Float (float are promoted to double in va_arg)
-          { sizeof(double),           "double","%f",  "%lf"   },  // ImGuiDataType_Double
-      };
-
-      ImGuiWindow* window = ImGui::GetCurrentWindow();
+      ImGuiWindow* window = GetCurrentWindow();
       if (window->SkipItems)
          return false;
 
       ImGuiContext& g = *GImGui;
       bool value_changed = false;
-      ImGui::BeginGroup();
-      ImGui::PushID(label);
-      ImGui::PushMultiItemsWidths(components, ImGui::CalcItemWidth());
+      BeginGroup();
+      PushID(label);
+      PushMultiItemsWidths(components, CalcItemWidth());
       size_t type_size = GDataTypeInfo[data_type].Size;
       for (int i = 0; i < components; i++)
       {
-         ImGui::PushID(i);
+         PushID(i);
          if (i > 0)
-            ImGui::SameLine(0, g.Style.ItemInnerSpacing.x);
-         value_changed |= ImGui::DragScalar("", data_type, p_data, v_speed, p_min, p_max, format[i], flags);
-         ImGui::PopID();
-         ImGui::PopItemWidth();
+            SameLine(0, g.Style.ItemInnerSpacing.x);
+         if (flags & ImGuiSliderFlags_ColorMarkers)
+            SetNextItemColorMarker(GDefaultRgbaColorMarkers[i]);
+         value_changed |= DragScalar("", data_type, p_data, v_speed, p_min, p_max, format[i], flags);
+         PopID();
+         PopItemWidth();
          p_data = (void*)((char*)p_data + type_size);
       }
-      ImGui::PopID();
+      PopID();
 
-      const char* label_end = ImGui::FindRenderedTextEnd(label);
+      const char* label_end = FindRenderedTextEnd(label);
       if (label != label_end)
       {
-         ImGui::SameLine(0, g.Style.ItemInnerSpacing.x);
-         ImGui::TextEx(label, label_end);
+         SameLine(0, g.Style.ItemInnerSpacing.x);
+         TextEx(label, label_end);
       }
 
-      ImGui::EndGroup();
+      EndGroup();
       return value_changed;
    }
 
@@ -107,6 +117,17 @@ namespace
       return DragScalarNFormat(label, ImGuiDataType_Float, v, 4, v_speed, &v_min, &v_max, formats.data(), flags);
    }
 
+   bool ReadOnlyInputPath(const char* label, const std::string* path)
+   {
+      const std::string& pathString = path ? *path : "None";
+      std::size_t length = pathString.empty() ? 0 : pathString.size() + 1;
+
+      return InputText(label, const_cast<char*>(pathString.c_str()), length, ImGuiInputTextFlags_ReadOnly | ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_ElideLeft);
+   }
+}
+
+namespace
+{
    glm::vec3 srgbToLinear(const glm::vec3& srgb)
    {
       return glm::convertSRGBToLinear(srgb);
@@ -148,27 +169,27 @@ namespace
    {
       bool anyModified = false;
 
-      anyModified |= DragFloat3Format("Position", glm::value_ptr(transform.position), 0.01f, 0.0f, 0.0f, "X: %.3f", "Y: %.3f", "Z: %.3f");
+      anyModified |= ImGui::DragFloat3Format("Position", glm::value_ptr(transform.position), 0.01f, 0.0f, 0.0f, "X: %.3f", "Y: %.3f", "Z: %.3f", ImGuiSliderFlags_ColorMarkers);
 
       glm::vec3 rotation = glm::degrees(glm::eulerAngles(transform.orientation));
-      if (DragFloat3Format("Rotation", glm::value_ptr(rotation), 0.1f, 0.0f, 0.0f, "Pitch: %.3f", "Roll: %.3f", "Yaw: %.3f"))
+      if (ImGui::DragFloat3Format("Rotation", glm::value_ptr(rotation), 0.1f, 0.0f, 0.0f, "P: %.3f", "R: %.3f", "Y: %.3f", ImGuiSliderFlags_ColorMarkers))
       {
          transform.orientation = glm::quat(glm::radians(rotation));
          anyModified = true;
       }
 
-      anyModified |= DragFloat3Format("Scale", glm::value_ptr(transform.scale), 0.01f, 0.0f, 0.0f, "X: %.3f", "Y: %.3f", "Z: %.3f");
+      anyModified |= ImGui::DragFloat3Format("Scale", glm::value_ptr(transform.scale), 0.01f, 0.0f, 0.0f, "X: %.3f", "Y: %.3f", "Z: %.3f", ImGuiSliderFlags_ColorMarkers);
 
       return anyModified;
    }
 
    void renderTransformComponent(TransformComponent& transformComponent)
    {
-      if (ImGui::BeginTabItem("Transform"))
+      if (ImGui::TreeNodeEx("Transform", ImGuiTreeNodeFlags_DefaultOpen))
       {
          if (transformComponent.getParentComponent())
          {
-            ImGui::Text("Absolute");
+            ImGui::TextUnformatted("Absolute");
 
             ImGui::PushID("Absolute");
             Transform absoluteTransform = transformComponent.getAbsoluteTransform();
@@ -178,23 +199,23 @@ namespace
             }
             ImGui::PopID();
 
-            ImGui::Text("Relative");
+            ImGui::TextUnformatted("Relative");
          }
 
          renderTransform(transformComponent.transform);
 
-         ImGui::EndTabItem();
+         ImGui::TreePop();
       }
    }
 
    void renderCameraComponent(CameraComponent& cameraComponent)
    {
-      if (ImGui::BeginTabItem("Camera"))
+      if (ImGui::TreeNodeEx("Camera", ImGuiTreeNodeFlags_DefaultOpen))
       {
          ImGui::SliderFloat("Field of View", &cameraComponent.fieldOfView, 5.0f, 140.0f);
          ImGui::DragFloatRange2("Clip Planes", &cameraComponent.nearPlane, &cameraComponent.farPlane, 0.01f, 0.01f, 1000.0f, "Near: %.2f", "Far: %.2f");
 
-         ImGui::EndTabItem();
+         ImGui::TreePop();
       }
    }
 
@@ -219,7 +240,7 @@ namespace
       }
 
       std::array<float, 3> shadowBiasValues = { lightComponent.getShadowBiasConstantFactor(), lightComponent.getShadowBiasSlopeFactor(), lightComponent.getShadowBiasClamp() };
-      if (DragFloat3Format("Shadow Bias", shadowBiasValues.data(), 0.001f, 0.0f, 100.0f, "Constant: %.3f", "Slope: %.3f", "Clamp: %.3f"))
+      if (ImGui::DragFloat3Format("Shadow Bias", shadowBiasValues.data(), 0.001f, 0.0f, 100.0f, "Const: %.3f", "Slope: %.3f", "Clamp: %.3f"))
       {
          lightComponent.setShadowBiasConstantFactor(shadowBiasValues[0]);
          lightComponent.setShadowBiasSlopeFactor(shadowBiasValues[1]);
@@ -229,25 +250,25 @@ namespace
 
    void renderDirectionalLightComponent(DirectionalLightComponent& directionalLightComponent)
    {
-      if (ImGui::BeginTabItem("Directional Light"))
+      if (ImGui::TreeNodeEx("Directional Light", ImGuiTreeNodeFlags_DefaultOpen))
       {
          renderLightComponent(directionalLightComponent);
 
          std::array<float, 3> shadowProjectionValues = { directionalLightComponent.getShadowWidth(), directionalLightComponent.getShadowHeight(), directionalLightComponent.getShadowDepth() };
-         if (DragFloat3Format("Shadow Projection", shadowProjectionValues.data(), 0.01f, 0.0f, 100.0f, "Width: %.3f", "Height: %.3f", "Depth: %.3f"))
+         if (ImGui::DragFloat3Format("Shadow Projection", shadowProjectionValues.data(), 0.01f, 0.0f, 100.0f, "Width: %.3f", "Height: %.3f", "Depth: %.3f"))
          {
             directionalLightComponent.setShadowWidth(shadowProjectionValues[0]);
             directionalLightComponent.setShadowHeight(shadowProjectionValues[1]);
             directionalLightComponent.setShadowDepth(shadowProjectionValues[2]);
          }
 
-         ImGui::EndTabItem();
+         ImGui::TreePop();
       }
    }
 
    void renderPointLightComponent(PointLightComponent& pointLightComponent)
    {
-      if (ImGui::BeginTabItem("Point Light"))
+      if (ImGui::TreeNodeEx("Point Light", ImGuiTreeNodeFlags_DefaultOpen))
       {
          renderLightComponent(pointLightComponent);
 
@@ -263,13 +284,13 @@ namespace
             pointLightComponent.setShadowNearPlane(shadowNearPlane);
          }
 
-         ImGui::EndTabItem();
+         ImGui::TreePop();
       }
    }
 
    void renderSpotLightComponent(SpotLightComponent& spotLightComponent)
    {
-      if (ImGui::BeginTabItem("Spot Light"))
+      if (ImGui::TreeNodeEx("Spot Light", ImGuiTreeNodeFlags_DefaultOpen))
       {
          renderLightComponent(spotLightComponent);
 
@@ -293,7 +314,7 @@ namespace
             spotLightComponent.setShadowNearPlane(shadowNearPlane);
          }
 
-         ImGui::EndTabItem();
+         ImGui::TreePop();
       }
    }
 
@@ -314,136 +335,130 @@ namespace
 
    void renderMaterial(Material& material)
    {
-      if (ImGui::CollapsingHeader("Material", nullptr, ImGuiTreeNodeFlags_DefaultOpen))
+      ImGui::SeparatorText("Material");
+
+      static const std::array<BlendMode, 3> kBlendModeValues = { BlendMode::Opaque, BlendMode::Masked, BlendMode::Translucent };
+      if (ImGui::BeginCombo("Blend Mode", getBlendModePreviewText(material.getBlendMode())))
       {
-         static const std::array<BlendMode, 3> kBlendModeValues = { BlendMode::Opaque, BlendMode::Masked, BlendMode::Translucent };
-         if (ImGui::BeginCombo("Blend Mode", getBlendModePreviewText(material.getBlendMode())))
+         for (BlendMode blendMode : kBlendModeValues)
          {
-            for (BlendMode blendMode : kBlendModeValues)
+            bool isSelected = material.getBlendMode() == blendMode;
+            if (ImGui::Selectable(getBlendModePreviewText(blendMode), isSelected))
             {
-               bool isSelected = material.getBlendMode() == blendMode;
-               if (ImGui::Selectable(getBlendModePreviewText(blendMode), isSelected))
-               {
-                  material.setBlendMode(blendMode);
-               }
-
-               if (isSelected)
-               {
-                  ImGui::SetItemDefaultFocus();
-               }
+               material.setBlendMode(blendMode);
             }
 
-            ImGui::EndCombo();
+            if (isSelected)
+            {
+               ImGui::SetItemDefaultFocus();
+            }
          }
 
-         bool twoSided = material.isTwoSided();
-         if (ImGui::Checkbox("Two-Sided", &twoSided))
+         ImGui::EndCombo();
+      }
+
+      bool twoSided = material.isTwoSided();
+      if (ImGui::Checkbox("Two-Sided", &twoSided))
+      {
+         material.setTwoSided(twoSided);
+      }
+
+      if (PhysicallyBasedMaterial* pbrMaterial = dynamic_cast<PhysicallyBasedMaterial*>(&material))
+      {
+         glm::vec4 albedo = linearToSrgb(pbrMaterial->getAlbedoColor());
+         if (ImGui::ColorEdit4("Albedo", glm::value_ptr(albedo)))
          {
-            material.setTwoSided(twoSided);
+            pbrMaterial->setAlbedoColor(srgbToLinear(albedo));
          }
 
-         if (PhysicallyBasedMaterial* pbrMaterial = dynamic_cast<PhysicallyBasedMaterial*>(&material))
+         glm::vec4 emissive = linearToSrgb(pbrMaterial->getEmissiveColor());
+         if (ImGui::ColorEdit4("Emissive", glm::value_ptr(emissive)))
          {
-            glm::vec4 albedo = linearToSrgb(pbrMaterial->getAlbedoColor());
-            if (ImGui::ColorEdit4("Albedo", glm::value_ptr(albedo)))
-            {
-               pbrMaterial->setAlbedoColor(srgbToLinear(albedo));
-            }
+            pbrMaterial->setEmissiveColor(srgbToLinear(emissive));
+         }
 
-            glm::vec4 emissive = linearToSrgb(pbrMaterial->getEmissiveColor());
-            if (ImGui::ColorEdit4("Emissive", glm::value_ptr(emissive)))
-            {
-               pbrMaterial->setEmissiveColor(srgbToLinear(emissive));
-            }
+         float emissiveIntensity = pbrMaterial->getEmissiveIntensity();
+         if (ImGui::DragFloat("Emissive Intensity", &emissiveIntensity, 0.01f, 0.0f, FLT_MAX))
+         {
+            pbrMaterial->setEmissiveIntensity(emissiveIntensity);
+         }
 
-            float emissiveIntensity = pbrMaterial->getEmissiveIntensity();
-            if (ImGui::DragFloat("Emissive Intensity", &emissiveIntensity, 0.01f, 0.0f, FLT_MAX))
-            {
-               pbrMaterial->setEmissiveIntensity(emissiveIntensity);
-            }
+         float roughness = pbrMaterial->getRoughness();
+         if (ImGui::SliderFloat("Roughness", &roughness, 0.0f, 1.0f))
+         {
+            pbrMaterial->setRoughness(roughness);
+         }
 
-            float roughness = pbrMaterial->getRoughness();
-            if (ImGui::SliderFloat("Roughness", &roughness, 0.0f, 1.0f))
-            {
-               pbrMaterial->setRoughness(roughness);
-            }
+         float metalness = pbrMaterial->getMetalness();
+         if (ImGui::SliderFloat("Metalness", &metalness, 0.0f, 1.0f))
+         {
+            pbrMaterial->setMetalness(metalness);
+         }
 
-            float metalness = pbrMaterial->getMetalness();
-            if (ImGui::SliderFloat("Metalness", &metalness, 0.0f, 1.0f))
-            {
-               pbrMaterial->setMetalness(metalness);
-            }
-
-            float ambientOcclusion = pbrMaterial->getAmbientOcclusion();
-            if (ImGui::SliderFloat("Ambient Occlusion", &ambientOcclusion, 0.0f, 1.0f))
-            {
-               pbrMaterial->setAmbientOcclusion(ambientOcclusion);
-            }
+         float ambientOcclusion = pbrMaterial->getAmbientOcclusion();
+         if (ImGui::SliderFloat("Ambient Occlusion", &ambientOcclusion, 0.0f, 1.0f))
+         {
+            pbrMaterial->setAmbientOcclusion(ambientOcclusion);
          }
       }
    }
 
-   void renderMesh(Mesh& mesh, ResourceManager& resourceManager, uint32_t& selectedMeshSection)
+   void renderMesh(Mesh& mesh, ResourceManager& resourceManager)
    {
-      ImGui::BeginChild("Section List", ImVec2(100, 0), true);
+      ImGui::SeparatorText("Sections");
+
       for (uint32_t i = 0; i < mesh.getNumSections(); ++i)
       {
-         std::string label = "Section " + std::to_string(i);
-         if (ImGui::Selectable(label.c_str(), selectedMeshSection == i))
+         MeshSection& section = mesh.getSection(i);
+
+         if (ImGui::TreeNode(&section, "Section %u", i))
          {
-            selectedMeshSection = i;
+            ImGui::BeginDisabled();
+            {
+               int numIndices = static_cast<int>(section.numIndices);
+               ImGui::InputInt("Indices", &numIndices, 1, 100, ImGuiInputTextFlags_ReadOnly);
+
+               bool hasValidTexCoords = section.hasValidTexCoords;
+               ImGui::Checkbox("Has valid texture coordinates", &hasValidTexCoords);
+            }
+            ImGui::EndDisabled();
+
+            if (Material* material = resourceManager.getMaterial(section.materialHandle))
+            {
+               renderMaterial(*material);
+            }
+
+            ImGui::TreePop();
          }
-      }
-      ImGui::EndChild();
-
-      ImGui::SameLine();
-
-      if (selectedMeshSection < mesh.getNumSections())
-      {
-         MeshSection& section = mesh.getSection(selectedMeshSection);
-
-         ImGui::BeginChild("Selected Section");
-
-         ImGui::Text("Indices: %u", section.numIndices);
-         ImGui::Text("Has valid texture coordinates: %s", section.hasValidTexCoords ? "true" : "false");
-
-         if (Material* material = resourceManager.getMaterial(section.materialHandle))
-         {
-            renderMaterial(*material);
-         }
-
-         ImGui::EndChild();
       }
    }
 
-   void renderMeshComponent(MeshComponent& meshComponent, ResourceManager& resourceManager, uint32_t& selectedMeshSection)
+   void renderMeshComponent(MeshComponent& meshComponent, ResourceManager& resourceManager)
    {
-      if (ImGui::BeginTabItem("Mesh"))
+      if (ImGui::TreeNodeEx("Mesh", ImGuiTreeNodeFlags_DefaultOpen))
       {
          const std::string* meshPath = resourceManager.getMeshPath(meshComponent.meshHandle);
-         const char* pathString = meshPath ? meshPath->c_str() : "None";
-         ImGui::Text("%s", pathString);
+         ImGui::ReadOnlyInputPath("Mesh Path", meshPath);
 
          ImGui::Checkbox("Cast Shadows", &meshComponent.castsShadows);
 
          if (Mesh* mesh = resourceManager.getMesh(meshComponent.meshHandle))
          {
-            renderMesh(*mesh, resourceManager, selectedMeshSection);
+            renderMesh(*mesh, resourceManager);
          }
 
-         ImGui::EndTabItem();
+         ImGui::TreePop();
       }
    }
 
    void renderSkyboxComponent(const SkyboxComponent& skyboxComponent, const ResourceManager& resourceManager)
    {
-      if (ImGui::BeginTabItem("Skybox"))
+      if (ImGui::TreeNodeEx("Skybox", ImGuiTreeNodeFlags_DefaultOpen))
       {
          const std::string* texturePath = resourceManager.getTexturePath(skyboxComponent.textureHandle);
-         const char* pathString = texturePath ? texturePath->c_str() : "None";
-         ImGui::Text("%s", pathString);
+         ImGui::ReadOnlyInputPath("Texture Path", texturePath);
 
-         ImGui::EndTabItem();
+         ImGui::TreePop();
       }
    }
 
@@ -499,10 +514,7 @@ namespace
       }
    }
 
-   const float kSceneWindowHeight = 320.0f;
-
-   const std::array<const char*, 4> kRenderQualityNames = { "Disabled", "Low", "Medium", "High" };
-   const std::array<const char*, 5> kTonemappingAlgorithmNames = { "None", "Curve", "Reinhard", "Tony McMapface", "Double Fine" };
+   const float kWindowPadding = 5.0f;
 }
 
 // static
@@ -511,6 +523,9 @@ void UI::initialize(struct GLFWwindow* window, bool installCallbacks)
    IMGUI_CHECKVERSION();
    ImGui::CreateContext();
    ImGui_ImplGlfw_InitForVulkan(window, installCallbacks);
+
+   ASSERT(ImGui::GetIO().Fonts);
+   ImGui::GetIO().Fonts->AddFontDefaultVector();
 }
 
 // static
@@ -601,39 +616,70 @@ void UI::render(const GraphicsContext& graphicsContext, Scene& scene, const Rend
 
    if (isVisible())
    {
-      renderSceneWindow(graphicsContext, scene, capabilities, settings, resourceManager);
+      renderRendererWindow(graphicsContext, capabilities, settings);
+      renderSceneWindow(scene, resourceManager);
    }
 
    ImGui::Render();
 }
 
-void UI::renderSceneWindow(const GraphicsContext& graphicsContext, Scene& scene, const RenderCapabilities& capabilities, RenderSettings& settings, ResourceManager& resourceManager)
+void UI::renderRendererWindow(const GraphicsContext& graphicsContext, const RenderCapabilities& renderCapabilities, RenderSettings& settings)
 {
-   ImGui::SetNextWindowSize(ImVec2(1150.0f, 0.0f), ImGuiCond_FirstUseEver);
-   ImGui::SetNextWindowContentSize(ImVec2(0.0f, kSceneWindowHeight));
-   ImGui::Begin("Scene", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+   const float kRendererWindowWidth = 350.0f;
 
-   renderTime(scene);
-   ImGui::SameLine();
-   renderSettings(graphicsContext, capabilities, settings);
-   ImGui::SameLine();
-   renderEntityList(scene);
-   ImGui::SameLine();
-   renderSelectedEntity(resourceManager);
+   ImGui::SetNextWindowPos(ImVec2(kWindowPadding, kWindowPadding), ImGuiCond_FirstUseEver);
+   ImGui::SetNextWindowSize(ImVec2(kRendererWindowWidth, ImGui::GetIO().DisplaySize.y - kWindowPadding * 2.0f), ImGuiCond_FirstUseEver);
+   if (ImGui::Begin("Renderer"))
+   {
+      ImGui::PushItemWidth(ImGui::GetWindowWidth() * 0.5f);
+
+      renderFrameRate();
+      renderSettings(graphicsContext, renderCapabilities, settings);
+
+      ImGui::PopItemWidth();
+   }
 
    ImGui::End();
 }
 
+void UI::renderSceneWindow(Scene& scene, ResourceManager& resourceManager)
+{
+   const float kSceneWindowWidth = 500.0f;
+
+   ImGui::SetNextWindowPos(ImVec2(ImGui::GetIO().DisplaySize.x - kSceneWindowWidth - kWindowPadding, kWindowPadding), ImGuiCond_FirstUseEver);
+   ImGui::SetNextWindowSize(ImVec2(kSceneWindowWidth, ImGui::GetIO().DisplaySize.y - kWindowPadding * 2.0f), ImGuiCond_FirstUseEver);
+   if (ImGui::Begin("Scene", nullptr))
+   {
+      ImGui::PushItemWidth(ImGui::GetWindowWidth() * 0.6f);
+
+      renderTime(scene);
+      renderEntityList(scene);
+      renderSelectedEntity(resourceManager);
+
+      ImGui::PopItemWidth();
+   }
+
+   ImGui::End();
+}
+
+void UI::renderFrameRate()
+{
+   if (!ImGui::CollapsingHeader("Performance", ImGuiTreeNodeFlags_DefaultOpen))
+   {
+      return;
+   }
+
+   ImGui::PushItemWidth(-1);
+   std::string overlay = std::to_string(static_cast<int>(ImGui::GetIO().Framerate + 0.5f)) + " FPS";
+   ImGui::PlotLines("###Frame Rate", frameRates.data(), static_cast<int>(frameRates.size()), static_cast<int>(frameIndex), overlay.c_str(), 0.0f, maxFrameRate, ImVec2(0, 250.0f));
+   ImGui::PopItemWidth();
+}
+
 void UI::renderTime(Scene& scene)
 {
-   ImGui::BeginChild("Time", ImVec2(ImGui::GetContentRegionAvail().x * 0.2f, kSceneWindowHeight), true, ImGuiWindowFlags_MenuBar);
-   if (ImGui::BeginMenuBar())
+   if (!ImGui::CollapsingHeader("Time", ImGuiTreeNodeFlags_DefaultOpen))
    {
-      if (ImGui::BeginMenu("Time", false))
-      {
-         ImGui::EndMenu();
-      }
-      ImGui::EndMenuBar();
+      return;
    }
 
    float timeScale = scene.getTimeScale();
@@ -641,107 +687,149 @@ void UI::renderTime(Scene& scene)
    {
       scene.setTimeScale(timeScale);
    }
-
-   ImGui::PushItemWidth(-1);
-   std::string overlay = std::to_string(static_cast<int>(ImGui::GetIO().Framerate + 0.5f)) + " FPS";
-   ImGui::PlotLines("###Frame Rate", frameRates.data(), static_cast<int>(frameRates.size()), static_cast<int>(frameIndex), overlay.c_str(), 0.0f, maxFrameRate, ImVec2(0, 250.0f));
-   ImGui::PopItemWidth();
-
-   ImGui::EndChild();
 }
 
 void UI::renderSettings(const GraphicsContext& graphicsContext, const RenderCapabilities& capabilities, RenderSettings& settings)
 {
-   ImGui::BeginChild("Features", ImVec2(ImGui::GetContentRegionAvail().x * 0.25f, kSceneWindowHeight), true, ImGuiWindowFlags_MenuBar);
-   if (ImGui::BeginMenuBar())
+   static const std::array<const char*, 4> kRenderQualityNames = { "Disabled", "Low", "Medium", "High" };
+   static const std::array<const char*, 5> kTonemappingAlgorithmNames = { "None", "Curve", "Reinhard", "Tony McMapface", "Double Fine" };
+
+   if (!ImGui::CollapsingHeader("Settings", ImGuiTreeNodeFlags_DefaultOpen))
    {
-      if (ImGui::BeginMenu("Features", false))
-      {
-         ImGui::EndMenu();
-      }
-      ImGui::EndMenuBar();
+      return;
    }
 
-   const vk::PhysicalDeviceLimits& limits = graphicsContext.getPhysicalDeviceProperties().limits;
-   vk::SampleCountFlags sampleCountFlags = limits.framebufferColorSampleCounts & limits.framebufferDepthSampleCounts;
-
-   static const std::array<vk::SampleCountFlagBits, 7> kSampleCountValues = { vk::SampleCountFlagBits::e1, vk::SampleCountFlagBits::e2, vk::SampleCountFlagBits::e4, vk::SampleCountFlagBits::e8, vk::SampleCountFlagBits::e16, vk::SampleCountFlagBits::e32, vk::SampleCountFlagBits::e64 };
-   if (ImGui::BeginCombo("MSAA", getMSAAPreviewText(settings.msaaSamples)))
+   if (ImGui::TreeNodeEx("Swapchain", ImGuiTreeNodeFlags_DefaultOpen))
    {
-      for (vk::SampleCountFlagBits sampleCount : kSampleCountValues)
-      {
-         if (sampleCount & sampleCountFlags)
-         {
-            bool isSelected = settings.msaaSamples == sampleCount;
-            if (ImGui::Selectable(getMSAAPreviewText(sampleCount), isSelected))
-            {
-               settings.msaaSamples = sampleCount;
-            }
+      ImGui::Checkbox("Limit Frame Rate", &settings.limitFrameRate);
 
-            if (isSelected)
+      if (!capabilities.canPresentHDR)
+      {
+         ImGui::BeginDisabled();
+      }
+      ImGui::Checkbox("Present HDR", &settings.presentHDR);
+      if (!capabilities.canPresentHDR)
+      {
+         ImGui::EndDisabled();
+      }
+
+      ImGui::TreePop();
+   }
+
+   if (ImGui::TreeNodeEx("MSAA", ImGuiTreeNodeFlags_DefaultOpen))
+   {
+      const vk::PhysicalDeviceLimits& limits = graphicsContext.getPhysicalDeviceProperties().limits;
+      vk::SampleCountFlags sampleCountFlags = limits.framebufferColorSampleCounts & limits.framebufferDepthSampleCounts;
+
+      static const std::array<vk::SampleCountFlagBits, 7> kSampleCountValues = { vk::SampleCountFlagBits::e1, vk::SampleCountFlagBits::e2, vk::SampleCountFlagBits::e4, vk::SampleCountFlagBits::e8, vk::SampleCountFlagBits::e16, vk::SampleCountFlagBits::e32, vk::SampleCountFlagBits::e64 };
+      if (ImGui::BeginCombo("Sample Count", getMSAAPreviewText(settings.msaaSamples)))
+      {
+         for (vk::SampleCountFlagBits sampleCount : kSampleCountValues)
+         {
+            if (sampleCount & sampleCountFlags)
             {
-               ImGui::SetItemDefaultFocus();
+               bool isSelected = settings.msaaSamples == sampleCount;
+               if (ImGui::Selectable(getMSAAPreviewText(sampleCount), isSelected))
+               {
+                  settings.msaaSamples = sampleCount;
+               }
+
+               if (isSelected)
+               {
+                  ImGui::SetItemDefaultFocus();
+               }
             }
          }
+
+         ImGui::EndCombo();
       }
 
-      ImGui::EndCombo();
+      ImGui::TreePop();
    }
 
-   int ssaoQuality = Enum::cast(settings.ssaoQuality);
-   ImGui::Combo("SSAO", &ssaoQuality, kRenderQualityNames.data(), static_cast<int>(kRenderQualityNames.size()));
-   settings.ssaoQuality = static_cast<RenderQuality>(ssaoQuality);
-
-   int bloomQuality = Enum::cast(settings.bloomQuality);
-   ImGui::Combo("Bloom", &bloomQuality, kRenderQualityNames.data(), static_cast<int>(kRenderQualityNames.size()));
-   settings.bloomQuality = static_cast<RenderQuality>(bloomQuality);
-
-   int tonemappingAlgorithm = Enum::cast(settings.tonemapSettings.algorithm);
-   ImGui::Combo("Tonemapping Algorithm", &tonemappingAlgorithm, kTonemappingAlgorithmNames.data(), static_cast<int>(kTonemappingAlgorithmNames.size()));
-   settings.tonemapSettings.algorithm = static_cast<TonemappingAlgorithm>(tonemappingAlgorithm);
-
-   ImGui::Checkbox("Show Tonemap Test Pattern", &settings.tonemapSettings.showTestPattern);
-
-   ImGui::DragFloat("Bloom Strength", &settings.tonemapSettings.bloomStrength, 0.01f, 0.0f, 1.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
-
-   static const char* kNitsFormat = "%.0f nits";
-   ImGui::DragFloat("Paper White", &settings.tonemapSettings.paperWhiteNits, 1.0f, 80.0f, 480.0f, kNitsFormat, ImGuiSliderFlags_AlwaysClamp);
-   ImGui::DragFloat("Peak Brightness", &settings.tonemapSettings.peakBrightnessNits, 1.0f, settings.tonemapSettings.paperWhiteNits, 10'000.0f, kNitsFormat, ImGuiSliderFlags_AlwaysClamp);
-   settings.tonemapSettings.peakBrightnessNits = glm::max(settings.tonemapSettings.paperWhiteNits, settings.tonemapSettings.peakBrightnessNits);
-
-   ImGui::Checkbox("Convert to Output Color Gamut", &settings.tonemapSettings.convertToOutputColorGamut);
-
-   ImGui::SliderFloat("Toe", &settings.tonemapSettings.toe, 0.0f, 1.0f);
-   ImGui::SliderFloat("Shoulder", &settings.tonemapSettings.shoulder, 0.0f, 1.0f);
-   ImGui::SliderFloat("Hotspot", &settings.tonemapSettings.hotspot, 0.0f, 1.0f);
-   ImGui::SliderFloat("Hue Preservation", &settings.tonemapSettings.huePreservation, 0.0f, 1.0f);
-
-   ImGui::Checkbox("Limit Frame Rate", &settings.limitFrameRate);
-
-   if (!capabilities.canPresentHDR)
+   if (ImGui::TreeNodeEx("SSAO", ImGuiTreeNodeFlags_DefaultOpen))
    {
-      ImGui::BeginDisabled();
-   }
-   ImGui::Checkbox("Present HDR", &settings.presentHDR);
-   if (!capabilities.canPresentHDR)
-   {
-      ImGui::EndDisabled();
+      int ssaoQuality = Enum::cast(settings.ssaoQuality);
+      ImGui::Combo("Quality", &ssaoQuality, kRenderQualityNames.data(), static_cast<int>(kRenderQualityNames.size()));
+      settings.ssaoQuality = static_cast<RenderQuality>(ssaoQuality);
+
+      ImGui::TreePop();
    }
 
-   ImGui::EndChild();
+   if (ImGui::TreeNodeEx("Bloom", ImGuiTreeNodeFlags_DefaultOpen))
+   {
+      int bloomQuality = Enum::cast(settings.bloomQuality);
+      ImGui::Combo("Quality", &bloomQuality, kRenderQualityNames.data(), static_cast<int>(kRenderQualityNames.size()));
+      settings.bloomQuality = static_cast<RenderQuality>(bloomQuality);
+
+      ImGui::SliderFloat("Strength", &settings.tonemapSettings.bloomStrength, 0.0f, 1.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
+
+      ImGui::TreePop();
+   }
+
+   if (ImGui::TreeNodeEx("Tonemapping", ImGuiTreeNodeFlags_DefaultOpen))
+   {
+      int tonemappingAlgorithm = Enum::cast(settings.tonemapSettings.algorithm);
+      ImGui::Combo("Algorithm", &tonemappingAlgorithm, kTonemappingAlgorithmNames.data(), static_cast<int>(kTonemappingAlgorithmNames.size()));
+      settings.tonemapSettings.algorithm = static_cast<TonemappingAlgorithm>(tonemappingAlgorithm);
+
+      ImGui::Checkbox("Show Test Pattern", &settings.tonemapSettings.showTestPattern);
+
+      if (ImGui::TreeNodeEx("HDR", ImGuiTreeNodeFlags_DefaultOpen))
+      {
+         if (!settings.presentHDR)
+         {
+            ImGui::BeginDisabled();
+         }
+
+         static const char* kNitsFormat = "%.0f nits";
+         ImGui::SliderFloat("Paper White", &settings.tonemapSettings.paperWhiteNits, 80.0f, 480.0f, kNitsFormat, ImGuiSliderFlags_AlwaysClamp);
+         ImGui::SliderFloat("Peak Brightness", &settings.tonemapSettings.peakBrightnessNits, settings.tonemapSettings.paperWhiteNits, 10'000.0f, kNitsFormat, ImGuiSliderFlags_AlwaysClamp | ImGuiSliderFlags_Logarithmic);
+         settings.tonemapSettings.peakBrightnessNits = glm::max(settings.tonemapSettings.paperWhiteNits, settings.tonemapSettings.peakBrightnessNits);
+
+         ImGui::Checkbox("Convert to Output Color Gamut", &settings.tonemapSettings.convertToOutputColorGamut);
+
+         if (!settings.presentHDR)
+         {
+            ImGui::EndDisabled();
+         }
+
+         ImGui::TreePop();
+      }
+
+      if (ImGui::TreeNodeEx("DF Tonemapper", ImGuiTreeNodeFlags_DefaultOpen))
+      {
+         const bool isUsingDFTonemapper = settings.tonemapSettings.algorithm == TonemappingAlgorithm::DoubleFine;
+         if (!isUsingDFTonemapper)
+         {
+            ImGui::BeginDisabled();
+         }
+
+         ImGui::SliderFloat("Toe", &settings.tonemapSettings.toe, 0.0f, 1.0f);
+         ImGui::SliderFloat("Shoulder", &settings.tonemapSettings.shoulder, 0.0f, 1.0f);
+         ImGui::SliderFloat("Hotspot", &settings.tonemapSettings.hotspot, 0.0f, 1.0f);
+         ImGui::SliderFloat("Hue Preservation", &settings.tonemapSettings.huePreservation, 0.0f, 1.0f);
+
+         if (!isUsingDFTonemapper)
+         {
+            ImGui::EndDisabled();
+         }
+
+         ImGui::TreePop();
+      }
+
+      ImGui::TreePop();
+   }
 }
 
 void UI::renderEntityList(Scene& scene)
 {
-   ImGui::BeginChild("Entities", ImVec2(ImGui::GetContentRegionAvail().x * 0.28f, kSceneWindowHeight), true, ImGuiWindowFlags_MenuBar);
-   if (ImGui::BeginMenuBar())
+   if (!ImGui::CollapsingHeader("Entities", ImGuiTreeNodeFlags_DefaultOpen))
    {
-      if (ImGui::BeginMenu("Entities", false))
-      {
-         ImGui::EndMenu();
-      }
-      ImGui::EndMenuBar();
+      return;
    }
+
+   ImGui::PushID("Entities");
 
    std::vector<Entity> rootEntities;
    std::unordered_map<Entity, std::vector<Entity>> entityTree;
@@ -776,66 +864,53 @@ void UI::renderEntityList(Scene& scene)
       renderEntity(rootEntity, entityTree, selectedEntity);
    }
 
-   if (selectedEntity != lastSelectedEntity)
-   {
-      selectedMeshSection = 0;
-   }
-
-   ImGui::EndChild();
+   ImGui::PopID();
 }
 
 void UI::renderSelectedEntity(ResourceManager& resourceManager)
 {
-   ImGui::BeginChild("SelectedEntity", ImVec2(0.0f, kSceneWindowHeight), true, ImGuiWindowFlags_MenuBar);
-   if (ImGui::BeginMenuBar())
+   if (!ImGui::CollapsingHeader("Selected Entity", ImGuiTreeNodeFlags_DefaultOpen))
    {
-      if (ImGui::BeginMenu((std::string(getEntityName(selectedEntity, "Selected Entity")) + "###SelectedEntity").c_str(), false))
-      {
-         ImGui::EndMenu();
-      }
-      ImGui::EndMenuBar();
+      return;
    }
+
+   ImGui::PushID("Selected Entity");
 
    ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.59f, 0.26f, 0.98f, 0.31f));
    ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.59f, 0.26f, 0.98f, 0.80f));
    ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImVec4(0.59f, 0.26f, 0.98f, 1.00f));
    if (selectedEntity)
    {
-      if (ImGui::BeginTabBar("Components", ImGuiTabBarFlags_FittingPolicyScroll))
+      if (TransformComponent* transformComponent = selectedEntity.tryGetComponent<TransformComponent>())
       {
-         if (TransformComponent* transformComponent = selectedEntity.tryGetComponent<TransformComponent>())
-         {
-            renderTransformComponent(*transformComponent);
-         }
-         if (CameraComponent* cameraComponent = selectedEntity.tryGetComponent<CameraComponent>())
-         {
-            renderCameraComponent(*cameraComponent);
-         }
-         if (DirectionalLightComponent* directionalLightComponent = selectedEntity.tryGetComponent<DirectionalLightComponent>())
-         {
-            renderDirectionalLightComponent(*directionalLightComponent);
-         }
-         if (PointLightComponent* pointLightComponent = selectedEntity.tryGetComponent<PointLightComponent>())
-         {
-            renderPointLightComponent(*pointLightComponent);
-         }
-         if (SpotLightComponent* spotLightComponent = selectedEntity.tryGetComponent<SpotLightComponent>())
-         {
-            renderSpotLightComponent(*spotLightComponent);
-         }
-         if (MeshComponent* meshComponent = selectedEntity.tryGetComponent<MeshComponent>())
-         {
-            renderMeshComponent(*meshComponent, resourceManager, selectedMeshSection);
-         }
-         if (const SkyboxComponent* skyboxComponent = selectedEntity.tryGetComponent<SkyboxComponent>())
-         {
-            renderSkyboxComponent(*skyboxComponent, resourceManager);
-         }
-
-         ImGui::EndTabBar();
+         renderTransformComponent(*transformComponent);
+      }
+      if (CameraComponent* cameraComponent = selectedEntity.tryGetComponent<CameraComponent>())
+      {
+         renderCameraComponent(*cameraComponent);
+      }
+      if (DirectionalLightComponent* directionalLightComponent = selectedEntity.tryGetComponent<DirectionalLightComponent>())
+      {
+         renderDirectionalLightComponent(*directionalLightComponent);
+      }
+      if (PointLightComponent* pointLightComponent = selectedEntity.tryGetComponent<PointLightComponent>())
+      {
+         renderPointLightComponent(*pointLightComponent);
+      }
+      if (SpotLightComponent* spotLightComponent = selectedEntity.tryGetComponent<SpotLightComponent>())
+      {
+         renderSpotLightComponent(*spotLightComponent);
+      }
+      if (MeshComponent* meshComponent = selectedEntity.tryGetComponent<MeshComponent>())
+      {
+         renderMeshComponent(*meshComponent, resourceManager);
+      }
+      if (const SkyboxComponent* skyboxComponent = selectedEntity.tryGetComponent<SkyboxComponent>())
+      {
+         renderSkyboxComponent(*skyboxComponent, resourceManager);
       }
    }
    ImGui::PopStyleColor(3);
 
-   ImGui::EndChild();
+   ImGui::PopID();
 }
