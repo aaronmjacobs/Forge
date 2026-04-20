@@ -538,6 +538,8 @@ void ForgeApplication::loadScene()
 {
    scene = std::make_unique<Scene>();
 
+   scene->setTimeScale(0.0f);
+
    CameraSystem* cameraSystem = scene->createSystem<CameraSystem>(window->getInputManager());
    scene->createSystem<OscillatingMovementSystem>();
 
