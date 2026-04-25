@@ -32,6 +32,7 @@
 
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace ImGui
 {
@@ -671,7 +672,7 @@ void UI::renderFrameRate()
 
    ImGui::PushItemWidth(-1);
    std::string overlay = std::to_string(static_cast<int>(ImGui::GetIO().Framerate + 0.5f)) + " FPS";
-   ImGui::PlotLines("###Frame Rate", frameRates.data(), static_cast<int>(frameRates.size()), static_cast<int>(frameIndex), overlay.c_str(), 0.0f, maxFrameRate, ImVec2(0, 250.0f));
+   ImGui::PlotLines("###Frame Rate", frameRates.data(), static_cast<int>(frameRates.size()), static_cast<int>(frameIndex), overlay.c_str(), 0.0f, maxFrameRate, ImVec2(0, 240.0f));
    ImGui::PopItemWidth();
 }
 
@@ -699,18 +700,175 @@ void UI::renderSettings(const GraphicsContext& graphicsContext, const RenderCapa
       return;
    }
 
+   const Swapchain& swapchain = graphicsContext.getSwapchain();
+
    if (ImGui::TreeNodeEx("Swapchain", ImGuiTreeNodeFlags_DefaultOpen))
    {
-      ImGui::Checkbox("Limit Frame Rate", &settings.limitFrameRate);
+      if (ImGui::TreeNodeEx("Present Mode", ImGuiTreeNodeFlags_DefaultOpen))
+      {
+         ImGui::Checkbox("Limit Frame Rate", &settings.swapchainSettings.limitFrameRate);
 
-      if (!capabilities.canPresentHDR)
-      {
-         ImGui::BeginDisabled();
+         bool presentModeEnabled = settings.swapchainSettings.desiredPresentMode.has_value();
+         if (ImGui::Checkbox("###EnablePresentMode", &presentModeEnabled))
+         {
+            if (presentModeEnabled)
+            {
+               settings.swapchainSettings.desiredPresentMode = swapchain.getPresentMode();
+            }
+            else
+            {
+               settings.swapchainSettings.desiredPresentMode.reset();
+            }
+         }
+         ImGui::SameLine();
+
+         if (!presentModeEnabled)
+         {
+            ImGui::BeginDisabled();
+         }
+
+         if (ImGui::BeginCombo("Present Mode", vk::to_string(swapchain.getPresentMode()).c_str()))
+         {
+            for (vk::PresentModeKHR presentMode : swapchain.getCapabilities().presentModes)
+            {
+               bool isSelected = presentMode == swapchain.getPresentMode();
+               if (ImGui::Selectable(vk::to_string(presentMode).c_str(), isSelected))
+               {
+                  settings.swapchainSettings.desiredPresentMode = presentMode;
+               }
+
+               if (isSelected)
+               {
+                  ImGui::SetItemDefaultFocus();
+               }
+            }
+
+            ImGui::EndCombo();
+         }
+
+         if (!presentModeEnabled)
+         {
+            ImGui::EndDisabled();
+         }
+
+         ImGui::TreePop();
       }
-      ImGui::Checkbox("Present HDR", &settings.presentHDR);
-      if (!capabilities.canPresentHDR)
+
+      if (ImGui::TreeNodeEx("Surface Format", ImGuiTreeNodeFlags_DefaultOpen))
       {
-         ImGui::EndDisabled();
+         if (!capabilities.canPresentHDR)
+         {
+            ImGui::BeginDisabled();
+         }
+         ImGui::Checkbox("Prefer HDR", &settings.swapchainSettings.preferHDR);
+         if (!capabilities.canPresentHDR)
+         {
+            ImGui::EndDisabled();
+         }
+
+         bool formatEnabled = settings.swapchainSettings.desiredFormat.has_value();
+         if (ImGui::Checkbox("###EnableFormat", &formatEnabled))
+         {
+            if (formatEnabled)
+            {
+               settings.swapchainSettings.desiredFormat = swapchain.getSurfaceFormat().format;
+            }
+            else
+            {
+               settings.swapchainSettings.desiredFormat.reset();
+            }
+         }
+         ImGui::SameLine();
+
+         if (!formatEnabled)
+         {
+            ImGui::BeginDisabled();
+         }
+
+         if (ImGui::BeginCombo("Format", vk::to_string(swapchain.getSurfaceFormat().format).c_str()))
+         {
+            std::unordered_set<vk::Format> displayedFormats;
+            for (const vk::SurfaceFormatKHR& surfaceFormat : swapchain.getCapabilities().surfaceFormats)
+            {
+               vk::Format format = surfaceFormat.format;
+
+               if (!displayedFormats.contains(format))
+               {
+                  displayedFormats.insert(format);
+
+                  bool isSelected = format == swapchain.getSurfaceFormat().format;
+                  if (ImGui::Selectable(vk::to_string(format).c_str(), isSelected))
+                  {
+                     settings.swapchainSettings.desiredFormat = format;
+                  }
+
+                  if (isSelected)
+                  {
+                     ImGui::SetItemDefaultFocus();
+                  }
+               }
+            }
+
+            ImGui::EndCombo();
+         }
+
+         if (!formatEnabled)
+         {
+            ImGui::EndDisabled();
+         }
+
+         bool colorSpaceEnabled = settings.swapchainSettings.desiredColorSpace.has_value();
+         if (ImGui::Checkbox("###EnableColorSpace", &colorSpaceEnabled))
+         {
+            if (colorSpaceEnabled)
+            {
+               settings.swapchainSettings.desiredColorSpace = swapchain.getSurfaceFormat().colorSpace;
+            }
+            else
+            {
+               settings.swapchainSettings.desiredColorSpace.reset();
+            }
+         }
+         ImGui::SameLine();
+
+         if (!colorSpaceEnabled)
+         {
+            ImGui::BeginDisabled();
+         }
+
+         if (ImGui::BeginCombo("Color Space", vk::to_string(swapchain.getSurfaceFormat().colorSpace).c_str()))
+         {
+            std::unordered_set<vk::ColorSpaceKHR> displayedColorSpaces;
+            for (const vk::SurfaceFormatKHR& surfaceFormat : swapchain.getCapabilities().surfaceFormats)
+            {
+               vk::ColorSpaceKHR colorSpace = surfaceFormat.colorSpace;
+
+               if (!displayedColorSpaces.contains(colorSpace))
+               {
+                  displayedColorSpaces.insert(colorSpace);
+
+                  bool isSelected = colorSpace == swapchain.getSurfaceFormat().colorSpace;
+                  if (ImGui::Selectable(vk::to_string(colorSpace).c_str(), isSelected))
+                  {
+                     settings.swapchainSettings.desiredColorSpace = colorSpace;
+                  }
+
+                  if (isSelected)
+                  {
+                     ImGui::SetItemDefaultFocus();
+                  }
+               }
+            }
+
+            ImGui::EndCombo();
+         }
+
+         if (!colorSpaceEnabled)
+         {
+            ImGui::EndDisabled();
+         }
+
+         ImGui::TreePop();
       }
 
       ImGui::TreePop();
@@ -769,15 +927,17 @@ void UI::renderSettings(const GraphicsContext& graphicsContext, const RenderCapa
 
    if (ImGui::TreeNodeEx("Tonemapping", ImGuiTreeNodeFlags_DefaultOpen))
    {
+      ImGui::Checkbox("Show Test Pattern", &settings.tonemapSettings.showTestPattern);
+      ImGui::Checkbox("Convert to Output Color Gamut", &settings.tonemapSettings.convertToOutputColorGamut);
+
       int tonemappingAlgorithm = Enum::cast(settings.tonemapSettings.algorithm);
       ImGui::Combo("Algorithm", &tonemappingAlgorithm, kTonemappingAlgorithmNames.data(), static_cast<int>(kTonemappingAlgorithmNames.size()));
       settings.tonemapSettings.algorithm = static_cast<TonemappingAlgorithm>(tonemappingAlgorithm);
 
-      ImGui::Checkbox("Show Test Pattern", &settings.tonemapSettings.showTestPattern);
-
       if (ImGui::TreeNodeEx("HDR", ImGuiTreeNodeFlags_DefaultOpen))
       {
-         if (!settings.presentHDR)
+         bool isHDR = SurfaceFormatHelpers::isHdrSurfaceFormat(swapchain.getSurfaceFormat());
+         if (!isHDR)
          {
             ImGui::BeginDisabled();
          }
@@ -787,9 +947,7 @@ void UI::renderSettings(const GraphicsContext& graphicsContext, const RenderCapa
          ImGui::SliderFloat("Peak Brightness", &settings.tonemapSettings.peakBrightnessNits, settings.tonemapSettings.paperWhiteNits, 10'000.0f, kNitsFormat, ImGuiSliderFlags_AlwaysClamp | ImGuiSliderFlags_Logarithmic);
          settings.tonemapSettings.peakBrightnessNits = glm::max(settings.tonemapSettings.paperWhiteNits, settings.tonemapSettings.peakBrightnessNits);
 
-         ImGui::Checkbox("Convert to Output Color Gamut", &settings.tonemapSettings.convertToOutputColorGamut);
-
-         if (!settings.presentHDR)
+         if (!isHDR)
          {
             ImGui::EndDisabled();
          }

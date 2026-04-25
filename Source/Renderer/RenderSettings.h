@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Graphics/Swapchain.h"
 #include "Graphics/Vulkan.h"
 
 struct RenderCapabilities
@@ -91,8 +92,7 @@ struct RenderSettings
    vk::SampleCountFlagBits msaaSamples = vk::SampleCountFlagBits::e1;
    RenderQuality ssaoQuality = RenderQuality::Medium;
    RenderQuality bloomQuality = RenderQuality::High;
-   bool limitFrameRate = true;
-   bool presentHDR = false;
+   SwapchainSettings swapchainSettings;
    TonemapSettings tonemapSettings;
 
    bool operator==(const RenderSettings& other) const = default;

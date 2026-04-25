@@ -153,6 +153,59 @@ namespace FormatHelpers
       }
    }
 
+   bool isSrgb(vk::Format format)
+   {
+      switch (format)
+      {
+      case vk::Format::eR8Srgb:
+      case vk::Format::eR8G8Srgb:
+      case vk::Format::eR8G8B8Srgb:
+      case vk::Format::eB8G8R8Srgb:
+      case vk::Format::eR8G8B8A8Srgb:
+      case vk::Format::eB8G8R8A8Srgb:
+      case vk::Format::eA8B8G8R8SrgbPack32:
+      case vk::Format::eBc1RgbSrgbBlock:
+      case vk::Format::eBc1RgbaSrgbBlock:
+      case vk::Format::eBc2SrgbBlock:
+      case vk::Format::eBc3SrgbBlock:
+      case vk::Format::eBc7SrgbBlock:
+      case vk::Format::eEtc2R8G8B8SrgbBlock:
+      case vk::Format::eEtc2R8G8B8A1SrgbBlock:
+      case vk::Format::eEtc2R8G8B8A8SrgbBlock:
+      case vk::Format::eAstc4x4SrgbBlock:
+      case vk::Format::eAstc5x4SrgbBlock:
+      case vk::Format::eAstc5x5SrgbBlock:
+      case vk::Format::eAstc6x5SrgbBlock:
+      case vk::Format::eAstc6x6SrgbBlock:
+      case vk::Format::eAstc8x5SrgbBlock:
+      case vk::Format::eAstc8x6SrgbBlock:
+      case vk::Format::eAstc8x8SrgbBlock:
+      case vk::Format::eAstc10x5SrgbBlock:
+      case vk::Format::eAstc10x6SrgbBlock:
+      case vk::Format::eAstc10x8SrgbBlock:
+      case vk::Format::eAstc10x10SrgbBlock:
+      case vk::Format::eAstc12x10SrgbBlock:
+      case vk::Format::eAstc12x12SrgbBlock:
+      case vk::Format::ePvrtc12BppSrgbBlockIMG:
+      case vk::Format::ePvrtc14BppSrgbBlockIMG:
+      case vk::Format::ePvrtc22BppSrgbBlockIMG:
+      case vk::Format::ePvrtc24BppSrgbBlockIMG:
+      case vk::Format::eAstc3x3x3SrgbBlockEXT:
+      case vk::Format::eAstc4x3x3SrgbBlockEXT:
+      case vk::Format::eAstc4x4x3SrgbBlockEXT:
+      case vk::Format::eAstc4x4x4SrgbBlockEXT:
+      case vk::Format::eAstc5x4x4SrgbBlockEXT:
+      case vk::Format::eAstc5x5x4SrgbBlockEXT:
+      case vk::Format::eAstc5x5x5SrgbBlockEXT:
+      case vk::Format::eAstc6x5x5SrgbBlockEXT:
+      case vk::Format::eAstc6x6x5SrgbBlockEXT:
+      case vk::Format::eAstc6x6x6SrgbBlockEXT:
+         return true;
+      default:
+         return false;
+      }
+   }
+
    uint32_t bitsPerPixel(vk::Format format)
    {
       switch (format)
@@ -394,5 +447,13 @@ namespace ColorSpaceHelpers
       default:
          return false;
       }
+   }
+}
+
+namespace SurfaceFormatHelpers
+{
+   bool isHdrSurfaceFormat(const vk::SurfaceFormatKHR& surfaceFormat)
+   {
+      return FormatHelpers::isUsedForHdrPresentation(surfaceFormat.format) && ColorSpaceHelpers::isWideGamut(surfaceFormat.colorSpace);
    }
 }

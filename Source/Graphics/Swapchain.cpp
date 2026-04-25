@@ -106,123 +106,122 @@ namespace
       return vk::SurfaceFormatKHR(format, availableColorSpaces[0]);
    }
 
-   bool isHdrSurfaceFormat(const vk::SurfaceFormatKHR& surfaceFormat)
+   vk::SurfaceFormatKHR chooseDefaultSurfaceFormat(const std::vector<vk::SurfaceFormatKHR>& surfaceFormats, const SwapchainSettings& settings)
    {
-      return FormatHelpers::isUsedForHdrPresentation(surfaceFormat.format) && ColorSpaceHelpers::isWideGamut(surfaceFormat.colorSpace);
+      if (settings.preferHDR)
+      {
+         if (std::optional<vk::SurfaceFormatKHR> abgr10SurfaceFormat = chooseSurfaceFormatForFormat(surfaceFormats, vk::Format::eA2B10G10R10UnormPack32))
+         {
+            ASSERT(SurfaceFormatHelpers::isHdrSurfaceFormat(abgr10SurfaceFormat.value()));
+            return abgr10SurfaceFormat.value();
+         }
+
+         if (std::optional<vk::SurfaceFormatKHR> argb10SurfaceFormat = chooseSurfaceFormatForFormat(surfaceFormats, vk::Format::eA2R10G10B10UnormPack32))
+         {
+            ASSERT(SurfaceFormatHelpers::isHdrSurfaceFormat(argb10SurfaceFormat.value()));
+            return argb10SurfaceFormat.value();
+         }
+
+         if (std::optional<vk::SurfaceFormatKHR> rgba16SurfaceFormat = chooseSurfaceFormatForFormat(surfaceFormats, vk::Format::eR16G16B16A16Sfloat))
+         {
+            ASSERT(SurfaceFormatHelpers::isHdrSurfaceFormat(rgba16SurfaceFormat.value()));
+            return rgba16SurfaceFormat.value();
+         }
+      }
+
+      if (std::optional<vk::SurfaceFormatKHR> bgra8SurfaceFormat = chooseSurfaceFormatForFormat(surfaceFormats, vk::Format::eB8G8R8A8Srgb))
+      {
+         return bgra8SurfaceFormat.value();
+      }
+
+      if (!surfaceFormats.empty())
+      {
+         return surfaceFormats[0];
+      }
+
+      throw std::runtime_error("No swapchain formats available");
+   }
+
+   vk::SurfaceFormatKHR chooseSurfaceFormat(const std::vector<vk::SurfaceFormatKHR>& surfaceFormats, const SwapchainSettings& settings)
+   {
+      vk::SurfaceFormatKHR surfaceFormat = chooseDefaultSurfaceFormat(surfaceFormats, settings);
+
+      if (settings.desiredFormat.has_value())
+      {
+         if (std::optional<vk::SurfaceFormatKHR> desiredSurfaceFormat = chooseSurfaceFormatForFormat(surfaceFormats, settings.desiredFormat.value()))
+         {
+            surfaceFormat = desiredSurfaceFormat.value();
+         }
+      }
+
+      if (settings.desiredColorSpace.has_value())
+      {
+         vk::SurfaceFormatKHR desiredSurfaceFormat(surfaceFormat.format, settings.desiredColorSpace.value());
+         if (std::ranges::contains(surfaceFormats, desiredSurfaceFormat))
+         {
+            surfaceFormat = desiredSurfaceFormat;
+         }
+      }
+
+      return surfaceFormat;
+   }
+
+   vk::PresentModeKHR chooseDefaultPresentMode(const std::vector<vk::PresentModeKHR>& presentModes, const SwapchainSettings& settings)
+   {
+      if (!settings.limitFrameRate)
+      {
+         if (std::ranges::contains(presentModes, vk::PresentModeKHR::eMailbox))
+         {
+            return vk::PresentModeKHR::eMailbox;
+         }
+
+         if (std::ranges::contains(presentModes, vk::PresentModeKHR::eImmediate))
+         {
+            return vk::PresentModeKHR::eImmediate;
+         }
+      }
+
+      if (std::ranges::contains(presentModes, vk::PresentModeKHR::eFifo))
+      {
+         return vk::PresentModeKHR::eFifo;
+      }
+
+      if (!presentModes.empty())
+      {
+         return presentModes[0];
+      }
+
+      throw std::runtime_error("No swapchain present modes available");
+   }
+
+   vk::PresentModeKHR choosePresentMode(const std::vector<vk::PresentModeKHR>& presentModes, const SwapchainSettings& settings)
+   {
+      if (settings.desiredPresentMode.has_value() && std::ranges::contains(presentModes, settings.desiredPresentMode.value()))
+      {
+         return settings.desiredPresentMode.value();
+      }
+
+      return chooseDefaultPresentMode(presentModes, settings);
    }
 }
 
-bool SwapchainSupportDetails::supportsHDR() const
-{
-   for (const vk::SurfaceFormatKHR& surfaceFormat : surfaceFormats)
-   {
-      if (isHdrSurfaceFormat(surfaceFormat))
-      {
-         return true;
-      }
-   }
-
-   return false;
-}
-
-vk::SurfaceFormatKHR SwapchainSupportDetails::chooseSurfaceFormat(bool preferHDR) const
-{
-   if (preferHDR)
-   {
-      if (std::optional<vk::SurfaceFormatKHR> abgr10SurfaceFormat = chooseSurfaceFormatForFormat(surfaceFormats, vk::Format::eA2B10G10R10UnormPack32))
-      {
-         ASSERT(isHdrSurfaceFormat(abgr10SurfaceFormat.value()));
-         return abgr10SurfaceFormat.value();
-      }
-
-      if (std::optional<vk::SurfaceFormatKHR> argb10SurfaceFormat = chooseSurfaceFormatForFormat(surfaceFormats, vk::Format::eA2R10G10B10UnormPack32))
-      {
-         ASSERT(isHdrSurfaceFormat(argb10SurfaceFormat.value()));
-         return argb10SurfaceFormat.value();
-      }
-
-      if (std::optional<vk::SurfaceFormatKHR> rgba16SurfaceFormat = chooseSurfaceFormatForFormat(surfaceFormats, vk::Format::eR16G16B16A16Sfloat))
-      {
-         ASSERT(isHdrSurfaceFormat(rgba16SurfaceFormat.value()));
-         return rgba16SurfaceFormat.value();
-      }
-   }
-
-   if (std::optional<vk::SurfaceFormatKHR> bgra8SurfaceFormat = chooseSurfaceFormatForFormat(surfaceFormats, vk::Format::eB8G8R8A8Srgb))
-   {
-      return bgra8SurfaceFormat.value();
-   }
-
-   if (!surfaceFormats.empty())
-   {
-      return surfaceFormats[0];
-   }
-
-   throw std::runtime_error("No swapchain formats available");
-}
-
-vk::PresentModeKHR SwapchainSupportDetails::choosePresentMode(bool limitFrameRate) const
-{
-   static const auto containsPresentMode = [](const std::vector<vk::PresentModeKHR>& presentModes, vk::PresentModeKHR presentMode)
-   {
-      return std::find(presentModes.begin(), presentModes.end(), presentMode) != presentModes.end();
-   };
-
-   if (!limitFrameRate)
-   {
-      if (containsPresentMode(presentModes, vk::PresentModeKHR::eMailbox))
-      {
-         return vk::PresentModeKHR::eMailbox;
-      }
-
-      if (containsPresentMode(presentModes, vk::PresentModeKHR::eImmediate))
-      {
-         return vk::PresentModeKHR::eImmediate;
-      }
-   }
-
-   if (containsPresentMode(presentModes, vk::PresentModeKHR::eFifo))
-   {
-      return vk::PresentModeKHR::eFifo;
-   }
-
-   if (!presentModes.empty())
-   {
-      return presentModes[0];
-   }
-
-   throw std::runtime_error("No swapchain present modes available");
-}
-
-// static
-SwapchainSupportDetails Swapchain::getSupportDetails(vk::PhysicalDevice physicalDevice, vk::SurfaceKHR surface)
-{
-   SwapchainSupportDetails supportDetails;
-
-   supportDetails.capabilities = physicalDevice.getSurfaceCapabilitiesKHR(surface);
-   supportDetails.surfaceFormats = physicalDevice.getSurfaceFormatsKHR(surface);
-   supportDetails.presentModes = physicalDevice.getSurfacePresentModesKHR(surface);
-
-   return supportDetails;
-}
-
-Swapchain::Swapchain(const GraphicsContext& graphicsContext, vk::Extent2D desiredExtent, bool limitFrameRate, bool preferHDR)
+Swapchain::Swapchain(const GraphicsContext& graphicsContext, vk::Extent2D desiredExtent, const SwapchainSettings& settings)
    : GraphicsResource(graphicsContext)
+   , capabilities(graphicsContext.determineSwapchainCapabilities())
 {
-   SwapchainSupportDetails supportDetails = getSupportDetails(context.getPhysicalDevice(), context.getSurface());
-   ASSERT(supportDetails.isValid());
+   ASSERT(!capabilities.presentModes.empty() && !capabilities.surfaceFormats.empty());
 
-   supportsHDRFormat = supportDetails.supportsHDR();
+   presentMode = choosePresentMode(capabilities.presentModes, settings);
 
-   surfaceFormat = supportDetails.chooseSurfaceFormat(preferHDR);
+   surfaceFormat = chooseSurfaceFormat(capabilities.surfaceFormats, settings);
    LOG_INFO("Swapchain surface format = " << vk::to_string(surfaceFormat.format) << ", color space = " << vk::to_string(surfaceFormat.colorSpace));
 
-   vk::PresentModeKHR presentMode = supportDetails.choosePresentMode(limitFrameRate);
+   vk::SurfaceCapabilitiesKHR surfaceCapabilities = context.getPhysicalDevice().getSurfaceCapabilitiesKHR(context.getSurface());
 
-   extent = chooseExtent(supportDetails.capabilities, desiredExtent);
+   extent = chooseExtent(surfaceCapabilities, desiredExtent);
 
-   uint32_t desiredMinImageCount = supportDetails.capabilities.minImageCount + (presentMode == vk::PresentModeKHR::eFifo ? 0 : 1);
-   minImageCount = supportDetails.capabilities.maxImageCount > 0 ? std::min(supportDetails.capabilities.maxImageCount, desiredMinImageCount) : desiredMinImageCount;
+   uint32_t desiredMinImageCount = surfaceCapabilities.minImageCount + (presentMode == vk::PresentModeKHR::eFifo ? 0 : 1);
+   minImageCount = surfaceCapabilities.maxImageCount > 0 ? std::min(surfaceCapabilities.maxImageCount, desiredMinImageCount) : desiredMinImageCount;
 
    vk::SwapchainCreateInfoKHR createInfo = vk::SwapchainCreateInfoKHR()
       .setSurface(context.getSurface())
@@ -232,7 +231,7 @@ Swapchain::Swapchain(const GraphicsContext& graphicsContext, vk::Extent2D desire
       .setImageExtent(extent)
       .setImageArrayLayers(1)
       .setImageUsage(vk::ImageUsageFlagBits::eColorAttachment)
-      .setPreTransform(supportDetails.capabilities.currentTransform)
+      .setPreTransform(surfaceCapabilities.currentTransform)
       .setCompositeAlpha(vk::CompositeAlphaFlagBitsKHR::eOpaque)
       .setPresentMode(presentMode)
       .setClipped(true)
@@ -271,9 +270,17 @@ Swapchain::~Swapchain()
    device.destroySwapchainKHR(swapchainKHR);
 }
 
-bool Swapchain::isHDR() const
+bool Swapchain::supportsHDR() const
 {
-   return isHdrSurfaceFormat(surfaceFormat);
+   for (const vk::SurfaceFormatKHR& surfaceFormat : capabilities.surfaceFormats)
+   {
+      if (SurfaceFormatHelpers::isHdrSurfaceFormat(surfaceFormat))
+      {
+         return true;
+      }
+   }
+
+   return false;
 }
 
 Texture& Swapchain::getCurrentTexture() const

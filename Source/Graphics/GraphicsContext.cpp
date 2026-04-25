@@ -265,6 +265,16 @@ namespace
       return determinedGraphicsFamilyIndex && determinedPresentFamilyIndex;
    }
 
+   SwapchainCapabilities determineSwapchainCapabilities(vk::PhysicalDevice physicalDevice, vk::SurfaceKHR surface)
+   {
+      SwapchainCapabilities capabilities;
+
+      capabilities.presentModes = physicalDevice.getSurfacePresentModesKHR(surface);
+      capabilities.surfaceFormats = physicalDevice.getSurfaceFormatsKHR(surface);
+
+      return capabilities;
+   }
+
    int getPhysicalDeviceScore(vk::PhysicalDevice physicalDevice, vk::SurfaceKHR surface)
    {
       std::vector<const char*> deviceExtensions;
@@ -277,8 +287,8 @@ namespace
          return -1;
       }
 
-      SwapchainSupportDetails swapChainSupportDetails = Swapchain::getSupportDetails(physicalDevice, surface);
-      if (!swapChainSupportDetails.isValid())
+      SwapchainCapabilities swapchainCapabilities = determineSwapchainCapabilities(physicalDevice, surface);
+      if (swapchainCapabilities.presentModes.empty() || swapchainCapabilities.surfaceFormats.empty())
       {
          return -1;
       }
@@ -657,6 +667,11 @@ void GraphicsContext::setFrameIndex(uint32_t index)
 
    ASSERT(delayedObjectDestroyer);
    delayedObjectDestroyer->onFrameIndexUpdate();
+}
+
+SwapchainCapabilities GraphicsContext::determineSwapchainCapabilities() const
+{
+   return ::determineSwapchainCapabilities(physicalDevice, surface);
 }
 
 vk::DescriptorSetLayout GraphicsContext::getDescriptorSetLayout(const vk::DescriptorSetLayoutCreateInfo& createInfo) const

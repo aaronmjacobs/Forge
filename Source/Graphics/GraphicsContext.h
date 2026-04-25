@@ -12,6 +12,12 @@ class DelayedObjectDestroyer;
 class Swapchain;
 class Window;
 
+struct SwapchainCapabilities
+{
+   std::vector<vk::PresentModeKHR> presentModes;
+   std::vector<vk::SurfaceFormatKHR> surfaceFormats;
+};
+
 class GraphicsContext
 {
 public:
@@ -125,6 +131,8 @@ public:
    }
 
    void setFrameIndex(uint32_t index);
+
+   SwapchainCapabilities determineSwapchainCapabilities() const;
 
    vk::DescriptorSetLayout getDescriptorSetLayout(const vk::DescriptorSetLayoutCreateInfo& createInfo) const;
 

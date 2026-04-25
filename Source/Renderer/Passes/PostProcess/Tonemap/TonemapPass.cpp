@@ -37,24 +37,25 @@ namespace
       }
    }
 
-   TransferFunction getTransferFunction(vk::ColorSpaceKHR colorSpace)
+   TransferFunction getTransferFunction(vk::Format format, vk::ColorSpaceKHR colorSpace)
    {
       switch (colorSpace)
       {
-      case vk::ColorSpaceKHR::eSrgbNonlinear: // Handled in hardware, so we treat it as linear
+      case vk::ColorSpaceKHR::eSrgbNonlinear:
+      case vk::ColorSpaceKHR::eDisplayP3NonlinearEXT:
+      case vk::ColorSpaceKHR::eDciP3NonlinearEXT: // We don't really support this at all
+      case vk::ColorSpaceKHR::eBt709NonlinearEXT: // Technically uses a gamma of 2.4, but we don't support that, so this is the closest option
+      case vk::ColorSpaceKHR::eAdobergbNonlinearEXT: // Technically uses a gamma of ~2.2, but we don't support that, so this is the closest option
+      case vk::ColorSpaceKHR::ePassThroughEXT:
+      case vk::ColorSpaceKHR::eExtendedSrgbNonlinearEXT:
+         // If the format is sRGB, the transfer function is handled in hardware
+         return FormatHelpers::isSrgb(format) ? TransferFunction::Linear : TransferFunction::sRGB;
       case vk::ColorSpaceKHR::eExtendedSrgbLinearEXT:
       case vk::ColorSpaceKHR::eDisplayP3LinearEXT:
       case vk::ColorSpaceKHR::eBt709LinearEXT:
       case vk::ColorSpaceKHR::eBt2020LinearEXT:
       case vk::ColorSpaceKHR::eAdobergbLinearEXT:
-      case vk::ColorSpaceKHR::ePassThroughEXT:
          return TransferFunction::Linear;
-      case vk::ColorSpaceKHR::eDisplayP3NonlinearEXT:
-      case vk::ColorSpaceKHR::eDciP3NonlinearEXT:
-      case vk::ColorSpaceKHR::eBt709NonlinearEXT: // Technically uses a gamma of 2.4, but we don't support that, so this is the closest option
-      case vk::ColorSpaceKHR::eAdobergbNonlinearEXT: // Technically uses a gamma of ~2.2, but we don't support that, so this is the closest option
-      case vk::ColorSpaceKHR::eExtendedSrgbNonlinearEXT:
-         return TransferFunction::sRGB;
       case vk::ColorSpaceKHR::eHdr10St2084EXT:
          return TransferFunction::PerceptualQuantizer;
       case vk::ColorSpaceKHR::eHdr10HlgEXT:
@@ -227,8 +228,8 @@ void TonemapPass::render(vk::CommandBuffer commandBuffer, Texture& outputTexture
       TonemapShaderConstants& shaderConstants = pipelineDescription.shaderConstants;
       shaderConstants.tonemappingAlgorithm = settings.algorithm;
       shaderConstants.colorGamut = settings.convertToOutputColorGamut ? getColorGamut(outputColorSpace) : ColorGamut::Rec709;
-      shaderConstants.transferFunction = getTransferFunction(outputColorSpace);
-      shaderConstants.outputHDR = FormatHelpers::isUsedForHdrPresentation(outputTexture.getImageProperties().format);
+      shaderConstants.transferFunction = getTransferFunction(outputTexture.getImageProperties().format, outputColorSpace);
+      shaderConstants.outputHDR = SurfaceFormatHelpers::isHdrSurfaceFormat(vk::SurfaceFormatKHR(outputTexture.getImageProperties().format, outputColorSpace));
       shaderConstants.withBloom = bloomTexture != nullptr;
       shaderConstants.withUI = uiTexture != nullptr;
       shaderConstants.showTestPattern = settings.showTestPattern;

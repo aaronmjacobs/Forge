@@ -264,12 +264,11 @@ void ForgeApplication::updateRenderSettings(const RenderSettings& newRenderSetti
 {
    if (renderSettings != newRenderSettings)
    {
-      bool limitFrameRateChanged = newRenderSettings.limitFrameRate != renderSettings.limitFrameRate;
-      bool presentHDRChanged = newRenderSettings.presentHDR != renderSettings.presentHDR;
+      bool swapchainSettingsChanged = newRenderSettings.swapchainSettings != renderSettings.swapchainSettings;
 
       renderSettings = newRenderSettings;
 
-      if (limitFrameRateChanged || presentHDRChanged)
+      if (swapchainSettingsChanged)
       {
          recreateSwapchain();
       }
@@ -368,7 +367,7 @@ void ForgeApplication::terminateVulkan()
 
 void ForgeApplication::initializeSwapchain()
 {
-   swapchain = std::make_unique<Swapchain>(*context, window->getExtent(), renderSettings.limitFrameRate, renderSettings.presentHDR);
+   swapchain = std::make_unique<Swapchain>(*context, window->getExtent(), renderSettings.swapchainSettings);
    NAME_POINTER(context->getDevice(), swapchain, "Swapchain");
    context->setSwapchain(swapchain.get());
 
@@ -390,10 +389,10 @@ void ForgeApplication::initializeRenderer()
    inputManager.createButtonMapping(InputActions::kToggleHDR, KeyChord(Key::H), {}, {});
    inputManager.bindButtonMapping(InputActions::kToggleHDR, [this](bool pressed)
    {
-      if (pressed)
+      if (pressed && renderCapabilities.canPresentHDR)
       {
          RenderSettings newRenderSettings = renderSettings;
-         newRenderSettings.presentHDR = !renderSettings.presentHDR;
+         newRenderSettings.swapchainSettings.preferHDR = !renderSettings.swapchainSettings.preferHDR;
          updateRenderSettings(newRenderSettings);
       }
    });

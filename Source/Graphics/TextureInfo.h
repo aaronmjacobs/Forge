@@ -46,6 +46,7 @@ namespace FormatHelpers
    bool isDepthStencil(vk::Format format);
    bool isUsedForHdrPresentation(vk::Format format);
    bool hasAlpha(vk::Format format);
+   bool isSrgb(vk::Format format);
    uint32_t bitsPerPixel(vk::Format format);
    uint32_t bytesPerBlock(vk::Format format);
 }
@@ -53,4 +54,9 @@ namespace FormatHelpers
 namespace ColorSpaceHelpers
 {
    bool isWideGamut(vk::ColorSpaceKHR colorSpace);
+}
+
+namespace SurfaceFormatHelpers
+{
+   bool isHdrSurfaceFormat(const vk::SurfaceFormatKHR& surfaceFormat);
 }

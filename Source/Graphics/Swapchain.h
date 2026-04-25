@@ -4,50 +4,45 @@
 #include "Graphics/TextureInfo.h"
 
 #include <memory>
+#include <optional>
 #include <vector>
 
 class Texture;
 
-struct SwapchainSupportDetails
+struct SwapchainSettings
 {
-   vk::SurfaceCapabilitiesKHR capabilities;
-   std::vector<vk::SurfaceFormatKHR> surfaceFormats;
-   std::vector<vk::PresentModeKHR> presentModes;
+   bool limitFrameRate = true;
+   bool preferHDR = false;
 
-   bool isValid() const
-   {
-      return !surfaceFormats.empty() && !presentModes.empty();
-   }
+   std::optional<vk::PresentModeKHR> desiredPresentMode;
+   std::optional<vk::Format> desiredFormat;
+   std::optional<vk::ColorSpaceKHR> desiredColorSpace;
 
-   bool supportsHDR() const;
-   vk::SurfaceFormatKHR chooseSurfaceFormat(bool preferHDR) const;
-   vk::PresentModeKHR choosePresentMode(bool limitFrameRate) const;
+   bool operator==(const SwapchainSettings& other) const = default;
 };
 
 class Swapchain : public GraphicsResource
 {
 public:
-   static SwapchainSupportDetails getSupportDetails(vk::PhysicalDevice physicalDevice, vk::SurfaceKHR surface);
-
-   Swapchain(const GraphicsContext& graphicsContext, vk::Extent2D desiredExtent, bool limitFrameRate, bool preferHDR);
+   Swapchain(const GraphicsContext& graphicsContext, vk::Extent2D desiredExtent, const SwapchainSettings& settings);
    ~Swapchain();
 
-   vk::Format getFormat() const
+   const SwapchainCapabilities& getCapabilities() const
    {
-      return surfaceFormat.format;
+      return capabilities;
    }
 
-   vk::ColorSpaceKHR getColorSpace() const
+   vk::PresentModeKHR getPresentMode() const
    {
-      return surfaceFormat.colorSpace;
+      return presentMode;
    }
 
-   bool isHDR() const;
-
-   bool supportsHDR() const
+   const vk::SurfaceFormatKHR& getSurfaceFormat() const
    {
-      return supportsHDRFormat;
+      return surfaceFormat;
    }
+
+   bool supportsHDR() const;
 
    const vk::Extent2D& getExtent() const
    {
@@ -72,12 +67,13 @@ public:
    Texture& getCurrentTexture() const;
 
 private:
+   SwapchainCapabilities capabilities;
+
+   vk::PresentModeKHR presentMode;
    vk::SurfaceFormatKHR surfaceFormat;
    vk::Extent2D extent;
 
    uint32_t minImageCount = 0;
    vk::SwapchainKHR swapchainKHR;
    std::vector<std::unique_ptr<Texture>> textures;
-
-   bool supportsHDRFormat = false;
 };
