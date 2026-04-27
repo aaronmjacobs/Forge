@@ -218,7 +218,7 @@ void TonemapPass::render(vk::CommandBuffer commandBuffer, Texture& outputTexture
       uniformData.bloomStrength = settings.bloomStrength;
       uniformData.paperWhiteNits = settings.paperWhiteNits;
       uniformData.peakBrightnessNits = settings.peakBrightnessNits;
-      uniformData.toe = settings.toe;
+      uniformData.toeAndInv = glm::vec2(settings.toe, 1.0f / glm::max(settings.toe, 1.0e-7f));
       uniformData.shoulder = settings.shoulder;
       uniformData.hotspot = settings.hotspot;
       uniformData.huePreservation = settings.huePreservation;

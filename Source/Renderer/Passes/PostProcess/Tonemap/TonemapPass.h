@@ -10,6 +10,8 @@
 #include "Renderer/Passes/PostProcess/Tonemap/TonemapShader.h"
 #include "Renderer/RenderSettings.h"
 
+#include <glm/glm.hpp>
+
 #include <memory>
 
 class DynamicDescriptorPool;
@@ -24,7 +26,7 @@ struct TonemapUniformData
    alignas(4) float paperWhiteNits = 0.0f;
    alignas(4) float peakBrightnessNits = 0.0f;
 
-   alignas(4) float toe = 0.0f;
+   alignas(8) glm::vec2 toeAndInv = glm::vec2(0.0f, 0.0f);
    alignas(4) float shoulder = 0.0f;
    alignas(4) float hotspot = 0.0f;
    alignas(4) float huePreservation = 0.0f;
