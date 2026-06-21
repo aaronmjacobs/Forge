@@ -12,6 +12,12 @@
 #include <unordered_set>
 #include <utility>
 
+enum class LoadingMode
+{
+   Synchronous,
+   Asynchronous
+};
+
 class ResourceManager
 {
 public:
@@ -22,9 +28,21 @@ public:
 
    void update()
    {
-      materialLoader.updateMaterials();
       shaderModuleLoader.update();
+      meshLoader.update();
       textureLoader.update();
+
+      materialLoader.updateMaterials();
+   }
+
+   LoadingMode getLoadingMode() const
+   {
+      return loadingMode;
+   }
+
+   void setLoadingMode(LoadingMode mode)
+   {
+      loadingMode = mode;
    }
 
    // Material
@@ -61,9 +79,9 @@ public:
 
    // Mesh
 
-   StrongMeshHandle loadMesh(const std::filesystem::path& path, const MeshLoadOptions& loadOptions = {})
+   StrongMeshHandle loadMesh(const std::filesystem::path& path, const MeshLoadOptions& loadOptions = {}, MeshLoader::LoadDelegate&& loadDelegate = {})
    {
-      return StrongMeshHandle(*this, meshLoader.load(path, loadOptions));
+      return StrongMeshHandle(*this, meshLoader.load(path, loadOptions, std::move(loadDelegate)));
    }
 
    bool unloadMesh(MeshHandle handle)
@@ -214,4 +232,6 @@ private:
    RefCountMap<Mesh> meshRefCounts;
    RefCountMap<ShaderModule> shaderModuleRefCounts;
    RefCountMap<Texture> textureRefCounts;
+
+   LoadingMode loadingMode = LoadingMode::Asynchronous;
 };

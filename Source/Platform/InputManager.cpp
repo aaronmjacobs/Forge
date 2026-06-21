@@ -61,10 +61,7 @@ namespace
       for (auto it = mappings.begin(); it != mappings.end();)
       {
          std::vector<InputAction<KeyType>>& actions = it->second;
-         actions.erase(std::remove_if(actions.begin(), actions.end(), [actionName](const InputAction<KeyType>& action)
-         {
-            return action.name == actionName;
-         }), actions.end());
+         std::erase_if(actions, [actionName](const InputAction<KeyType>& action) { return action.name == actionName; });
 
          if (actions.empty())
          {

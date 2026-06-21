@@ -107,11 +107,11 @@ namespace
       return swizzle;
    }
 
-   StrongTextureHandle loadMaterialTexture(const aiMaterial& assimpMaterial, std::span<const aiTextureType> textureTypes, const std::filesystem::path& directory, ResourceManager& resourceManager)
+   MeshLoader::TextureInfo loadMaterialTexture(const aiMaterial& assimpMaterial, std::span<const aiTextureType> textureTypes, bool interpretTextureAlphaAsMask, const std::filesystem::path& directory)
    {
-      std::filesystem::path texturePath;
-      aiTextureType textureType = textureTypes.empty() ? aiTextureType_NONE : textureTypes[0];
+      MeshLoader::TextureInfo textureInfo;
 
+      aiTextureType textureType = textureTypes.empty() ? aiTextureType_NONE : textureTypes[0];
       for (aiTextureType type : textureTypes)
       {
          if (assimpMaterial.GetTextureCount(type) > 0)
@@ -119,77 +119,62 @@ namespace
             aiString textureName;
             if (assimpMaterial.GetTexture(type, 0, &textureName) == aiReturn_SUCCESS)
             {
-               texturePath = directory / textureName.C_Str();
+               textureInfo.path = directory / textureName.C_Str();
                textureType = type;
                break;
             }
          }
       }
 
-      TextureLoadOptions loadOptions;
-      loadOptions.sRGB = textureType == aiTextureType_BASE_COLOR || textureType == aiTextureType_DIFFUSE;
+      textureInfo.interpretAlphaAsMask = interpretTextureAlphaAsMask;
+
+      textureInfo.loadOptions.sRGB = textureType == aiTextureType_BASE_COLOR || textureType == aiTextureType_DIFFUSE;
 
       switch (textureType)
       {
       case aiTextureType_BASE_COLOR:
       case aiTextureType_DIFFUSE:
-         loadOptions.fallbackDefaultTextureType = DefaultTextureType::White;
+         textureInfo.loadOptions.fallbackDefaultTextureType = DefaultTextureType::White;
          break;
       case aiTextureType_NORMALS:
-         loadOptions.fallbackDefaultTextureType = DefaultTextureType::Normal;
+         textureInfo.loadOptions.fallbackDefaultTextureType = DefaultTextureType::Normal;
          break;
       case aiTextureType_AMBIENT_OCCLUSION:
       case aiTextureType_DIFFUSE_ROUGHNESS:
       case aiTextureType_METALNESS:
       case aiTextureType_UNKNOWN:
-         loadOptions.fallbackDefaultTextureType = DefaultTextureType::AoRoughnessMetalness;
+         textureInfo.loadOptions.fallbackDefaultTextureType = DefaultTextureType::AoRoughnessMetalness;
          break;
       default:
-         loadOptions.fallbackDefaultTextureType = DefaultTextureType::Black;
+         textureInfo.loadOptions.fallbackDefaultTextureType = DefaultTextureType::Black;
          break;
       }
 
-      return resourceManager.loadTexture(texturePath, loadOptions);
+      return textureInfo;
    }
 
-   StrongMaterialHandle processAssimpMaterial(const aiMaterial& assimpMaterial, bool interpretTextureAlphaAsMask, const std::filesystem::path& directory, ResourceManager& resourceManager)
+   MeshLoader::MaterialInfo processAssimpMaterial(const aiMaterial& assimpMaterial, bool interpretTextureAlphaAsMask, const std::filesystem::path& directory)
    {
       static const std::array<aiTextureType, 2> kAlbedoTextureTypes = { aiTextureType_BASE_COLOR, aiTextureType_DIFFUSE };
       static const std::array<aiTextureType, 1> kNormalTextureTypes = { aiTextureType_NORMALS };
       static const std::array<aiTextureType, 4> kAoRMTextureTypes = { aiTextureType_AMBIENT_OCCLUSION, aiTextureType_DIFFUSE_ROUGHNESS, aiTextureType_METALNESS, aiTextureType_UNKNOWN };
-      
-      StrongTextureHandle albedoTextureHandle = loadMaterialTexture(assimpMaterial, kAlbedoTextureTypes, directory, resourceManager);
-      StrongTextureHandle normalTextureHandle = loadMaterialTexture(assimpMaterial, kNormalTextureTypes, directory, resourceManager);
-      StrongTextureHandle aoRoughnessMetalnessTextureHandle = loadMaterialTexture(assimpMaterial, kAoRMTextureTypes, directory, resourceManager);
 
-      TextureMaterialParameter albedoParameter;
-      albedoParameter.name = PhysicallyBasedMaterial::kAlbedoTextureParameterName;
-      albedoParameter.value = albedoTextureHandle;
-      albedoParameter.interpretAlphaAsMask = interpretTextureAlphaAsMask;
+      MeshLoader::MaterialInfo materialInfo;
 
-      TextureMaterialParameter normalParameter;
-      normalParameter.name = PhysicallyBasedMaterial::kNormalTextureParameterName;
-      normalParameter.value = normalTextureHandle;
-      
-      TextureMaterialParameter aoRoughnessMetalnessParameter;
-      aoRoughnessMetalnessParameter.name = PhysicallyBasedMaterial::kAoRoughnessMetalnessTextureParameterName;
-      aoRoughnessMetalnessParameter.value = aoRoughnessMetalnessTextureHandle;
-
-      MaterialParameters materialParameters;
-      materialParameters.textureParameters.push_back(albedoParameter);
-      materialParameters.textureParameters.push_back(normalParameter);
-      materialParameters.textureParameters.push_back(aoRoughnessMetalnessParameter);
+      materialInfo.albedo = loadMaterialTexture(assimpMaterial, kAlbedoTextureTypes, interpretTextureAlphaAsMask, directory);
+      materialInfo.normal = loadMaterialTexture(assimpMaterial, kNormalTextureTypes, false, directory);
+      materialInfo.aoRoughnessMetalness = loadMaterialTexture(assimpMaterial, kAoRMTextureTypes, false, directory);
 
       int twoSided = 0;
       if (assimpMaterial.Get(AI_MATKEY_TWOSIDED, twoSided) == aiReturn_SUCCESS)
       {
-         materialParameters.twoSided = twoSided != 0;
+         materialInfo.twoSided = twoSided != 0;
       }
 
       aiColor4D albedoColor(0.0f);
       if (assimpMaterial.Get(AI_MATKEY_BASE_COLOR, albedoColor) == aiReturn_SUCCESS || assimpMaterial.Get(AI_MATKEY_COLOR_DIFFUSE, albedoColor) == aiReturn_SUCCESS)
       {
-         materialParameters.vectorParameters.push_back(VectorMaterialParameter{ PhysicallyBasedMaterial::kAlbedoTextureParameterName, glm::vec4(albedoColor.r, albedoColor.g, albedoColor.b, albedoColor.a) });
+         materialInfo.vectorParameters.push_back(VectorMaterialParameter{ PhysicallyBasedMaterial::kAlbedoTextureParameterName, glm::vec4(albedoColor.r, albedoColor.g, albedoColor.b, albedoColor.a) });
       }
 
       float emissiveIntensity = 1.0f;
@@ -198,50 +183,50 @@ namespace
       aiColor4D emissiveColor(0.0f);
       if (assimpMaterial.Get(AI_MATKEY_COLOR_EMISSIVE, emissiveColor) == aiReturn_SUCCESS)
       {
-         materialParameters.vectorParameters.push_back(VectorMaterialParameter{ PhysicallyBasedMaterial::kEmissiveVectorParameterName, glm::vec4(emissiveColor.r, emissiveColor.g, emissiveColor.b, emissiveColor.a) * emissiveIntensity });
+         materialInfo.vectorParameters.push_back(VectorMaterialParameter{ PhysicallyBasedMaterial::kEmissiveVectorParameterName, glm::vec4(emissiveColor.r, emissiveColor.g, emissiveColor.b, emissiveColor.a) * emissiveIntensity });
       }
 
       float roughness = 0.0f;
       if (assimpMaterial.Get(AI_MATKEY_ROUGHNESS_FACTOR, roughness) == aiReturn_SUCCESS)
       {
-         materialParameters.scalarParameters.push_back(ScalarMaterialParameter{ PhysicallyBasedMaterial::kRoughnessScalarParameterName, roughness });
+         materialInfo.scalarParameters.push_back(ScalarMaterialParameter{ PhysicallyBasedMaterial::kRoughnessScalarParameterName, roughness });
       }
 
       float metalness = 0.0f;
       if (assimpMaterial.Get(AI_MATKEY_METALLIC_FACTOR, metalness) == aiReturn_SUCCESS)
       {
-         materialParameters.scalarParameters.push_back(ScalarMaterialParameter{ PhysicallyBasedMaterial::kMetalnessScalarParameterName, metalness });
+         materialInfo.scalarParameters.push_back(ScalarMaterialParameter{ PhysicallyBasedMaterial::kMetalnessScalarParameterName, metalness });
       }
 
-      return resourceManager.loadMaterial(materialParameters);
+      return materialInfo;
    }
 
-   MeshSectionSourceData processAssimpMesh(const aiScene& assimpScene, const aiMesh& assimpMesh, const glm::mat3& swizzle, float scale, bool interpretTextureAlphaAsMask, const std::filesystem::path& directory, ResourceManager& resourceManager)
+   MeshLoader::SectionInfo processAssimpMesh(const aiScene& assimpScene, const aiMesh& assimpMesh, const glm::mat3& swizzle, float scale, bool interpretTextureAlphaAsMask, const std::filesystem::path& directory)
    {
-      MeshSectionSourceData sectionSourceData;
+      MeshLoader::SectionInfo sectionInfo;
 
       static_assert(sizeof(unsigned int) == sizeof(uint32_t), "Index data types don't match");
-      sectionSourceData.indices = std::vector<uint32_t>(assimpMesh.mNumFaces * 3);
+      sectionInfo.indices = std::vector<uint32_t>(assimpMesh.mNumFaces * 3);
       for (unsigned int i = 0; i < assimpMesh.mNumFaces; ++i)
       {
          const aiFace& face = assimpMesh.mFaces[i];
          ASSERT(face.mNumIndices == 3);
 
-         std::memcpy(&sectionSourceData.indices[i * 3], face.mIndices, 3 * sizeof(uint32_t));
+         std::memcpy(&sectionInfo.indices[i * 3], face.mIndices, 3 * sizeof(uint32_t));
       }
 
       if (assimpMesh.mNumVertices > 0)
       {
-         sectionSourceData.vertices.resize(assimpMesh.mNumVertices);
+         sectionInfo.vertices.resize(assimpMesh.mNumVertices);
          bool hasTextureCoordinates = assimpMesh.mTextureCoords[0] && assimpMesh.mNumUVComponents[0] == 2;
-         sectionSourceData.hasValidTexCoords = hasTextureCoordinates;
+         sectionInfo.hasValidTexCoords = hasTextureCoordinates;
 
          glm::vec3 minPosition(std::numeric_limits<float>::max());
          glm::vec3 maxPosition(std::numeric_limits<float>::lowest());
 
          for (unsigned int i = 0; i < assimpMesh.mNumVertices; ++i)
          {
-            Vertex& vertex = sectionSourceData.vertices[i];
+            Vertex& vertex = sectionInfo.vertices[i];
 
             vertex.position = swizzle * glm::vec3(assimpMesh.mVertices[i].x, assimpMesh.mVertices[i].y, assimpMesh.mVertices[i].z) * scale;
 
@@ -279,34 +264,34 @@ namespace
          }
 
          std::array<glm::vec3, 2> points = { minPosition, maxPosition };
-         sectionSourceData.bounds = Bounds(points);
+         sectionInfo.bounds = Bounds(points);
       }
 
       if (assimpMesh.mMaterialIndex < assimpScene.mNumMaterials && assimpScene.mMaterials[assimpMesh.mMaterialIndex])
       {
-         sectionSourceData.materialHandle = processAssimpMaterial(*assimpScene.mMaterials[assimpMesh.mMaterialIndex], interpretTextureAlphaAsMask, directory, resourceManager);
+         sectionInfo.materialInfo = processAssimpMaterial(*assimpScene.mMaterials[assimpMesh.mMaterialIndex], interpretTextureAlphaAsMask, directory);
       }
 
-      return sectionSourceData;
+      return sectionInfo;
    }
 
-   void processAssimpNode(std::vector<MeshSectionSourceData>& sourceData, const aiScene& assimpScene, const aiNode& assimpNode, const glm::mat3& swizzle, float scale, bool interpretTextureAlphaAsMask, const std::filesystem::path& directory, ResourceManager& resourceManager)
+   void processAssimpNode(std::vector<MeshLoader::SectionInfo>& sectionInfo, const aiScene& assimpScene, const aiNode& assimpNode, const glm::mat3& swizzle, float scale, bool interpretTextureAlphaAsMask, const std::filesystem::path& directory)
    {
       for (unsigned int i = 0; i < assimpNode.mNumMeshes; ++i)
       {
          const aiMesh& assimpMesh = *assimpScene.mMeshes[assimpNode.mMeshes[i]];
-         sourceData.push_back(processAssimpMesh(assimpScene, assimpMesh, swizzle, scale, interpretTextureAlphaAsMask, directory, resourceManager));
+         sectionInfo.push_back(processAssimpMesh(assimpScene, assimpMesh, swizzle, scale, interpretTextureAlphaAsMask, directory));
       }
 
       for (unsigned int i = 0; i < assimpNode.mNumChildren; ++i)
       {
-         processAssimpNode(sourceData, assimpScene, *assimpNode.mChildren[i], swizzle, scale, interpretTextureAlphaAsMask, directory, resourceManager);
+         processAssimpNode(sectionInfo, assimpScene, *assimpNode.mChildren[i], swizzle, scale, interpretTextureAlphaAsMask, directory);
       }
    }
 
-   std::vector<MeshSectionSourceData> loadMesh(const std::filesystem::path& path, const MeshLoadOptions& loadOptions, ResourceManager& resourceManager)
+   std::vector<MeshLoader::SectionInfo> loadMesh(const std::filesystem::path& path, const MeshLoadOptions& loadOptions)
    {
-      std::vector<MeshSectionSourceData> sourceData;
+      std::vector<MeshLoader::SectionInfo> sectionInfo;
 
       unsigned int flags = aiProcess_CalcTangentSpace | aiProcess_JoinIdenticalVertices | aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_PreTransformVertices | aiProcess_FlipUVs;
 
@@ -315,10 +300,70 @@ namespace
       if (assimpScene && assimpScene->mRootNode && !(assimpScene->mFlags & AI_SCENE_FLAGS_INCOMPLETE))
       {
          std::filesystem::path directory = path.parent_path();
-         processAssimpNode(sourceData, *assimpScene, *assimpScene->mRootNode, getSwizzleMatrix(loadOptions), loadOptions.scale, loadOptions.interpretTextureAlphaAsMask, directory, resourceManager);
+         processAssimpNode(sectionInfo, *assimpScene, *assimpScene->mRootNode, getSwizzleMatrix(loadOptions), loadOptions.scale, loadOptions.interpretTextureAlphaAsMask, directory);
       }
 
+      return sectionInfo;
+   }
+
+   StrongTextureHandle createTexture(const MeshLoader::TextureInfo& textureInfo, ResourceManager& resourceManager)
+   {
+      return resourceManager.loadTexture(textureInfo.path, textureInfo.loadOptions);
+   }
+
+   StrongMaterialHandle createMaterial(MeshLoader::MaterialInfo& materialInfo, ResourceManager& resourceManager)
+   {
+      MaterialParameters materialParameters;
+
+      TextureMaterialParameter albedoParameter;
+      albedoParameter.name = PhysicallyBasedMaterial::kAlbedoTextureParameterName;
+      albedoParameter.value = createTexture(materialInfo.albedo, resourceManager);
+      albedoParameter.interpretAlphaAsMask = materialInfo.albedo.interpretAlphaAsMask;
+
+      TextureMaterialParameter normalParameter;
+      normalParameter.name = PhysicallyBasedMaterial::kNormalTextureParameterName;
+      normalParameter.value = createTexture(materialInfo.normal, resourceManager);
+
+      TextureMaterialParameter aoRoughnessMetalnessParameter;
+      aoRoughnessMetalnessParameter.name = PhysicallyBasedMaterial::kAoRoughnessMetalnessTextureParameterName;
+      aoRoughnessMetalnessParameter.value = createTexture(materialInfo.aoRoughnessMetalness, resourceManager);
+
+      materialParameters.textureParameters.push_back(albedoParameter);
+      materialParameters.textureParameters.push_back(normalParameter);
+      materialParameters.textureParameters.push_back(aoRoughnessMetalnessParameter);
+
+      materialParameters.vectorParameters = std::move(materialInfo.vectorParameters);
+      materialParameters.scalarParameters = std::move(materialInfo.scalarParameters);
+
+      materialParameters.twoSided = materialInfo.twoSided;
+
+      return resourceManager.loadMaterial(materialParameters);
+   }
+
+   MeshSectionSourceData createSectionSourceData(MeshLoader::SectionInfo& sectionInfo, ResourceManager& resourceManager)
+   {
+      MeshSectionSourceData sourceData;
+
+      sourceData.vertices = std::move(sectionInfo.vertices);
+      sourceData.indices = std::move(sectionInfo.indices);
+      sourceData.hasValidTexCoords = sectionInfo.hasValidTexCoords;
+      sourceData.bounds = sectionInfo.bounds;
+      sourceData.materialHandle = createMaterial(sectionInfo.materialInfo, resourceManager);
+
       return sourceData;
+   }
+
+   std::vector<MeshSectionSourceData> createSourceData(std::vector<MeshLoader::SectionInfo> allSectionInfo, ResourceManager& resourceManager)
+   {
+      std::vector<MeshSectionSourceData> allSourceData;
+      allSourceData.reserve(allSectionInfo.size());
+
+      for (MeshLoader::SectionInfo& sectionInfo : allSectionInfo)
+      {
+         allSourceData.push_back(createSectionSourceData(sectionInfo, resourceManager));
+      }
+
+      return allSourceData;
    }
 }
 
@@ -330,9 +375,23 @@ std::size_t MeshKey::hash() const
 MeshLoader::MeshLoader(const GraphicsContext& graphicsContext, ResourceManager& owningResourceManager)
    : ResourceLoader(graphicsContext, owningResourceManager)
 {
+   defaultMesh = std::make_unique<Mesh>(context, std::span<const MeshSectionSourceData>{});
 }
 
-MeshHandle MeshLoader::load(const std::filesystem::path& path, const MeshLoadOptions& loadOptions)
+void MeshLoader::update()
+{
+   for (Task<LoadResult>& task : loadTasks)
+   {
+      if (task.isDone())
+      {
+         onMeshLoaded(task.getResult());
+      }
+   }
+
+   std::erase_if(loadTasks, [](const Task<LoadResult>& task) { return !task.isValid(); });
+}
+
+MeshHandle MeshLoader::load(const std::filesystem::path& path, const MeshLoadOptions& loadOptions, LoadDelegate&& loadDelegate)
 {
    if (std::optional<std::filesystem::path> canonicalPath = ResourceLoadHelpers::makeCanonical(path))
    {
@@ -345,15 +404,41 @@ MeshHandle MeshLoader::load(const std::filesystem::path& path, const MeshLoadOpt
          return cachedHandle;
       }
 
-      std::vector<MeshSectionSourceData> sourceData = loadMesh(*canonicalPath, loadOptions, resourceManager);
-      if (!sourceData.empty())
-      {
-         MeshHandle handle = container.emplace(key, context, sourceData);
-         NAME_POINTER(context.getDevice(), get(handle), ResourceLoadHelpers::getName(*canonicalPath));
+      MeshHandle handle = container.addReference(key, defaultMesh.get());
 
-         return handle;
+      loadTasks.push_back(Task<LoadResult>([canonicalPath = key.canonicalPath, loadOptions, delegate = std::move(loadDelegate), handle]()
+      {
+         LoadResult result;
+         result.sectionInfo = loadMesh(canonicalPath, loadOptions);
+         result.canonicalPath = std::move(canonicalPath);
+         result.loadDelegate = std::move(delegate);
+         result.handle = handle;
+
+         return result;
+      }));
+
+      if (resourceManager.getLoadingMode() == LoadingMode::Synchronous)
+      {
+         while (!loadTasks.empty())
+         {
+            update();
+         }
       }
+
+      return handle;
    }
 
    return MeshHandle{};
+}
+
+void MeshLoader::onMeshLoaded(LoadResult result)
+{
+   std::vector<MeshSectionSourceData> sourceData = createSourceData(std::move(result.sectionInfo), resourceManager);
+   if (!sourceData.empty())
+   {
+      container.replace(result.handle, context, sourceData);
+      NAME_POINTER(context.getDevice(), get(result.handle), ResourceLoadHelpers::getName(result.canonicalPath));
+
+      result.loadDelegate.executeIfBound(result.handle);
+   }
 }

@@ -99,6 +99,11 @@ const std::vector<vk::VertexInputAttributeDescription>& Vertex::getAttributeDesc
 Mesh::Mesh(const GraphicsContext& graphicsContext, std::span<const MeshSectionSourceData> sourceData)
    : GraphicsResource(graphicsContext)
 {
+   if (sourceData.empty())
+   {
+      return;
+   }
+
    vk::DeviceSize bufferSize = 0;
    for (const MeshSectionSourceData& sectionData : sourceData)
    {
@@ -203,18 +208,24 @@ Mesh::Mesh(const GraphicsContext& graphicsContext, std::span<const MeshSectionSo
 
 Mesh::~Mesh()
 {
-   ASSERT(buffer);
-   ASSERT(bufferAllocation);
-   context.delayedDestroy(std::move(buffer), std::move(bufferAllocation));
+   if (buffer)
+   {
+      ASSERT(bufferAllocation);
+      context.delayedDestroy(std::move(buffer), std::move(bufferAllocation));
+   }
 }
 
 void Mesh::bindBuffers(vk::CommandBuffer commandBuffer, uint32_t section, bool positionOnly) const
 {
+   ASSERT(section < sections.size());
+
    commandBuffer.bindVertexBuffers(0, { buffer }, { positionOnly ? sections[section].positionOnlyVertexOffset : sections[section].vertexOffset });
    commandBuffer.bindIndexBuffer(buffer, sections[section].indexOffset, vk::IndexType::eUint32);
 }
 
 void Mesh::draw(vk::CommandBuffer commandBuffer, uint32_t section) const
 {
+   ASSERT(section < sections.size());
+
    commandBuffer.drawIndexed(sections[section].numIndices, 1, 0, 0, 0);
 }

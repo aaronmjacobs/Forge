@@ -6,6 +6,7 @@
 
 #include "Resources/DDSImage.h"
 #include "Resources/Image.h"
+#include "Resources/ResourceManager.h"
 #include "Resources/STBImage.h"
 
 #include <PlatformUtils/IOUtils.h>
@@ -243,7 +244,7 @@ void TextureLoader::update()
       }
    }
 
-   loadTasks.erase(std::remove_if(loadTasks.begin(), loadTasks.end(), [](const Task<LoadResult>& task) { return !task.isValid(); }), loadTasks.end());
+   std::erase_if(loadTasks, [](const Task<LoadResult>& task) { return !task.isValid(); });
 }
 
 TextureHandle TextureLoader::load(const std::filesystem::path& path, const TextureLoadOptions& loadOptions)
@@ -277,6 +278,14 @@ TextureHandle TextureLoader::load(const std::filesystem::path& path, const Textu
 
       return result;
    }));
+
+   if (resourceManager.getLoadingMode() == LoadingMode::Synchronous)
+   {
+      while (!loadTasks.empty())
+      {
+         update();
+      }
+   }
 
    return handle;
 }

@@ -581,21 +581,23 @@ void ForgeApplication::loadScene()
       transformComponent.transform.scaleBy(glm::vec3(5.0f));
 
       MeshComponent& meshComponent = bunnyEntity.createComponent<MeshComponent>();
-      meshComponent.meshHandle = resourceManager->loadMesh("Resources/Meshes/Bunny.obj");
-      if (const Mesh* mesh = resourceManager->getMesh(meshComponent.meshHandle))
+      meshComponent.meshHandle = resourceManager->loadMesh("Resources/Meshes/Bunny.obj", MeshLoadOptions{}, MeshLoader::LoadDelegate::create([this](MeshHandle meshHandle)
       {
-         for (uint32_t i = 0; i < mesh->getNumSections(); ++i)
+         if (const Mesh* mesh = resourceManager->getMesh(meshHandle))
          {
-            if (Material* material = resourceManager->getMaterial(mesh->getSection(i).materialHandle))
+            for (uint32_t i = 0; i < mesh->getNumSections(); ++i)
             {
-               if (PhysicallyBasedMaterial* pbrMaterial = dynamic_cast<PhysicallyBasedMaterial*>(material))
+               if (Material* material = resourceManager->getMaterial(mesh->getSection(i).materialHandle))
                {
-                  pbrMaterial->setEmissiveColor(glm::vec4(1.0f));
-                  pbrMaterial->setEmissiveIntensity(100.0f);
+                  if (PhysicallyBasedMaterial* pbrMaterial = dynamic_cast<PhysicallyBasedMaterial*>(material))
+                  {
+                     pbrMaterial->setEmissiveColor(glm::vec4(1.0f));
+                     pbrMaterial->setEmissiveIntensity(100.0f);
+                  }
                }
             }
          }
-      }
+      }));
    }
 
    {

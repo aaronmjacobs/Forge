@@ -84,7 +84,7 @@ public:
    bool remove(DelegateHandle handle)
    {
       std::size_t previousSize = delegates.size();
-      delegates.erase(std::remove_if(delegates.begin(), delegates.end(), [handle](const DelegateType& delegate) { return delegate.getHandle() == handle; }), delegates.end());
+      std::erase_if(delegates, [handle](const DelegateType& delegate) { return delegate.getHandle() == handle; });
       std::size_t currentSize = delegates.size();
 
       return currentSize < previousSize;

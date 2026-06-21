@@ -71,7 +71,7 @@ private:
       TextureHandle handle;
    };
 
-   void onImageLoaded(LoadResult loadResult);
+   void onImageLoaded(LoadResult result);
    std::unique_ptr<Texture> createDefault(DefaultTextureType type) const;
 
    std::unique_ptr<Texture> defaultBlack;
